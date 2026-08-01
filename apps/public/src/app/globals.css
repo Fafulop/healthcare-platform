@@ -212,51 +212,67 @@ html.reveal-ready [data-reveal] {
 
 :root {
   --velvet-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.26'/%3E%3C/svg%3E");
+
+  /* Paleta velvet. El índigo es el `bg-indigo-600` del día seleccionado en el
+     calendario del panel (MiniCalendar.tsx) — la marca en el producto real. El
+     ámbar conserva la esencia "azul con oro" de la pastilla de fiscal.
+     `--velvet-indigo` SÍ pasa AA sobre blanco (~7:1): es el primer acento que
+     puede tocar texto. El ámbar sigue sin poder — para texto va el oro oscuro. */
+  --velvet-indigo: #4f46e5;
+  --velvet-indigo-deep: #312e81;
+  --velvet-amber: #f59e0b;
+  --velvet-amber-text: #b45309;
 }
 
-/* Grano solo, sin lavado (para bandas que ya tienen su color de fondo). */
-.velvet {
-  background-image: var(--velvet-grain);
-  background-size: 140px 140px;
-  background-repeat: repeat;
-}
+/* ═══════════ EL CAMPO ═══════════
+   UN SOLO fondo para toda la página, no uno por sección.
 
-/* Grano + lavado radial. El markup define el color y de dónde nace la luz. */
-.velvet-wash {
+   El problema que resuelve: cuando cada banda pintaba su propio lavado, el
+   scroll se leía como paneles apilados y se veía cada costura. Aquí las luces
+   viven en ESTE elemento —que es toda la página—, así que están ancladas al
+   documento: al hacer scroll la luz se desplaza y cambia de forma, pero nunca
+   se reinicia en un borde, porque no hay bordes.
+
+   Las luces alternan lado y color al bajar (índigo a la derecha, ámbar a la
+   izquierda) para que el color respire a lo largo del recorrido en vez de ser
+   un tinte plano. Los tamaños van en px a propósito: en un elemento de varios
+   miles de píxeles de alto, un radio en % daría manchas gigantes.
+
+   Las SECCIONES no llevan fondo. Lo único opaco encima son las tarjetas. */
+.velvet-field {
+  background-color: #fcfbfe;
   background-image:
     var(--velvet-grain),
-    radial-gradient(
-      var(--wash-size, 65% 60%) at var(--wash-x, 85%) var(--wash-y, 12%),
-      var(--wash-1, transparent) 0%,
-      var(--wash-2, transparent) 45%,
-      transparent 72%
-    );
-  background-size: 140px 140px, cover;
-  background-repeat: repeat, no-repeat;
-  background-position: 0 0, center;
+    radial-gradient(1100px 820px at 82% 2%,  rgba(79, 70, 229, 0.20), transparent 68%),
+    radial-gradient(900px 720px at 6% 13%,   rgba(245, 158, 11, 0.15), transparent 66%),
+    radial-gradient(1000px 880px at 92% 29%, rgba(79, 70, 229, 0.16), transparent 65%),
+    radial-gradient(950px 800px at 4% 46%,   rgba(245, 158, 11, 0.13), transparent 65%),
+    radial-gradient(1100px 900px at 88% 63%, rgba(79, 70, 229, 0.18), transparent 66%),
+    radial-gradient(900px 780px at 10% 80%,  rgba(245, 158, 11, 0.14), transparent 66%),
+    radial-gradient(1200px 950px at 78% 96%, rgba(79, 70, 229, 0.20), transparent 68%);
+  background-size:
+    140px 140px,
+    100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+    no-repeat, no-repeat;
 }
 
-/* Un segundo lavado desde la esquina opuesta: dos fuentes de luz se leen como
-   volumen, una sola se lee como mancha. */
-.velvet-wash-dual {
-  background-image:
-    var(--velvet-grain),
-    radial-gradient(60% 55% at var(--wash-x, 85%) var(--wash-y, 10%),
-      var(--wash-1, transparent) 0%, var(--wash-2, transparent) 42%, transparent 70%),
-    radial-gradient(55% 60% at var(--wash-x2, 12%) var(--wash-y2, 88%),
-      var(--wash-3, transparent) 0%, transparent 68%);
-  background-size: 140px 140px, cover, cover;
-  background-repeat: repeat, no-repeat, no-repeat;
-  background-position: 0 0, center, center;
-}
+/* `.velvet`, `.velvet-wash` y `.velvet-wash-dual` VIVIERON AQUÍ y se borraron
+   el 2026-08-01. Pintaban un lavado POR SECCIÓN, que es justo lo que hacía que
+   el scroll se viera como paneles apilados con costuras. Las reemplaza
+   `.velvet-field` (arriba): un solo fondo para toda la página.
 
-/* Título con degradado. Se queda en el eje navy→azul a propósito: los acentos
-   cálidos (ámbar) no dan contraste suficiente sobre blanco para texto. */
+   Si vuelves a necesitar una capa con grano suelta, el mosaico sigue disponible
+   como `var(--velvet-grain)` — el panel del CTA lo usa así, en línea. */
+
+/* Título con degradado, ahora en el eje índigo. Sigue SIN admitir el ámbar:
+   el degradado va de índigo profundo a índigo, los dos con contraste AA sobre
+   el campo claro. Un título en ámbar seguiría sin ser legible. */
 .velvet-title {
   background-image: linear-gradient(
     118deg,
-    var(--color-secondary) 30%,
-    var(--title-to, var(--color-primary)) 100%
+    var(--velvet-indigo-deep) 25%,
+    var(--title-to, var(--velvet-indigo)) 100%
   );
   -webkit-background-clip: text;
   background-clip: text;

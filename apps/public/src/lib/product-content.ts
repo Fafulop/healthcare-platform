@@ -51,24 +51,23 @@ export interface CapabilityGroup {
   features: Feature[];
   fullOnly?: boolean;
   /**
-   * Color de la sección. Da identidad a cada bloque sin repintar la marca:
-   * tiñe el lavado del fondo y la pastilla del icono, NUNCA el texto (el ámbar
-   * y el cian no dan contraste suficiente sobre blanco).
+   * Color de la capacidad. Desde el 2026-08-01 tiñe ÚNICAMENTE la pastilla de
+   * su icono: el fondo lo pone el campo continuo de la página
+   * (`.velvet-field`), no la sección. Es la última isla de identidad por
+   * capacidad, y es lo que deja distinguir agenda de dinero de un vistazo.
    *
-   * `wash1`/`wash2` son el MISMO color con alfa: el degradado radial necesita
-   * rgba, y precalcularlo aquí evita convertir hex→rgba en el render.
+   * Sigue sin tocar texto: el ámbar y el cian no dan contraste AA sobre claro.
+   *
+   * (Aquí vivían `wash1`/`wash2`, el mismo color con alfa para el degradado
+   * radial de cada banda. Murieron con los fondos por sección.)
    */
   accent: string;
-  wash1: string;
-  wash2: string;
 }
 
 export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     id: 'agenda',
     accent: '#3B82F6',
-    wash1: 'rgba(59,130,246,0.16)',
-    wash2: 'rgba(59,130,246,0.05)',
     eyebrow: 'Agenda',
     title: 'Tus citas, sin teléfono de por medio',
     lead: 'El paciente agenda solo desde tu perfil público, tú te enteras por donde ya lees tus mensajes, y llega a la consulta con sus datos contestados de antemano.',
@@ -100,8 +99,6 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     id: 'expediente',
     accent: '#10B981',
-    wash1: 'rgba(16,185,129,0.15)',
-    wash2: 'rgba(16,185,129,0.05)',
     eyebrow: 'Clínico',
     title: 'El expediente del paciente, completo',
     lead: 'Historia clínica, notas y recetas en el mismo lugar donde vive la cita — en regla con lo que piden las instituciones, y en tus propios formatos.',
@@ -130,8 +127,6 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     id: 'asistente',
     accent: '#8B5CF6',
-    wash1: 'rgba(139,92,246,0.16)',
-    wash2: 'rgba(139,92,246,0.05)',
     eyebrow: 'Asistente de IA',
     title: 'No tienes que aprenderte el sistema',
     lead: 'Lo caro de cualquier software es el tiempo que tardas en dominarlo. Aquí le escribes lo que quieres —«agéndame a Laura el martes a las 5», «¿cómo va mi semana?»— y se hace. Sin buscar en qué pantalla estaba.',
@@ -153,8 +148,6 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     id: 'presencia',
     accent: '#06B6D4',
-    wash1: 'rgba(6,182,212,0.16)',
-    wash2: 'rgba(6,182,212,0.05)',
     eyebrow: 'Presencia',
     title: 'Que te encuentren',
     lead: 'Tu propia página, no un renglón en un directorio: tus fotos, tus videos, tus servicios y tus consultorios — con un botón de agendar que lleva a tu agenda de verdad.',
@@ -192,8 +185,6 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     id: 'dinero',
     accent: '#F59E0B',
-    wash1: 'rgba(245,158,11,0.16)',
-    wash2: 'rgba(245,158,11,0.05)',
     eyebrow: 'Dinero',
     title: 'Saber cuánto entró y cuánto salió',
     lead: 'Todo el dinero de tu consultorio cae en un mismo tablero. Lo que cobras en la consulta, lo que te pagan en línea y lo que bajas del SAT llegan solos; lo demás lo agregas tú.',
@@ -221,8 +212,6 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     id: 'fiscal',
     accent: '#F59E0B',
-    wash1: 'rgba(245,158,11,0.18)',
-    wash2: 'rgba(245,158,11,0.06)',
     eyebrow: 'Administración fiscal',
     title: 'La parte que nadie quiere hacer',
     lead: 'Son dos cosas distintas y las dos viven aquí: facturar tú, y bajar del SAT todo lo que se facturó a tu nombre. De ahí sale, solo, el resumen que tu contador necesita.',
@@ -283,8 +272,6 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     id: 'reportes',
     accent: '#6366F1',
-    wash1: 'rgba(99,102,241,0.16)',
-    wash2: 'rgba(99,102,241,0.05)',
     eyebrow: 'Reportes',
     title: 'Cómo va tu consultorio, en números',
     lead: 'No solo el dinero: cuántas citas diste, cuánto documentaste y en qué se te fue el mes — con la gráfica enfrente, no en tu cabeza.',

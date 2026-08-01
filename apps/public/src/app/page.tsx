@@ -77,32 +77,21 @@ const mailto = `mailto:${SALES_EMAIL}?subject=${encodeURIComponent('Quiero conoc
 
 export default function Home() {
   return (
-    <div className="bg-white text-[var(--color-neutral-dark)]">
+    // `velvet-field` es EL fondo de la página entera. Ninguna sección de aquí
+    // para abajo pinta el suyo: esa era la razón de que se vieran las costuras.
+    <div className="velvet-field text-[var(--color-neutral-dark)]">
       <script dangerouslySetInnerHTML={{ __html: REVEAL_BOOTSTRAP }} />
       <ScrollReveals />
 
       {/* ───────────────────────── Hero ───────────────────────── */}
-      <section
-        className="velvet-wash-dual relative overflow-hidden border-b border-gray-100 bg-[var(--color-bg-yellow-light)]"
-        style={
-          {
-            '--wash-1': 'rgba(59,130,246,0.22)',
-            '--wash-2': 'rgba(59,130,246,0.07)',
-            '--wash-3': 'rgba(245,158,11,0.15)',
-            '--wash-x': '78%',
-            '--wash-y': '6%',
-            '--wash-x2': '10%',
-            '--wash-y2': '94%',
-          } as React.CSSProperties
-        }
-      >
+      <section className="relative overflow-hidden">
         <div
           data-reveal-stagger
           className="relative mx-auto max-w-5xl px-6 py-24 text-center sm:py-32"
         >
           <span
             data-reveal="up"
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-primary)]/25 bg-white px-4 py-1.5 text-sm font-medium text-[var(--color-secondary)]"
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-primary)]/25 bg-white px-4 py-1.5 text-sm font-medium text-[var(--velvet-indigo)]"
           >
             <Sparkles className="h-4 w-4" />
             Para consultorios en México
@@ -131,14 +120,14 @@ export default function Home() {
           >
             <a
               href={mailto}
-              className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--color-secondary)] px-8 py-4 text-lg font-semibold text-white shadow-[var(--shadow-light)] transition-colors hover:bg-[var(--color-secondary-hover)]"
+              className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--velvet-indigo)] px-8 py-4 text-lg font-semibold text-white shadow-[var(--shadow-light)] transition-colors hover:bg-[var(--velvet-indigo-deep)]"
             >
               Agenda una demo
               <ArrowRight className="h-5 w-5" />
             </a>
             <a
               href="#planes"
-              className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--color-secondary)] px-8 py-4 text-lg font-semibold text-[var(--color-secondary)] transition-colors hover:bg-[var(--color-secondary)] hover:text-white"
+              className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--velvet-indigo)] px-8 py-4 text-lg font-semibold text-[var(--velvet-indigo)] transition-colors hover:bg-[var(--velvet-indigo)] hover:text-white"
             >
               Ver los dos planes
             </a>
@@ -179,21 +168,12 @@ export default function Home() {
                 key={group.id}
                 href={`#${group.id}`}
                 data-reveal="up"
-                className="velvet-wash group flex items-center gap-4 rounded-[var(--radius-medium)] border border-gray-200 bg-white p-4 shadow-[var(--shadow-light)] transition-shadow hover:shadow-[var(--shadow-medium)]"
-                style={
-                  {
-                    '--wash-1': group.wash1,
-                    '--wash-2': group.wash2,
-                    '--wash-x': '88%',
-                    '--wash-y': '8%',
-                    '--wash-size': '70% 60%',
-                  } as React.CSSProperties
-                }
+                className="group flex items-center gap-4 rounded-[var(--radius-medium)] border border-white/70 bg-white/75 p-4 shadow-[var(--shadow-light)] backdrop-blur-sm transition-shadow hover:shadow-[var(--shadow-medium)]"
               >
                 <span
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] shadow-[var(--shadow-light)]"
                   style={{
-                    backgroundImage: `linear-gradient(135deg, var(--color-secondary) 15%, ${group.accent} 130%)`,
+                    backgroundImage: `linear-gradient(135deg, var(--velvet-indigo) 15%, ${group.accent} 130%)`,
                   }}
                 >
                   <Icon className="h-5 w-5 text-white" />
@@ -211,7 +191,7 @@ export default function Home() {
                   </span>
                 </span>
 
-                <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-[var(--color-secondary)] transition-transform group-hover:translate-x-1" />
+                <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-[var(--velvet-indigo)] transition-transform group-hover:translate-x-1" />
               </a>
             );
           })}
@@ -219,10 +199,10 @@ export default function Home() {
       </section>
 
       {/* ─────────────────── Capacidades (el tour) ───────────────────
-          Cada grupo es una BANDA de ancho completo con su propio lavado de
-          color: así el fondo cambia al pasar de una capacidad a otra y la
-          página se lee como un recorrido, no como una lista larga. El lavado
-          alterna de esquina según `flip`, siguiendo al contenido. */}
+          Las bandas YA NO pintan fondo: el color viene del campo continuo de
+          la página. Lo que alterna es el CONTENIDO —el panel cambia de lado
+          según `flip`—, no el fondo. La identidad de cada capacidad vive ahora
+          solo en el color de su pastilla de icono. */}
       <section>
         <div>
           {CAPABILITY_GROUPS.map((group, i) => {
@@ -230,20 +210,7 @@ export default function Home() {
             const flip = i % 2 === 1;
 
             return (
-              <div
-                key={group.id}
-                id={group.id}
-                className="velvet-wash scroll-mt-16 py-16 sm:py-20"
-                style={
-                  {
-                    '--wash-1': group.wash1,
-                    '--wash-2': group.wash2,
-                    '--wash-x': flip ? '15%' : '85%',
-                    '--wash-y': '30%',
-                    '--wash-size': '55% 70%',
-                  } as React.CSSProperties
-                }
-              >
+              <div key={group.id} id={group.id} className="scroll-mt-16 py-16 sm:py-20">
                 <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-2 lg:gap-16">
                 {/* Texto — entra desde el lado opuesto al panel */}
                 <div data-reveal={flip ? 'right' : 'left'} className={flip ? 'lg:order-2' : undefined}>
@@ -254,7 +221,7 @@ export default function Home() {
                     <span
                       className="flex h-11 w-11 items-center justify-center rounded-[12px] shadow-[var(--shadow-light)]"
                       style={{
-                        backgroundImage: `linear-gradient(135deg, var(--color-secondary) 15%, ${group.accent} 130%)`,
+                        backgroundImage: `linear-gradient(135deg, var(--velvet-indigo) 15%, ${group.accent} 130%)`,
                       }}
                     >
                       <Icon className="h-5 w-5 text-white" />
@@ -337,7 +304,7 @@ export default function Home() {
                             className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
                             style={{ backgroundColor: `${group.accent}1F` }}
                           >
-                            <Icon className="h-4 w-4 text-[var(--color-secondary)]" />
+                            <Icon className="h-4 w-4 text-[var(--velvet-indigo)]" />
                           </span>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
@@ -367,7 +334,7 @@ export default function Home() {
           entre el recorrido y los planes, porque es justo donde el doctor pasa
           de «¿qué hace?» a «¿y yo cómo lo uso?». Tira compacta a propósito:
           rompe el ritmo de las bandas sin competir con ellas. */}
-      <section className="border-t border-gray-100 bg-white">
+      <section>
         <div className="mx-auto max-w-6xl px-6 py-16 sm:py-20">
           <div data-reveal-stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {PLATFORM_FACTS.map((fact) => {
@@ -375,8 +342,8 @@ export default function Home() {
 
               return (
                 <div key={fact.id} data-reveal="up">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[var(--color-secondary)]/10">
-                    <Icon className="h-5 w-5 text-[var(--color-secondary)]" />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[var(--velvet-indigo)]/10">
+                    <Icon className="h-5 w-5 text-[var(--velvet-indigo)]" />
                   </span>
                   <h3
                     className="mt-4 font-bold"
@@ -397,18 +364,7 @@ export default function Home() {
       {/* ───────────────────────── Planes ───────────────────────── */}
       <section
         id="planes"
-        className="velvet-wash-dual scroll-mt-8 border-t border-gray-100 bg-[var(--color-bg-green-light)]"
-        style={
-          {
-            '--wash-1': 'rgba(245,158,11,0.16)',
-            '--wash-2': 'rgba(245,158,11,0.05)',
-            '--wash-3': 'rgba(59,130,246,0.16)',
-            '--wash-x': '88%',
-            '--wash-y': '18%',
-            '--wash-x2': '10%',
-            '--wash-y2': '85%',
-          } as React.CSSProperties
-        }
+        className="scroll-mt-8"
       >
         <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
           <div data-reveal="up" className="mx-auto max-w-2xl text-center">
@@ -439,7 +395,7 @@ export default function Home() {
 
               <a
                 href={mailto}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--color-secondary)] px-6 py-3 font-semibold text-[var(--color-secondary)] transition-colors hover:bg-[var(--color-secondary)] hover:text-white"
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--velvet-indigo)] px-6 py-3 font-semibold text-[var(--velvet-indigo)] transition-colors hover:bg-[var(--velvet-indigo)] hover:text-white"
               >
                 Hablemos
               </a>
@@ -463,9 +419,9 @@ export default function Home() {
             {/* Completo (FULL) */}
             <div
               data-reveal="up"
-              className="relative rounded-[var(--radius-medium)] border-2 border-[var(--color-secondary)] bg-white p-8 shadow-[var(--shadow-medium)]"
+              className="relative rounded-[var(--radius-medium)] border-2 border-[var(--velvet-indigo)] bg-white p-8 shadow-[var(--shadow-medium)]"
             >
-              <span className="absolute -top-3 left-8 rounded-full bg-[var(--color-secondary)] px-4 py-1 text-xs font-semibold tracking-wide text-white uppercase">
+              <span className="absolute -top-3 left-8 rounded-full bg-[var(--velvet-indigo)] px-4 py-1 text-xs font-semibold tracking-wide text-white uppercase">
                 Más completo
               </span>
 
@@ -478,7 +434,7 @@ export default function Home() {
 
               <a
                 href={mailto}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-[10px] bg-[var(--color-secondary)] px-6 py-3 font-semibold text-white transition-colors hover:bg-[var(--color-secondary-hover)]"
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-[10px] bg-[var(--velvet-indigo)] px-6 py-3 font-semibold text-white transition-colors hover:bg-[var(--velvet-indigo-deep)]"
               >
                 Agenda una demo
                 <ArrowRight className="h-4 w-4" />
@@ -500,7 +456,7 @@ export default function Home() {
               <ul className="mt-4 space-y-3">
                 {FULL_ONLY_FEATURES.map((f) => (
                   <li key={f.permissionKey} className="flex gap-3">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-secondary)]">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--velvet-indigo)]">
                       <Check className="h-3.5 w-3.5 text-white" />
                     </span>
                     <span>
@@ -522,7 +478,7 @@ export default function Home() {
       </section>
 
       {/* ───────────────────────── FAQ ───────────────────────── */}
-      <section className="velvet mx-auto max-w-3xl px-6 py-20 sm:py-24">
+      <section className="mx-auto max-w-3xl px-6 py-20 sm:py-24">
         <h2
           className="velvet-title text-center text-3xl font-bold sm:text-4xl"
           style={{ fontFamily: 'var(--font-heading)' }}
@@ -541,8 +497,24 @@ export default function Home() {
       </section>
 
       {/* ───────────────────────── CTA final ───────────────────────── */}
-      <section className="velvet bg-[var(--color-secondary)]">
-        <div data-reveal="up" className="mx-auto max-w-4xl px-6 py-20 text-center">
+      {/* El CTA ya no es una banda de ancho completo con fondo propio —eso era
+          otra costura—. Es un PANEL redondeado que flota sobre el campo: cierra
+          la página con peso sin cortar el fondo. El grano se queda para que el
+          panel pertenezca al mismo material. */}
+      <section className="px-6 pb-20 sm:pb-24">
+        <div
+          data-reveal="up"
+          className="mx-auto max-w-5xl rounded-[24px] px-6 py-16 text-center shadow-[var(--shadow-medium)]"
+          style={{
+            /* El grano va PRIMERO y el degradado debajo, igual que en `.velvet`.
+               Aquí no se usa esa clase porque un `style` inline la anularía: el
+               panel se quedaría sin textura y dejaría de pertenecer al campo. */
+            backgroundImage:
+              'var(--velvet-grain), linear-gradient(135deg, var(--velvet-indigo-deep) 8%, var(--velvet-indigo) 65%, var(--velvet-amber) 185%)',
+            backgroundSize: '140px 140px, cover',
+            backgroundRepeat: 'repeat, no-repeat',
+          }}
+        >
           <h2
             className="text-3xl font-bold text-white sm:text-4xl"
             style={{ fontFamily: 'var(--font-heading)' }}
@@ -555,7 +527,7 @@ export default function Home() {
           </p>
           <a
             href={mailto}
-            className="mt-8 inline-flex items-center gap-2 rounded-[10px] bg-white px-8 py-4 text-lg font-semibold text-[var(--color-secondary)] transition-colors hover:bg-[var(--color-neutral-light)]"
+            className="mt-8 inline-flex items-center gap-2 rounded-[10px] bg-white px-8 py-4 text-lg font-semibold text-[var(--velvet-indigo)] transition-colors hover:bg-[var(--color-neutral-light)]"
           >
             Escríbenos a {SALES_EMAIL}
             <ArrowRight className="h-5 w-5" />

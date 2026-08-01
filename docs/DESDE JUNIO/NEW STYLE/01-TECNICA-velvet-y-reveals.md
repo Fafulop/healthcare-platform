@@ -13,51 +13,79 @@ look: se **leyó el CSS de esa página** y se extrajeron las cuatro técnicas qu
 | Base casi negra (`#0e100f`) | ❌ **No**. El usuario eligió fondo claro |
 | Degradados radiales **descentrados** (`at 16% 78%`), núcleo pálido sangrando a color saturado | ✅ Sí, con nuestra paleta y alfas bajas |
 | **Grano encima del color**: `background: url(noise.png), <degradado>` | ✅ Sí, pero con SVG inline en vez de PNG |
-| Títulos con `background-clip: text` | ✅ Sí, en el eje navy→azul |
-| `--theme-color` por sección | ✅ Sí, como `accent` + `wash1/wash2` por grupo |
+| Títulos con `background-clip: text` | ✅ Sí, en el eje índigo |
+| `--theme-color` por sección | ❌ **Ya no.** Ver §2: el color por sección era justo lo que rompía el fondo |
 
 **La consecuencia de haber elegido claro:** el *glow* de gsap.com **no se puede reproducir** —
 necesita oscuridad. Lo que sí se logra es la textura y el volumen del color. Si algún día se
-quiere el brillo, el camino es oscurecer al menos el hero y la banda de planes.
+quiere el brillo, el camino es oscurecer el campo entero (`background-color` de
+`.velvet-field`) y subir el alfa de las luces — **no** oscurecer una sección suelta, que es
+volver al problema que se acaba de arreglar.
 
-## 2. Dónde vive cada cosa
+## 2. UN SOLO fondo (el cambio del 2026-08-01)
+
+> **Lo que había antes y por qué se tiró.** Cada banda pintaba su propio lavado
+> (`.velvet-wash` con el color de su capacidad). Resultado: al hacer scroll la página se leía
+> como **paneles apilados y se veía cada costura**. El usuario lo describió como "cortas el
+> fondo". El color por sección era la causa, no un detalle.
+
+Hoy **toda la página es un solo elemento con fondo**: `.velvet-field` en el `<div>` raíz de
+`page.tsx`. Ninguna sección de ahí para abajo pinta fondo.
+
+- Las luces son **7 degradados radiales anclados a ese elemento**, que es todo el documento.
+  Al hacer scroll la luz se desplaza y cambia de forma, pero **nunca se reinicia**, porque ya
+  no hay bordes donde reiniciarse.
+- **Alternan lado y color al bajar** — índigo a la derecha, ámbar a la izquierda — para que el
+  color respire a lo largo del recorrido en vez de ser un tinte plano.
+- Los tamaños van **en px, no en %**: en un elemento de varios miles de píxeles de alto, un
+  radio en porcentaje daría manchas gigantes.
+
+Lo único opaco encima del campo son **las tarjetas** (blancas, algunas con `backdrop-blur`) y
+**el panel del CTA**.
+
+### Dónde vive cada cosa
 
 | Archivo | Qué |
 |---|---|
-| `apps/public/src/app/globals.css` (al final) | Las clases `.velvet`, `.velvet-wash`, `.velvet-wash-dual`, `.velvet-title` y la variable `--velvet-grain` |
-| `apps/public/src/lib/product-content.ts` | El `accent` / `wash1` / `wash2` de cada sección |
+| `apps/public/src/app/globals.css` (al final) | `.velvet-field` (el campo), `.velvet-title`, `--velvet-grain` y la paleta `--velvet-*` |
+| `apps/public/src/lib/product-content.ts` | El `accent` de cada capacidad — **ya solo** para la pastilla del icono |
 | `apps/public/src/components/ScrollReveals.tsx` | El motor de animación (GSAP + ScrollTrigger) |
 | `apps/public/src/lib/reveal-bootstrap.ts` | El script inline que evita el parpadeo |
 
-**El CSS no conoce la paleta.** Los colores entran desde el markup por variables
-(`--wash-1`, `--wash-2`, …), así que agregar una sección nueva **no toca `globals.css`**.
+## 3. La paleta
 
-## 3. Las clases
+| Variable | Valor | De dónde sale |
+|---|---|---|
+| `--velvet-indigo` | `#4F46E5` | El `bg-indigo-600` del **día seleccionado en el calendario del panel** (`MiniCalendar.tsx`). Es la marca en el producto real, no un color inventado para la web |
+| `--velvet-indigo-deep` | `#312E81` | El extremo oscuro del degradado de títulos y del panel del CTA |
+| `--velvet-amber` | `#F59E0B` | Conserva la esencia "azul con oro" de la pastilla de *Administración fiscal*, que es lo que el usuario señaló que le gustaba |
+| `--velvet-amber-text` | `#B45309` | El oro **cuando tiene que tocar texto** |
 
-```html
-<!-- solo grano, para bandas que ya tienen color de fondo -->
-<section class="velvet bg-[var(--color-secondary)]">
-
-<!-- grano + un lavado radial -->
-<div class="velvet-wash" style="--wash-1: rgba(59,130,246,0.16); --wash-2: rgba(59,130,246,0.05); --wash-x: 85%; --wash-y: 30%">
-
-<!-- grano + DOS lavados desde esquinas opuestas (hero y planes) -->
-<section class="velvet-wash-dual" style="--wash-1: …; --wash-3: …; --wash-x2: 10%; --wash-y2: 90%">
-```
-
-**Por qué dos lavados en las bandas grandes:** una sola fuente de luz se lee como mancha; dos
-se leen como volumen.
+🔑 **`--velvet-indigo` pasa AA sobre el campo claro (~7:1).** Es el **primer acento que sí
+puede tocar texto** — por eso `.velvet-title` cambió del eje navy→azul al eje índigo. El ámbar
+sigue sin poder: para texto va `--velvet-amber-text`.
 
 **Por qué sin pseudo-elementos:** el grano va como primera capa de `background-image` del
 propio elemento (igual que gsap.com). Un `::before` superpuesto habría obligado a pelear con
 `z-index` en todos los hijos.
 
+⚠️ **El panel del CTA no usa una clase, lleva el fondo en `style` inline** — grano primero,
+degradado después. Si le pusieras `.velvet` encima, el `style` inline la anularía y el panel
+se quedaría **sin textura**, dejando de pertenecer al mismo material que el resto.
+
 ## 4. Reglas duras que no se re-litigan
 
-- **El acento tiñe fondos y la pastilla del icono. NUNCA texto.** El ámbar (`#F59E0B`) y el
-  cian (`#06B6D4`) no dan contraste AA sobre blanco. Por eso `.velvet-title` se queda en el eje
-  navy→azul **incluso en las secciones ámbar y cian**. Si algún día se quiere el título del
-  color de la sección, hay que pasar un tono OSCURO (p.ej. ámbar → `#B45309`), no el acento.
+- **El acento de una capacidad tiñe SOLO la pastilla de su icono. NUNCA texto, y ya nunca el
+  fondo.** El ámbar (`#F59E0B`) y el cian (`#06B6D4`) no dan contraste AA sobre claro. Por eso
+  `.velvet-title` se queda en el eje índigo **en las 7 bandas**. Si algún día se quiere el
+  título del color de la capacidad, hay que pasar un tono OSCURO (ámbar → `#B45309`), no el
+  acento.
+- **Los acentos por capacidad sobreviven a propósito.** Al unificar el fondo se planteó
+  matarlos; el usuario pidió conservarlos. Son la única isla de identidad que queda, y son lo
+  que deja distinguir *agenda* de *dinero* de un vistazo sin volver a cortar el fondo.
+- **Una sección nueva NO toca `globals.css`.** Sigue siendo cierto, pero por otra razón: antes
+  era porque el color entraba por variables desde el markup; ahora es porque **las secciones
+  ya no tienen fondo**.
 - **El grano es textura, no movimiento**: `prefers-reduced-motion` no lo apaga, y está bien.
 
 ## 5. Perillas
@@ -66,8 +94,10 @@ propio elemento (igual que gsap.com). Un `::before` superpuesto habría obligado
 |---|---|---|
 | Más/menos grano | `--velvet-grain` en `globals.css`, atributo `opacity` del `<rect>` | `0.26` |
 | Grano más fino/grueso | `baseFrequency` del `feTurbulence` | `0.8` |
-| Lavados más/menos intensos | `wash1`/`wash2` en `product-content.ts` (el alfa) | `0.15`–`0.18` / `0.05` |
-| Mover la luz de una sección | `--wash-x` / `--wash-y` en el markup | alterna 15% / 85% |
+| Luces más/menos intensas | El alfa de cada `rgba()` en `.velvet-field` | `0.13`–`0.20` |
+| Mover una luz | Su `at X% Y%` en `.velvet-field`. La **`Y%` es posición en el SCROLL** | índigo derecha / ámbar izquierda |
+| Más/menos luces | Agregar o quitar un `radial-gradient` — **acuérdate de `background-size` y `background-repeat`, que llevan una entrada por capa** | 7 + el grano |
+| Cambiar el índigo o el ámbar | `--velvet-indigo` / `--velvet-amber` en `:root` | `#4F46E5` / `#F59E0B` |
 | Animación más rápida/lenta | `duration` en `ScrollReveals.tsx` | `0.6` grupo · `0.7` suelto |
 | Más/menos cascada | `stagger` | `0.08` |
 | Que entren desde más lejos | `initialStateFor()` | 24px (arriba) · 36px (lados) |
