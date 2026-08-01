@@ -48,7 +48,16 @@ export async function getAuthHeaders(): Promise<HeadersInit> {
  * Automatically includes auth headers
  */
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const authHeaders = await getAuthHeaders();
+  const authHeaders = await getAuthHeaders() as Record<string, string>;
+
+  // ⚠️ Con FormData hay que QUITAR el Content-Type. El navegador tiene que
+  // ponerlo él, porque solo él conoce el `boundary` del multipart — y un
+  // Content-Type fijado a mano nunca se sobrescribe. Con 'application/json'
+  // encima, el `await request.formData()` del servidor revienta sobre un
+  // cuerpo que cree JSON.
+  const isFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
+  if (isFormData) delete authHeaders['Content-Type'];
 
   const response = await fetch(url, {
     ...options,

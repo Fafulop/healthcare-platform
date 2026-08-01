@@ -30,12 +30,22 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
 
   const { token } = await tokenResponse.json();
 
-  // Make the authenticated request
+  // Make the authenticated request.
+  //
+  // ⚠️ Con FormData NO se manda Content-Type. El navegador tiene que ponerlo
+  // él, porque solo él conoce el `boundary` del multipart — y un Content-Type
+  // fijado a mano NUNCA se sobrescribe. Si se mandara 'application/json', el
+  // `await request.formData()` del servidor revienta sobre un cuerpo que cree
+  // JSON, y el error sale como un 500 genérico que apunta al archivo del
+  // usuario en vez de al bug.
+  const isFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
+
   const response = await fetch(url, {
     ...options,
     headers: {
       'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     },
   });

@@ -178,6 +178,33 @@ Nada. `PatientAuditLog.changes` ya es `Json?` (carga `batchId`, `sourceFile`, `r
 `userRole` es `VarChar(50)` (cabe `admin`). Importa, porque aquí `prisma db push` **revierte**
 objetos que viven en prod y las migraciones son SQL a mano.
 
+## 🩸 Lo que encontró el code review (2026-08-01)
+
+Las tres piezas pasaban type-check y los 5 gates, y la escritura estaba probada contra prod.
+Aun así, **la función estaba rota al 100 % en los dos apps** — porque nadie había hecho clic.
+
+| # | Qué | Por qué no lo agarró nada |
+|---|---|---|
+| 1 | **`authFetch` fija `Content-Type: application/json` ANTES de `...options.headers`.** Con `FormData`, el navegador ya no puede poner el suyo con el `boundary` del multipart —un Content-Type puesto a mano nunca se sobrescribe—, así que el `await request.formData()` del servidor revienta sobre un cuerpo que cree JSON | Es un error de RUNTIME entre dos capas. El type-check no ve headers HTTP |
+| 2 | **La plantilla era un `<a href>` a un endpoint autenticado de OTRO origen.** Una navegación del navegador no manda `Authorization` ni cookies cross-origin ⇒ el doctor se bajaba un archivo con `{"error":"Missing or invalid authorization header"}` dentro | Igual: el enlace es válido, el HTML es válido, y falla en el navegador |
+| 3 | El botón "Importar" parpadeaba para cuentas de apoyo: `usePermissions` devuelve `isOwner: true` mientras la sesión carga (fail-open a propósito) y la lista no comprobaba `loading` | Cosmético; la API rechaza igual |
+
+### La trampa es de TODO el repo, no de esta función
+
+**`authFetch` no admitía `FormData` en ninguno de los dos apps.** No había explotado nunca
+porque *todas* las demás subidas de archivo del app del doctor —`/api/voice/transcribe` y
+compañía— usan `fetch` pelón contra rutas del MISMO origen, donde no hace falta el token.
+Esta fue la primera subida a `apps/api`, o sea la primera que necesitaba token **y**
+`FormData` a la vez.
+
+Por eso el arreglo va **en `authFetch`**, no en quien lo llama: omite el `Content-Type` cuando
+el `body` es `FormData`. Arreglarlo en la pantalla habría dejado la mina puesta para el
+siguiente.
+
+> 🔑 **La lección.** El smoke test contra prod probó que *la base de datos* acepta la
+> escritura. No probaba —ni podía— que el navegador logre llegar hasta ahí. **Type-check +
+> gates + smoke test de BD siguen sin ser "probado": faltaba el clic.**
+
 ## 🕳️ Huecos encontrados al revisar el plan (2026-08-01)
 
 Diez. Los cuatro primeros son **agujeros de verdad** que el plan no contestaba.

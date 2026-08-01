@@ -20,7 +20,11 @@ export default function PatientsPage() {
     },
   });
 
-  const { isOwner } = usePermissions();
+  // `loading` importa: mientras la sesión carga, `usePermissions` devuelve
+  // `isOwner: true` por defecto (fail-open, para no esconderle nada al dueño en
+  // el primer render). Sin comprobarlo, una cuenta de apoyo alcanza a ver
+  // parpadear "Importar" antes de que se resuelva.
+  const { isOwner, loading: permsLoading } = usePermissions();
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState('');
@@ -101,7 +105,7 @@ export default function PatientsPage() {
             {/* Importar es del TITULAR: carga la base entera de pacientes de
                 golpe. La API lo rechaza igual (OWNER_ONLY), esto evita enseñar
                 un botón que terminaría en 403. */}
-            {isOwner && (
+            {!permsLoading && isOwner && (
               <Link
                 href="/dashboard/medical-records/importar"
                 className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 transition-colors"

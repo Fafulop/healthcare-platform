@@ -62,8 +62,38 @@ export default function PatientImportPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [result, setResult] = useState<CommitResult | null>(null);
-  const [busy, setBusy] = useState<null | "validate" | "commit">(null);
+  const [busy, setBusy] = useState<null | "validate" | "commit" | "template">(null);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * La plantilla NO puede ser un `<a href>`: el endpoint exige
+   * `Authorization: Bearer` y una navegación a otro origen no lo manda, así que
+   * se bajaría un archivo con el JSON del 401 dentro.
+   */
+  async function downloadTemplate() {
+    setBusy("template");
+    setError(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/patient-import/template`, {
+        method: "GET",
+      });
+      if (!res.ok) throw new Error("No se pudo descargar la plantilla.");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "plantilla-pacientes-tusalud.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   useEffect(() => {
     fetch(`${API_URL}/api/doctors`)
@@ -115,12 +145,13 @@ export default function PatientImportPage() {
         Sube la plantilla llena y se importa al expediente del doctor que elijas.
       </p>
 
-      <a
-        href={`${API_URL}/api/patient-import/template`}
-        className="mt-4 inline-block text-sm font-medium text-indigo-600 underline"
+      <button
+        onClick={downloadTemplate}
+        disabled={busy !== null}
+        className="mt-4 inline-block text-sm font-medium text-indigo-600 underline disabled:opacity-40"
       >
-        Descargar la plantilla .xlsx
-      </a>
+        {busy === "template" ? "Preparando…" : "Descargar la plantilla .xlsx"}
+      </button>
 
       {/* ── Paso 1 ── */}
       <div className="mt-6 space-y-4 rounded-lg border border-gray-200 bg-white p-5">

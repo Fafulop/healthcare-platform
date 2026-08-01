@@ -50,8 +50,42 @@ export default function ImportarPacientesPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [result, setResult] = useState<CommitResult | null>(null);
-  const [busy, setBusy] = useState<null | 'validate' | 'commit'>(null);
+  const [busy, setBusy] = useState<null | 'validate' | 'commit' | 'template'>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * La plantilla NO puede ser un `<a href>`.
+   *
+   * `GET /api/patient-import/template` exige `Authorization: Bearer`, y una
+   * navegación del navegador a OTRO origen no manda ese header (ni cookies).
+   * El doctor se bajaría un archivo con `{"error":"Missing or invalid
+   * authorization header"}` dentro. Hay que pedirla autenticada y disparar la
+   * descarga desde el blob.
+   */
+  async function downloadTemplate() {
+    setBusy('template');
+    setError(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/patient-import/template`, {
+        method: 'GET',
+      });
+      if (!res.ok) throw new Error('No se pudo descargar la plantilla.');
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'plantilla-pacientes-tusalud.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error inesperado');
+    } finally {
+      setBusy(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -125,13 +159,14 @@ export default function ImportarPacientesPage() {
             Trae las columnas ya puestas y una hoja de instrucciones. Llénala sin cambiarle el
             nombre a las hojas.
           </p>
-          <a
-            href={`${API_URL}/api/patient-import/template`}
-            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
+          <button
+            onClick={downloadTemplate}
+            disabled={busy !== null}
+            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-40"
           >
             <Download className="h-5 w-5" />
-            Descargar plantilla
-          </a>
+            {busy === 'template' ? 'Preparando…' : 'Descargar plantilla'}
+          </button>
         </li>
 
         <li className="rounded-lg border border-gray-200 bg-white p-5">
