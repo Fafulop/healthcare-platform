@@ -12,6 +12,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import ScrollReveals from '@/components/ScrollReveals';
+import { REVEAL_BOOTSTRAP } from '@/lib/reveal-bootstrap';
 import {
   CAPABILITY_GROUPS,
   CORE_FEATURES,
@@ -45,14 +46,6 @@ const GROUP_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
 };
 
 const mailto = `mailto:${SALES_EMAIL}?subject=${encodeURIComponent('Quiero conocer TuSalud.pro')}`;
-
-/**
- * Marca <html> como "listo para animar" ANTES de que pinte el contenido, para
- * que los reveals no parpadeen. Se salta si el usuario pidió "reduce motion", y
- * se auto-borra a los 2.5 s: si el bundle de GSAP no cargara, la página se ve
- * completa igual en vez de quedarse en blanco.
- */
-const REVEAL_BOOTSTRAP = `(function(){try{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var r=document.documentElement;r.classList.add('reveal-ready');setTimeout(function(){r.classList.remove('reveal-ready');},2500);}catch(e){}})();`;
 
 export default function ProductoPage() {
   return (
