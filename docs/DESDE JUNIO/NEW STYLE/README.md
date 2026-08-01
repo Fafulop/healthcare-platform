@@ -136,7 +136,7 @@ Tres frases de la página dejaron de describir software y pasaron a comprometer 
 |---|---|---|
 | 1 | **`NEXT_PUBLIC_SALES_EMAIL` en el servicio `@healthcare/public`** + redeploy (es `NEXT_PUBLIC_*` ⇒ build-time). Ojo: es OTRA variable que la pendiente del doctor-app desde TIERS T4 | Todos los CTA mandan al fallback `hola@tusalud.pro` |
 | 2 | ~~Verificar `/` en vivo tras el deploy~~ **HECHO 2026-08-01** (ver abajo) | — |
-| 3 | **Falta el FAQ de migración** — *"¿puedo traer mis pacientes de otro sistema?"* es la pregunta más común de quien cambia de software. **No se escribió a propósito: nadie confirmó si existe importación.** Inventar la respuesta cuesta la venta después | Queda sin contestar la objeción más cara |
+| 3 | **Falta el FAQ de migración** — *"¿puedo traer mis pacientes de otro sistema?"*. ✅ **YA HAY RESPUESTA: la importación existe y está en prod** (ver [`../PACIENTE MIGRATION/`](../PACIENTE%20MIGRATION/README.md)). Se escribe: *descargas una plantilla, la subes, y revisas antes de que se guarde nada*. Va en `product-content.ts`, ~posición 3 del `FAQ` | Sigue sin contestarse la objeción más cara de quien cambia de software |
 | 4 | El commit `255a6d14` tiene una `@` de más en el asunto y otra al final del cuerpo | Cosmético; arreglarlo pide force-push a `main` |
 
 ### Comprobado en vivo el 2026-08-01 (`8ed5f6cf`)

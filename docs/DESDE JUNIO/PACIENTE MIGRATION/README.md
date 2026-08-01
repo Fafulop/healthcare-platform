@@ -3,6 +3,9 @@
 > **Qué es.** Un doctor que ya trabaja (en papel, en Excel o en otro software) tiene que poder
 > traerse sus pacientes y su historia clínica sin capturarlos uno por uno. Esto es el plan.
 >
+> 🔄 **¿Sesión nueva? Empieza por [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md)** — dónde
+> quedamos, qué sigue y las lecciones que no hay que volver a aprender.
+>
 > 📋 **El inventario de campos, con tipos y validaciones**, está en
 > [`01-CONTRATO-de-importacion.md`](01-CONTRATO-de-importacion.md). Este archivo es el plan y
 > las decisiones.
@@ -13,8 +16,31 @@
 |---|---|---|
 | **F1** | Plantilla `.xlsx` + contrato de columnas | ✅ Construida (`66485db8`) |
 | **F2** | Validador puro | ✅ Construido (`4ae71b91`) |
-| **F3** | Commit transaccional · auditoría · rutas · UI de admin | ✅ Construida y **probada contra prod** |
-| **F4** | La misma UI en el app del doctor | ✅ Construida |
+| **F3** | Commit transaccional · auditoría · rutas · UI de admin | ✅ Construida · núcleo probado · **UI de admin SIN probar** |
+| **F4** | La misma UI en el app del doctor | ✅ **Probada de punta a punta en PROD** |
+
+### 🟢 Importación real ejecutada en prod (2026-08-01, `dr-prueba`)
+
+Se subió un archivo con 9 pacientes y 7 consultas —4 renglones rotos a propósito— desde el
+app del doctor. La pantalla mostró **6 / 6 / 4 / 0** y los cuatro errores esperados, y la
+importación escribió. Verificado leyendo la BD después:
+
+| Qué se comprobó | Resultado |
+|---|---|
+| **Fechas históricas** (hueco #7) | `2022-11-30` … `2024-07-08`, **no** la fecha de importación. Nada se corrió un día |
+| `firstVisitDate` / `lastVisitDate` | Se calcularon solos de las consultas importadas |
+| Paciente cuya única consulta falló | Importó **sin** historial y sin fechas de visita — la cascada se comporta bien |
+| Folio generado | `MIG-718315B8-0001` para la paciente sin folio |
+| Tipos raros | `Decimal(5,2)` (`94.25`), `String[]` (`[cronico,seguimiento]`), enums (`femenino→female`, `urgencia→emergency`), RFC como texto |
+| Encabezado de procedencia | Presente en `clinicalNotes`, seguido del texto de la plantilla vieja |
+| Auditoría | **12 renglones** (6 `create_patient` + 6 `create_encounter`), un solo `batchId`, con `sheetRow` y `sourceFile` |
+
+`userRole` quedó como **`doctor`** (se corrió desde el app del doctor, como titular). El camino
+que escribe `admin` es el de la UI de admin, **que todavía no se ha probado**.
+
+> 🧹 **Quedan 6 pacientes y 6 consultas de prueba en `dr-prueba`**, del lote
+> `718315b8-5fb6-4445-bf5e-ecd4c27fbd15`. Se pueden borrar con precisión por ese `batchId` —
+> para eso existe el rastro.
 
 ### ✅ Smoke test contra prod (2026-08-01, `dr-prueba`)
 
@@ -221,6 +247,50 @@ Diez. Los cuatro primeros son **agujeros de verdad** que el plan no contestaba.
 | 8 | ¿Una **cuenta de apoyo** puede importar en lote? | **No.** Solo el dueño de la cuenta y el admin |
 | 9 | **No hay deshacer.** Si admin importa 400 pacientes al doctor equivocado, el audit log los identifica pero no hay cómo revertirlos | Pendiente real. Mitigación de hoy: la confirmación enseña el **nombre** del doctor |
 | 10 | Las **unidades** vivían en la doc, no en el archivo | Resuelto: la unidad va **en el nombre de la columna** — `peso_kg`, `estatura_cm`, `temperatura_c` |
+
+## 🔑 El folio del paciente (`internalId`) — análisis pendiente
+
+> **Pregunta del usuario (2026-08-01):** *«¿cómo garantizamos que el doctor o el admin que
+> sube un archivo no use folios que otro doctor ya está usando? Si un doctor va en `P-1` y
+> aún no crea `P-2`, y otro doctor sube un `P-2`… ¿qué pasa?»*
+
+### Eso NO puede pasar — y es importante saber por qué
+
+`@@unique([doctorId, internalId])` (schema.prisma:1893) es **compuesto**. El folio es único
+**por doctor**, no globalmente. El `P-2` del Dr. A y el `P-2` de la Dra. B **conviven sin
+problema**: son renglones distintos y ninguno bloquea al otro. **Dos doctores nunca compiten
+por un folio.**
+
+### Pero sí hay un problema real, DENTRO de la cuenta de un mismo doctor
+
+Hoy conviven **tres generadores de folio que no se conocen entre sí**:
+
+| Origen | Forma | Dónde |
+|---|---|---|
+| Lo que el doctor escribe o importa | `P-001`, `EXP-1001` | su criterio |
+| Alta individual desde el app | `` `P${Date.now()}` `` → `P1754073600000` | `patients/route.ts:92` |
+| Importación | `MIG-<8 del lote>-0001` | `patient-import-commit.ts` |
+
+- **La importación ya está protegida.** El prefijo `MIG-` se eligió justo para no invadir la
+  numeración del doctor, y si el folio del archivo ya existe **se salta y se reporta**
+  (`YA_EXISTE`), nunca pisa.
+- **El alta individual también**, por accidente: `P<timestamp>` es tan largo que jamás choca
+  con un `P-2` escrito a mano.
+- **Lo que queda expuesto es el alta MANUAL.** Si el doctor teclea un folio que ya tiene,
+  Prisma tira `P2002` y el handler lo convierte en **409 «Resource already exists»** — en
+  inglés y sin decir que el problema es el folio. No se pierde nada, pero el mensaje no ayuda.
+
+### Lo que hay que decidir (no se decidió hoy)
+
+| Opción | Qué implica |
+|---|---|
+| **A. Dejarlo así** | Funciona. Solo mejorar el mensaje del 409 para que diga «ya tienes un paciente con ese folio» |
+| **B. Reservar espacios** | Que lo generado por el sistema use un prefijo que el doctor no pueda teclear. Ya es medio cierto (`MIG-`), faltaría formalizarlo |
+| **C. Separar los conceptos** | `internalId` deja de ser del doctor y pasa a ser interno; se agrega un campo aparte «tu referencia», libre y sin unicidad. **El más limpio y el más caro** — toca datos existentes |
+| **D. Secuencial por doctor** | Sustituir `P${Date.now()}` por un contador real (`P-000001`). Se lee mejor, pero necesita una secuencia por doctor y hay que resolver la concurrencia |
+
+**Recomendación para la próxima sesión:** empezar por **A** (30 min, quita el único síntoma
+real) y evaluar **C** solo si el folio se vuelve visible para el paciente o para facturación.
 
 ## Decisiones abiertas
 
