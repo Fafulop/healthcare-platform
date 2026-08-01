@@ -7,9 +7,33 @@
 > [`01-CONTRATO-de-importacion.md`](01-CONTRATO-de-importacion.md). Este archivo es el plan y
 > las decisiones.
 
-## Estado
+## Estado (2026-08-01)
 
-🔵 **DISEÑO. No hay una sola línea escrita.** Nada de esto existe en el código todavía.
+| Fase | Qué | Estado |
+|---|---|---|
+| **F1** | Plantilla `.xlsx` + contrato de columnas | ✅ Construida (`66485db8`) |
+| **F2** | Validador puro | ✅ Construido (`4ae71b91`) |
+| **F3** | Commit transaccional · auditoría · rutas · UI de admin | ✅ Construida — **sin probar contra la BD** |
+| **F4** | La misma UI en el app del doctor | ⬜ Pendiente |
+
+> 🔴 **F3 NO se ha corrido nunca contra una base de datos.** El commit se ejerció con un
+> cliente de transacción simulado: se comprobó la FORMA de la escritura (3 operaciones
+> masivas, 5 renglones de auditoría, `userRole: admin`, folios sin colisión), no que Prisma
+> la acepte. **Antes de que un doctor real la use hay que correrla contra un doctor de
+> prueba** — el método está en `TOOLING-acceso-railway-db.md`.
+
+### Lo que quedó construido
+
+| Pieza | Dónde |
+|---|---|
+| Contrato de columnas (29 + 18) | `packages/database/src/patient-import.ts` |
+| Validador (puro, sin Prisma) | `packages/database/src/patient-import-validate.ts` |
+| Escritura transaccional + auditoría | `packages/database/src/patient-import-commit.ts` |
+| Parseo `.xlsx`/`.csv` | `apps/api/src/lib/patient-import-parse.ts` |
+| `GET /api/patient-import/template` | descarga la plantilla |
+| `POST /api/patient-import/validate` | vista previa, **no escribe nada** |
+| `POST /api/patient-import/commit` | escribe, en transacción |
+| UI de migración asistida | `apps/admin/src/app/patient-import/page.tsx` |
 
 ## Por qué importa
 
@@ -127,7 +151,7 @@ Diez. Los cuatro primeros son **agujeros de verdad** que el plan no contestaba.
 | 2 | **Las consultas no tienen llave natural.** Los pacientes se deduplican por `internalId`; las consultas **se duplicarían enteras** en cada reintento | Llave sintética `(patientId, encounterDate, motivo)`. Sin esto, un reintento le duplica el historial al paciente — y nadie lo nota hasta que lo abre |
 | 3 | **Si `id_paciente` viene vacío**, el importador genera folios nuevos ⇒ reimportar crea un **juego duplicado completo** | Cotejo secundario por `nombre + apellidos + fecha_nacimiento`, que **avisa** (no fusiona solo) |
 | 4 | **Duplicados dentro del propio archivo** — dos renglones con el mismo `id_paciente` | Se detectan **antes** de tocar la BD, en la validación |
-| 5 | ¿Dónde viven los renglones entre la vista previa y el commit? | Se guarda el archivo subido y se **vuelve a parsear** al confirmar. Mandar 5 000 renglones de JSON de ida y vuelta no escala |
+| 5 | ¿Dónde viven los renglones entre la vista previa y el commit? | **En ningún lado.** El navegador ya tiene el archivo: se manda dos veces, a `/validate` y a `/commit`, y el commit **vuelve a parsear y validar**. No es desconfianza del navegador — si el commit aceptara filas ya procesadas, se podría escribir en el expediente saltándose la validación entera. Sale gratis no tener almacenamiento temporal ni limpiarlo |
 | 6 | **Sin límite de tamaño.** Un archivo grande en una sola transacción revienta el timeout de Railway | Tope declarado + commit por lotes con reanudación |
 | 7 | **Zona horaria.** `dateOfBirth` es `@db.Date`; parsear la fecha de Excel como UTC **corre el cumpleaños un día** en horario de México | Fechas se anclan a mediodía local antes de convertir |
 | 8 | ¿Una **cuenta de apoyo** puede importar en lote? | **No.** Solo el dueño de la cuenta y el admin |
