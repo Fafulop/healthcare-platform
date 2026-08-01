@@ -58,21 +58,14 @@ export default function Home() {
               Conoce el producto
             </Button>
           </Link>
-          <Link href="/doctores/maria-lopez">
+          {/* Apunta al DIRECTORIO, no a un doctor concreto: el link anterior
+              era /doctores/maria-lopez —un perfil de ejemplo que nunca existió
+              en la base— y daba 404 en producción. Un slug fijo vuelve a
+              romperse en cuanto ese doctor se da de baja. */}
+          <Link href="/doctores">
             <Button variant="primary" size="lg">
-              Ver Perfil de Ejemplo
+              Ver Doctores
             </Button>
-          </Link>
-        </div>
-
-        {/* Documentation Links */}
-        <div className="mt-12 flex flex-wrap gap-4 justify-center">
-          <Link href="/SEO_GUIDE.md" className="text-[var(--color-secondary)] hover:underline font-medium">
-            SEO Guide
-          </Link>
-          <span className="text-[var(--color-neutral-medium)]">•</span>
-          <Link href="/DESIGN_GUIDE.md" className="text-[var(--color-secondary)] hover:underline font-medium">
-            Design Guide
           </Link>
         </div>
       </main>
