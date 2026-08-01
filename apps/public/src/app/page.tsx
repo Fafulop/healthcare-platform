@@ -18,6 +18,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import ScrollReveals from '@/components/ScrollReveals';
+import SectionNav from '@/components/SectionNav';
 import { REVEAL_BOOTSTRAP } from '@/lib/reveal-bootstrap';
 import {
   CAPABILITY_GROUPS,
@@ -75,6 +76,15 @@ const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string }>
 
 const mailto = `mailto:${SALES_EMAIL}?subject=${encodeURIComponent('Quiero conocer TuSalud.pro')}`;
 
+/* Los destinos del carrusel salen del MISMO array que pinta las bandas, así
+   que agregar una capacidad la mete sola en la navegación. Los dos últimos
+   destinos no son capacidades y por eso van a mano. */
+const NAV_ITEMS = [
+  ...CAPABILITY_GROUPS.map((g) => ({ id: g.id, label: g.eyebrow })),
+  { id: 'planes', label: 'Planes' },
+  { id: 'faq', label: 'Preguntas' },
+];
+
 export default function Home() {
   return (
     // `velvet-field` es EL fondo de la página entera. Ninguna sección de aquí
@@ -82,6 +92,7 @@ export default function Home() {
     <div className="velvet-field text-[var(--color-neutral-dark)]">
       <script dangerouslySetInnerHTML={{ __html: REVEAL_BOOTSTRAP }} />
       <ScrollReveals />
+      <SectionNav items={NAV_ITEMS} />
 
       {/* ───────────────────────── Hero ───────────────────────── */}
       <section className="relative overflow-hidden">
@@ -210,7 +221,7 @@ export default function Home() {
             const flip = i % 2 === 1;
 
             return (
-              <div key={group.id} id={group.id} className="scroll-mt-16 py-16 sm:py-20">
+              <div key={group.id} id={group.id} className="scroll-mt-24 py-16 sm:py-20">
                 <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-2 lg:gap-16">
                 {/* Texto — entra desde el lado opuesto al panel */}
                 <div data-reveal={flip ? 'right' : 'left'} className={flip ? 'lg:order-2' : undefined}>
@@ -364,7 +375,7 @@ export default function Home() {
       {/* ───────────────────────── Planes ───────────────────────── */}
       <section
         id="planes"
-        className="scroll-mt-8"
+        className="scroll-mt-24"
       >
         <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
           <div data-reveal="up" className="mx-auto max-w-2xl text-center">
@@ -478,7 +489,7 @@ export default function Home() {
       </section>
 
       {/* ───────────────────────── FAQ ───────────────────────── */}
-      <section className="mx-auto max-w-3xl px-6 py-20 sm:py-24">
+      <section id="faq" className="mx-auto max-w-3xl scroll-mt-24 px-6 py-20 sm:py-24">
         <h2
           className="velvet-title text-center text-3xl font-bold sm:text-4xl"
           style={{ fontFamily: 'var(--font-heading)' }}

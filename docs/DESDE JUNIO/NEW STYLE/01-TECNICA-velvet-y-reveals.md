@@ -51,6 +51,7 @@ Lo único opaco encima del campo son **las tarjetas** (blancas, algunas con `bac
 | `apps/public/src/lib/product-content.ts` | El `accent` de cada capacidad — **ya solo** para la pastilla del icono |
 | `apps/public/src/components/ScrollReveals.tsx` | El motor de animación (GSAP + ScrollTrigger) |
 | `apps/public/src/lib/reveal-bootstrap.ts` | El script inline que evita el parpadeo |
+| `apps/public/src/components/SectionNav.tsx` | El carrusel de navegación pegado arriba (§10) |
 
 ## 3. La paleta
 
@@ -157,3 +158,39 @@ curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://tusalud.pro/pro
 
 La segunda comprobación es la importante: **si el texto está en el HTML, ninguna animación
 puede esconderlo de Google.**
+
+## 10. El carrusel de navegación (`SectionNav.tsx`)
+
+Con 7 bandas + planes + FAQ, la página es larga y no había forma de moverse sin scrollear a
+ciegas. La barra vive **pegada arriba** (`sticky top-0`) y scrollea en **horizontal**.
+
+**Por qué carrusel y no una barra normal:** son **9 destinos** y una etiqueta es
+*"Administración fiscal"*. En un teléfono no caben; si se dejan envolver, la barra crece a tres
+renglones y se come la pantalla.
+
+### Las tres decisiones que lo hacen funcionar
+
+1. **La pastilla activa se trae sola al centro.** Sin esto el carrusel es inútil justo cuando
+   más se necesita: vas por *Reportes* (la última) y la barra sigue enseñando *Agenda*.
+2. **El activo se decide con una FRANJA, no con "la sección más visible".** El
+   `rootMargin: '-88px 0px -65% 0px'` recorta la ventana a una tira debajo de la barra. Con
+   bandas de alturas muy distintas, "la más visible" hace parpadear el activo entre vecinas.
+3. **Sin `scroll-smooth` en el riel.** Si el CSS fija `scroll-behavior`, el `behavior:'auto'`
+   que se manda con *reduce motion* **deja de valer** y la barra se animaría igual. Lo decide
+   el JS, no la clase.
+
+### Las dos redes de seguridad
+
+- **Sin JS la barra sigue sirviendo**: es un Client Component, así que Next lo renderiza
+  también en el servidor y los `<a href="#…">` están en el HTML. Lo único que se pierde es el
+  resaltado del activo.
+- **No reintroduce el corte de fondo de §2**: la barra es translúcida (`bg-white/70` +
+  `backdrop-blur-md`), el campo se sigue viendo a través.
+
+### Al agregar una capacidad
+
+`NAV_ITEMS` se arma desde `CAPABILITY_GROUPS`, así que **una banda nueva entra sola** en la
+navegación. Solo `Planes` y `Preguntas` van a mano, porque no son capacidades.
+
+⚠️ **Toda sección destino necesita `scroll-mt-24`.** Sin eso la barra pegada tapa el título al
+llegar. Es el error que se nota tarde, porque el enlace "funciona".
