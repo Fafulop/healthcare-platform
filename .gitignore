@@ -48,3 +48,14 @@ nul
 
 # SAT descarga masiva temp files
 sat-metadata-*
+
+# Salidas del runner de evals del agente (scripts/agenda-agent-evals.ts).
+# Son TRANSCRIPCIONES, no código: cada archivo trae la respuesta completa del
+# modelo y sus tool calls para los ~85 casos. Se acumularon 45 archivos / 1.9 MB
+# sin trackear, y cualquier herramienta que lea el working tree o el diff
+# pendiente se los traga enteros (medido 2026-07-31: los dos más grandes, 120K y
+# 116K, son de una sola corrida).
+# Los archivos SIGUEN en disco — esto solo evita que git los liste. Importa
+# porque `scripts/agent-cost-benchmark.ts` lee `agenda-evals-last-run.json` por
+# default: borrarlos rompería ese flujo hasta re-correr la suite completa.
+agenda-evals-*.json
