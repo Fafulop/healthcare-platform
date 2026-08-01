@@ -51,12 +51,19 @@ export default function Home() {
           </div>
         </div>
 
-        {/* CTA Button */}
-        <Link href="/doctores/maria-lopez">
-          <Button variant="primary" size="lg">
-            Ver Perfil de Ejemplo
-          </Button>
-        </Link>
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <Link href="/producto">
+            <Button variant="secondary" size="lg">
+              Conoce el producto
+            </Button>
+          </Link>
+          <Link href="/doctores/maria-lopez">
+            <Button variant="primary" size="lg">
+              Ver Perfil de Ejemplo
+            </Button>
+          </Link>
+        </div>
 
         {/* Documentation Links */}
         <div className="mt-12 flex flex-wrap gap-4 justify-center">
