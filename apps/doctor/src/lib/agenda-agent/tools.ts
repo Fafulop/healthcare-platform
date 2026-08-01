@@ -8,7 +8,15 @@
 
 import { prisma } from '@healthcare/database';
 import type { AnthropicTool } from './anthropic';
-import { dateKeyToUtcDate, utcDateToKey, isVencida, mxTodayKey, addMinutesToTime } from './dates';
+import {
+  dateKeyToUtcDate,
+  utcDateToKey,
+  isVencida,
+  mxTodayKey,
+  addMinutesToTime,
+  mxWeekdayOf,
+  mxWeekdayMap,
+} from './dates';
 
 // Server-side fetch needs an absolute URL — same fallback as the other
 // server→server callers in apps/doctor (medical-records/tasks, calendar).
@@ -246,6 +254,8 @@ async function getDaySchedule(ctx: ToolContext, input: { date: string }) {
 
   return {
     fecha: input.date,
+    // #33: el día lo resuelve el servidor — el modelo lo transcribe, no lo calcula.
+    diaSemana: mxWeekdayOf(input.date),
     rangosDisponibilidad: ranges.map((r) => ({
       id: r.id,
       inicio: r.startTime,
@@ -292,7 +302,13 @@ async function getBookings(
       candidates.map(mapBooking).filter((c) => c.vencida),
       'desc'
     ).slice(0, 50);
-    return { totalEncontradas: vencidas.length, mostradas: vencidas.length, citas: vencidas };
+    return {
+      totalEncontradas: vencidas.length,
+      mostradas: vencidas.length,
+      // #33: mapa de fechas DISTINTAS (no un campo por fila — cap de 8KB, bitácora #31).
+      diasSemana: mxWeekdayMap(vencidas.map((c) => c.fecha)),
+      citas: vencidas,
+    };
   }
 
   const dateFilter =
@@ -330,7 +346,12 @@ async function getBookings(
   const direction = input.startDate && input.startDate >= mxTodayKey() ? 'asc' : 'desc';
   const citas = sortByFecha(bookings.map(mapBooking), direction).slice(0, 50);
 
-  return { totalEncontradas, mostradas: citas.length, citas };
+  return {
+    totalEncontradas,
+    mostradas: citas.length,
+    diasSemana: mxWeekdayMap(citas.map((c) => c.fecha)),
+    citas,
+  };
 }
 
 async function getAvailability(
@@ -371,11 +392,13 @@ async function getAvailability(
     return { error: `No se pudo calcular disponibilidad (HTTP ${res.status})` };
   }
   const data = await res.json();
+  const fechasDisponibles: string[] = data.availableDates ?? [];
   return {
     nota,
     bufferMinutos: data.bufferMinutes ?? 0,
     servicio: data.service ?? null,
-    fechasDisponibles: data.availableDates ?? [],
+    fechasDisponibles,
+    diasSemana: mxWeekdayMap(fechasDisponibles),
     horarios: data.timeSlots ?? {},
   };
 }

@@ -128,6 +128,27 @@ function weekdayCandidates(todayKey: string, targetDow: number): string[] {
   return [d.toISOString().slice(0, 10)];
 }
 
+/** Bitácora #33. Para cada fecha, genera un `reply-not-match` por cada nombre de
+ * día que NO le corresponde: "sábado 3 de agosto" es imposible, "lunes 3" es el
+ * único válido. Así el caso verifica contra el calendario real (se recalcula en
+ * cada corrida) en vez de contra una respuesta esperada que caducaría. */
+function augustWeekdayTraps(dateKeys: string[]): Check[] {
+  const DAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const checks: Check[] = [];
+  for (const key of dateKeys) {
+    const d = new Date(key + 'T12:00:00Z');
+    const real = DAYS[d.getUTCDay()];
+    const dayNum = Number(key.slice(8, 10));
+    for (const wrong of DAYS) {
+      if (wrong === real) continue;
+      // Acepta acento o no y espacios variables: "miercoles 5 de agosto".
+      const pat = `${wrong.replace('é', '[eé]').replace('á', '[aá]')}\\s+${dayNum}\\s+de\\s+agosto`;
+      checks.push({ kind: 'reply-not-match', pattern: pat, flags: 'i' });
+    }
+  }
+  return checks;
+}
+
 async function main() {
   // --- Entorno: BD de prod (solo lectura) + API pública + key de Anthropic ---
   // DATABASE_PUBLIC_URL es OBLIGATORIA (sin fallback a DATABASE_URL: un
@@ -213,6 +234,26 @@ async function main() {
       bitacora: 'E6',
       message: '¿qué tengo el martes?',
       checks: [{ kind: 'any-tool-date', dates: tuesdayCandidates }],
+    },
+    {
+      // Bitácora #33 — el EJE CONTRARIO de `weekday-correcto`, que nunca se probó.
+      // Aquel prueba la ENTRADA ("el martes" → fecha correcta) y pasa desde E6.
+      // Este prueba la SALIDA (fecha → nombre del día), que es donde falla: el
+      // agente dijo "domingo 3 de agosto" (lunes) y "lunes 4 de agosto" (martes),
+      // ambas DENTRO de la ventana de 14 días. Se verifica contra el calendario
+      // real, no contra un literal, para que el caso no caduque.
+      id: 'weekday-salida-no-inventado',
+      bitacora: '#33',
+      message: '¿qué citas tengo del 3 al 7 de agosto? dime el día de la semana de cada una',
+      soft: true,
+      dataDependent:
+        'da igual CUÁNTAS citas haya: el caso mide que ningún par "<día> N de agosto" contradiga al calendario. Si no menciona ninguna fecha con día, pasa por vacuidad — por eso el mensaje lo pide explícito',
+      checks: [
+        { kind: 'tools-nonempty' },
+        // Cada día de agosto que el modelo nombre debe coincidir con la realidad.
+        // Se listan como reply-not-match los pares IMPOSIBLES de los días del rango.
+        ...augustWeekdayTraps(['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07']),
+      ],
     },
     {
       id: 'ocupado-hasta-extension',

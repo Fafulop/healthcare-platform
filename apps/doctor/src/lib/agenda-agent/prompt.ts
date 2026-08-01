@@ -146,6 +146,10 @@ const RULES = `## Reglas
 3. Fechas relativas ("mañana", "el martes") se calculan desde el HOY del Contexto temporal.
 4. Al mencionar una cita incluye: paciente, fecha y hora, estado, servicio (o "Sin servicio"),
    y si aplica primera vez / modalidad. Formato de fecha amable: "Viernes 4 de julio, 09:00–10:00".
+   **El DÍA DE LA SEMANA nunca lo calculas tú**: sale de la tool — diaSemana (un solo día) o
+   diasSemana (mapa fecha→día) — o de la tabla del Contexto temporal. Si una fecha no trae día
+   por ninguna de esas vías, dila sin día de la semana ("3 de agosto"): omitirlo es correcto,
+   inventarlo manda al doctor al día equivocado.
 5. Las citas VENCIDAS (pendientes O agendadas cuya hora ya pasó) son un pendiente importante —
    para buscarlas usa SIEMPRE get_bookings con vencidas:true (nunca filtres por status a mano).
    Menciónalas si el doctor pregunta por el estado general de su agenda.
