@@ -60,16 +60,20 @@ export default function ProductoPage() {
       <script dangerouslySetInnerHTML={{ __html: REVEAL_BOOTSTRAP }} />
       <ScrollReveals />
       {/* ───────────────────────── Hero ───────────────────────── */}
-      <section className="relative overflow-hidden border-b border-gray-100 bg-[var(--color-bg-yellow-light)]">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-32 -right-24 h-96 w-96 rounded-full bg-[var(--color-primary)] opacity-10 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-[var(--color-accent)] opacity-10 blur-3xl"
-        />
-
+      <section
+        className="velvet-wash-dual relative overflow-hidden border-b border-gray-100 bg-[var(--color-bg-yellow-light)]"
+        style={
+          {
+            '--wash-1': 'rgba(59,130,246,0.20)',
+            '--wash-2': 'rgba(59,130,246,0.06)',
+            '--wash-3': 'rgba(245,158,11,0.14)',
+            '--wash-x': '80%',
+            '--wash-y': '8%',
+            '--wash-x2': '8%',
+            '--wash-y2': '92%',
+          } as React.CSSProperties
+        }
+      >
         <div
           data-reveal-stagger
           className="relative mx-auto max-w-5xl px-6 py-20 text-center sm:py-28"
@@ -84,7 +88,7 @@ export default function ProductoPage() {
 
           <h1
             data-reveal="up"
-            className="mt-6 text-4xl leading-tight font-bold tracking-tight sm:text-6xl"
+            className="velvet-title mt-6 text-4xl leading-tight font-bold tracking-tight sm:text-6xl"
             style={{ fontFamily: 'var(--font-heading)' }}
           >
             Todo lo que tu consultorio
@@ -125,9 +129,13 @@ export default function ProductoPage() {
         </div>
       </section>
 
-      {/* ─────────────────── Capacidades (el tour) ─────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-        <div className="space-y-24">
+      {/* ─────────────────── Capacidades (el tour) ───────────────────
+          Cada grupo es una BANDA de ancho completo con su propio lavado de
+          color: así el fondo cambia al pasar de una capacidad a otra y la
+          página se lee como un recorrido, no como una lista larga. El lavado
+          alterna de esquina según `flip`, siguiendo al contenido. */}
+      <section>
+        <div>
           {CAPABILITY_GROUPS.map((group, i) => {
             const Icon = GROUP_ICONS[group.id] ?? Sparkles;
             const flip = i % 2 === 1;
@@ -136,12 +144,30 @@ export default function ProductoPage() {
               <div
                 key={group.id}
                 id={group.id}
-                className="grid scroll-mt-16 items-center gap-10 lg:grid-cols-2 lg:gap-16"
+                className="velvet-wash scroll-mt-16 py-16 sm:py-20"
+                style={
+                  {
+                    '--wash-1': group.wash1,
+                    '--wash-2': group.wash2,
+                    '--wash-x': flip ? '15%' : '85%',
+                    '--wash-y': '30%',
+                    '--wash-size': '55% 70%',
+                  } as React.CSSProperties
+                }
               >
+                <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-2 lg:gap-16">
                 {/* Texto — entra desde el lado opuesto al panel */}
                 <div data-reveal={flip ? 'right' : 'left'} className={flip ? 'lg:order-2' : undefined}>
                   <div className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[var(--color-secondary)]">
+                    {/* La pastilla del icono lleva el color de la sección
+                        mezclado con el navy de marca: identidad por bloque sin
+                        que la marca se pierda. */}
+                    <span
+                      className="flex h-11 w-11 items-center justify-center rounded-[12px] shadow-[var(--shadow-light)]"
+                      style={{
+                        backgroundImage: `linear-gradient(135deg, var(--color-secondary) 15%, ${group.accent} 130%)`,
+                      }}
+                    >
                       <Icon className="h-5 w-5 text-white" />
                     </span>
                     <span className="text-sm font-semibold tracking-wide text-[var(--color-neutral-medium)] uppercase">
@@ -156,7 +182,7 @@ export default function ProductoPage() {
                   </div>
 
                   <h2
-                    className="mt-5 text-3xl font-bold sm:text-4xl"
+                    className="velvet-title mt-5 text-3xl font-bold sm:text-4xl"
                     style={{ fontFamily: 'var(--font-heading)' }}
                   >
                     {group.title}
@@ -192,7 +218,10 @@ export default function ProductoPage() {
                           key={f.permissionKey}
                           className="flex items-start gap-3 rounded-[8px] px-3 py-3 transition-colors hover:bg-[var(--color-neutral-light)]"
                         >
-                          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--color-primary)]/10">
+                          <span
+                            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
+                            style={{ backgroundColor: `${group.accent}1F` }}
+                          >
                             <Icon className="h-4 w-4 text-[var(--color-secondary)]" />
                           </span>
                           <div className="min-w-0">
@@ -211,6 +240,7 @@ export default function ProductoPage() {
                     </div>
                   </div>
                 </div>
+                </div>
               </div>
             );
           })}
@@ -218,11 +248,25 @@ export default function ProductoPage() {
       </section>
 
       {/* ───────────────────────── Planes ───────────────────────── */}
-      <section id="planes" className="scroll-mt-8 border-t border-gray-100 bg-[var(--color-bg-green-light)]">
+      <section
+        id="planes"
+        className="velvet-wash-dual scroll-mt-8 border-t border-gray-100 bg-[var(--color-bg-green-light)]"
+        style={
+          {
+            '--wash-1': 'rgba(245,158,11,0.16)',
+            '--wash-2': 'rgba(245,158,11,0.05)',
+            '--wash-3': 'rgba(59,130,246,0.16)',
+            '--wash-x': '88%',
+            '--wash-y': '18%',
+            '--wash-x2': '10%',
+            '--wash-y2': '85%',
+          } as React.CSSProperties
+        }
+      >
         <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
           <div data-reveal="up" className="mx-auto max-w-2xl text-center">
             <h2
-              className="text-3xl font-bold sm:text-4xl"
+              className="velvet-title text-3xl font-bold sm:text-4xl"
               style={{ fontFamily: 'var(--font-heading)' }}
             >
               Dos planes, una sola plataforma
@@ -331,9 +375,9 @@ export default function ProductoPage() {
       </section>
 
       {/* ───────────────────────── FAQ ───────────────────────── */}
-      <section className="mx-auto max-w-3xl px-6 py-20 sm:py-24">
+      <section className="velvet mx-auto max-w-3xl px-6 py-20 sm:py-24">
         <h2
-          className="text-center text-3xl font-bold sm:text-4xl"
+          className="velvet-title text-center text-3xl font-bold sm:text-4xl"
           style={{ fontFamily: 'var(--font-heading)' }}
         >
           Preguntas frecuentes
@@ -350,7 +394,7 @@ export default function ProductoPage() {
       </section>
 
       {/* ───────────────────────── CTA final ───────────────────────── */}
-      <section className="bg-[var(--color-secondary)]">
+      <section className="velvet bg-[var(--color-secondary)]">
         <div data-reveal="up" className="mx-auto max-w-4xl px-6 py-20 text-center">
           <h2
             className="text-3xl font-bold text-white sm:text-4xl"

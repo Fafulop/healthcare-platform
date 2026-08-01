@@ -44,11 +44,25 @@ export interface CapabilityGroup {
   bullets: string[];
   features: Feature[];
   fullOnly?: boolean;
+  /**
+   * Color de la sección. Da identidad a cada bloque sin repintar la marca:
+   * tiñe el lavado del fondo y la pastilla del icono, NUNCA el texto (el ámbar
+   * y el cian no dan contraste suficiente sobre blanco).
+   *
+   * `wash1`/`wash2` son el MISMO color con alfa: el degradado radial necesita
+   * rgba, y precalcularlo aquí evita convertir hex→rgba en el render.
+   */
+  accent: string;
+  wash1: string;
+  wash2: string;
 }
 
 export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     id: 'agenda',
+    accent: '#3B82F6',
+    wash1: 'rgba(59,130,246,0.16)',
+    wash2: 'rgba(59,130,246,0.05)',
     eyebrow: 'Agenda',
     title: 'Tus citas, sin teléfono de por medio',
     lead: 'El paciente agenda solo desde tu perfil público, y tu agenda queda igual de ordenada aunque no estés frente a la computadora.',
@@ -73,6 +87,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   },
   {
     id: 'expediente',
+    accent: '#10B981',
+    wash1: 'rgba(16,185,129,0.15)',
+    wash2: 'rgba(16,185,129,0.05)',
     eyebrow: 'Clínico',
     title: 'El expediente del paciente, completo',
     lead: 'Historia clínica, notas y recetas en el mismo lugar donde vive la cita — no en tres cuadernos distintos.',
@@ -97,6 +114,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   },
   {
     id: 'asistente',
+    accent: '#8B5CF6',
+    wash1: 'rgba(139,92,246,0.16)',
+    wash2: 'rgba(139,92,246,0.05)',
     eyebrow: 'Asistente de IA',
     title: 'Pregúntale a tu consultorio',
     lead: '«¿Cómo va mi semana?», «¿cuánto llevo este mes?», «agéndame a Laura el martes». El asistente lee tus datos reales y prepara el trabajo; tú confirmas antes de que se ejecute nada.',
@@ -116,6 +136,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   },
   {
     id: 'dinero',
+    accent: '#F59E0B',
+    wash1: 'rgba(245,158,11,0.16)',
+    wash2: 'rgba(245,158,11,0.05)',
     eyebrow: 'Dinero',
     title: 'Saber cuánto entró y cuánto salió',
     lead: 'Ingresos y egresos de tu consultorio en un solo tablero, con el precio que ya viene de la agenda — sin capturar dos veces.',
@@ -144,6 +167,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   },
   {
     id: 'presencia',
+    accent: '#06B6D4',
+    wash1: 'rgba(6,182,212,0.16)',
+    wash2: 'rgba(6,182,212,0.05)',
     eyebrow: 'Presencia',
     title: 'Que te encuentren',
     lead: 'Un perfil público pensado para buscadores, con tu contenido y las opiniones de tus pacientes — y un botón de agendar que sí lleva a tu agenda.',
@@ -178,6 +204,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   },
   {
     id: 'fiscal',
+    accent: '#F59E0B',
+    wash1: 'rgba(245,158,11,0.18)',
+    wash2: 'rgba(245,158,11,0.06)',
     eyebrow: 'Administración fiscal',
     title: 'La parte que nadie quiere hacer',
     lead: 'Facturar, bajar lo del SAT y cuadrar el banco desde el mismo sistema donde ya viven tus citas y tus cobros.',
