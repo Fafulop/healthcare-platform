@@ -134,15 +134,22 @@ export function redactInput(input: Record<string, unknown> | null | undefined): 
  * — con eso se distingue en un vistazo el modo "solo fechas" del cálculo real,
  * y si el modelo ofreció un día que la tool nunca devolvió.
  */
-export function digestResult(result: unknown): Record<string, unknown> {
-  if (result == null) return { vacio: true };
-  if (typeof result !== 'object') return { escalar: tag(result) };
-  if (Array.isArray(result)) return { n: result.length };
+export function digestResult(
+  result: unknown,
+  /** Metadatos del recorte (run-turn). Van AQUÍ y no pegados afuera para que
+   * queden DENTRO del tope de tamaño de abajo — si no, el digest se pasa del
+   * límite que este archivo promete. */
+  extra?: Record<string, unknown>
+): Record<string, unknown> {
+  const conExtra = (o: Record<string, unknown>) => (extra ? { ...o, ...extra } : o);
+  if (result == null) return conExtra({ vacio: true });
+  if (typeof result !== 'object') return conExtra({ escalar: tag(result) });
+  if (Array.isArray(result)) return conExtra({ n: result.length });
 
   const entries = Object.entries(result as Record<string, unknown>);
   // `keys` va capado a 20 A PROPÓSITO: es lo único que sobrevive al corte por
   // tamaño de abajo, así que ese recorte es lo que acota el fallback.
-  const out: Record<string, unknown> = { keys: entries.map(([k]) => k).slice(0, 20) };
+  const out: Record<string, unknown> = { keys: entries.map(([k]) => k).slice(0, 20), ...(extra ?? {}) };
 
   for (const [k, v] of entries) {
     if (typeof v === 'number' || typeof v === 'boolean') {
@@ -175,7 +182,7 @@ export function digestResult(result: unknown): Record<string, unknown> {
   // Cinturón de seguridad: un resultado inesperadamente ancho no infla la fila.
   const json = JSON.stringify(out);
   if (json.length > MAX_DIGEST_CHARS) {
-    return { keys: out.keys, truncado: true, bytes: json.length };
+    return { keys: out.keys, truncado: true, bytes: json.length, ...(extra ?? {}) };
   }
   return out;
 }

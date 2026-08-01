@@ -93,14 +93,174 @@ const ALL_TOOLS_DEFERRED: AgentToolParam[] = withDeferredLoading(ALL_TOOLS);
 // each serialized payload so one busy day doesn't grow the loop cost superlinearly.
 const MAX_TOOL_RESULT_CHARS = 8_000;
 
-function serializeToolResult(result: unknown): string {
+/** ⚠️ CORTO A PROPÓSITO: este texto viaja DENTRO del payload recortado, así que
+ * cada carácter compite con las filas. Medido: un aviso de ~250 chars costaba una
+ * cita ENTERA en `get_billing_status` (obligaba a quitar 2 filas en vez de 1) y
+ * escondía el ingreso que necesita el eval `f2b-emision-camino-feliz` — el mismo
+ * hueco de capacidad que hundió la opción de "bajar el cap de filas". La
+ * explicación larga va en la descripción de la tool (prefijo cacheado, se paga
+ * una vez); aquí solo el marcador. */
+const AVISO_RECORTE = 'Lista recortada por tamaño — los totales son exactos; filtra si necesitas el resto.';
+
+/** Qué se recortó — se adjunta al digest de la traza (`agent_tool_calls`). */
+export type RecorteInfo = { campo: string; quitadas: number; mostradas: number } | { modo: 'caracteres' };
+
+export interface SerializedToolResult {
+  content: string;
+  /** null si el payload cupo entero. */
+  recorte: RecorteInfo | null;
+}
+
+/**
+ * Arreglos que NUNCA se recortan, aunque el conteo real quede registrado.
+ *
+ * La distinción es entre perder DETALLE y perder OPCIONES. Quitarle filas a una
+ * lista de citas pierde detalle: el modelo sigue sabiendo cuántas hay y puede
+ * pedir un filtro. Quitarle fechas u horarios a la disponibilidad le quita
+ * OPCIONES que el doctor sí tiene, y el agente termina ofreciendo menos de lo
+ * real — exactamente el fallo de la bitácora #32.
+ *
+ * (Los slots anidados de `horarios` ya quedan fuera por ser de segundo nivel;
+ * se listan igual para que la razón quede escrita junto a la regla.)
+ */
+const NO_RECORTABLES = new Set(['fechasDisponibles', 'horarios']);
+
+/**
+ * Campos hermanos que CUENTAN las filas entregadas y hay que bajar al recortar.
+ *
+ * Lista explícita (default-deny) en vez de "cualquier número que coincida con la
+ * longitud": esa heurística reescribiría en silencio un `limit: 50` que devolvió
+ * 50 filas, y el modelo reportaría un filtro que el doctor nunca pidió.
+ */
+const CONTADORES_DE_FILAS = new Set(['mostradas']);
+
+/**
+ * Serializa el resultado de una tool respetando el cap de tamaño.
+ *
+ * ⚠️ Antes esto cortaba el JSON **a media fila** (`json.slice(0, CAP)`) y lo metía
+ * como string en `parcial`. Dos consecuencias medidas el 2026-07-31:
+ *
+ *  1. **El cap no capaba**: al re-serializar, cada `"` se escapa a `\"`, así que
+ *     `get_bookings` emitía **9,367 B** y `get_billing_status` **9,129 B** — por
+ *     ENCIMA de los 8,000 que decía respetar.
+ *  2. **El modelo recibía una fila partida**. Ese es el mecanismo exacto del
+ *     incidente #31: cosió el `ledgerEntryId` de un ingreso con el importe de otro
+ *     y propuso timbrar un CFDI equivocado.
+ *
+ * Ahora se quitan ELEMENTOS COMPLETOS del final del arreglo más pesado hasta que
+ * quepa, así que el modelo siempre recibe JSON válido y filas íntegras.
+ *
+ * Dos guardas, ambas default-deny:
+ *  - **Solo arreglos de PRIMER NIVEL.** Excluye por construcción los slots
+ *    anidados de `get_availability.horarios` (un mapa fecha→slots).
+ *  - **Solo si el payload trae un `total*`.** Excluye `get_availability` entero
+ *    (`fechasDisponibles` no tiene total): recortarlo haría que el agente
+ *    reportara MENOS disponibilidad de la real.
+ *
+ * Si nada es recortable con seguridad, cae al corte por caracteres de antes: es
+ * feo, pero al menos grita `truncado: true` en vez de mentir en silencio.
+ */
+export function serializeToolResult(result: unknown): SerializedToolResult {
   const json = JSON.stringify(result);
-  if (json.length <= MAX_TOOL_RESULT_CHARS) return json;
-  return JSON.stringify({
-    truncado: true,
-    aviso: 'Resultado truncado por tamaño — pide un filtro más específico (fecha o paciente).',
-    parcial: json.slice(0, MAX_TOOL_RESULT_CHARS),
-  });
+  if (json.length <= MAX_TOOL_RESULT_CHARS) return { content: json, recorte: null };
+
+  const plano =
+    result && typeof result === 'object' && !Array.isArray(result)
+      ? (JSON.parse(json) as Record<string, unknown>)
+      : null;
+
+  if (plano) {
+    // El arreglo de primer nivel más pesado: quitarle filas es lo que más baja el tamaño.
+    let campo: string | null = null;
+    let mayor = 0;
+    for (const [k, v] of Object.entries(plano)) {
+      if (!Array.isArray(v) || v.length === 0 || NO_RECORTABLES.has(k)) continue;
+      const bytes = JSON.stringify(v).length;
+      if (bytes > mayor) {
+        mayor = bytes;
+        campo = k;
+      }
+    }
+
+    if (campo) {
+      const arr = plano[campo] as unknown[];
+      const original = arr.length;
+      const fuera: unknown[] = []; // filas quitadas, en orden, para poder devolverlas
+      const contadores = Object.keys(plano).filter(
+        (k) => k !== campo && CONTADORES_DE_FILAS.has(k) && typeof plano[k] === 'number'
+      );
+      // Notas en PROSA que citan el conteo viejo ("Solo las 10 citas más
+      // recientes de 44", facturas.ts). Tras recortar contradicen al payload, y
+      // el modelo tiende a citar la prosa antes que el campo numérico — así que
+      // se quitan: `recorte` dice lo mismo y con el número correcto.
+      const notasProsa = Object.keys(plano).filter(
+        (k) => /^nota/i.test(k) && typeof plano[k] === 'string'
+      );
+
+      const armar = () => {
+        for (const k of contadores) plano[k] = arr.length;
+        // `deUnTotalDe` es lo que hace seguro recortar SIN exigir un `total*` en
+        // el payload: el conteo real viaja siempre aquí. Sin él, tools calientes
+        // como get_day_schedule y find_patient —que no tienen `total*`— caían al
+        // corte por caracteres, o sea seguían con el bug entero.
+        const recorte = {
+          campo,
+          quitadas: original - arr.length,
+          mostradas: arr.length,
+          deUnTotalDe: original,
+        };
+        const cuerpo: Record<string, unknown> = {
+          ...plano,
+          truncado: true,
+          aviso: AVISO_RECORTE,
+          recorte,
+        };
+        for (const k of notasProsa) delete cuerpo[k];
+        return { recorte, out: JSON.stringify(cuerpo) };
+      };
+
+      // 1) Bajar rápido con una estimación (evita O(n²) en listas largas).
+      let r = armar();
+      for (let guard = 0; guard <= original && r.out.length > MAX_TOOL_RESULT_CHARS && arr.length > 0; guard++) {
+        const porElemento = Math.max(1, JSON.stringify(arr).length / arr.length);
+        const sobran = r.out.length - MAX_TOOL_RESULT_CHARS;
+        const n = Math.max(1, Math.min(arr.length, Math.ceil(sobran / porElemento)));
+        fuera.unshift(...arr.splice(-n));
+        r = armar();
+      }
+
+      // 2) Devolver filas si la estimación se pasó. La estimación usa el TAMAÑO
+      // PROMEDIO, así que con filas desiguales (una cola pesada) libera muchos
+      // más bytes de los que sobraban y tira capacidad de gratis — y cada fila
+      // perdida es una cita sobre la que el agente ya no puede actuar.
+      while (fuera.length > 0) {
+        arr.push(fuera[0]);
+        const t = armar();
+        if (t.out.length > MAX_TOOL_RESULT_CHARS) {
+          arr.pop();
+          break;
+        }
+        fuera.shift();
+        r = t;
+      }
+
+      // Cabe, o la lista quedó vacía y el sobrepeso es del envelope: en los dos
+      // casos vale más JSON VÁLIDO con el conteo honesto que un corte a media
+      // fila, que es lo único que sabía hacer la versión anterior.
+      if (r.out.length <= MAX_TOOL_RESULT_CHARS || arr.length === 0) {
+        return { content: r.out, recorte: r.recorte };
+      }
+    }
+  }
+
+  return {
+    content: JSON.stringify({
+      truncado: true,
+      aviso: 'Resultado truncado por tamaño — pide un filtro más específico (fecha o paciente).',
+      parcial: json.slice(0, MAX_TOOL_RESULT_CHARS),
+    }),
+    recorte: { modo: 'caracteres' },
+  };
 }
 
 function extractText(content: { type: string }[]): string {
@@ -401,13 +561,21 @@ export async function runAgendaAgentTurn({
             : isProposalToolName(tu.name)
               ? await dispatchProposalTool(proposalCtx, tu.name, tu.input)
               : await dispatchReadTool(ctx, tu.name, tu.input);
+        const serializado = serializeToolResult(result);
         toolTrace.push({
           ...traceBase,
-          digest: digestResult(result),
+          // El digest describe el resultado COMPLETO; si hubo recorte se anota
+          // aparte. Sin esto la traza diría `citas_n: 50` mientras el modelo vio
+          // 30, y el próximo diagnóstico culparía al modelo de un dato que nunca
+          // recibió — justo la trampa que esta tabla existe para evitar.
+          digest: digestResult(
+            result,
+            serializado.recorte ? { _recorte: serializado.recorte } : undefined
+          ),
           ok: true,
           durationMs: Date.now() - startedAt,
         });
-        results.push({ type: 'tool_result' as const, tool_use_id: tu.id, content: serializeToolResult(result) });
+        results.push({ type: 'tool_result' as const, tool_use_id: tu.id, content: serializado.content });
       } catch (err: any) {
         console.error(`[agenda-agent] tool ${tu.name} failed:`, err);
         // For $queryRaw failures Prisma reports code='P2010' with the driver
