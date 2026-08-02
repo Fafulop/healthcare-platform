@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { X, Ban, Loader2, Search, ShieldCheck, Trash2, ChevronLeft, ChevronRight, Calendar, Unlock, CheckSquare, Square } from "lucide-react";
 import { toast } from "@/lib/practice-toast";
 import { practiceConfirm } from "@/lib/practice-confirm";
-import { getLocalDateString } from "@/lib/dates";
+import { getClinicDateString } from "@/lib/dates";
 import { fetchAllBlockedTimes, type BlockedTime } from "../_hooks/useBlockedTimes";
 import { DAY_INITIALS as DAY_LABELS } from "../_lib/calendar-labels";
 
@@ -97,7 +97,7 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, docto
     if (isOpen) fetchAllBlocks();
   }, [isOpen, fetchAllBlocks]);
 
-  const today = getLocalDateString(new Date());
+  const today = getClinicDateString();
 
   // Calendar computation
   const year = currentMonth.getFullYear();

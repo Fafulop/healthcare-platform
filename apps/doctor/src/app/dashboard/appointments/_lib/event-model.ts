@@ -79,6 +79,22 @@ export const FREES_THE_SLOT = new Set(["CANCELLED", "COMPLETED", "NO_SHOW"]);
  */
 export const NO_WORKLOAD = new Set(["CANCELLED", "NO_SHOW"]);
 
+/**
+ * "¿Este estado se OCULTA del calendario?" — tercera pregunta, tercer conjunto.
+ *
+ * Una cita cancelada no ocurrió y no va a ocurrir: en la rejilla sólo tapaba un horario que
+ * en realidad está libre.
+ *
+ * ⚠️ **Dónde queda visible, con precisión.** En la tabla "Todas las Citas", pero SÓLO con el
+ * filtro de estado en *Todos los estados* o *Cancelada*. **NO** aparece en *Activas*, que
+ * conserva únicamente `PENDING`/`CONFIRMED`. Y como el estado de ENTRADA de la tabla es
+ * *Activas* + hoy, cancelar una cita de hoy la hace desaparecer de las DOS superficies a la
+ * vez: hay que abrir el desplegable de estados para volver a verla.
+ *
+ * `COMPLETED` y `NO_SHOW` **sí se dibujan** — son registro de lo que pasó ese día.
+ */
+export const HIDDEN_IN_CALENDAR = new Set(["CANCELLED"]);
+
 export interface StatusMeta {
   /** Fila compacta del panel de día. */
   chipBg: string;
@@ -156,6 +172,7 @@ export function buildDayEvents(
   const events: CalendarEvent[] = [];
 
   for (const b of bookings) {
+    if (HIDDEN_IN_CALENDAR.has(b.status)) continue;
     const resolved = resolveBookingTime(b);
     if (!resolved || resolved.date !== dateStr) continue;
     const startMin = timeToMin(resolved.startTime);

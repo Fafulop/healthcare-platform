@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Calendar, Clock, Info, Loader2, MapPin, AlertTriangle } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
-import { getLocalDateString } from "@/lib/dates";
+import { getClinicDateString } from "@/lib/dates";
 import type { ClinicLocation } from "../_hooks/useSlots";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -339,7 +339,7 @@ export function CreateSlotsModal({
                   type="date"
                   value={singleDate}
                   onChange={(e) => setSingleDate(e.target.value)}
-                  min={getLocalDateString(new Date())}
+                  min={getClinicDateString()}
                   className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm sm:text-base"
                   required
                 />
@@ -355,7 +355,7 @@ export function CreateSlotsModal({
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      min={getLocalDateString(new Date())}
+                      min={getClinicDateString()}
                       className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm sm:text-base"
                       required
                     />
@@ -368,7 +368,7 @@ export function CreateSlotsModal({
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      min={startDate || getLocalDateString(new Date())}
+                      min={startDate || getClinicDateString()}
                       className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-gray-400 focus:border-gray-400 text-sm sm:text-base"
                       required
                     />

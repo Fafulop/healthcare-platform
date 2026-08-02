@@ -5,7 +5,7 @@ import { CalendarOff, MapPin, Trash2 } from "lucide-react";
 import { getLocalDateString, getClinicDateString, getClinicMinutesOfDay } from "@/lib/dates";
 import {
   buildDayEvents, layoutDayEvents, computeFreeGaps,
-  minToTime, timeToMin, statusMeta, FREES_THE_SLOT,
+  minToTime, timeToMin, statusMeta,
   type TimedBooking, type PositionedEvent,
 } from "../../_lib/event-model";
 import { DAY_NAMES_SHORT } from "../../_lib/calendar-labels";
@@ -132,6 +132,63 @@ export function TimeGrid({
             })}
           </div>
 
+          {/* Franja de RANGOS — fuera de la rejilla a propósito.
+              Estos datos describen el DÍA, no un instante suyo, así que colocarlos dentro
+              de la rejilla obligaba a elegir entre taparse con las citas (estaban encima, a
+              z-20, justo sobre la cita de las 09:00 y no se leía) o quedar inalcanzables
+              debajo. Aquí no compiten con nada, se ven sin hover y funcionan en táctil. */}
+          {dayModels.some((d) => d.ranges.length > 0) && (
+            <div
+              className="grid border-b border-gray-100 bg-gray-50/50"
+              style={{ gridTemplateColumns: `3.5rem repeat(${days.length}, minmax(0, 1fr))` }}
+            >
+              <div className="py-1 pr-2 text-right text-[10px] uppercase tracking-wide text-gray-300">
+                Rangos
+              </div>
+              {dayModels.map((day) => (
+                <div key={`rs-${day.dateStr}`} className="flex flex-wrap gap-1 border-l border-gray-100 p-1">
+                  {day.ranges.map((r) => (
+                    <span
+                      key={r.id}
+                      title={`${r.startTime}–${r.endTime} · cada ${r.intervalMinutes} min${
+                        r.location ? ` · ${r.location.name}` : ""
+                      }`}
+                      className="flex max-w-full flex-wrap items-center gap-x-1 rounded border border-blue-200 bg-white px-1.5 py-0.5 text-[10px] text-blue-800"
+                    >
+                      <span className="whitespace-nowrap font-medium tabular-nums">
+                        {r.startTime}–{r.endTime}
+                      </span>
+                      {/* Intervalo y ubicación se ven SIEMPRE, también en Semana. Estuvieron
+                          sólo en el `title`, y un tooltip no existe en táctil: en una tablet
+                          no había forma de leerlos — que es exactamente el problema que este
+                          rework venía a resolver. En Semana se abrevian y envuelven de línea
+                          en vez de esconderse. */}
+                      <span className="whitespace-nowrap text-gray-500">
+                        {isWeek ? `${r.intervalMinutes} min` : `cada ${r.intervalMinutes} min`}
+                      </span>
+                      {r.location && (
+                        <span className="flex min-w-0 items-center gap-0.5 text-indigo-600">
+                          <MapPin className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">{r.location.name}</span>
+                        </span>
+                      )}
+                      {/* p-1.5 + icono de 14px ≈ 26px de área tocable: por encima del mínimo
+                          de 24px, que para una acción DESTRUCTIVA no es opcional. */}
+                      <button
+                        onClick={() => onDeleteRange(r.id)}
+                        title={`Eliminar rango ${r.startTime}–${r.endTime}`}
+                        aria-label={`Eliminar rango ${r.startTime}–${r.endTime}`}
+                        className="ml-auto rounded p-1.5 text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
           {isEmpty && (
             <div className="flex items-center justify-center gap-2 border-b border-gray-100 bg-gray-50/60 py-2 text-xs text-gray-400">
               <CalendarOff className="h-3.5 w-3.5" />
@@ -169,7 +226,6 @@ export function TimeGrid({
                 topFor={topFor}
                 heightFor={heightFor}
                 onBookInGap={onBookInGap}
-                onDeleteRange={onDeleteRange}
                 showNowLine={day.dateStr === todayStr}
                 nowTop={topFor(nowMin)}
                 nowVisible={nowMin >= startHour * 60 && nowMin <= endHour * 60}
@@ -184,7 +240,7 @@ export function TimeGrid({
 
 function DayColumn({
   day, hours, startHour, topFor, heightFor,
-  onBookInGap, onDeleteRange, showNowLine, nowTop, nowVisible,
+  onBookInGap, showNowLine, nowTop, nowVisible,
 }: {
   day: DayModel;
   hours: number[];
@@ -192,7 +248,8 @@ function DayColumn({
   topFor: (min: number) => number;
   heightFor: (from: number, to: number) => number;
   onBookInGap: (date: string, startTime: string) => void;
-  onDeleteRange: (rangeId: string) => void;
+  // Sin `onDeleteRange`: borrar un rango vive ahora en la franja "Rangos", fuera de la
+  // rejilla. Dejarlo aquí sugeriría que esta columna todavía puede borrar.
   showNowLine: boolean;
   nowTop: number;
   nowVisible: boolean;
@@ -221,39 +278,6 @@ function DayColumn({
           />
         );
       })}
-
-      {/* Controles del rango — SIEMPRE visibles y por encima de todo (z-20).
-          Antes se revelaban con `group-hover` sobre el fondo del rango, y eso no funcionaba:
-          los huecos (z-5) y las citas (z-10) son HERMANOS del fondo, no descendientes, así
-          que apuntarles daba `:hover` a la columna y nunca al rango. En escritorio el botón
-          casi nunca aparecía; en táctil no aparecía jamás pero seguía recibiendo el toque.
-          Como esta rejilla sustituyó al panel de día, era la ÚNICA forma de borrar un rango. */}
-      {day.ranges.map((r) => (
-        <div
-          key={`ctl-${r.id}`}
-          className="absolute right-1 z-20 flex items-center gap-1"
-          style={{ top: `${topFor(timeToMin(r.startTime)) + 2}px` }}
-        >
-          <span className="flex items-center gap-1 rounded bg-white/90 px-1 py-0.5 text-[10px] text-gray-600 shadow-sm">
-            {r.location && (
-              <span className="hidden items-center gap-0.5 text-indigo-600 sm:flex">
-                <MapPin className="h-2.5 w-2.5" />
-                {r.location.name}
-              </span>
-            )}
-            {/* `intervalMinutes` sólo se veía en el encabezado del panel de día; sin esto
-                el doctor no tenía dónde consultar el intervalo de un rango ya creado. */}
-            <span className="whitespace-nowrap">cada {r.intervalMinutes} min</span>
-          </span>
-          <button
-            onClick={() => onDeleteRange(r.id)}
-            title={`Eliminar rango ${r.startTime}–${r.endTime}`}
-            className="rounded bg-white/90 p-1 text-red-600 shadow-sm hover:bg-red-50"
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
-        </div>
-      ))}
 
       {/* Huecos libres — clic para agendar, igual que en el panel de día */}
       {day.gaps.map((gap) => (
@@ -299,12 +323,6 @@ function DayColumn({
 
         const meta = statusMeta(ev.status ?? "PENDING");
         const hasExtBlock = ev.blockEndMin > ev.endMin;
-        // Una cita cancelada/completada LIBERA su horario, así que `computeFreeGaps` emite
-        // un hueco agendable justo debajo de su bloque. Como el bloque va en z-10 y el hueco
-        // en z-5, el bloque se comía el clic: cancelar la cita de las 10:00 y querer
-        // reagendar ahí no hacía nada. Estos bloques son informativos y no tienen onClick,
-        // así que los dejamos pasar el clic. Cuesta su tooltip; vale más poder reagendar.
-        const freesTheSlot = FREES_THE_SLOT.has(ev.status ?? "");
         return (
           <div key={ev.id} className="contents">
             {/* Cola del bloqueo extendido: la consulta terminó pero la agenda sigue ocupada. */}
@@ -324,9 +342,17 @@ function DayColumn({
               title={`${minToTime(ev.startMin)}–${minToTime(ev.endMin)} · ${ev.label}${
                 ev.sublabel ? ` (${ev.sublabel})` : ""
               } · ${meta.label}`}
-              className={`absolute z-10 overflow-hidden rounded border-l-[3px] px-1.5 py-0.5 transition-colors ${meta.blockBg} ${meta.blockBorder} ${
-                freesTheSlot ? "pointer-events-none" : ""
-              }`}
+              // Los bloques conservan sus eventos de puntero, o sea su tooltip.
+              //
+              // Hubo un `pointer-events-none` para los estados que LIBERAN el horario: sin él,
+              // el bloque (z-10) se comía el clic del hueco (z-5) y no se podía reagendar
+              // encima de una cita cancelada. Ese caso desapareció al ocultar las canceladas
+              // del calendario; lo que quedaba cubierto eran `COMPLETED` y `NO_SHOW`, o sea
+              // prácticamente todo el pasado — y ahí el clic-para-agendar no vale nada (nadie
+              // agenda hacia atrás) mientras que el tooltip sí: en Semana las columnas miden
+              // ~110px, el nombre del paciente va truncado y el tooltip era la ÚNICA forma de
+              // leerlo. Se cambiaba información de uso diario por un clic que nadie hace.
+              className={`absolute z-10 overflow-hidden rounded border-l-[3px] px-1.5 py-0.5 transition-colors ${meta.blockBg} ${meta.blockBorder}`}
               style={style}
             >
               <div className={`text-[10px] font-semibold leading-tight truncate ${meta.blockText}`}>

@@ -116,11 +116,20 @@ export function useCalendar() {
   /**
    * `‹ ›` mueven el ancla Y la selección el mismo salto, para que el día resaltado viaje
    * con el periodo en vez de quedarse atrás fuera de la pantalla.
+   *
+   * Si aun así la selección cae FUERA de la ventana nueva, se reancla. Pasaba tras elegir un
+   * día de relleno: viendo agosto eliges el "26" de julio (sólo selección) y avanzas dos
+   * meses → ancla en octubre, selección en 26 de septiembre. La rejilla no mostraba ningún
+   * resaltado y pedir vista de Día —que se ancla en la selección— aterrizaba en un día que
+   * el doctor nunca vio.
    */
   const shift = useCallback((direction: 1 | -1) => {
-    setAnchorDate((current) => step(current, direction));
-    setSelectedDate((current) => step(current, direction));
-  }, [step]);
+    const nextAnchor = step(anchorDate, direction);
+    const nextSelected = step(selectedDate, direction);
+    const w = windowFor(nextAnchor, view);
+    setAnchorDate(nextAnchor);
+    setSelectedDate(nextSelected >= w.start && nextSelected <= w.end ? nextSelected : nextAnchor);
+  }, [step, anchorDate, selectedDate, view]);
 
   const goPrev = useCallback(() => shift(-1), [shift]);
   const goNext = useCallback(() => shift(1), [shift]);

@@ -52,10 +52,11 @@ día y "+N más"; Año son 12 mini-meses tintados por densidad.
    Arreglado con `getLocalDateString`, y `todayInClinicTz` ancla al mediodía por lo mismo.
 
 **Lo que se verificó y lo que NO.** `pnpm type-check` limpio, `pnpm build` del app doctor OK,
-los **5 gates** en verde, y **17 comprobaciones de la matemática** de `_lib/event-model.ts`
+los **5 gates** en verde, y las comprobaciones de la matemática de `_lib/event-model.ts`
 (traslapes → columnas, contiguas sin partir, `extendedBlockMinutes`, recorte de huecos,
 citas libres vs. con `slot`, paridad con el panel viejo en qué estados liberan un hueco).
-⚠️ **Nada de eso es la prueba a mano**: falta el clic. Sección **J** del guion (J-1…J-19).
+⚠️ **Nada de eso es la prueba a mano**: falta el clic. Sección **J** del guion (20 checks:
+J-1…J-19 más J-18b).
 
 **Fuera de alcance a propósito.** *Arrastrar para reagendar*: aquí reagendar no es mutar una
 fecha — `page.tsx` crea una cita NUEVA y hace PATCH a `CANCELLED` sobre la vieja, con efectos
@@ -117,11 +118,11 @@ diff sólo porque cierra hallazgos.
 
 | | Hallazgo | Arreglo |
 |---|---|---|
-| 1 | Cancelar una cita libera su horario y `computeFreeGaps` emitía el hueco — pero el bloque gris (z-10) se comía el clic del hueco (z-5), así que **no se podía reagendar ahí** | `pointer-events-none` en los bloques cuyo estado libera el horario (cuesta su tooltip) |
+| 1 | Una cita que libera su horario producía un hueco en `computeFreeGaps`, pero su bloque (z-10) se comía el clic del hueco (z-5), así que **no se podía reagendar ahí** | `pointer-events-none` en los bloques cuyo estado libera el horario (cuesta su tooltip). ⚠️ **Sigue siendo necesario** aunque después se ocultaran las canceladas: `COMPLETED` y `NO_SHOW` también liberan el horario y **sí se dibujan** |
 | 2 | El aviso al clicar un hueco prometía "Agendar cita: {fecha} a las {hora}" y el modal **no recibe ninguna de las dos** → agendar en el horario equivocado creyendo que venía puesto | El texto ya no promete lo que no entrega. El watch-item de pasarlas de verdad **sigue abierto** |
 | 3 | El corte por `enabled` iba **antes** de `++lastRequestId`, así que apagar el hook (Mes→Año) **no invalidaba** la petición en vuelo — justo el caso que el guard nuevo debía cubrir | El id se incrementa antes del corte |
 | 4 | `nowInClinicTz` parseaba `"YYYY-MM-DD HH:mm:ss"` (con espacio), formato que ECMA-262 no obliga a aceptar. Siendo la raíz de todo "hoy"/"ahora", un `Invalid Date` habría dejado la rejilla en blanco **sin un error en consola** | `.replace(' ', 'T')` → fecha-hora ISO local, que la norma sí define |
-| 5 | El README decía "13 checks" cuando la sección J ya tenía 17, y J-14…J-17 estaban listados **antes** de J-12/J-13 | Renumerado y en orden; J llega a **19** con los dos checks nuevos |
+| 5 | El README decía "13 checks" cuando la sección J ya tenía 17, y J-14…J-17 estaban listados **antes** de J-12/J-13 | Renumerado y en orden (J-1…J-19 más J-18b = **20**) |
 
 **Confirmado limpio por el review** (para no re-auditarlo): la paridad de `computeFreeGaps`
 con el panel viejo · los límites de `visibleDays` (1/7/35-42/`[]`) · que la memoización por
@@ -130,10 +131,43 @@ contra el `gte`/`lte` del API · que `inMonth` no colisiona en dic/ene · que el
 recalcula con el tick de 60s y la columna de "hoy" cambia sola a medianoche · y el reparto
 en columnas de `layoutDayEvents`.
 
+### Ajustes tras la primera prueba sobre el deploy
+
+**La franja "Rangos" salió de la rejilla.** El chip con ubicación · intervalo · 🗑 se había
+puesto SIEMPRE visible a z-20 para arreglar que fuera inalcanzable — y quedó justo encima de
+la cita de las 09:00, tapando su contenido. Se cambió un solape por otro. La corrección de
+fondo es de **altitud**: esos datos describen el DÍA, no un instante suyo, así que ahora
+viven en una franja bajo los encabezados, donde no compiten con nada. En Semana se abrevian
+(el detalle NO se esconde en el `title`: un tooltip no existe en táctil, que es justamente lo
+que este rework venía a resolver). Botón de borrar a ~26px, por encima del mínimo táctil.
+
+**Las canceladas ya no se dibujan en el calendario.** Una cita cancelada no ocurrió y no va a
+ocurrir; en la rejilla sólo tapaba un horario libre. `HIDDEN_IN_CALENDAR` — **tercer**
+conjunto con nombre propio, junto a `FREES_THE_SLOT` y `NO_WORKLOAD`: tres preguntas
+distintas, tres conjuntos, ninguno reusado para responder otra. `COMPLETED` y `NO_SHOW`
+**sí se siguen dibujando**: son registro de lo que pasó. Nada se pierde — la tabla las sigue
+listando con el filtro *Todas*. Efecto colateral bueno: al reagendar, la vieja (que el flujo
+pasa a `CANCELLED`) desaparece sola y sólo queda la nueva.
+
+⚠️ **Deriva de doc que esto provocó:** J-18 decía "el bloque gris de la cancelada no debe
+comerse el clic". Ese bloque ya no existe, así que el check **pasaría trivialmente sin probar
+nada**. Se partió en J-18 (la cancelada desaparece) y **J-18b**, que usa una **COMPLETADA**
+—la que sí se dibuja encima de un hueco libre— para ejercitar de verdad el `pointer-events`.
+
 **Gates tras los arreglos.** `type-check` limpio · `build` OK (2 warnings preexistentes de
-Prisma/middleware) · los 5 gates verdes · **24 comprobaciones** de `_lib/event-model.ts`
-(17 previas + 7 de los dos predicados). Sigue faltando la prueba a mano: sección **J**,
-ahora **19 checks**.
+Prisma/middleware) · los 5 gates verdes · y las comprobaciones de `_lib/event-model.ts`:
+
+```bash
+cd apps/doctor && npx tsx scripts/event-model-check.ts
+```
+
+⚠️ Esas comprobaciones **vivían en un scratchpad**, así que los "17/24/28 checks" que
+citaron las versiones anteriores de este doc no eran verificables por nadie más y no podían
+fallar en una regresión — un número que sólo existe en la prosa. Ahora están versionadas en
+`apps/doctor/scripts/event-model-check.ts`, junto a los demás `*-check.ts`/`*-smoke.ts`, y
+`event-model.ts` lo merece: es la matemática que comparten las TRES vistas.
+
+Sigue faltando la prueba a mano: sección **J**, ahora **20 checks**.
 
 ### Estado anterior — en una frase
 

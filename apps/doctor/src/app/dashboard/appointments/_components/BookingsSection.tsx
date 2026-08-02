@@ -7,10 +7,11 @@ import { FormularioStatusButton } from "./FormularioStatusButton";
 import { FiscalFormButton } from "./FiscalFormButton";
 import { PaymentLinkButton } from "@/components/payments/PaymentLinkButton";
 import { CompleteBookingModal } from "./CompleteBookingModal";
-import { formatLocalDate, getLocalDateString } from "@/lib/dates";
+import { formatLocalDate } from "@/lib/dates";
 import { waNumber } from "@/lib/whatsapp";
 import { resolverContacto, telefonoWhatsApp } from "@/lib/booking-contact";
 import { BookingStatusBadge } from "./BookingStatusBadge";
+import { defaultBookingFilterDate } from "../_hooks/useBookings";
 import type { Booking, SortColumn, SortDirection } from "../_hooks/useBookings";
 
 interface Props {
@@ -198,11 +199,17 @@ export function BookingsSection({
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
-              {/* Limpia SOLO la fecha. Antes también reseteaba estado y paciente,
+              {/* Toca SOLO la fecha. Antes también reseteaba estado y paciente,
                   pero con "Activas"/"Completada" al lado eso rompería la consulta
-                  más útil: completadas + todas las fechas. */}
+                  más útil: completadas + todas las fechas.
+                  Es un INTERRUPTOR: ya se pintaba como activo (`aria-pressed`) pero no
+                  tenía vuelta — apagarlo devuelve la tabla al día de HOY, que es el estado
+                  con el que se entra a la página. */}
               <button
-                onClick={() => setBookingFilterDate("")}
+                onClick={() =>
+                  setBookingFilterDate(bookingFilterDate ? "" : defaultBookingFilterDate())
+                }
+                title={bookingFilterDate ? "Ver todas las fechas" : "Volver a hoy"}
                 aria-pressed={!bookingFilterDate}
                 className={`text-sm font-medium px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${
                   !bookingFilterDate
@@ -263,10 +270,10 @@ export function BookingsSection({
                 <option value="CANCELLED">Cancelada</option>
               </select>
             </div>
-            {(bookingFilterDate !== getLocalDateString(new Date()) || bookingFilterPatient || bookingFilterStatus !== "ACTIVE") && (
+            {(bookingFilterDate !== defaultBookingFilterDate() || bookingFilterPatient || bookingFilterStatus !== "ACTIVE") && (
               <button
                 onClick={() => {
-                  setBookingFilterDate(getLocalDateString(new Date()));
+                  setBookingFilterDate(defaultBookingFilterDate());
                   setBookingFilterPatient("");
                   setBookingFilterStatus("ACTIVE");
                 }}

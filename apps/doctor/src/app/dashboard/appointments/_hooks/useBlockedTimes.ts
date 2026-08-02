@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
-import { getLocalDateString } from "@/lib/dates";
+import { getLocalDateString, getClinicDateString } from "@/lib/dates";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -19,7 +19,7 @@ export interface BlockedTime {
  * selected month and would hide blocks from other months.
  */
 export async function fetchAllBlockedTimes(doctorId: string): Promise<BlockedTime[]> {
-  const startDate = new Date(getLocalDateString(new Date()) + "T00:00:00Z").toISOString();
+  const startDate = new Date(getClinicDateString() + "T00:00:00Z").toISOString();
   const response = await authFetch(
     `${API_URL}/api/appointments/ranges/block?doctorId=${doctorId}&startDate=${startDate}`
   );
@@ -29,13 +29,13 @@ export async function fetchAllBlockedTimes(doctorId: string): Promise<BlockedTim
 }
 
 /**
- * @param window Ventana VISIBLE a traer. Ver la nota de `useRanges`: derivarla del mes
+ * @param visibleWindow Ventana VISIBLE a traer. Ver la nota de `useRanges`: derivarla del mes
  *   partía en dos las semanas a caballo entre dos meses.
  * @param selectedDate Día cuyos bloqueos se exponen en `blockedTimesForSelectedDate`.
  */
 export function useBlockedTimes(
   doctorId: string | undefined,
-  window: { start: Date; end: Date },
+  visibleWindow: { start: Date; end: Date },
   selectedDate: Date,
   /** `false` evita la petición cuando la vista no dibuja bloqueos (año). */
   enabled: boolean = true,
@@ -47,17 +47,15 @@ export function useBlockedTimes(
   const lastRequestId = useRef(0);
 
   // Ver `useRanges`: se compara por string para no re-traer en cada render.
-  const startKey = getLocalDateString(window.start);
-  const endKey = getLocalDateString(window.end);
+  const startKey = getLocalDateString(visibleWindow.start);
+  const endKey = getLocalDateString(visibleWindow.end);
 
   const fetchBlockedTimes = useCallback(async () => {
     if (!doctorId) return;
 
-    // ANTES del corte por `enabled` — ver la nota extensa en `useRanges`: apagar el hook
-    // también debe invalidar la petición que ya está en vuelo.
+    // Invalida lo que esté en vuelo: la respuesta tardía de una ventana vieja no debe pisar
+    // a la nueva.
     const requestId = ++lastRequestId.current;
-
-    if (!enabled) { setLoading(false); return; }
 
     if (!hasLoadedOnce.current) setLoading(true);
     try {
@@ -82,9 +80,14 @@ export function useBlockedTimes(
         setLoading(false);
       }
     }
-  }, [doctorId, enabled, startKey, endKey]);
+  }, [doctorId, startKey, endKey]);
 
-  useEffect(() => { fetchBlockedTimes(); }, [fetchBlockedTimes]);
+  // Ver `useRanges`: `enabled` corta la carga AUTOMÁTICA, no las llamadas explícitas
+  // (bloquear/desbloquear, "Refrescar", el agente) que sí deben funcionar en cualquier vista.
+  useEffect(() => {
+    if (enabled) fetchBlockedTimes();
+    else setLoading(false);
+  }, [fetchBlockedTimes, enabled]);
 
   const blockTime = async (
     startDate: string,

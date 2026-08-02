@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { X, Loader2, ChevronRight } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
-import { getLocalDateString, formatLocalDate } from "@/lib/dates";
+import { getLocalDateString, getClinicDateString, formatLocalDate } from "@/lib/dates";
 import type { AppointmentSlot, ClinicLocation } from "../../_hooks/useSlots";
 import type { Booking } from "../../_hooks/useBookings";
 import { SlotPickerStep } from "./SlotPickerStep";
@@ -33,7 +33,7 @@ function calcEndTime(startTime: string, duration: number): string {
 }
 
 function todayStr(): string {
-  return getLocalDateString(new Date());
+  return getClinicDateString();
 }
 
 type Step = "slot" | "form" | "success";

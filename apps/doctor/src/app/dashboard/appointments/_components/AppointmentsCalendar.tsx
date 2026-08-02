@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { getLocalDateString } from "@/lib/dates";
+import { getLocalDateString, getClinicDateString } from "@/lib/dates";
 import { MONTH_NAMES, DAY_NAMES_SHORT as DAY_NAMES } from "../_lib/calendar-labels";
 
 interface Props {
@@ -20,7 +20,7 @@ export function AppointmentsCalendar({
   datesWithSlots,
 }: Props) {
   const selectedDateStr = getLocalDateString(selectedDate);
-  const todayStr = getLocalDateString(new Date());
+  const todayStr = getClinicDateString();
 
   const prevMonth = () => {
     const d = new Date(selectedDate);

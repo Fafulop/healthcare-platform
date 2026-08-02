@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { practiceConfirm } from "@/lib/practice-confirm";
-import { getLocalDateString } from "@/lib/dates";
+import { getLocalDateString, getClinicDateString, parseLocalDate } from "@/lib/dates";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -104,10 +104,33 @@ export interface Booking {
   } | null;
 }
 
+/**
+ * La fecha con la que ENTRA la tabla: HOY.
+ *
+ * Tres sitios la necesitan —el estado inicial, el regreso del interruptor "Todas las fechas"
+ * y la referencia de "¿hay filtros puestos?" que decide si se ofrece *Limpiar*— y comparten
+ * esta función para no calcular "hoy" cada uno por su cuenta.
+ *
+ * ⚠️ Lo que garantiza es la DEFINICIÓN compartida, no un valor congelado: se recalcula en
+ * cada llamada. Con la página abierta cruzando la medianoche, el filtro guardado sigue en
+ * ayer mientras esto ya devuelve hoy, así que aparece *Limpiar* sin que nadie tocara nada y
+ * apagar el interruptor lleva a HOY, no al día que estaba en pantalla. Es deliberado: el
+ * botón devuelve al estado con el que se ENTRARÍA ahora, no al del momento en que se abrió
+ * la pestaña.
+ *
+ * "Hoy" es el de la CLÍNICA, no el del navegador: el veredicto de vencida ya se calculaba
+ * en hora de México (ver `nowLocal` más abajo) y el calendario también, así que dejar este
+ * en hora del navegador hacía que la tabla se abriera en un día distinto al que la rejilla
+ * marcaba como hoy para quien no esté en el huso de México.
+ */
+export function defaultBookingFilterDate(): string {
+  return getClinicDateString();
+}
+
 export function useBookings(doctorId: string | undefined) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsCollapsed, setBookingsCollapsed] = useState(false);
-  const [bookingFilterDate, setBookingFilterDate] = useState<string>(() => getLocalDateString(new Date()));
+  const [bookingFilterDate, setBookingFilterDate] = useState<string>(defaultBookingFilterDate);
   const [bookingFilterPatient, setBookingFilterPatient] = useState<string>("");
   const [bookingFilterStatus, setBookingFilterStatus] = useState<string>("ACTIVE");
   const [sortColumn, setSortColumn] = useState<SortColumn>("status");
@@ -365,9 +388,11 @@ export function useBookings(doctorId: string | undefined) {
   };
 
   const shiftBookingFilterDate = (days: number) => {
+    // Sin fecha puesta ("Todas las fechas"), `‹ ›` arrancan desde HOY — el de la clínica,
+    // para que el primer paso caiga en el mismo día que muestra el calendario.
     const base = bookingFilterDate
       ? new Date(bookingFilterDate + "T00:00:00")
-      : new Date();
+      : parseLocalDate(getClinicDateString());
     base.setDate(base.getDate() + days);
     setBookingFilterDate(getLocalDateString(base));
   };

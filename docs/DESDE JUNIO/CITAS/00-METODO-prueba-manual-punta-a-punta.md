@@ -204,8 +204,9 @@ si algo de las secciones A–I falla, no es de aquí.
       bloqueo, y ese tramo **no** se ofrece como hueco libre.
 - [ ] **J-8.** Clic en un hueco libre abre Agendar (mismo comportamiento que el panel viejo).
       Los huecos < 15 min no se ofrecen.
-- [ ] **J-9.** El bote de basura del fondo azul del rango **borra ese rango** (confirmación
-      incluida) y la vista se refresca.
+- [ ] **J-9.** El bote de basura del chip en la franja **"Rangos"** (bajo los encabezados de
+      día, NO dentro de la rejilla) **borra ese rango** (confirmación incluida) y la vista se
+      refresca.
 - [ ] **J-10.** Mes: máximo 3 citas por día y **"+N más"** baja a la vista de día. Los días
       de relleno del mes anterior/siguiente se ven atenuados **pero con sus citas**.
 - [ ] **J-11.** Año: el tinte de densidad ignora **canceladas y no-asistió** pero **SÍ cuenta
@@ -215,9 +216,11 @@ si algo de las secciones A–I falla, no es de aquí.
       horizontal y no deforma la página.
 - [ ] **J-13.** Tras una escritura del **agente** (crear/cancelar cita), la vista se refresca
       sola — cuelga de los mismos hooks que el `subscribeAgendaChanged` de la página.
-- [ ] **J-14.** El chip del rango (ubicación · **cada N min** · 🗑) se ve **sin pasar el
-      cursor**, también sobre una cita y sobre un hueco, y **en táctil**. Borrar pide
-      confirmación. Es la única forma de borrar un rango en la página.
+- [ ] **J-14.** El chip del rango (`09:00–13:00` · **cada N min** · ubicación · 🗑) vive en la
+      franja **"Rangos"**, entre los encabezados de día y la rejilla — **fuera** de ella, así
+      que nunca se monta sobre una cita. Se ve **sin pasar el cursor** y **en táctil**. En
+      Semana se abrevia pero el intervalo **sigue visible** (no sólo en el tooltip). Es la
+      única forma de borrar un rango en la página.
 - [ ] **J-15.** En Mes, clic en un día de **relleno** (el "26" gris de julio viendo agosto):
       lo resalta **sin** cambiar la rejilla a julio ni recargar. Cambiar a vista Día después
       sí muestra el 26 de julio.
@@ -225,8 +228,14 @@ si algo de las secciones A–I falla, no es de aquí.
       corresponde al periodo del rótulo, no a uno anterior que contestó tarde. Repetir
       pasando de Mes a **Año** a media carga.
 - [ ] **J-17.** Un día/semana sin nada muestra "Sin disponibilidad este día/esta semana".
-- [ ] **J-18.** **Cancela** una cita y haz clic en el horario que dejó libre: abre Agendar.
-      El bloque gris de la cancelada no debe comerse el clic.
+- [ ] **J-18.** **Cancela** una cita: su bloque **desaparece** del calendario (Día, Semana y
+      Mes) y el horario queda como hueco libre. Clic ahí → abre Agendar. La cita sigue
+      listada en la tabla "Todas las Citas" con el filtro **Todas**.
+- [ ] **J-18b.** Marca una cita como **COMPLETADA**: **sigue dibujándose** (es registro de lo
+      que pasó) y al pasar el cursor **muestra su tooltip** con paciente, hora y servicio.
+      Comprobarlo en **Semana**, donde el nombre va truncado y el tooltip es la única forma
+      de leerlo. Su bloque **sí** se queda el clic — es a propósito: no se agenda hacia atrás
+      y el tooltip vale más.
 - [ ] **J-19.** Al hacer clic en un hueco, el aviso **no** promete fecha ni hora — el modal
       no las precarga (watch-item abierto).
 

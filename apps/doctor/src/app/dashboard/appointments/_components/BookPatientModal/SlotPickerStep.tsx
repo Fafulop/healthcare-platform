@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar, Clock, Loader2, Stethoscope, MapPin, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
-import { formatLocalDate } from "@/lib/dates";
+import { formatLocalDate, getClinicDateString } from "@/lib/dates";
 import type { AppointmentSlot } from "../../_hooks/useSlots";
 import type { ClinicLocation } from "../../_hooks/useSlots";
 
@@ -11,9 +11,20 @@ function calcEndTime(startTime: string, duration: number): string {
   return `${String(Math.floor(endMins / 60)).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
 }
 
+/**
+ * HOY en hora de la CLÍNICA.
+ *
+ * ⚠️ Tiene que ser la MISMA definición que el `todayStr` de `index.tsx`, que precarga
+ * `newSlotForm.date`: este valor alimenta el `min` del input y el cálculo de `isPast`. Si
+ * uno usa hora de México y el otro la del navegador, para alguien adelantado respecto a
+ * CDMX (España a la 01:00 = 17:00 del día anterior en México) la fecha precargada queda por
+ * DEBAJO del `min` y el navegador marca el campo inválido: no se puede crear el horario.
+ *
+ * Escribía el formato a mano en vez de usar `getLocalDateString`, y por eso no apareció en
+ * el barrido que convirtió al resto.
+ */
 function todayStr(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return getClinicDateString();
 }
 
 import { MONTH_NAMES, DAY_NAMES_SHORT as DAY_LABELS } from "../../_lib/calendar-labels";

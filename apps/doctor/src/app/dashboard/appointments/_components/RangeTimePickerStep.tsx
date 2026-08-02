@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Calendar, Clock, ChevronLeft, ChevronRight, Loader2, MapPin } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
-import { getLocalDateString } from "@/lib/dates";
+import { getClinicDateString } from "@/lib/dates";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -137,7 +137,7 @@ export function RangeTimePickerStep({
     return days;
   }, [startDayOfWeek, daysInMonth]);
 
-  const today = getLocalDateString(new Date());
+  const today = getClinicDateString();
   const selectedDateSlots = selectedDate ? timeSlots[selectedDate] || [] : [];
   const selectedService = services.find((s) => s.id === selectedServiceId);
 

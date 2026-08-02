@@ -17,7 +17,7 @@ export interface AvailabilityRange {
 }
 
 /**
- * @param window Ventana VISIBLE a traer. Antes se derivaba del mes de `selectedDate`, lo que
+ * @param visibleWindow Ventana VISIBLE a traer. Antes se derivaba del mes de `selectedDate`, lo que
  *   dejaba media semana vacía cuando una semana cruza dos meses (p. ej. 29 jul – 4 ago) y
  *   hacía imposible la vista de año. El API ya aceptaba `startDate`/`endDate` arbitrarios.
  *   Usá `monthWindowFor(fecha)` de `useCalendar` para el comportamiento mensual de antes.
@@ -25,7 +25,7 @@ export interface AvailabilityRange {
  */
 export function useRanges(
   doctorId: string | undefined,
-  window: { start: Date; end: Date },
+  visibleWindow: { start: Date; end: Date },
   selectedDate: Date,
   /** `false` evita la petición cuando la vista no dibuja rangos (año). Ver `page.tsx`. */
   enabled: boolean = true,
@@ -38,8 +38,8 @@ export function useRanges(
 
   // Los `Date` son objetos nuevos en cada render del padre; sin esto el `useCallback` se
   // invalidaría siempre y el `useEffect` traería datos en bucle infinito.
-  const startKey = getLocalDateString(window.start);
-  const endKey = getLocalDateString(window.end);
+  const startKey = getLocalDateString(visibleWindow.start);
+  const endKey = getLocalDateString(visibleWindow.end);
 
   const fetchRanges = useCallback(async () => {
     if (!doctorId) return;
@@ -48,15 +48,7 @@ export function useRanges(
     // ventana vieja que llegue tarde pisa a la nueva, y como `hasLoadedOnce` ya apagó el
     // spinner no había ninguna señal de que lo pintado no correspondía al periodo en
     // pantalla — ni nada que lo corrigiera después.
-    //
-    // Va ANTES del corte por `enabled`: apagar el hook también tiene que invalidar lo que ya
-    // está en vuelo. Si no, pasar de Mes a Año dejaba viva la petición del mes y su respuesta
-    // tardía se escribía igual sobre `ranges`.
     const requestId = ++lastRequestId.current;
-
-    // Sin esto, entrar directo a una vista deshabilitada dejaría `loading` en `true` para
-    // siempre y `page.tsx` se quedaría en el spinner (su gate cuelga de `rangesHook.loading`).
-    if (!enabled) { setLoading(false); return; }
 
     if (!hasLoadedOnce.current) setLoading(true);
     try {
@@ -82,9 +74,23 @@ export function useRanges(
         setLoading(false);
       }
     }
-  }, [doctorId, enabled, startKey, endKey]);
+  }, [doctorId, startKey, endKey]);
 
-  useEffect(() => { fetchRanges(); }, [fetchRanges]);
+  /**
+   * `enabled` corta la carga AUTOMÁTICA, no la función.
+   *
+   * Estaba dentro de `fetchRanges`, y eso silenciaba también las llamadas EXPLÍCITAS: crear
+   * un rango, purgar, "Refrescar" o una escritura del agente estando en vista de Año no
+   * refrescaban nada y no avisaban — los datos sólo reaparecían al cambiar de vista. Ahora
+   * lo que se evita es la petición de 365 días por navegar, que era el objetivo; una acción
+   * deliberada del usuario siempre se atiende.
+   */
+  useEffect(() => {
+    if (enabled) fetchRanges();
+    // `loading` arranca en `true` y `page.tsx` cuelga su spinner de él: si nunca se carga,
+    // hay que apagarlo a mano.
+    else setLoading(false);
+  }, [fetchRanges, enabled]);
 
   const deleteRange = async (rangeId: string) => {
     if (!await practiceConfirm("¿Estás seguro de que quieres eliminar este rango de disponibilidad?")) return;
