@@ -13,6 +13,7 @@
 
 | Doc | Tipo | Qué es |
 |---|---|---|
+| [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | ESTADO | **Empieza aquí.** Dónde quedó todo, qué falta probar y qué sigue |
 | [`00-METODO-prueba-manual-punta-a-punta.md`](00-METODO-prueba-manual-punta-a-punta.md) | REFERENCIA | El guion de la prueba a mano de cada flujo de una cita |
 
 ## En una frase
