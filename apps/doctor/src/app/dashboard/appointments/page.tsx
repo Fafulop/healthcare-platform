@@ -12,8 +12,7 @@ import { useCalendar } from "./_hooks/useCalendar";
 import { useRanges } from "./_hooks/useRanges";
 import { useBookings } from "./_hooks/useBookings";
 import { useBlockedTimes } from "./_hooks/useBlockedTimes";
-import { AppointmentsCalendar } from "./_components/AppointmentsCalendar";
-import { DayTimelinePanel } from "./_components/DayTimelinePanel";
+import { CalendarShell } from "./_components/calendar/CalendarShell";
 import { CreateRangeModal } from "./_components/CreateRangeModal";
 import { BookPatientModal } from "./_components/BookPatientModal";
 import { BookingsSection } from "./_components/BookingsSection";
@@ -43,9 +42,15 @@ export default function AppointmentsPage() {
 
   // Hooks
   const calendar = useCalendar();
-  const rangesHook = useRanges(doctorId, calendar.selectedDate);
+  // Los rangos y bloqueos se traen por la ventana VISIBLE (no por mes): una semana a
+  // caballo entre dos meses necesita los dos, y la vista de año necesita los doce.
+  // Las citas NO se ventanean: `useBookings` ya trae todas y de ahí come la tabla.
+  // La vista de AÑO sólo dibuja citas: pedir rangos y bloqueos de 365 días sería traer
+  // datos que ningún componente lee (los endpoints no tienen `take`).
+  const needsRanges = calendar.view !== "year";
+  const rangesHook = useRanges(doctorId, calendar.visibleWindow, calendar.selectedDate, needsRanges);
   const bookingsHook = useBookings(doctorId);
-  const blockedTimesHook = useBlockedTimes(doctorId, calendar.selectedDate);
+  const blockedTimesHook = useBlockedTimes(doctorId, calendar.visibleWindow, calendar.selectedDate, needsRanges);
 
   // Clinic locations (fetched independently since we don't use useSlots)
   const [clinicLocations, setClinicLocations] = useState<ClinicLocation[]>([]);
@@ -152,8 +157,13 @@ export default function AppointmentsPage() {
     setBookPatientModalOpen(true);
   }, []);
 
-  const handleBookInGap = (date: string, startTime: string) => {
-    toast.success(`Agendar cita: ${date} a las ${startTime}`);
+  // ⚠️ El modal NO recibe fecha ni hora — `BookPatientModal` no tiene props para
+  // precargarlas (sólo `preSelectedSlot`/`rescheduleBooking`). El aviso decía "Agendar cita:
+  // {fecha} a las {hora}" y el doctor podía creer que ya venían puestas y agendar en el
+  // horario equivocado. Mientras no se pasen de verdad, el texto no las promete.
+  // Pasarlas de verdad = watch-item en `docs/DESDE JUNIO/CITAS/README.md`.
+  const handleBookInGap = (_date: string, _startTime: string) => {
+    toast.success("Elige el horario en el formulario para agendar la cita");
     setBookPatientModalOpen(true);
   };
 
@@ -396,31 +406,25 @@ export default function AppointmentsPage() {
         onReschedule={handleReschedule}
       />
 
-      {/* Calendar + Timeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {/* Calendar */}
-        <div className="lg:order-2">
-          <AppointmentsCalendar
-            selectedDate={calendar.selectedDate}
-            onSelectDate={calendar.setSelectedDate}
-            calendarDays={calendar.calendarDays}
-            year={calendar.year}
-            month={calendar.month}
-            datesWithSlots={rangesHook.datesWithRanges}
-          />
-        </div>
-
-        {/* Day timeline panel */}
-        <div className="lg:order-1">
-          <DayTimelinePanel
-            selectedDate={calendar.selectedDate}
-            ranges={rangesHook.rangesForSelectedDate}
-            bookings={bookingsHook.bookings as any}
-            blockedTimes={blockedTimesHook.blockedTimesForSelectedDate}
-            onDeleteRange={rangesHook.deleteRange}
-            onBookInGap={handleBookInGap}
-          />
-        </div>
+      {/* Calendario — Día · Semana · Mes · Año */}
+      <div className="mt-6">
+        <CalendarShell
+          view={calendar.view}
+          onChangeView={calendar.setView}
+          anchorDate={calendar.anchorDate}
+          selectedDate={calendar.selectedDate}
+          onSelectDay={calendar.selectDay}
+          onDrillDownTo={calendar.drillDownTo}
+          visibleDays={calendar.visibleDays}
+          onPrev={calendar.goPrev}
+          onNext={calendar.goNext}
+          onToday={calendar.goToday}
+          ranges={rangesHook.ranges}
+          bookings={bookingsHook.bookings}
+          blockedTimes={blockedTimesHook.blockedTimes}
+          onBookInGap={handleBookInGap}
+          onDeleteRange={rangesHook.deleteRange}
+        />
       </div>
 
       {/* Modals */}

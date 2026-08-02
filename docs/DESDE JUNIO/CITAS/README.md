@@ -17,6 +17,126 @@
 
 ## En una frase
 
+El **calendario Día · Semana · Mes · Año** (2026-08-02) reemplaza el mini-calendario + panel
+de día; la tabla "Todas las Citas" no se tocó. **Escrito y compilado, NO probado a mano** —
+le corresponde la sección **J** del guion. Sigue faltando la prueba punta a punta de A–I.
+
+## Bitácora de la sesión 2026-08-02 — calendario tipo Google
+
+**Qué se ve.** Selector de 4 vistas + `Hoy` + `‹ ›`. Día y Semana son una **rejilla de horas
+real** (bloques posicionados por minuto, no una lista): los rangos de disponibilidad son el
+fondo azul, las citas bloques por estado, los bloqueos un rayado naranja, los huecos libres
+zonas clicables que abren Agendar, y hay línea roja de "ahora". Mes lleva hasta 3 citas por
+día y "+N más"; Año son 12 mini-meses tintados por densidad.
+
+**Tres cosas que no eran evidentes y decidieron el diseño:**
+
+1. **La ventana de datos era MENSUAL y eso rompía la semana.** `useRanges` y `useBlockedTimes`
+   derivaban `startDate`/`endDate` del mes de `selectedDate`, así que una semana a caballo
+   entre dos meses (29 jul – 4 ago) mostraba los rangos de uno solo, y el año era imposible.
+   Ahora reciben la **ventana visible** desde `useCalendar`. El API ya aceptaba fechas
+   arbitrarias: **fue cambio de cliente, sin tocar endpoints ni SQL.**
+   `useBookings` **no** se ventaneó a propósito — ya trae todas las citas y de ahí come la
+   tabla; ventanearlo habría sido otro cambio, de otra naturaleza, escondido en éste.
+2. **El reloj.** `useCalendar` sembraba `new Date()` del **navegador** mientras el resto del
+   producto asume `America/Mexico_City` (hardcodeado en ~27 lugares, no hay campo de zona por
+   doctor). Un selector de fechas a nivel de DÍA lo toleraba; una rejilla de horas lo exhibe
+   en la línea de ahora y en la columna de hoy. Se añadieron `nowInClinicTz`,
+   `getClinicDateString`, `getClinicMinutesOfDay` y `todayInClinicTz` a `lib/dates.ts`, y
+   **"ahora" se deriva siempre de ahí**.
+3. **Un bug latente que la rejilla habría multiplicado por 7.** `DayTimelinePanel` formateaba
+   su encabezado con `selectedDate.toISOString()`: `toISOString` pasa a UTC, así que abriendo
+   la página **después de las 18:00** (UTC−6) el título decía MAÑANA mientras el contenido
+   filtraba por HOY. Se salvaba sólo porque el clic en el mini-calendario anclaba al mediodía;
+   el estado inicial era la hora real. En una vista de semana serían 7 encabezados mal.
+   Arreglado con `getLocalDateString`, y `todayInClinicTz` ancla al mediodía por lo mismo.
+
+**Lo que se verificó y lo que NO.** `pnpm type-check` limpio, `pnpm build` del app doctor OK,
+los **5 gates** en verde, y **17 comprobaciones de la matemática** de `_lib/event-model.ts`
+(traslapes → columnas, contiguas sin partir, `extendedBlockMinutes`, recorte de huecos,
+citas libres vs. con `slot`, paridad con el panel viejo en qué estados liberan un hueco).
+⚠️ **Nada de eso es la prueba a mano**: falta el clic. Sección **J** del guion (J-1…J-19).
+
+**Fuera de alcance a propósito.** *Arrastrar para reagendar*: aquí reagendar no es mutar una
+fecha — `page.tsx` crea una cita NUEVA y hace PATCH a `CANCELLED` sobre la vieja, con efectos
+de correo. Arrastrar un bloque tendría que disparar esa cadena entera. Es lo que quitó el
+argumento para meter una librería de calendario: sin arrastre, `date-fns` (ya instalado)
+alcanza, y **no hubo dependencia nueva ni regeneración de `pnpm-lock.yaml`**.
+
+**Deuda que deja.** `AppointmentsCalendar` y `DayTimelinePanel` ya no los usa la página
+principal, sólo las rutas muertas `v1`/`v2` (no enlazadas desde ningún lado, alcanzables por
+URL). Se dejaron compilando a propósito — `v2` recibió el cambio mecánico a `monthWindowFor`.
+Borrarlas es una decisión aparte.
+
+### Code review de la misma sesión — 8 arreglos aplicados
+
+Se corrió primero un pase **inline** (el autor revisando su propio diff) y después
+`/code-review` con **ojos frescos**. El resultado es el argumento más fuerte a favor del
+segundo: **el pase inline no encontró los tres hallazgos más graves.** Queda como dato para
+`GENERAL AGENTES/05-METODO-code-review.md` §2 — la debilidad declarada del modo B ("el mismo
+autor puede *saber* lo que el código quiere decir") no es teórica, se midió aquí.
+
+> ⚠️ **La lección que hay que recordar no es un bug, es un NOMBRE.**
+> Existía un solo `INACTIVE_STATUSES = {CANCELLED, COMPLETED, NO_SHOW}`, escrito para
+> calcular huecos, donde significa *"¿este estado LIBERA el horario?"* — y ahí `COMPLETED`
+> pertenece, porque una consulta que ya pasó devuelve su hueco. La vista de AÑO lo reusó para
+> otra pregunta distinta, *"¿hubo trabajo ese día?"*, y como `COMPLETED` es el estado de toda
+> consulta realizada, **pintaba en blanco todo el pasado del año**: exactamente lo contrario
+> de lo que la vista existe para mostrar. Un conjunto, dos preguntas, una sola de ellas bien
+> contestada. Ahora son `FREES_THE_SLOT` y `NO_WORKLOAD`, con nombres que dicen qué preguntan.
+> **El nombre ambiguo era el bug; los nombres largos son el arreglo.**
+
+| | Hallazgo | Arreglo |
+|---|---|---|
+| **A** | Año pintaba vacío TODO el pasado (`COMPLETED` excluido de la densidad) | Dos predicados con nombre propio + 7 comprobaciones nuevas |
+| **B** | Borrar un rango era **inalcanzable**: los huecos (z-5) y las citas (z-10) son HERMANOS del fondo del rango, no descendientes, así que el `group-hover` nunca disparaba. En táctil, invisible pero **sí tocable**. Y era la única forma de borrar un rango tras quitar el panel | Controles SIEMPRE visibles a `z-20` |
+| **C** | Clic en un día de relleno del mes vecino reencuadraba la rejilla entera y volvía a pedir datos | `anchorDate` (qué periodo se ve) separado de `selectedDate` (qué día se resalta) |
+| **D** | Respuestas fuera de orden se quedaban pegadas, sin spinner que lo delatara (`hasLoadedOnce`) | Guard de "gana la más reciente" en los dos hooks |
+| **E** | `intervalMinutes` había desaparecido de toda la interfaz | Vuelve en el chip del rango ("cada 30 min") |
+| **F** | Año pedía 365 días de rangos y bloqueos que ningún componente lee | `enabled=false` en esa vista |
+| **G** | `MONTH_NAMES` ×4 y `DAY_NAMES` ×3 — dos de cada una las agregó esta sesión | `_lib/calendar-labels.ts`, fuente única, 5 componentes migrados |
+| **H** | Se perdió el estado vacío "Sin disponibilidad este día" | Restaurado (y variante de semana) |
+
+**Refutado (1).** El review sostuvo que descartar huecos < 15 min era una regresión frente al
+panel viejo. No lo es, por dos razones independientes: `git show HEAD:…/DayTimelinePanel.tsx`
+línea 247 aplicaba `.filter(g => g.end - g.start >= 15)` en el render —paridad exacta—, y el
+escenario que construyó (un rango de 10 minutos) es imposible: `VALID_INTERVALS = [15,30,45,60]`
+en `ranges/route.ts`.
+
+**Aceptado sin arreglar (1) — watch-item.** `handleBookInGap` ignora sus parámetros: el toast
+afirma "Agendar cita: {fecha} a las {hora}" y el modal no recibe ninguno de los dos. Es
+**preexistente**, pero la rejilla lo amplifica (antes el hueco clicable era una fila estrecha;
+ahora es toda la superficie libre). Arreglarlo implica pasar fecha/hora por `BookPatientModal`
+— otro cambio, de otra naturaleza. **Dueño: la próxima sesión de CITAS.**
+
+### Segunda vuelta de `/code-review` — 5 arreglos más
+
+Se volvió a correr con ojos frescos **sobre los arreglos**, y encontró cinco cosas más. Dos
+las había *introducido* la propia ronda anterior: es el argumento para no dar por bueno un
+diff sólo porque cierra hallazgos.
+
+| | Hallazgo | Arreglo |
+|---|---|---|
+| 1 | Cancelar una cita libera su horario y `computeFreeGaps` emitía el hueco — pero el bloque gris (z-10) se comía el clic del hueco (z-5), así que **no se podía reagendar ahí** | `pointer-events-none` en los bloques cuyo estado libera el horario (cuesta su tooltip) |
+| 2 | El aviso al clicar un hueco prometía "Agendar cita: {fecha} a las {hora}" y el modal **no recibe ninguna de las dos** → agendar en el horario equivocado creyendo que venía puesto | El texto ya no promete lo que no entrega. El watch-item de pasarlas de verdad **sigue abierto** |
+| 3 | El corte por `enabled` iba **antes** de `++lastRequestId`, así que apagar el hook (Mes→Año) **no invalidaba** la petición en vuelo — justo el caso que el guard nuevo debía cubrir | El id se incrementa antes del corte |
+| 4 | `nowInClinicTz` parseaba `"YYYY-MM-DD HH:mm:ss"` (con espacio), formato que ECMA-262 no obliga a aceptar. Siendo la raíz de todo "hoy"/"ahora", un `Invalid Date` habría dejado la rejilla en blanco **sin un error en consola** | `.replace(' ', 'T')` → fecha-hora ISO local, que la norma sí define |
+| 5 | El README decía "13 checks" cuando la sección J ya tenía 17, y J-14…J-17 estaban listados **antes** de J-12/J-13 | Renumerado y en orden; J llega a **19** con los dos checks nuevos |
+
+**Confirmado limpio por el review** (para no re-auditarlo): la paridad de `computeFreeGaps`
+con el panel viejo · los límites de `visibleDays` (1/7/35-42/`[]`) · que la memoización por
+string evita el bucle de render · que los bordes `T00:00:00Z`/`T23:59:59Z` son inclusivos
+contra el `gte`/`lte` del API · que `inMonth` no colisiona en dic/ene · que el `todayStr` se
+recalcula con el tick de 60s y la columna de "hoy" cambia sola a medianoche · y el reparto
+en columnas de `layoutDayEvents`.
+
+**Gates tras los arreglos.** `type-check` limpio · `build` OK (2 warnings preexistentes de
+Prisma/middleware) · los 5 gates verdes · **24 comprobaciones** de `_lib/event-model.ts`
+(17 previas + 7 de los dos predicados). Sigue faltando la prueba a mano: sección **J**,
+ahora **19 checks**.
+
+### Estado anterior — en una frase
+
 El rediseño de la tabla (2026-07-28/29) está **shipped y verificado en prod**; encima de eso,
 el 2026-07-29 se apilaron cinco pasadas más: **nombre y apellidos separados** al agendar,
 **aviso de correo duplicado** al crear expediente, **FACTURA como grupo propio** debajo de

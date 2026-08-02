@@ -1,7 +1,8 @@
 "use client";
 
 import { Calendar, Clock, Trash2, MapPin, User, Ban } from "lucide-react";
-import { formatLocalDate } from "@/lib/dates";
+import { formatLocalDate, getLocalDateString } from "@/lib/dates";
+import { timeToMin, minToTime, resolveBookingTime, statusMeta } from "../_lib/event-model";
 import type { AvailabilityRange } from "../_hooks/useRanges";
 import type { BlockedTime } from "../_hooks/useBlockedTimes";
 
@@ -28,33 +29,11 @@ interface Props {
   onBookInGap: (date: string, startTime: string) => void;
 }
 
-/** Resolve booking date/time from freeform or slot fields */
-function resolveBookingTime(b: Booking) {
-  if (b.slotId && b.slot) {
-    return { date: b.slot.date.split("T")[0], startTime: b.slot.startTime, endTime: b.slot.endTime, duration: b.slot.duration };
-  }
-  if (!b.slotId && b.date && b.startTime && b.endTime) {
-    return { date: (b.date as string).split("T")[0], startTime: b.startTime, endTime: b.endTime, duration: b.duration ?? 0 };
-  }
-  return null;
+/** Adaptador al mapa compartido: este panel usa la variante "chip" de cada estado. */
+function statusColors(status: string) {
+  const m = statusMeta(status);
+  return { bg: m.chipBg, text: m.chipText, label: m.label };
 }
-
-function timeToMin(t: string) {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function minToTime(m: number) {
-  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-}
-
-const statusColors: Record<string, { bg: string; text: string; label: string }> = {
-  PENDING:   { bg: "bg-amber-50 border-amber-200",  text: "text-amber-700", label: "Pendiente" },
-  CONFIRMED: { bg: "bg-green-50 border-green-200",  text: "text-green-700", label: "Confirmada" },
-  COMPLETED: { bg: "bg-blue-50 border-blue-200",    text: "text-blue-700",  label: "Completada" },
-  CANCELLED: { bg: "bg-gray-50 border-gray-200",    text: "text-gray-400",  label: "Cancelada" },
-  NO_SHOW:   { bg: "bg-red-50 border-red-200",      text: "text-red-600",   label: "No asistió" },
-};
 
 export function DayTimelinePanel({
   selectedDate,
@@ -82,8 +61,12 @@ export function DayTimelinePanel({
 
   return (
     <div className="bg-white rounded-lg shadow p-4">
+      {/* `toISOString()` pasa a UTC: abriendo la página después de las 18:00 (UTC−6) el
+          encabezado mostraba MAÑANA. `getLocalDateString` lee las partes locales, que es
+          justo lo que ya usa `dateStr` cinco líneas arriba para filtrar las citas del día
+          — antes el título y el contenido podían discrepar. */}
       <h3 className="font-semibold text-gray-900 text-sm mb-3">
-        {formatLocalDate(selectedDate.toISOString(), { weekday: "long", month: "long", day: "numeric" })}
+        {formatLocalDate(getLocalDateString(selectedDate), { weekday: "long", month: "long", day: "numeric" })}
       </h3>
 
       {ranges.length === 0 && dayBookings.length === 0 ? (
@@ -193,7 +176,7 @@ export function DayTimelinePanel({
                       {rangeBookings
                         .sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime))
                         .map((bk) => {
-                          const sc = statusColors[bk.status] ?? statusColors.PENDING;
+                          const sc = statusColors(bk.status);
                           const bkStartMin = timeToMin(bk.startTime);
                           const bkEndMin = timeToMin(bk.endTime);
                           const hasExtBlock = bk.extendedBlockMinutes != null && bk.extendedBlockMinutes > (bkEndMin - bkStartMin);
@@ -273,7 +256,7 @@ export function DayTimelinePanel({
             })
             .sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime))
             .map((bk) => {
-              const sc = statusColors[bk.status] ?? statusColors.PENDING;
+              const sc = statusColors(bk.status);
               const bkStartMin = timeToMin(bk.startTime);
               const bkEndMin = timeToMin(bk.endTime);
               const hasExtBlock = bk.extendedBlockMinutes != null && bk.extendedBlockMinutes > (bkEndMin - bkStartMin);

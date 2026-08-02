@@ -1,11 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getLocalDateString } from "@/lib/dates";
-
-const MONTH_NAMES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
-const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+import { MONTH_NAMES, DAY_NAMES_SHORT as DAY_NAMES } from "../_lib/calendar-labels";
 
 interface Props {
   selectedDate: Date;

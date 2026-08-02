@@ -182,6 +182,54 @@ servidor. Si divergen, el botón promete un envío que la API rechaza — o al r
       `confirmation_email_sent_at` · `extended_block_minutes` · el correo del **expediente** de
       los pacientes cuyo contacto corregiste.
 
+## J. Calendario Día · Semana · Mes · Año (2026-08-02)
+
+Reemplaza el par mini-calendario + panel de día. La tabla "Todas las Citas" **no cambió** —
+si algo de las secciones A–I falla, no es de aquí.
+
+- [ ] **J-1.** El selector cambia entre las 4 vistas y **Hoy** vuelve al día actual desde
+      cualquiera. `‹ ›` avanzan de a 1 día / 1 semana / 1 mes / 1 año según la vista.
+- [ ] **J-2.** El rótulo del periodo es honesto en una semana **a caballo entre dos meses**
+      (p. ej. 30 nov – 6 dic) y entre **dos años** (28 dic – 3 ene): nombra los dos.
+- [ ] **J-3.** Esa misma semana a caballo muestra los rangos y bloqueos de **los dos meses**.
+      Es la regresión que motivó el cambio: antes media semana salía vacía.
+- [ ] **J-4.** La **línea roja de ahora** cae en la hora real de Ciudad de México y sólo en
+      la columna de hoy. ⚠️ Comprobar **después de las 18:00** — es la franja donde la hora
+      del navegador y la de la clínica caen en días distintos.
+- [ ] **J-5.** Una cita a las 6:00 o a las 22:00 (fuera de la franja 07–21 por defecto)
+      **se ve**: la rejilla se estira para encuadrarla.
+- [ ] **J-6.** Dos citas a la misma hora salen **lado a lado**, no una encima de la otra.
+      Dos citas contiguas (09:00–09:30 y 09:30–10:00) salen a **ancho completo**.
+- [ ] **J-7.** Una cita con **bloqueo extendido** dibuja la cola índigo hasta la hora del
+      bloqueo, y ese tramo **no** se ofrece como hueco libre.
+- [ ] **J-8.** Clic en un hueco libre abre Agendar (mismo comportamiento que el panel viejo).
+      Los huecos < 15 min no se ofrecen.
+- [ ] **J-9.** El bote de basura del fondo azul del rango **borra ese rango** (confirmación
+      incluida) y la vista se refresca.
+- [ ] **J-10.** Mes: máximo 3 citas por día y **"+N más"** baja a la vista de día. Los días
+      de relleno del mes anterior/siguiente se ven atenuados **pero con sus citas**.
+- [ ] **J-11.** Año: el tinte de densidad ignora **canceladas y no-asistió** pero **SÍ cuenta
+      las COMPLETADAS**. ⚠️ Es el bug que se arregló: mirar **meses PASADOS** — si enero–julio
+      salen en blanco, volvió. Clic en un día baja a Mes; clic en el nombre del mes también.
+- [ ] **J-12.** Con el **panel del asistente acoplado**, la vista Semana se desplaza en
+      horizontal y no deforma la página.
+- [ ] **J-13.** Tras una escritura del **agente** (crear/cancelar cita), la vista se refresca
+      sola — cuelga de los mismos hooks que el `subscribeAgendaChanged` de la página.
+- [ ] **J-14.** El chip del rango (ubicación · **cada N min** · 🗑) se ve **sin pasar el
+      cursor**, también sobre una cita y sobre un hueco, y **en táctil**. Borrar pide
+      confirmación. Es la única forma de borrar un rango en la página.
+- [ ] **J-15.** En Mes, clic en un día de **relleno** (el "26" gris de julio viendo agosto):
+      lo resalta **sin** cambiar la rejilla a julio ni recargar. Cambiar a vista Día después
+      sí muestra el 26 de julio.
+- [ ] **J-16.** Clics rápidos y repetidos en `›` (5+ seguidos): lo que queda en pantalla
+      corresponde al periodo del rótulo, no a uno anterior que contestó tarde. Repetir
+      pasando de Mes a **Año** a media carga.
+- [ ] **J-17.** Un día/semana sin nada muestra "Sin disponibilidad este día/esta semana".
+- [ ] **J-18.** **Cancela** una cita y haz clic en el horario que dejó libre: abre Agendar.
+      El bloque gris de la cancelada no debe comerse el clic.
+- [ ] **J-19.** Al hacer clic en un hueco, el aviso **no** promete fecha ni hora — el modal
+      no las precarga (watch-item abierto).
+
 ---
 
 **Fuera de este guion:** el agente (sus 3 deudas van juntas en `AGENTE FACTURAS/SESSION-REFRESCO`

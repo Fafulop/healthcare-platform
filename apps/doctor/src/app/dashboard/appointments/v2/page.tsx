@@ -8,7 +8,7 @@ import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
-import { useCalendar } from "../_hooks/useCalendar";
+import { useCalendar, monthWindowFor } from "../_hooks/useCalendar";
 import { useRanges } from "../_hooks/useRanges";
 import { useBookings } from "../_hooks/useBookings";
 import { useBlockedTimes } from "../_hooks/useBlockedTimes";
@@ -41,9 +41,11 @@ export default function AppointmentsV2RangePage() {
 
   // Hooks
   const calendar = useCalendar();
-  const rangesHook = useRanges(doctorId, calendar.selectedDate);
+  // Esta página es MENSUAL y no tiene selector de vista: conserva la ventana de antes.
+  const monthWindow = monthWindowFor(calendar.selectedDate);
+  const rangesHook = useRanges(doctorId, monthWindow, calendar.selectedDate);
   const bookingsHook = useBookings(doctorId);
-  const blockedTimesHook = useBlockedTimes(doctorId, calendar.selectedDate);
+  const blockedTimesHook = useBlockedTimes(doctorId, monthWindow, calendar.selectedDate);
 
   // Clinic locations (fetched independently since we don't use useSlots)
   const [clinicLocations, setClinicLocations] = useState<ClinicLocation[]>([]);

@@ -6,14 +6,13 @@ import { toast } from "@/lib/practice-toast";
 import { practiceConfirm } from "@/lib/practice-confirm";
 import { getLocalDateString } from "@/lib/dates";
 import { fetchAllBlockedTimes, type BlockedTime } from "../_hooks/useBlockedTimes";
+import { DAY_INITIALS as DAY_LABELS } from "../_lib/calendar-labels";
 
 const TIME_OPTIONS_30 = Array.from({ length: 48 }, (_, i) => {
   const h = String(Math.floor(i / 2)).padStart(2, "0");
   const m = String((i % 2) * 30).padStart(2, "0");
   return `${h}:${m}`;
 });
-
-const DAY_LABELS = ["D", "L", "M", "M", "J", "V", "S"];
 
 interface PreviewResult {
   datesToBlock: number;

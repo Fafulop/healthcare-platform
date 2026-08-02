@@ -5,9 +5,9 @@ import { X, Trash2, Loader2, AlertTriangle, Search } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+import { DAY_NAMES_SHORT as DAY_NAMES } from "../_lib/calendar-labels";
 
-const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
   const h = String(Math.floor(i / 2)).padStart(2, "0");
