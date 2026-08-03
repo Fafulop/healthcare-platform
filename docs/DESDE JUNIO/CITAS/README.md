@@ -18,9 +18,94 @@
 
 ## En una frase
 
-El **calendario Día · Semana · Mes · Año** (2026-08-02) reemplaza el mini-calendario + panel
-de día; la tabla "Todas las Citas" no se tocó. **Escrito y compilado, NO probado a mano** —
-le corresponde la sección **J** del guion. Sigue faltando la prueba punta a punta de A–I.
+El **calendario Día · Semana · Mes · Año** (2026-08-02) reemplazó el mini-calendario + panel
+de día, y desde el **2026-08-03 el clic en una cita abre su modal de acciones** — lo último
+que faltaba. La tabla "Todas las Citas" no se tocó en ninguna de las dos pasadas.
+**Todo en prod, nada probado a mano**: secciones **A–I** (tabla), **J** (calendario, 20
+checks) y **K** (modal, 16 checks) siguen sin correrse.
+
+## Bitácora de la sesión 2026-08-03 — clic en una cita → modal
+
+**Qué se ve.** Un clic en el bloque de una cita (Día, Semana) o en su chip (Mes) abre un modal
+con TODO lo que se puede hacer desde la fila de "Todas las Citas": completar, reagendar,
+cancelar, confirmar por correo/WhatsApp, link de pago, datos fiscales, formulario
+pre-consulta, expediente, precio, ¿necesita factura? y bloqueo extendido. **Año no lleva
+clic por cita** a propósito: es tinte de densidad, no dibuja citas individuales.
+
+**Lo importante no es el modal, es que NO reimplementa nada.** Los controles de una cita se
+sacaron de `BookingsSection.tsx` a **`_components/BookingActions.tsx`** sin cambiarles nada
+(`StopClick` · `FacturaCheckbox` · `PriceCell` · `ExtendedBlockControl` · `ExpedienteCell` ·
+`StatusActions`), y ahora los comparten las **TRES** superficies: tarjeta móvil, fila
+desplegada y modal. `BookingsSection.tsx` quedó **754 líneas más corto** sin cambiar de
+comportamiento. Lógica replicada es la fuente #1 de bugs reales de este repo, y aquí habría
+sido deriva garantizada entre la tabla y el calendario.
+
+> 📌 **La extracción verbatim es lo que permitió PROBAR que no hubo cambio.** El review
+> diffeó el bloque eliminado contra el archivo nuevo (sin comentarios ni líneas en blanco) y
+> el único delta fue la lista de imports. Un "refactor de paso" habría hecho esa comprobación
+> imposible.
+
+**Una estimación vieja que era falsa.** El SESSION-REFRESCO anterior decía que esto era «un
+refactor cuidadoso de un archivo de 1,256 líneas». No lo era: `StatusActions` ya estaba
+extraído y ya se rendía en DOS sitios con los mismos props; sólo faltaba **exportarlo**.
+
+**Cinco decisiones que no son obvias:**
+
+1. **El modal recibe un ID, no un objeto.** `page.tsx` guarda `openBookingId` y resuelve la
+   cita desde `useBookings` en cada render, así refleja cada escritura en vez de quedarse con
+   la copia del instante del clic. Eliminar la cita cierra el modal solo.
+   ⚠️ **Cancelarla NO lo cierra**: sigue en la lista como `CANCELLED`; lo que desaparece es su
+   **bloque** del calendario (`HIDDEN_IN_CALENDAR`).
+2. **Clic en el fondo cierra sólo si el clic fue en el fondo MISMO** (`target === currentTarget`).
+   `CompleteBookingModal` y `CreatePatientFromBookingModal` se rinden DENTRO de este modal.
+3. **El scroll vive en el fondo, no en el panel** — ver el hallazgo 1 del review.
+4. **El bloque de la rejilla pasó de `<div>` a `<button>`**: teclado y rol anunciado, hijos
+   `<span className="block">` (un `<div>` dentro de un `<button>` es anidamiento inválido) y
+   `block` + `text-left` porque un `<button>` centra su contenido en los dos ejes.
+5. **Reagendar y "crear formulario" cierran antes el modal de la cita**, para no apilar dos.
+
+### Code review — 5 hallazgos, 4 arreglados
+
+| | Hallazgo | Qué se hizo |
+|---|---|---|
+| 1 | El desplegable de `InlinePatientSearch` quedaba **recortado** por el `overflow` del panel | El scroll se movió al FONDO (patrón de los otros 4 modales) + `min-h-full` |
+| 2 | El comentario del guard de fondo justificaba un bug que **hoy no puede ocurrir** | Comentario corregido; el guard se queda con su razón real |
+| 3 | **Dos secciones tituladas FACTURA** en el mismo modal angosto | Se quitó el rótulo de la casilla — ya se rotula sola, igual que en la tabla |
+| 4 | El `aria-label` de los bloques perdía estado y hora de fin | Los dos llevan ya ambos |
+| 5 | Los `useCallback` de `page.tsx` no memorizan nada | **Aceptado sin arreglar** (inerte; `onRefresh` tiene la misma forma desde antes) |
+
+> ⚠️ **La lección del hallazgo 1, que vale más allá de este modal:**
+> **`overflow` recorta a los descendientes ABSOLUTOS aunque la caja no necesite scroll.**
+> El mismo `InlinePatientSearch` funciona perfecto en la tabla —allí no hay ningún ancestro
+> con overflow— y se rompía dentro del modal. El caso peor no era el más grande sino el más
+> **pequeño**: una `NO_SHOW` sin expediente sólo rinde *Eliminar*, el panel mide ~300px y se
+> comía media lista. **Un contenedor corto recorta más, no menos.**
+
+> ⚠️ **Y la del hallazgo 4:** un **`aria-label` SUSTITUYE al `title`** como nombre accesible,
+> no se suma. Enriquecer el tooltip y poner un `aria-label` corto le QUITA información al
+> lector de pantalla — exactamente lo contrario de lo que parece.
+
+**Dos comentarios que estaban mal, corregidos de paso.** `StatusActions` decía *"Cita
+primero, expediente de respaldo"*: la **decisión #30** invirtió ese orden el 2026-07-29 y
+`resolverContacto` resuelve `patient.email || patientEmail`. **El código siempre estuvo bien;
+el comentario describía el orden viejo.** El encabezado de la sección **C** del guion tenía la
+misma inversión y también se corrigió. Van **tres** apariciones del orden invertido en texto.
+
+**Lo que se verificó y lo que NO.** `type-check` limpio · `build` OK · los 5 gates · las 28
+comprobaciones de `event-model-check.ts` · dos rondas de review, una con la extracción
+diffeada contra el original. En prod como **`3447b9c3`**, deploy del servicio
+`@healthcare/doctor` **SUCCESS** (BUILDING → DEPLOYING → SUCCESS en ~4½ min; los demás
+servicios no cambiaron, que es lo correcto — el commit sólo toca `apps/doctor`).
+⚠️ **Nada de eso es la prueba a mano.** Falta el clic: sección **K**, 16 checks.
+
+**Sin dependencias nuevas, sin SQL, sin migración, sin cambios de esquema ni de lockfile.**
+Rollback: `git revert --no-edit 3447b9c3`.
+
+**Corrección a un pendiente que se daba por cerrado.** El SESSION-REFRESCO decía que el
+watch-item de `handleBookInGap` (el modal de agendar no precarga fecha ni hora) *"se cerraría
+de paso"* con este trabajo. **No se cerró**, y no son lo mismo: este modal rinde acciones
+sobre una cita que YA existe; precargar el hueco exige tocar los props de `BookPatientModal`,
+que no tiene dónde recibirlas. **Sigue abierto.**
 
 ## Bitácora de la sesión 2026-08-02 — calendario tipo Google
 
@@ -317,6 +402,10 @@ archivo a tocar si se decide la bitácora #30.**
    [`00-METODO`](00-METODO-prueba-manual-punta-a-punta.md). Casi todos los bugs de este trabajo
    salieron de probar en vivo o de consultar la BD; **el `type-check` estuvo verde todas las
    veces que estuvo mal**.
+   Pendiente COMPLETO: **A–I** (tabla, rediseño de julio) · **J** (calendario, 20 checks, sólo
+   el Tier 1 de `07ff7ed0` está probado) · **K** (modal de la cita, 16 checks, nada probado).
+   Los tres primeros a correr: **K-5** (modal dentro de modal), **K-12** (el buscador sin
+   recorte) y **K-6** (el bloque gana el clic al hueco).
 2. **Unificar los tres flujos de ENLACE** (formulario pre-consulta · datos fiscales · link de
    pago) — la reorganización quedó a medias. El diseño acordado: un modal compartido de
    **compartir** (Copiar · WhatsApp · **Correo**) y, al cerrarlo, chip de estado + menú

@@ -40,10 +40,16 @@
 - [ ] **B-3.** **Móvil, el caso que rompía:** abrir tarjeta → Completar → hacer clic dentro del
       modal **no** debe colapsar la tarjeta ni desmontar el modal a media captura.
 
-## C. Contacto — cita vs expediente (bitácora #30)
+## C. Contacto — cita vs expediente (decisión #30)
 
-Orden: **cita primero, expediente de respaldo**, igual en la fila, el botón, el link de pago y el
+Orden: **el EXPEDIENTE manda, la copia de la cita es el respaldo**
+(`patient.email || booking.patientEmail`), igual en la fila, el botón, el link de pago y el
 servidor. Si divergen, el botón promete un envío que la API rechaza — o al revés.
+
+⚠️ **Este encabezado decía el orden CONTRARIO** ("cita primero, expediente de respaldo"), que es
+el de ANTES de la decisión #30 del 2026-07-29. Los checks C-1…C-7 de abajo siempre describieron
+el comportamiento bueno; era el encabezado el que se quedó viejo. Corregido 2026-08-03. Un
+tester que se guiara por él habría reprobado una implementación correcta.
 
 - [ ] **C-1.** Cita con el correo **solo en el expediente**: la fila lo **muestra**.
 - [ ] **C-2.** Esa cita dice **"Enviar confirmación"**, no "Necesita correo".
@@ -239,6 +245,61 @@ si algo de las secciones A–I falla, no es de aquí.
 - [ ] **J-19.** Al hacer clic en un hueco, el aviso **no** promete fecha ni hora — el modal
       no las precarga (watch-item abierto).
 
+## K. Clic en una cita → modal con sus acciones (2026-08-03, `3447b9c3`)
+
+El modal **no reimplementa** nada: rinde los mismos componentes que la fila desplegada
+(`BookingActions.tsx`). Por eso lo que hay que probar aquí NO es si los botones funcionan
+—eso lo cubren las secciones F/G/G2/H— sino **si el modal los monta y los desmonta bien**.
+Si un botón falla igual desde la tabla, no es de aquí.
+
+- [ ] **K-1.** **Día:** clic en el bloque de una cita abre el modal, y es la cita correcta
+      (nombre, estado, fecha/hora, servicio en el encabezado).
+- [ ] **K-2.** **Semana:** lo mismo. Es donde el bloque va más angosto y el nombre truncado.
+- [ ] **K-3.** **Mes:** clic en el chip de una cita abre el modal **y no mueve el día
+      resaltado** ni recarga la rejilla (la celda entera selecciona el día; el chip corta la
+      propagación).
+- [ ] **K-4.** **Año NO tiene clic por cita** — es tinte de densidad, no dibuja citas.
+      Confirmar que es así y no buscarlo.
+- [ ] **K-5.** ⭐⭐ **Modal dentro de modal — el check más importante de la sección.**
+      Abrir el modal → **Completar** → hacer clic DENTRO del modal de precio (en el campo, en
+      una forma de pago). El modal de precio **no** debe desmontarse ni cerrarse el de la
+      cita a media captura. Es el bug que ya ocurrió en la tarjeta móvil (B-3) y que
+      `StopClick` existe para evitar.
+- [ ] **K-6.** ⭐ **Un bloque `COMPLETADA` o `NO ASISTIÓ` encima de un horario que el rango
+      deja libre**: gana el **BLOQUE** (abre el modal), no el hueco de "agendar aquí" que
+      está debajo. Es a propósito — z-10 sobre z-5.
+- [ ] **K-7.** **El modal refleja lo que se escribe.** Editar el precio dentro del modal →
+      el número nuevo se queda (no vuelve al viejo al re-renderizar). **Completar** → el
+      modal pasa a **COMPLETADA** sin cerrarse, y aparecen Cobro y Documentos.
+- [ ] **K-8.** **Eliminar** una cita terminal desde el modal → **el modal se cierra solo**
+      (la cita deja de existir en la lista).
+- [ ] **K-9.** ⚠️ **Cancelar desde el modal NO lo cierra** — la cita sigue en la lista con
+      estado CANCELADA y el modal la muestra así, con su botón Eliminar. Lo que desaparece
+      es su **bloque del calendario**. Es deliberado, igual que la fila de la tabla:
+      confirmar, no "arreglar". (Si al doctor le resulta raro, es la decisión abierta §5.3
+      del SESSION-REFRESCO.)
+- [ ] **K-10.** **Reagendar** desde el modal → se cierra el de la cita y abre el de agendar.
+      **No deben quedar dos modales apilados.**
+- [ ] **K-11.** **Crear formulario** desde el modal → igual: se cierra el de la cita y abre
+      el de formulario pre-consulta.
+- [ ] **K-12.** ⭐⭐ **El buscador de expediente NO se recorta.** Buscar una cita
+      **NO ASISTIÓ y SIN expediente** — es el modal más corto que existe, porque sólo rinde
+      *Eliminar* — hacer clic en *"¿Ya tiene expediente?"*, teclear un **apellido común**, y
+      comprobar que **los 5 resultados se ven y se pueden elegir**.
+      Antes del arreglo el panel medía ~300px y su `overflow` recortaba la lista: `overflow`
+      recorta descendientes absolutos **aunque la caja no necesite scroll**. En la tabla el
+      caso no existe porque allí no hay ancestro con overflow.
+- [ ] **K-13.** Clic en el **fondo oscuro** cierra el modal; clic **dentro del panel** no.
+      Arrastrar desde dentro y soltar fuera **tampoco** debe cerrarlo.
+- [ ] **K-14.** **Teclado:** con Tab se llega al bloque de una cita y **Enter lo abre**
+      (el bloque es un `<button>` de verdad, no un `<div>` clicable).
+- [ ] **K-15.** **Paridad con la fila:** para la MISMA cita, el modal ofrece los mismos
+      grupos que su fila desplegada en la tabla (Estado · Confirmación · Cobro · Factura ·
+      Documentos · Eliminar, los que apliquen a su estado). Cambia el acomodo —el modal los
+      apila— no el contenido.
+- [ ] **K-16.** El **bloqueo extendido** aparece en el modal sólo si la cita está
+      **AGENDADA**, igual que en la tabla (H-3).
+
 ---
 
 **Fuera de este guion:** el agente (sus 3 deudas van juntas en `AGENTE FACTURAS/SESSION-REFRESCO`
@@ -246,6 +307,10 @@ si algo de las secciones A–I falla, no es de aquí.
 final de la fila.
 
 **Deudas a confirmar, no a descubrir:** `notes` al reagendar (E-7) · el agente ignora la casilla
-Factura (G-4) · el agente lee el contacto de la CITA (#30) · `formulariosPreConsulta` cuenta los
-FISCALES · vincular expediente sigue sin ser obligatorio · el formulario pre-cita dice "Crear
-formulario" y su `wa.me` va sin número.
+Factura (**G-10**) · `formulariosPreConsulta` cuenta los FISCALES · vincular expediente sigue sin
+ser obligatorio · el formulario pre-cita dice "Crear formulario" y su `wa.me` va sin número ·
+`handleBookInGap` no precarga fecha ni hora (J-19).
+
+⚠️ Esta lista decía también *"el agente lee el contacto de la CITA (#30)"*. **Ya no es cierto:**
+se pagó el 2026-07-30 (`d1f9a4d3`), `get_booking_detail` resuelve `patient.email || patientEmail`
+igual que la UI. Y la casilla Factura era **G-10**, no G-4. Corregido 2026-08-03.
