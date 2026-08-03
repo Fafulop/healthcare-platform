@@ -26,6 +26,8 @@ interface Props {
   onBookInGap: (date: string, startTime: string) => void;
   onDeleteRange: (rangeId: string) => void;
   onSelectDay: (date: Date) => void;
+  /** Clic en el bloque de una cita → abre su modal de acciones. */
+  onOpenBooking: (bookingId: string) => void;
   selectedDate: Date;
 }
 
@@ -39,7 +41,7 @@ interface DayModel {
 
 export function TimeGrid({
   days, ranges, bookings, blockedTimes,
-  onBookInGap, onDeleteRange, onSelectDay, selectedDate,
+  onBookInGap, onDeleteRange, onSelectDay, onOpenBooking, selectedDate,
 }: Props) {
   // La línea de "ahora" se recalcula cada minuto. Se deriva de la hora de la CLÍNICA, no
   // del navegador: son la misma sólo si el doctor está físicamente en el huso de México.
@@ -226,6 +228,7 @@ export function TimeGrid({
                 topFor={topFor}
                 heightFor={heightFor}
                 onBookInGap={onBookInGap}
+                onOpenBooking={onOpenBooking}
                 showNowLine={day.dateStr === todayStr}
                 nowTop={topFor(nowMin)}
                 nowVisible={nowMin >= startHour * 60 && nowMin <= endHour * 60}
@@ -240,7 +243,7 @@ export function TimeGrid({
 
 function DayColumn({
   day, hours, startHour, topFor, heightFor,
-  onBookInGap, showNowLine, nowTop, nowVisible,
+  onBookInGap, onOpenBooking, showNowLine, nowTop, nowVisible,
 }: {
   day: DayModel;
   hours: number[];
@@ -248,6 +251,7 @@ function DayColumn({
   topFor: (min: number) => number;
   heightFor: (from: number, to: number) => number;
   onBookInGap: (date: string, startTime: string) => void;
+  onOpenBooking: (bookingId: string) => void;
   // Sin `onDeleteRange`: borrar un rango vive ahora en la franja "Rangos", fuera de la
   // rejilla. Dejarlo aquí sugeriría que esta columna todavía puede borrar.
   showNowLine: boolean;
@@ -338,10 +342,19 @@ function DayColumn({
                 }}
               />
             )}
-            <div
+            {/* <button>, no <div>: el bloque ABRE el modal de la cita, así que tiene que
+                ser alcanzable con teclado y anunciarse como acción. Sus hijos son <span
+                className="block">: un <div> dentro de un <button> es anidamiento inválido. */}
+            <button
+              type="button"
+              onClick={() => onOpenBooking(ev.id)}
               title={`${minToTime(ev.startMin)}–${minToTime(ev.endMin)} · ${ev.label}${
                 ev.sublabel ? ` (${ev.sublabel})` : ""
-              } · ${meta.label}`}
+              } · ${meta.label} — clic para ver sus acciones`}
+              // El `aria-label` SUSTITUYE al `title` como nombre accesible, no se suman: si
+              // aquí falta algo que el tooltip sí dice, un lector de pantalla lo pierde. Por
+              // eso lleva también hora de fin y estado.
+              aria-label={`Cita de ${ev.label}, ${minToTime(ev.startMin)} a ${minToTime(ev.endMin)}, ${meta.label}. Ver sus acciones`}
               // Los bloques conservan sus eventos de puntero, o sea su tooltip.
               //
               // Hubo un `pointer-events-none` para los estados que LIBERAN el horario: sin él,
@@ -352,17 +365,23 @@ function DayColumn({
               // agenda hacia atrás) mientras que el tooltip sí: en Semana las columnas miden
               // ~110px, el nombre del paciente va truncado y el tooltip era la ÚNICA forma de
               // leerlo. Se cambiaba información de uso diario por un clic que nadie hace.
-              className={`absolute z-10 overflow-hidden rounded border-l-[3px] px-1.5 py-0.5 transition-colors ${meta.blockBg} ${meta.blockBorder}`}
+              // Ahora ese mismo clic vale MÁS: abre el modal con las acciones de la cita, que
+              // es justo lo que hace falta sobre una completada (cobrar, facturar, papeleo).
+              // `block` + `text-left` no son cosmética: un <button> centra su contenido en
+              // los dos ejes, así que sin ellos el nombre del paciente saldría centrado y —en
+              // un bloque de 1 h (48px)— separado del borde superior, en vez de arrancar
+              // arriba a la izquierda como cuando esto era un <div>.
+              className={`absolute z-10 block overflow-hidden rounded border-l-[3px] px-1.5 py-0.5 text-left transition-colors ${meta.blockBg} ${meta.blockBorder}`}
               style={style}
             >
-              <div className={`text-[10px] font-semibold leading-tight truncate ${meta.blockText}`}>
+              <span className={`block text-[10px] font-semibold leading-tight truncate ${meta.blockText}`}>
                 {ev.label}
-              </div>
-              <div className="text-[9px] leading-tight text-gray-600 truncate tabular-nums">
+              </span>
+              <span className="block text-[9px] leading-tight text-gray-600 truncate tabular-nums">
                 {minToTime(ev.startMin)}–{minToTime(ev.endMin)}
                 {ev.sublabel ? ` · ${ev.sublabel}` : ""}
-              </div>
-            </div>
+              </span>
+            </button>
           </div>
         );
       })}

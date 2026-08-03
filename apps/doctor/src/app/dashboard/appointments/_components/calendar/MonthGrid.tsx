@@ -22,10 +22,13 @@ interface Props {
   onSelectDay: (date: Date) => void;
   /** Doble propósito: seleccionar el día Y saltar a la vista de día. */
   onDrillDown: (date: Date) => void;
+  /** Clic en la cita de un día → abre su modal de acciones. */
+  onOpenBooking: (bookingId: string) => void;
 }
 
 export function MonthGrid({
   days, month, ranges, bookings, blockedTimes, selectedDate, onSelectDay, onDrillDown,
+  onOpenBooking,
 }: Props) {
   const todayStr = getClinicDateString();
   const selectedStr = getLocalDateString(selectedDate);
@@ -89,15 +92,22 @@ export function MonthGrid({
                 {cell.events.slice(0, MAX_CHIPS).map((ev) => {
                   const meta = statusMeta(ev.status ?? "PENDING");
                   return (
-                    <div
+                    // stopPropagation: la celda entera selecciona el día. Sin esto, abrir
+                    // la cita también movería la selección por debajo del modal.
+                    <button
                       key={ev.id}
-                      title={`${minToTime(ev.startMin)} · ${ev.label} · ${meta.label}`}
-                      className={`flex items-center gap-1 rounded px-1 py-px text-[10px] leading-tight ${meta.blockBg}`}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onOpenBooking(ev.id); }}
+                      title={`${minToTime(ev.startMin)} · ${ev.label} · ${meta.label} — clic para ver sus acciones`}
+                      // Sustituye al `title` como nombre accesible (no se suman): lleva el
+                      // estado para no perderlo frente a lo que el tooltip sí dice.
+                      aria-label={`Cita de ${ev.label} a las ${minToTime(ev.startMin)}, ${meta.label}. Ver sus acciones`}
+                      className={`flex w-full items-center gap-1 rounded px-1 py-px text-left text-[10px] leading-tight ${meta.blockBg}`}
                     >
                       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${meta.dot}`} />
                       <span className="tabular-nums text-gray-500">{minToTime(ev.startMin)}</span>
                       <span className={`truncate ${meta.blockText}`}>{ev.label}</span>
-                    </div>
+                    </button>
                   );
                 })}
                 {extra > 0 && (

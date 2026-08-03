@@ -36,6 +36,13 @@ interface Props {
   blockedTimes: BlockedTime[];
   onBookInGap: (date: string, startTime: string) => void;
   onDeleteRange: (rangeId: string) => void;
+  /**
+   * Clic en una cita → abre su modal de acciones. Sólo recibe el ID: la cita COMPLETA la
+   * resuelve la página desde `useBookings`, así el modal se re-rinde solo tras cada
+   * escritura (completar, precio, vincular expediente) en vez de quedarse con una copia
+   * congelada del momento del clic.
+   */
+  onOpenBooking: (bookingId: string) => void;
 }
 
 /**
@@ -68,7 +75,7 @@ function periodLabel(view: CalendarView, anchorDate: Date, days: Date[]): string
 export function CalendarShell({
   view, onChangeView, anchorDate, selectedDate, onSelectDay, onDrillDownTo, visibleDays,
   onPrev, onNext, onToday, ranges, bookings, blockedTimes,
-  onBookInGap, onDeleteRange,
+  onBookInGap, onDeleteRange, onOpenBooking,
 }: Props) {
   return (
     <div className="space-y-3">
@@ -139,6 +146,7 @@ export function CalendarShell({
           // la rejilla entera a julio ni dispara una petición nueva.
           onSelectDay={onSelectDay}
           onDrillDown={(date) => onDrillDownTo(date, "day")}
+          onOpenBooking={onOpenBooking}
         />
       ) : (
         <TimeGrid
@@ -153,6 +161,7 @@ export function CalendarShell({
           }}
           onBookInGap={onBookInGap}
           onDeleteRange={onDeleteRange}
+          onOpenBooking={onOpenBooking}
         />
       )}
     </div>

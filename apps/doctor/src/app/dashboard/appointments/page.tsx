@@ -16,6 +16,7 @@ import { CalendarShell } from "./_components/calendar/CalendarShell";
 import { CreateRangeModal } from "./_components/CreateRangeModal";
 import { BookPatientModal } from "./_components/BookPatientModal";
 import { BookingsSection } from "./_components/BookingsSection";
+import { BookingDetailModal } from "./_components/BookingDetailModal";
 import { DeleteRangesModal } from "./_components/DeleteRangesModal";
 import { BlockTimeModal } from "./_components/BlockTimeModal";
 import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
@@ -77,6 +78,14 @@ export default function AppointmentsPage() {
   const [reviewLinkModalOpen, setReviewLinkModalOpen] = useState(false);
   const [standaloneFormModalOpen, setStandaloneFormModalOpen] = useState(false);
   const [bookingFieldSettingsOpen, setBookingFieldSettingsOpen] = useState(false);
+  // La cita abierta desde el calendario se guarda por ID, no por objeto: así el modal lee
+  // siempre la versión VIVA de `useBookings` y refleja cada escritura (completar, precio,
+  // vincular expediente) sin quedarse con la copia del instante del clic. Si la cita se
+  // ELIMINA, el `find` deja de encontrarla y el modal se cierra solo.
+  // ⚠️ Cancelarla NO lo cierra: la cita sigue en `bookings` con estado CANCELLED (lo que
+  // desaparece es su BLOQUE del calendario, por `HIDDEN_IN_CALENDAR`). El modal se queda
+  // mostrando la cita ya cancelada y su botón Eliminar, igual que la fila de la tabla.
+  const [openBookingId, setOpenBookingId] = useState<string | null>(null);
   const { open: openAgentPanel, subscribeAgendaChanged } = useAgentActions();
   // `can` gates member-only UI: the agent button (asistente_ia) and the CompleteBooking
   // modal's "Emitir factura" checkbox (facturacion) — passing onEmitCfdi undefined hides it.
@@ -151,10 +160,38 @@ export default function AppointmentsPage() {
     setBookPatientModalOpen(true);
   };
 
+  // Los handlers que la tabla y el modal del calendario COMPARTEN. Estaban en línea en el
+  // JSX de `BookingsSection`; se nombran para que el modal reciba exactamente los mismos y
+  // no se cuele un `fetchRanges` que sólo ocurra en una de las dos superficies.
+  const handleUpdateStatus = useCallback(async (id: string, status: string) => {
+    await bookingsHook.updateBookingStatus(id, status);
+    rangesHook.fetchRanges();
+  }, [bookingsHook, rangesHook]);
+
+  const handleCompleteBooking = useCallback(async (id: string, price: number, formaDePago: string) => {
+    const result = await bookingsHook.completeBooking(id, price, formaDePago);
+    rangesHook.fetchRanges();
+    return result;
+  }, [bookingsHook, rangesHook]);
+
+  const handleDeleteBooking = useCallback(async (id: string, name: string) => {
+    await bookingsHook.deleteBooking(id, name);
+    rangesHook.fetchRanges();
+  }, [bookingsHook, rangesHook]);
+
+  // Reagendar y "crear formulario" abren OTRO modal. Se cierra antes el de la cita para no
+  // apilar dos: desde la tabla `setOpenBookingId(null)` ya es un no-op.
   const handleReschedule = useCallback((booking: Booking) => {
+    setOpenBookingId(null);
     rescheduleBookingRef.current = booking;
     setRescheduleBooking(booking);
     setBookPatientModalOpen(true);
+  }, []);
+
+  const handleOpenFormLinkModal = useCallback((booking: Booking) => {
+    setOpenBookingId(null);
+    setFormLinkBooking(booking);
+    setFormLinkModalOpen(true);
   }, []);
 
   // ⚠️ El modal NO recibe fecha ni hora — `BookPatientModal` no tiene props para
@@ -181,6 +218,14 @@ export default function AppointmentsPage() {
     confirmed: bookingsHook.bookings.filter(b => b.status === "CONFIRMED" && !isExpiredBooking(b)).length,
     expired: bookingsHook.bookings.filter(b => isExpiredBooking(b)).length,
   };
+
+  // La cita abierta se RESUELVE en cada render desde la lista viva — ver la nota de
+  // `openBookingId`. `undefined` (se eliminó, o el refetch ya no la trae) cierra el modal.
+  // No se limpia `openBookingId` al hacerlo: el `find` vuelve a fallar en cada render y
+  // eso basta, mientras que un `setState` desde el render sería un bucle.
+  const openBooking = openBookingId
+    ? bookingsHook.bookings.find((b) => b.id === openBookingId)
+    : undefined;
 
   if (authStatus === "loading" || (authStatus === "authenticated" && rangesHook.loading)) {
     return (
@@ -375,32 +420,19 @@ export default function AppointmentsPage() {
         bookingFilterStatus={bookingsHook.bookingFilterStatus}
         setBookingFilterStatus={bookingsHook.setBookingFilterStatus}
         shiftBookingFilterDate={bookingsHook.shiftBookingFilterDate}
-        onUpdateStatus={async (id, status) => {
-          await bookingsHook.updateBookingStatus(id, status);
-          rangesHook.fetchRanges();
-        }}
-        onCompleteBooking={async (id, price, formaDePago) => {
-          const result = await bookingsHook.completeBooking(id, price, formaDePago);
-          rangesHook.fetchRanges();
-          return result;
-        }}
+        onUpdateStatus={handleUpdateStatus}
+        onCompleteBooking={handleCompleteBooking}
         onEmitCfdi={can("facturacion") ? bookingsHook.emitCfdi : undefined}
         onUpdatePrice={bookingsHook.updateBookingPrice}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
         onUpdateFacturaSolicitada={bookingsHook.updateFacturaSolicitada}
         onUpdatePatientLink={bookingsHook.updatePatientLink}
-        onDeleteBooking={async (id, name) => {
-          await bookingsHook.deleteBooking(id, name);
-          rangesHook.fetchRanges();
-        }}
+        onDeleteBooking={handleDeleteBooking}
         getStatusColor={bookingsHook.getStatusColor}
         sortColumn={bookingsHook.sortColumn}
         sortDirection={bookingsHook.sortDirection}
         onSort={bookingsHook.toggleSort}
-        onOpenFormLinkModal={(booking) => {
-          setFormLinkBooking(booking);
-          setFormLinkModalOpen(true);
-        }}
+        onOpenFormLinkModal={handleOpenFormLinkModal}
         onDeleteFormLink={bookingsHook.deleteFormLink}
         onSendEmail={bookingsHook.sendConfirmationEmail}
         onReschedule={handleReschedule}
@@ -424,8 +456,31 @@ export default function AppointmentsPage() {
           blockedTimes={blockedTimesHook.blockedTimes}
           onBookInGap={handleBookInGap}
           onDeleteRange={rangesHook.deleteRange}
+          onOpenBooking={setOpenBookingId}
         />
       </div>
+
+      {/* Cita abierta desde el calendario. Los mismos handlers que la tabla — el modal
+          rinde los mismos componentes, no una reimplementación. */}
+      {openBooking && (
+        <BookingDetailModal
+          booking={openBooking}
+          onClose={() => setOpenBookingId(null)}
+          getStatusColor={bookingsHook.getStatusColor}
+          onUpdateStatus={handleUpdateStatus}
+          onCompleteBooking={handleCompleteBooking}
+          onEmitCfdi={can("facturacion") ? bookingsHook.emitCfdi : undefined}
+          onUpdatePrice={bookingsHook.updateBookingPrice}
+          onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
+          onUpdateFacturaSolicitada={bookingsHook.updateFacturaSolicitada}
+          onUpdatePatientLink={bookingsHook.updatePatientLink}
+          onDeleteBooking={handleDeleteBooking}
+          onOpenFormLinkModal={handleOpenFormLinkModal}
+          onDeleteFormLink={bookingsHook.deleteFormLink}
+          onSendEmail={bookingsHook.sendConfirmationEmail}
+          onReschedule={handleReschedule}
+        />
+      )}
 
       {/* Modals */}
       <CreateRangeModal
