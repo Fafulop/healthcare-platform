@@ -2,17 +2,43 @@
 // Public endpoint — computes available appointment times from availability ranges.
 // When serviceId is provided: returns availableDates + timeSlots (full computation).
 // When serviceId is omitted: returns only availableDates (dates that have ranges, for calendar display).
+//
+// freeform=1 (AUTHENTICATED ONLY, see below) computes availability from a synthetic
+// whole-day range instead of the doctor's published ranges — the doctor booking outside
+// (or on top of) their own availability. Docs: CITAS/01-PLAN-agendar-sin-rango.md.
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import { validateAuthToken } from '@/lib/auth';
 import {
   calculateAvailability,
   applyCutoff,
+  applyPastFilter,
   type AvailabilityRangeInput,
   type BookingInput,
   type BlockedTimeInput,
   type AvailableSlot,
 } from '@/lib/availability-calculator';
+
+/** Synthetic range id returned for freeform slots — NOT a real AvailabilityRange row. */
+const FREEFORM_RANGE_ID = 'freeform';
+/** Grid for the freeform day. Finer than any doctor's defaultIntervalMinutes (all 30 in prod)
+ *  on purpose: squeezing a patient between two appointments is the point. */
+const FREEFORM_INTERVAL_MINUTES = 15;
+/** Without ranges to bound it, a year would be 365 x 96 = ~35k entries in one response. */
+const FREEFORM_MAX_DAYS = 62;
+
+/** Every "YYYY-MM-DD" from start to end inclusive, in UTC (ranges store midnight UTC). */
+function enumerateDateKeys(start: Date, end: Date): string[] {
+  const keys: string[] = [];
+  const cur = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+  while (cur <= last) {
+    keys.push(cur.toISOString().split('T')[0]);
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return keys;
+}
 
 export async function GET(
   request: Request,
@@ -29,6 +55,7 @@ export async function GET(
     // Used by doctor-context callers (agenda agent) — doctors can book inside the
     // hour themselves; the booking POST still enforces the cutoff for public.
     const skipCutoff = searchParams.get('skipCutoff') === '1';
+    const freeformRequested = searchParams.get('freeform') === '1';
     // excludeBookingIds=id1,id2: compute availability AS IF these bookings didn't
     // exist. Used by reschedule/plan-aware pre-checks (agenda agent GAP-2/3) so
     // they always ask THIS canonical engine instead of re-deriving the occupied
@@ -62,6 +89,38 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: 'Doctor not found' },
         { status: 404 }
+      );
+    }
+
+    // --- freeform=1 REQUIRES auth; this endpoint is otherwise public ---
+    //
+    // Unauthenticated, this endpoint only reveals availability INSIDE the ranges the doctor
+    // chose to publish. freeform=1 answers over the whole day, so an anonymous caller with
+    // just the slug could derive the doctor's entire OCCUPIED schedule by inversion (every
+    // time not returned is taken by a booking or a block) — a free/busy leak for a doctor
+    // who may not even use the public page.
+    //
+    // On failure the flag is IGNORED (fall through to normal range mode) rather than 403:
+    // a 403 confirms the parameter exists, ignoring it tells an unauthenticated caller
+    // nothing. validateAuthToken also runs tier + member-route enforcement, so a member
+    // without the citas toggle is rejected here for free.
+    let freeform = false;
+    if (freeformRequested) {
+      try {
+        const { role, doctorId: authDoctorId } = await validateAuthToken(request);
+        freeform = role === 'ADMIN' || (role === 'DOCTOR' && authDoctorId === doctor.id);
+      } catch {
+        freeform = false;
+      }
+    }
+
+    // Freeform is time-slot computation by definition — "which dates have ranges" is
+    // meaningless when the answer is "all of them". Require the service up front instead of
+    // inventing dates-only freeform semantics.
+    if (freeform && !serviceId) {
+      return NextResponse.json(
+        { success: false, error: 'freeform=1 requires serviceId' },
+        { status: 400 }
       );
     }
 
@@ -116,8 +175,24 @@ export async function GET(
       dateFilter = { gte: today, lte: end };
     }
 
-    // Fetch availability ranges for this doctor + date range
-    const ranges = await prisma.availabilityRange.findMany({
+    // In freeform the window is not bounded by how many ranges exist, so it must be bounded
+    // here: a year would be 365 x 96 = ~35k entries. Same shape as the agent's get_ranges cap.
+    const freeformDateKeys = freeform
+      ? enumerateDateKeys(dateFilter.gte, dateFilter.lte)
+      : [];
+    if (freeform && freeformDateKeys.length > FREEFORM_MAX_DAYS) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `freeform=1 admite como máximo ${FREEFORM_MAX_DAYS} días por llamada (se pidieron ${freeformDateKeys.length}) — divide el periodo.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Fetch availability ranges for this doctor + date range.
+    // Skipped in freeform: the synthetic whole-day range replaces them as the window source.
+    const ranges = freeform ? [] : await prisma.availabilityRange.findMany({
       where: {
         doctorId: doctor.id,
         date: dateFilter,
@@ -186,6 +261,38 @@ export async function GET(
         locationId: r.locationId,
         locationName: r.location?.name ?? null,
       });
+    }
+
+    // --- Freeform: one synthetic whole-day range per date in the window ---
+    //
+    // The ENTIRE point is that this goes through calculateAvailability unchanged: bookings,
+    // extendedBlockMinutes, BlockedTime and the buffer are all subtracted by the same engine
+    // the public page uses. No second definition of "occupied" is created anywhere.
+    //
+    // Since ranges are always on 15-min boundaries and this grid is 15 min from 00:00, the
+    // freeform list is always a SUPERSET of the range list: the two can never contradict.
+    //
+    // ⚠️ The day ends at "23:59", NOT "24:00". calculateAvailability only requires
+    // `start + duration <= rangeEnd`, so "24:00" (1440) would let a 30-min service start at
+    // 23:30 and produce `endTime = "24:00"` — a string no AvailabilityRange can hold
+    // (isValid15MinBoundary caps the hour at 23) and that had never existed in the DB.
+    // range-bookings/instant persists that endTime verbatim, and google-calendar.ts builds
+    // `${date}T${endTime}:00` => "2026-08-05T24:00:00", which is not a valid RFC3339 hour and
+    // the Calendar API rejects. 1439 caps the last endTime at "23:59" and the problem is gone
+    // by construction instead of by clamping downstream.
+    if (freeform) {
+      for (const dateKey of freeformDateKeys) {
+        rangesByDate.set(dateKey, [
+          {
+            id: FREEFORM_RANGE_ID,
+            startTime: '00:00',
+            endTime: '23:59',
+            intervalMinutes: FREEFORM_INTERVAL_MINUTES,
+            locationId: null,
+            locationName: null,
+          },
+        ]);
+      }
     }
 
     // Group bookings by date key
@@ -271,9 +378,13 @@ export async function GET(
         bufferMinutes: doctor.appointmentBufferMinutes,
       });
 
-      // Apply 1-hour cutoff for today (Mexico City TZ) — unless the caller is
-      // doctor-context and asked to skip it
-      if (!skipCutoff) {
+      // freeform implies doctor-context (auth-gated above), so the 1-hour LEAD TIME does not
+      // apply — the doctor can book inside the hour, same as the agent with skipCutoff=1.
+      // But dropping applyCutoff wholesale also dropped "not in the past", which is not a
+      // lead time and is nonsense in every flow. applyPastFilter keeps exactly that half.
+      if (freeform) {
+        slots = applyPastFilter(slots, dateKey);
+      } else if (!skipCutoff) {
         slots = applyCutoff(slots, dateKey);
       }
 
@@ -296,6 +407,11 @@ export async function GET(
         price: service.price,
       },
       bufferMinutes: doctor.appointmentBufferMinutes,
+      // The mode ACTUALLY served. `freeform=1` is ignored (not 403'd) when auth fails, so
+      // without this the client cannot tell "you are seeing the whole day" from "your token
+      // expired and you are seeing published ranges" — it would keep showing the freeform
+      // banner over range-only times. The client compares and corrects itself.
+      freeform,
       availableDates,
       timeSlots,
     });

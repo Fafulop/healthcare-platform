@@ -254,3 +254,30 @@ export function applyCutoff(
 
   return slots.filter((slot) => timeToMinutes(slot.startTime) > cutoffMinutes);
 }
+
+/**
+ * Drop start times that have ALREADY PASSED today (Mexico City). Other dates untouched.
+ *
+ * This is the doctor-context half of `applyCutoff`: the 1-hour lead time exists to stop a
+ * PUBLIC patient booking something the doctor can't prepare for, and a doctor booking their
+ * own agenda should not be subject to it. "Already in the past", though, is not a lead time —
+ * it is nonsense in every flow, and no other booking surface allows it (the date inputs all
+ * carry `min={today}`).
+ *
+ * Without this, freeform on TODAY listed every 15-min mark from 00:00: at 18:00 the dropdown
+ * opened on "00:00 – 00:30", and `range-bookings/instant` has no past-time check to catch it.
+ */
+export function applyPastFilter(
+  slots: AvailableSlot[],
+  dateKey: string
+): AvailableSlot[] {
+  const nowMXStr = new Date().toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' });
+  const todayMX = nowMXStr.split(' ')[0];
+
+  if (dateKey !== todayMX) return slots;
+
+  const [h, m] = nowMXStr.split(' ')[1].slice(0, 5).split(':').map(Number);
+  const nowMinutes = h * 60 + m;
+
+  return slots.filter((slot) => timeToMinutes(slot.startTime) > nowMinutes);
+}
