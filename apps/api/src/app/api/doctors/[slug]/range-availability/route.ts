@@ -22,11 +22,30 @@ import {
 
 /** Synthetic range id returned for freeform slots — NOT a real AvailabilityRange row. */
 const FREEFORM_RANGE_ID = 'freeform';
-/** Grid for the freeform day. Finer than any doctor's defaultIntervalMinutes (all 30 in prod)
- *  on purpose: squeezing a patient between two appointments is the point. */
-const FREEFORM_INTERVAL_MINUTES = 15;
-/** Without ranges to bound it, a year would be 365 x 96 = ~35k entries in one response. */
-const FREEFORM_MAX_DAYS = 62;
+/** Grid for the freeform day when the caller doesn't ask for one. Finer than any doctor's
+ *  defaultIntervalMinutes (all 30 in prod) on purpose: squeezing a patient between two
+ *  appointments is the point. Callers override it with `interval` (see below). */
+const FREEFORM_DEFAULT_INTERVAL_MINUTES = 15;
+/**
+ * Only divisors of 15 are accepted, and that is load-bearing — not tidiness.
+ *
+ * AvailabilityRange start times are validated to 15-min boundaries, so a freeform grid that
+ * divides 15 contains every range slot: the freeform list stays a SUPERSET of the range list
+ * and the two can never contradict each other. With, say, interval=20 the grid is
+ * 00:00/00:20/00:40..., a range starting 09:30 is NOT on it, and the picker would render
+ * 09:30 as a clickable range button while telling the doctor that typing 09:30 is "not free".
+ */
+const FREEFORM_ALLOWED_INTERVALS = [1, 3, 5, 15] as const;
+/**
+ * Budget for one freeform response, counted in SLOTS — not in days.
+ *
+ * ⚠️ It used to be a 62-DAY cap, which only worked while the grid was hardcoded at 15 min
+ * (62 x 96 = ~6k entries). The moment `interval` became a parameter that cap stopped
+ * protecting anything: at interval=1 the same 62 days is 62 x 1440 = ~89k entries. A limit
+ * has to be expressed in the unit of the thing it's protecting — here, response size — or it
+ * silently stops applying when a neighbouring knob moves.
+ */
+const FREEFORM_MAX_SLOTS = 6000;
 
 /** Every "YYYY-MM-DD" from start to end inclusive, in UTC (ranges store midnight UTC). */
 function enumerateDateKeys(start: Date, end: Date): string[] {
@@ -124,6 +143,15 @@ export async function GET(
       );
     }
 
+    // Grid of the freeform day, in minutes. The doctor's picker asks for 1: it validates a
+    // time the doctor TYPED, so anything coarser rejects "16:07" — a time that may well be
+    // free — for no reason the doctor can see. Rejected values fall back to the default
+    // rather than 400ing, since the parameter is an optimisation, not a semantic.
+    const intervalParam = Number(searchParams.get('interval'));
+    const freeformInterval = (FREEFORM_ALLOWED_INTERVALS as readonly number[]).includes(intervalParam)
+      ? intervalParam
+      : FREEFORM_DEFAULT_INTERVAL_MINUTES;
+
     // Fetch the selected service if provided
     let service: { id: string; serviceName: string; durationMinutes: number; price: any } | null = null;
     if (serviceId) {
@@ -176,18 +204,24 @@ export async function GET(
     }
 
     // In freeform the window is not bounded by how many ranges exist, so it must be bounded
-    // here: a year would be 365 x 96 = ~35k entries. Same shape as the agent's get_ranges cap.
+    // here. Budgeted in SLOTS because days alone mean nothing once `interval` can move:
+    // 62 days is ~6k entries at 15 min and ~89k at 1 min.
     const freeformDateKeys = freeform
       ? enumerateDateKeys(dateFilter.gte, dateFilter.lte)
       : [];
-    if (freeform && freeformDateKeys.length > FREEFORM_MAX_DAYS) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `freeform=1 admite como máximo ${FREEFORM_MAX_DAYS} días por llamada (se pidieron ${freeformDateKeys.length}) — divide el periodo.`,
-        },
-        { status: 400 }
-      );
+    if (freeform) {
+      const slotsPerDay = Math.ceil((24 * 60) / freeformInterval);
+      const projectedSlots = freeformDateKeys.length * slotsPerDay;
+      if (projectedSlots > FREEFORM_MAX_SLOTS) {
+        const maxDays = Math.max(1, Math.floor(FREEFORM_MAX_SLOTS / slotsPerDay));
+        return NextResponse.json(
+          {
+            success: false,
+            error: `freeform=1 con intervalo de ${freeformInterval} min admite como máximo ${maxDays} día(s) por llamada (se pidieron ${freeformDateKeys.length}) — divide el periodo.`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Fetch availability ranges for this doctor + date range.
@@ -269,8 +303,10 @@ export async function GET(
     // extendedBlockMinutes, BlockedTime and the buffer are all subtracted by the same engine
     // the public page uses. No second definition of "occupied" is created anywhere.
     //
-    // Since ranges are always on 15-min boundaries and this grid is 15 min from 00:00, the
-    // freeform list is always a SUPERSET of the range list: the two can never contradict.
+    // Ranges are always on 15-min boundaries and this grid starts at 00:00 with an interval
+    // that DIVIDES 15 (enforced by FREEFORM_ALLOWED_INTERVALS), so the freeform list is always
+    // a SUPERSET of the range list: the two can never contradict. That divisibility is the
+    // whole reason the allowed set is not simply "1..60".
     //
     // ⚠️ The day ends at "23:59", NOT "24:00". calculateAvailability only requires
     // `start + duration <= rangeEnd`, so "24:00" (1440) would let a 30-min service start at
@@ -287,7 +323,7 @@ export async function GET(
             id: FREEFORM_RANGE_ID,
             startTime: '00:00',
             endTime: '23:59',
-            intervalMinutes: FREEFORM_INTERVAL_MINUTES,
+            intervalMinutes: freeformInterval,
             locationId: null,
             locationName: null,
           },
@@ -412,6 +448,11 @@ export async function GET(
       // expired and you are seeing published ranges" — it would keep showing the freeform
       // banner over range-only times. The client compares and corrects itself.
       freeform,
+      // The grid ACTUALLY used, same reasoning as `freeform` above: a rejected `interval`
+      // falls back to the default silently, and a client that asked for 1 while getting 15
+      // would tell the doctor that a free "16:07" is taken — a confident, false claim it has
+      // no way to detect. Echoed so the client can say "the grid is every N minutes" instead.
+      intervalMinutes: freeform ? freeformInterval : null,
       availableDates,
       timeSlots,
     });
