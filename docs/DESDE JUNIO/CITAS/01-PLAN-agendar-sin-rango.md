@@ -3,7 +3,9 @@
 > **Tipo PLAN.** Escrito 2026-08-03. Lo del **agente** NO vive aquí — va a
 > [`../AGENTES/AGENTE AGENDA/`](../AGENTES/AGENTE%20AGENDA/) (§10).
 >
-> **Estado: FASE 1 EN PROD, SIN PROBAR A MANO.**
+> **Estado: v1 en prod y PROBADA a mano (`ca627673`). v2 —sin interruptor, con hora
+> escrita— ESCRITA y sin probar: ver [§15](#15-la-v1-se-probó-a-mano-y-se-rehízo-fuera-el-interruptor-fuera-el-desplegable),
+> que es lo que describe el código de HOY.** §5 y §14 describen la v1.
 > Verde: `type-check` (api con `--max-old-space-size=6144`) · `build` de `apps/doctor` ·
 > **los 5 gates** · smoke read-only del rango sintético contra datos REALES de prod
 > (§7b). ⚠️ **Nada de eso es el clic** — falta la prueba a mano. Al shippear y probar:
@@ -217,15 +219,17 @@ se guarda después, pero la pantalla dice menos. Es el argumento más fuerte par
 | Archivo | Cambio |
 |---|---|
 | `apps/api/src/app/api/doctors/[slug]/range-availability/route.ts` | Parámetro `freeform=1`: rango sintético + iterar fechas del periodo + tope de 62 días |
-| `apps/doctor/…/_components/RangeTimePickerStep.tsx` | Interruptor; con él encendido pide `freeform=1` y rinde **desplegable** en vez de rejilla de botones |
+| `apps/doctor/…/_components/RangeTimePickerStep.tsx` | Rejilla de rangos **+ campo de hora escrita** validado contra `freeform=1` (ver §15) |
 | `apps/doctor/…/_components/BookPatientModal/index.tsx` | Nada en el submit. Sólo si se hace el prellenado de §9.4 |
 
-**Presentación por camino** (queda como se entendió en la conversación, y es lo correcto):
+**Presentación por camino** ⚠️ **Reemplazada — ver §15.** La primera versión puso un
+interruptor y un desplegable; se probó a mano y se descartaron. Se deja escrito porque el
+razonamiento de por qué no funcionó es lo útil:
 
-| Camino | Cuántas opciones | Cómo se rinde |
+| Camino | Cuántas opciones | Cómo se rindió (v1, ya no) |
 |---|---|---|
-| Rangos (interruptor apagado) | ~6–12 | **Rejilla de botones**, como hoy — muestra hora de fin y consultorio por botón |
-| Libre (interruptor encendido) | hasta 96 | **Desplegable** — una rejilla de 96 botones es inusable |
+| Rangos (interruptor apagado) | ~6–12 | Rejilla de botones |
+| Libre (interruptor encendido) | hasta 96 | Desplegable |
 
 ## 6. Qué NO se toca
 
@@ -415,6 +419,73 @@ en verde. **Encontró seis cosas, las seis reales.** Vuelve a ser el argumento d
 > río abajo (`google-calendar.ts`) llevaba años siendo correcto **porque la validación de
 > `AvailabilityRange` garantizaba hora ≤ 23**. El rango sintético no pasa por esa validación:
 > saltarse el guardián de un invariante lo rompe en sitios que ni se tocaron.
+
+## 15. La v1 se probó a mano y se rehízo: fuera el interruptor, fuera el desplegable
+
+**Esto es lo que está en el código hoy.** Lo de §5 y §14 describe la v1, que llegó a prod
+(`ca627673`), se probó a mano — **funcionaba, sin bugs**— y se descartó igual por diseño.
+
+**Los dos rechazos, y su raíz común.** El interruptor obligaba al doctor a declarar un **modo**
+antes de expresar una intención, y el desplegable de hasta 96 horas era un control de
+**exploración** para una tarea donde no hay nada que explorar. La raíz es la misma y estaba
+escrita en §1 desde el principio: el caso de uso es *"Sra. García, martes 4pm"* — **la hora ya
+se sabe**. Se había construido un buscador para alguien que ya tiene la respuesta.
+
+### Qué hay ahora
+
+| | |
+|---|---|
+| Interruptor | **No existe.** Nada que prender, ningún modo que elegir |
+| Horas de los rangos | Rejilla de botones, **exactamente como antes** (con su consultorio) |
+| Cualquier otra hora | Un campo `<input type="time">`: el doctor **escribe** la hora |
+| Validación de lo escrito | Contra la lista de `freeform=1` del **día elegido**, que ahora se pide **siempre** |
+| Si la hora no está libre | Se ofrecen con un clic las libres **más cercanas** (anterior y siguiente) |
+| Si ya pasó | Lo dice como *"ya pasó"*, no como *"ocupada"* — razón distinta, arreglo distinto |
+
+**El servidor no se tocó.** `freeform=1`, el rango sintético, el tope de 62 días y el filtro de
+pasado siguen igual: lo que cambió es que el cliente ya no usa esa lista para **pintar** un
+desplegable sino para **validar** lo que el doctor escribió. Los dos modos que antes se
+excluían ahora **conviven** en la misma pantalla y sus dos listas viven en estados separados
+(`timeSlots` los rangos, `freeSlots` el día libre).
+
+### Tres cosas que sólo aparecieron al rehacerlo
+
+1. 🔴 **El calendario era una reja.** Sólo se podían clicar los días **con rango**. Sin
+   interruptor que ensanchara el calendario, un doctor sin rangos no tenía **ningún día que
+   clicar**: nunca llegaba al paso 3 y por lo tanto nunca podía escribir una hora — la
+   pantalla entera muerta para exactamente el usuario que motivó el trabajo. Ahora **todo día
+   no pasado es clicable** y el resaltado sólo *informa* dónde hay rangos publicados.
+2. 🟠 **El aviso *"Sin disponibilidad para este servicio"* pasó a ser mentira.** Un mes sin
+   rangos ya no impide agendar. Decirlo manda al doctor a crear el rango que este trabajo
+   existe para no exigirle. Reescrito.
+3. 🟠 **El intervalo de 15 min NO se replica en el cliente.** El primer intento hardcodeó
+   `GRID_MINUTES = 15` para sugerir horas al redondear, duplicando en silencio
+   `FREEFORM_INTERVAL_MINUTES` del endpoint. Se cambió por *"las libres más cercanas de la
+   lista que mandó el servidor"* — mejor sugerencia **y** nada que desincronizarse. Misma
+   regla 0 de §3, aplicada a un número en vez de a una fórmula.
+
+> 📌 **La lección.** La v1 pasó `type-check`, los 5 gates, el smoke contra prod, `/code-review`
+> con 6 hallazgos arreglados **y** la prueba a mano. Nada de eso podía detectar que el control
+> era el equivocado — sólo mirarlo con la pregunta *"¿esto es como el doctor piensa la tarea?"*.
+> Y el bug 🔴 del calendario-reja estaba **latente en la v1 desde el diseño**: sólo no se veía
+> porque el interruptor lo tapaba.
+
+### `/code-review` sobre la v2 — 5 hallazgos, 5 arreglados
+
+| | Hallazgo | Arreglo |
+|---|---|---|
+| **1** 🔴 | **Confirmar en `onChange` agendaba la hora equivocada.** El comentario afirmaba que `type="time"` no emite valores a medias; es cierto sólo la PRIMERA vez. Con `16:00` ya puesto, teclear el `1` de las 17:00 emite **`01:00`** (los minutos se conservan), que está libre en cualquier día futuro ⇒ se confirmaba y el modal **saltaba al formulario con una cita a la 1:00 AM** antes de poder teclear el `7`. Las flechitas del control hacen lo mismo desde vacío | El campo ya no confirma nunca: muestra el veredicto al escribir y **confirmar es un acto aparte** (botón *"Usar 16:00 – 16:30"* o Enter) |
+| **2** 🟠 | **Un fallo de red se rendía como "esa hora está ocupada"** — de las 96 del día. Todas las salidas de error dejaban `freeSlots` vacío, y una lista vacía es indistinguible de "no hay nada libre" | `freeformReady`: `true` **sólo** tras una respuesta buena que además sirvió el modo libre. El veredicto no se rinde sin ella |
+| **3** 🟠 | *"Este día no tiene ninguna hora libre"* salía también con la sesión caída o la petición fallida — le dice al doctor que su día está lleno cuando lo que falló fue el fetch | Mismo `freeformReady` |
+| **4** 🟠 | `freeformAllowed` no se restauraba en las rutas de error: un fallo posterior dejaba el campo **deshabilitado sin explicación**, y su razón estaba gateada | Se eliminó ese flag. `freeformReady` se apaga **al empezar** cada petición, y el error del día se rinde **pegado al campo** en vez de arriba, donde se salía de la vista |
+| **5** 🟡 | *"Este mes no tienes horarios publicados"* se afirmaba aunque la petición del mes hubiera fallado — un hecho sobre la agenda del doctor construido sobre una respuesta que nunca llegó | `monthError` propio; el aviso se calla si hubo fallo |
+
+> 📌 **El patrón que une 2, 3 y 5: una lista vacía no es una respuesta.** Tres mensajes
+> distintos afirmaban con seguridad un hecho sobre la agenda (*ocupada* · *día lleno* · *sin
+> rangos*) cuando el estado real era **"no sé"**. El bug no está en ningún mensaje: está en
+> haber colapsado *"el servidor dijo que no hay"* y *"el servidor no dijo nada"* en el mismo
+> `[]`. **Cada vez que un fallo cae en el mismo estado que un vacío legítimo, la UI acaba
+> mintiendo con total confianza** — y aquí manda al doctor a debuggear su agenda por un 500.
 
 ---
 

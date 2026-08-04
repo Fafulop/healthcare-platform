@@ -15,7 +15,7 @@
 |---|---|---|
 | [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | ESTADO | **Empieza aquí.** Dónde quedó todo, qué falta probar y qué sigue |
 | [`00-METODO-prueba-manual-punta-a-punta.md`](00-METODO-prueba-manual-punta-a-punta.md) | REFERENCIA | El guion de la prueba a mano de cada flujo de una cita |
-| [`01-PLAN-agendar-sin-rango.md`](01-PLAN-agendar-sin-rango.md) | PLAN | **Fase 1 en prod, SIN probar a mano.** Interruptor en el picker para agendar a cualquier hora, dentro y fuera de rango |
+| [`01-PLAN-agendar-sin-rango.md`](01-PLAN-agendar-sin-rango.md) | PLAN | Agendar a cualquier hora sin declarar un rango. **v1 (interruptor) probada y descartada; v2 (hora escrita) escrita, sin probar — §15** |
 
 ## En una frase
 
