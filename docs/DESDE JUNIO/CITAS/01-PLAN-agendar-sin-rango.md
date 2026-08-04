@@ -3,9 +3,9 @@
 > **Tipo PLAN.** Escrito 2026-08-03. Lo del **agente** NO vive aquí — va a
 > [`../AGENTES/AGENTE AGENDA/`](../AGENTES/AGENTE%20AGENDA/) (§10).
 >
-> **Estado: v1 en prod y PROBADA a mano (`ca627673`). v2 —sin interruptor, con hora
-> escrita— ESCRITA y sin probar: ver [§15](#15-la-v1-se-probó-a-mano-y-se-rehízo-fuera-el-interruptor-fuera-el-desplegable),
-> que es lo que describe el código de HOY.** §5 y §14 describen la v1.
+> **Estado: v2 (sin interruptor, con hora escrita) en prod y PROBADA a mano — `55758d79`.
+> Encima va §16 (rejilla de 1 min + UI más grande), escrita y SIN probar.**
+> **§15 y §16 describen el código de HOY**; §5 y §14 quedan como registro de la v1.
 > Verde: `type-check` (api con `--max-old-space-size=6144`) · `build` de `apps/doctor` ·
 > **los 5 gates** · smoke read-only del rango sintético contra datos REALES de prod
 > (§7b). ⚠️ **Nada de eso es el clic** — falta la prueba a mano. Al shippear y probar:
@@ -137,7 +137,8 @@ respuesta baja a ≤96 entradas, el calendario deja de necesitar `availableDates
 la ventana deja de ser un problema de UI.
 
 ⚠️ **El tope sigue haciendo falta en el servidor**, porque el endpoint es genérico y nada
-impide pedir un año: 365 × 96 ≈ **35 000 entradas**. **Tope: 62 días** con `400` si se pide
+impide pedir un año: 365 × 96 ≈ **35 000 entradas**. **Tope: 62 días** (⚠️ hoy es un
+**presupuesto de slots**, no de días — §16) con `400` si se pide
 más — mismo patrón que el tope de ~120 días que `get_ranges` del agente ya aplica.
 
 ⚠️ Y el estado vacío *"Sin disponibilidad para este servicio"* **no debe rendirse en modo
@@ -218,7 +219,7 @@ se guarda después, pero la pantalla dice menos. Es el argumento más fuerte par
 
 | Archivo | Cambio |
 |---|---|
-| `apps/api/src/app/api/doctors/[slug]/range-availability/route.ts` | Parámetro `freeform=1`: rango sintético + iterar fechas del periodo + tope de 62 días |
+| `apps/api/src/app/api/doctors/[slug]/range-availability/route.ts` | Parámetro `freeform=1`: rango sintético + iterar fechas del periodo + tope (hoy **presupuesto de slots**, y parámetro `interval` — §16) |
 | `apps/doctor/…/_components/RangeTimePickerStep.tsx` | Rejilla de rangos **+ campo de hora escrita** validado contra `freeform=1` (ver §15) |
 | `apps/doctor/…/_components/BookPatientModal/index.tsx` | Nada en el submit. Sólo si se hace el prellenado de §9.4 |
 
@@ -364,7 +365,7 @@ este plan. Se anota para decidirlo aparte.
 | Riesgo | Mitigación |
 |---|---|
 | El endpoint cambia y lo consumen la página pública, el agente y el picker | La rama `freeform` es **aditiva**: sin el parámetro, ni una línea del camino actual cambia |
-| Respuesta enorme sin rangos que la acoten | Tope de 62 días con `400` (§3) |
+| Respuesta enorme sin rangos que la acoten | Tope con `400` (§3) — hoy presupuesto de slots (§16) |
 | Forma de query nueva contra prod | **Smoke test read-only ANTES del push**, método de los `TOOLING-*`. Aquí no hay SQL crudo nuevo (es Prisma + una función pura), pero la iteración por fechas es forma nueva |
 | Doble reserva desde el picker libre | No aplica: el motor ya resta lo ocupado, y el `409` del endpoint sigue siendo la red de seguridad bajo la carrera |
 
@@ -442,7 +443,8 @@ se sabe**. Se había construido un buscador para alguien que ya tiene la respues
 | Si la hora no está libre | Se ofrecen con un clic las libres **más cercanas** (anterior y siguiente) |
 | Si ya pasó | Lo dice como *"ya pasó"*, no como *"ocupada"* — razón distinta, arreglo distinto |
 
-**El servidor no se tocó.** `freeform=1`, el rango sintético, el tope de 62 días y el filtro de
+**El servidor no se tocó en la v2** (§16 sí lo tocó después: `interval` y el presupuesto de
+slots). `freeform=1`, el rango sintético, el tope y el filtro de
 pasado siguen igual: lo que cambió es que el cliente ya no usa esa lista para **pintar** un
 desplegable sino para **validar** lo que el doctor escribió. Los dos modos que antes se
 excluían ahora **conviven** en la misma pantalla y sus dos listas viven en estados separados
@@ -460,7 +462,7 @@ excluían ahora **conviven** en la misma pantalla y sus dos listas viven en esta
    existe para no exigirle. Reescrito.
 3. 🟠 **El intervalo de 15 min NO se replica en el cliente.** El primer intento hardcodeó
    `GRID_MINUTES = 15` para sugerir horas al redondear, duplicando en silencio
-   `FREEFORM_INTERVAL_MINUTES` del endpoint. Se cambió por *"las libres más cercanas de la
+   `FREEFORM_DEFAULT_INTERVAL_MINUTES` del endpoint. Se cambió por *"las libres más cercanas de la
    lista que mandó el servidor"* — mejor sugerencia **y** nada que desincronizarse. Misma
    regla 0 de §3, aplicada a un número en vez de a una fórmula.
 
@@ -486,6 +488,80 @@ excluían ahora **conviven** en la misma pantalla y sus dos listas viven en esta
 > haber colapsado *"el servidor dijo que no hay"* y *"el servidor no dijo nada"* en el mismo
 > `[]`. **Cada vez que un fallo cae en el mismo estado que un vacío legítimo, la UI acaba
 > mintiendo con total confianza** — y aquí manda al doctor a debuggear su agenda por un 500.
+
+## 16. La rejilla pasa de 15 min a **1 min** (y el tope deja de contarse en días)
+
+La v2 se probó a mano y salió la pregunta correcta: *¿por qué 15 minutos?* **Con un campo de
+hora escrita, la rejilla dejó de ser un detalle de presentación y pasó a ser una regla de
+rechazo.** En el desplegable, 15 min sólo decidía cuántas filas se pintaban; escribiendo,
+decide que un `16:07` perfectamente libre se rechace sin que el doctor pueda ver por qué.
+
+**Ahora el intervalo es un parámetro:** `interval` (1–60, default **15** para no cambiarle la
+respuesta a ningún llamador existente). El picker del doctor pide **`interval=1`**.
+
+### El tope de 62 días se convirtió en un presupuesto de slots
+
+⚠️ **El hallazgo con más filo del cambio.** `FREEFORM_MAX_DAYS = 62` protegía el tamaño de la
+respuesta, pero sólo funcionaba mientras la rejilla estuviera clavada en 15 min:
+
+| Intervalo | 62 días son… |
+|---|---|
+| 15 min | 62 × 96 = **~6 000** entradas ✅ |
+| 1 min | 62 × 1440 = **~89 000** entradas 💥 |
+
+El tope no se habría roto: **habría dejado de aplicar en silencio**, que es peor. Sustituido
+por `FREEFORM_MAX_SLOTS = 6000`, evaluado como `días × (1440 / intervalo)`.
+
+> 📌 **La lección, que no es sobre citas:** un límite escrito en una unidad distinta de la que
+> protege deja de proteger en cuanto se mueve la perilla de al lado. El tope hablaba de
+> **días** y cuidaba **bytes**; los dos coincidían sólo por una constante que este cambio
+> convirtió en variable.
+
+### Smoke read-only contra prod (2026-08-03) — interval=1 vs interval=15
+
+Mismas invariantes de §7b, sobre 3 combinaciones reales de doctor+fecha con citas activas:
+
+| Fecha | 15 min | 1 min | Superset | Sin choque | Fin dentro del día | JSON | gzip |
+|---|---|---|---|---|---|---|---|
+| 2026-11-27 | 91 | **1 351** | ✅ | ✅ | ✅ | 130.6 KB | **7.1 KB** |
+| 2026-09-26 | 91 | 1 351 | ✅ | ✅ | ✅ | 130.6 KB | 7.1 KB |
+| 2026-09-19 | 91 | 1 351 | ✅ | ✅ | ✅ | 130.6 KB | 7.1 KB |
+
+**El 1 351 cuadra exactamente**, que es la señal de que el motor hace lo que se cree: 1 410
+inicios posibles (00:00 → 23:29, porque una consulta de 30 min tiene que terminar antes de las
+23:59) − 59 que traslapan la cita de 16:00–16:30 = **1 351**.
+
+> 📌 **El tamaño se midió, no se supuso.** 130 KB por clic de día sonaba a que había que
+> recortar el payload (quitar `rangeId`/`locationId`/`locationName`, constantes en modo libre).
+> **Comprimido son 7.1 KB** —el JSON es extremadamente repetitivo y `next.config.ts` no
+> desactiva `compress`, que viene en `true` por defecto— así que no se recortó nada. Optimizar
+> sobre la cifra sin comprimir habría sido trabajo real contra un problema inexistente.
+
+### `/code-review` sobre §16 — 6 hallazgos, 6 arreglados
+
+| | Hallazgo | Arreglo |
+|---|---|---|
+| **1** 🟠 | **`interval` se degradaba en silencio y no se devolvía**, justo lo que `freeform` sí hace y por la misma razón. Si el cliente pide 1 y el servidor sirve 15, teclear `16:07` renderiza *"Esa hora no está libre"* — una afirmación falsa **indistinguible de un choque real** | Se devuelve `intervalMinutes`. El cliente compara y, fuera de rejilla, dice *"los horarios van de N en N minutos"* en vez de *"ocupada"* |
+| **2** 🔴 | **La invariante de superset había dejado de ser cierta.** El comentario la justifica con "los rangos van a cuartos y esta rejilla también", pero el validador aceptaba **cualquier** entero 1–60: con `interval=20`, un rango que empieza 09:30 **no** cae en la rejilla, y el picker pintaba 09:30 como botón clicable mientras le decía al doctor que 09:30 no está libre | Sólo se aceptan **divisores de 15** (`1 · 3 · 5 · 15`). La invariante vuelve a ser cierta **por construcción**, y el comentario dice por qué |
+| **3** 🟠 | **El límite del pasado estaba desfasado un minuto contra el servidor.** `applyPastFilter` conserva `startTime > ahora` (estricto); el cliente marcaba pasado con `< ahora`. El minuto exacto de ahora no viene en la lista y se rendía como *"no está libre"* | `<=`. Con la rejilla de 15 min hacía falta acertar un cuarto en punto dentro de 60 s; **con la de 1 min lo topa siempre quien escriba la hora actual** para agendar "ahora mismo" |
+| **4** 🟡 | El comentario que justifica pedir por día seguía diciendo "~31 × 96 = ~3 000" y "la respuesta baja a ≤96" — **15× desfasado** | Números reales (~1 400/día, 130 KB → 7 KB) |
+| **5** 🟡 | Dos comentarios más con "15 min"/"96 horas", uno de ellos el que explica **por qué existe `freeformReady`** — el de más valor del archivo, subestimando el radio del fallo 15× | Actualizados |
+| **6** 🟡 | El doc citaba `FREEFORM_INTERVAL_MINUTES`, constante que este mismo cambio **renombró**, y describía el tope como "62 días" en tres sitios | Corregidos, con puntero a §16 |
+
+> 📌 **Los hallazgos 1 y 2 son la misma historia contada dos veces: convertir una constante en
+> parámetro invalida los razonamientos que se apoyaban en su valor.** El eco de `freeform` ya
+> existía porque un modo servido distinto del pedido es indetectable — y `interval` nació con
+> exactamente esa forma sin heredar la lección. La invariante de superset era **verdadera**
+> mientras 15 fuera literal y pasó a ser **una suposición** en cuanto fue configurable, sin
+> que nada fallara. Junto con el tope de días, son **tres** cosas que dependían del 15 y sólo
+> una era visible.
+
+### La UI, de paso
+
+Se agrandó todo el picker (va a ser de las pantallas más usadas): encabezados de paso
+numerados, servicios y días más grandes y clicables, y el campo de hora convertido en el
+ancla visual del paso 3 —caja propia, número grande tabular, botón de confirmar de tamaño
+real— en vez de un input suelto de `text-xs`.
 
 ---
 
