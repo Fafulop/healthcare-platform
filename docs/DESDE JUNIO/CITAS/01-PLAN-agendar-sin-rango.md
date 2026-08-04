@@ -3,9 +3,12 @@
 > **Tipo PLAN.** Escrito 2026-08-03. Lo del **agente** NO vive aquí — va a
 > [`../AGENTES/AGENTE AGENDA/`](../AGENTES/AGENTE%20AGENDA/) (§10).
 >
-> **Estado: v2 (sin interruptor, con hora escrita) en prod y PROBADA a mano — `55758d79`.
-> Encima va §16 (rejilla de 1 min + UI más grande), escrita y SIN probar.**
+> **Estado: TODO EN PROD (`480f7f72` / docs `29dcdf51`), desplegado y verificado por
+> `commitHash` en `@healthcare/doctor` Y `@healthcare/api`.**
+> Probado a mano: la **v1** (interruptor — funcionaba, se descartó por diseño) y un **vistazo**
+> a la v2. ⚠️ **La rejilla de 1 minuto y la UI grande NO se han probado a mano.**
 > **§15 y §16 describen el código de HOY**; §5 y §14 quedan como registro de la v1.
+> Estado vivo y qué correr primero: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) §2 y §8.
 > Verde: `type-check` (api con `--max-old-space-size=6144`) · `build` de `apps/doctor` ·
 > **los 5 gates** · smoke read-only del rango sintético contra datos REALES de prod
 > (§7b). ⚠️ **Nada de eso es el clic** — falta la prueba a mano. Al shippear y probar:

@@ -4,14 +4,20 @@
 > **ESTADO / BITÁCORA**: se actualiza al cerrar cada sesión.
 > El detalle histórico (qué se construyó y por qué) vive en [`README.md`](README.md);
 > el guion de prueba a mano, en
-> [`00-METODO-prueba-manual-punta-a-punta.md`](00-METODO-prueba-manual-punta-a-punta.md).
+> [`00-METODO-prueba-manual-punta-a-punta.md`](00-METODO-prueba-manual-punta-a-punta.md);
+> el diseño de agendar sin rango, en
+> [`01-PLAN-agendar-sin-rango.md`](01-PLAN-agendar-sin-rango.md).
 
 ## En una frase
 
-**El clic en una cita del calendario ya abre su modal de acciones** — lo único que faltaba
-del calendario, y lo que el doctor había pedido — **está en producción (`3447b9c3`, deploy
-SUCCESS)**. Sigue **sin probarse a mano**: ni el modal (sección **K**), ni el calendario
-(sección **J**), ni la tabla (secciones **A–I**).
+**El doctor ya puede agendar a CUALQUIER MINUTO sin declarar un rango** — escribe la hora en
+el picker y se valida contra la disponibilidad real (`29dcdf51`, deploy SUCCESS en
+`@healthcare/doctor` **y** `@healthcare/api`). Antes de eso, el clic en una cita del
+calendario ya abría su modal de acciones (`3447b9c3`). ⚠️ **Lo único probado a mano es la v1
+del interruptor y un vistazo a la v2; la rejilla de 1 minuto y la UI grande NO se han
+probado**, y el calendario (**J**), el modal (**K**) y la tabla (**A–I**) siguen sin correr.
+
+🔴 **Lo más importante que queda abierto no está en esta carpeta: el AGENTE.** Ver §9.
 
 ---
 
@@ -22,14 +28,16 @@ SUCCESS)**. Sigue **sin probarse a mano**: ni el modal (sección **K**), ni el c
 | `07ff7ed0` | El calendario Día/Semana/Mes/Año, reemplazando el mini-calendario + panel de día |
 | `c8fe484c` | Arreglos tras probarlo: franja "Rangos", canceladas ocultas, interruptor "Todas las fechas", barrido de zona horaria, 7 hallazgos de review |
 | `3447b9c3` | **Clic en una cita → modal con sus acciones** + extracción de los controles a `BookingActions.tsx` |
+| `ca627673` | **Agendar sin rango v1** — `freeform=1` en `range-availability` (auth-gated) + interruptor en el picker. **Probada a mano; el control se descartó por diseño** |
+| `dcf64de6` | **v2 — se quita el interruptor y se ESCRIBE la hora.** Rejilla de rangos + campo de hora validado contra la lista del servidor |
+| `480f7f72` | **Rejilla de 1 minuto** + presupuesto de slots + eco de `intervalMinutes` + off-by-one del pasado + UI más grande |
 
-Los tres en `main` (= producción, sin staging). `3447b9c3` **sí se desplegó solo**: el
-servicio `@healthcare/doctor` pasó BUILDING → DEPLOYING → SUCCESS en ~4½ min y quedó en ese
-`commitHash`. Los demás servicios se quedaron donde estaban, que es lo correcto — el commit
-sólo toca `apps/doctor`.
+Todos en `main` (= producción, sin staging). **`480f7f72` es el primero de esta tanda que toca
+`apps/api`**, y se verificó `SUCCESS` con el `commitHash` correcto en **los dos** servicios
+(`@healthcare/doctor` y `@healthcare/api`) — no se dio por hecho.
 
-**Rollback:** `git revert --no-edit 3447b9c3` quita el modal y deja el calendario como
-estaba. No hay esquema, ni SQL, ni migración, ni lockfile de por medio — todo es cliente.
+**Rollback:** `git revert --no-edit 480f7f72 dcf64de6 ca627673` deja el picker como estaba.
+No hay esquema, ni SQL, ni migración, ni lockfile de por medio en ninguno de los tres.
 
 ---
 
@@ -44,10 +52,13 @@ Esto sigue siendo lo más importante de este documento.
 | `c8fe484c` **completo** | ❌ **Sin probar por nadie** |
 | `3447b9c3` **completo** (sección **K**, 16 checks) | ❌ **Sin probar por nadie.** Sólo se confirmó que desplegó |
 | La tabla, secciones **A–I** (rediseño de julio) | ❌ Sin correr desde entonces |
+| `ca627673` (v1, interruptor) | ✅ **Probada por el doctor: funcionaba.** Se descartó igual, por diseño (§8) |
+| `dcf64de6` (v2, hora escrita) | ⚠️ **Vistazo del doctor: "se ve mucho mejor".** No es la corrida del guion |
+| `480f7f72` (1 min + UI grande) | ❌ **Sin probar por nadie.** Sólo se confirmó que desplegó |
 
-Lo automático está verde en los tres commits (`type-check`, `build`, los 5 gates, las 28
-comprobaciones de `event-model-check.ts`) y en `3447b9c3` además dos rondas de review, una de
-ellas con **la extracción diffeada contra el original** (idéntica salvo los imports).
+Lo automático está verde en todos (`type-check`, `build`, los 5 gates, las 28 comprobaciones
+de `event-model-check.ts`), más **smoke read-only contra prod** en los dos commits que tocaron
+disponibilidad, más `/code-review` en cada uno (6 · 5 · 6 hallazgos, **todos reales**).
 
 **Nada de eso es el clic.** En este trabajo el `type-check` estuvo verde TODAS las veces que
 algo estuvo mal, y la sesión del 08-02 cerró con cinco rondas de `/code-review`, cinco con
@@ -55,16 +66,34 @@ hallazgos reales, tres de ellos introducidos por la ronda anterior al arreglar o
 
 ### Qué correr primero
 
-1. **K-5** — modal dentro de modal: Completar desde el modal de la cita y hacer clic DENTRO
+**Del picker nuevo (`480f7f72`), que es lo más fresco y lo menos ejercitado:**
+
+1. **Escribe la hora ACTUAL** para agendar "ahora mismo". Debe decir *"ya pasó"* sólo si de
+   verdad pasó — el minuto exacto de ahora se rendía como *"no está libre"* hasta este commit,
+   y con la rejilla de 1 minuto lo topa **siempre** quien intente esto (§8).
+2. **Escribe una hora con minutos "raros"** (16:07, 09:23). Debe agendar tal cual: esa es toda
+   la razón de la rejilla de 1 min.
+3. **Teclea una hora y cámbiala de opinión** (con `16:00` puesto, ve a las 17:00). Debe
+   esperarte mostrando "Libre" — NO saltar al formulario a mitad de la edición.
+4. **Un día SIN rangos publicados.** Debe ser clicable y ofrecer el campo de hora como control
+   principal. Era la pantalla muerta que motivó todo esto.
+5. **Una hora ocupada.** Debe ofrecer las libres más cercanas como botones, no un error seco.
+6. **23:30 con un servicio de 30 min** → la cita debe llegar a Google Calendar (el peligro del
+   `endTime: "24:00"`, tapado por construcción pero **nunca verificado a mano**).
+7. **El botón de confirmar en móvil**: dice *"Usar 16:00 – 16:30"*, así que crece con la hora
+   y puede envolver a su propia línea en el modal de 512px. Sin verificar visualmente.
+
+**Del calendario y el modal, que siguen pendientes de antes:**
+
+8. **K-5** — modal dentro de modal: Completar desde el modal de la cita y hacer clic DENTRO
    del modal de precio. Es el bug que ya ocurrió una vez en la tarjeta móvil.
-2. **K-12** — el buscador de expediente sin recorte. Es el código más fresco y menos
-   ejercitado de todo el commit (ver §4).
-3. **K-6** — un bloque `COMPLETED`/`NO_SHOW` encima de un hueco libre: debe ganar el BLOQUE.
-4. **J-11** — vista Año: los meses pasados tintados. Si salen en blanco, volvió el bug del
-   predicado.
-5. **J-4 + zona horaria** — cambiar la zona del sistema a Madrid o Tokio a última hora del
-   día de la clínica: tabla y calendario deben coincidir en qué día es "hoy", **y crear un
-   horario debe seguir funcionando**.
+9. **K-12** — el buscador de expediente sin recorte. Ver §4.
+10. **K-6** — un bloque `COMPLETED`/`NO_SHOW` encima de un hueco libre: debe ganar el BLOQUE.
+11. **J-11** — vista Año: los meses pasados tintados. Si salen en blanco, volvió el bug del
+    predicado.
+12. **J-4 + zona horaria** — cambiar la zona del sistema a Madrid o Tokio a última hora del
+    día de la clínica: tabla y calendario deben coincidir en qué día es "hoy", **y crear un
+    horario debe seguir funcionando**.
 
 ⚠️ **Hard refresh (Ctrl+Shift+R) antes de nada.** Ya pasó: se probó el bundle viejo y el bug
 "seguía ahí".
@@ -154,6 +183,10 @@ que este orden aparece invertido en un texto, así que al tocar contacto convien
    paso"* al hacer el modal de la cita. **No se cerró.** Son cosas distintas: el modal de la
    cita rinde acciones sobre una cita que YA existe, mientras que precargar el hueco exige
    tocar los props de `BookPatientModal`, que no tiene dónde recibirlas. Sigue abierto.
+   🎯 **Pero ahora por fin es HACIBLE de verdad:** hasta `480f7f72`, precargar un hueco fuera
+   de rango no servía de nada porque el picker no podía ofrecer esa hora. Hoy sí — el hueco
+   clicado se traduce a una fecha + una hora que el campo acepta tal cual. Es el pendiente que
+   este trabajo habilita (`01-PLAN` §9.4).
 2. **`AppointmentsCalendar` y `DayTimelinePanel`** ya no los usa la página principal, sólo
    las rutas muertas `v1`/`v2`. Borrarlas es una decisión aparte.
 3. **Los `useCallback` inertes** de `page.tsx` (hallazgo 5 de arriba).
@@ -202,3 +235,87 @@ propósito), más un bloqueo 16:30–17:00. El rango 16:00–18:00 **se borró**
 
 Para la sección **K** hacen falta además: una cita **COMPLETADA** encima de un horario que el
 rango deja libre (K-6) y una **NO_SHOW SIN expediente** (K-12, el modal más corto que existe).
+
+---
+
+## 8. ✅ Agendar sin rango (CERRADO en código, `ca627673` → `dcf64de6` → `480f7f72`)
+
+**El problema que resolvía:** para escribir *"Sra. García, martes 4pm"* el doctor tenía que
+declarar antes una ventana de disponibilidad que no piensa publicar. El rango existe para la
+**página pública**; quien no la usa pagaba ese precio a cambio de nada.
+
+**Diseño completo, con las decisiones y su porqué:**
+[`01-PLAN-agendar-sin-rango.md`](01-PLAN-agendar-sin-rango.md). §15 y §16 describen el código
+de HOY; §5 y §14 quedan como registro de la v1.
+
+### Cómo funciona ahora, en cuatro líneas
+
+1. El picker pide **siempre** las horas libres del día elegido a
+   `range-availability?freeform=1&interval=1` (**`authFetch`** — va gateado por auth).
+2. Los rangos publicados se siguen rindiendo como **botones**; conviven con lo libre, ya no se
+   excluyen.
+3. El doctor **escribe** cualquier hora. Se valida por pertenencia contra la lista del
+   servidor — el cliente **no** recalcula ocupación (regla 0).
+4. Confirmar es un **acto aparte** (botón o Enter). Escribir NUNCA agenda.
+
+### Las cuatro cosas que costaron caro y no hay que re-aprender
+
+1. **El interruptor y el desplegable eran el control equivocado, y todo lo automático estaba
+   verde.** La v1 pasó `type-check`, 5 gates, smoke, `/code-review` (6 hallazgos) **y la prueba
+   a mano** — y aun así se tiró, porque obligaba al doctor a declarar un **modo** antes de
+   expresar una intención, y ofrecía un buscador a quien **ya sabe la hora**. Ninguna
+   comprobación puede detectar eso; sólo mirarlo preguntando *"¿es así como el doctor piensa
+   la tarea?"*.
+2. **Una lista vacía NO es una respuesta.** Tres mensajes distintos afirmaban con seguridad un
+   hecho sobre la agenda (*ocupada* · *día lleno* · *sin rangos*) cuando el estado real era
+   **"no sé"**: todas las rutas de error caían en el mismo `[]` que un día legítimamente lleno.
+   Se separó con `freeformReady` y `monthError`. **Cada vez que un fallo aterriza en el mismo
+   estado que un vacío legítimo, la UI acaba mintiendo con total confianza.**
+3. **Convertir una constante en parámetro invalida los razonamientos que se apoyaban en su
+   valor.** El `15` hardcodeado era load-bearing en **TRES** sitios y sólo uno era visible:
+   el tope de días (62 × 96 ≈ 6 k, pero 62 × 1440 ≈ 89 k → ahora es un **presupuesto de
+   slots**), la invariante de **superset** (sólo cierta si el intervalo **divide** 15 → sólo
+   se aceptan `1·3·5·15`) y el **eco del modo servido** (`freeform` ya se devolvía por esa
+   razón; `interval` nació con la misma forma sin heredar la lección → ahora se devuelve
+   `intervalMinutes`).
+4. **`<input type="time">` SÍ emite valores completos a medio editar.** Con `16:00` puesto,
+   teclear el `1` de las 17:00 emite `01:00` — los minutos se conservan. Confirmar en
+   `onChange` saltaba al formulario con una cita a la 1:00 AM. **Nunca confirmar en `onChange`.**
+
+### Lo que quedó fuera a propósito
+
+- **El consultorio.** ⚠️ **Ninguna cita basada en rangos guarda su `locationId` hoy, por
+  ningún camino** — `Booking` no tiene la columna y `range-bookings/instant` no acepta el
+  campo. No lo rompió este trabajo; lo dejó a la vista. **3 de 11 doctores tienen 2+
+  consultorios** (medido en prod), así que no es gratis. El arreglo de verdad es la opción (c)
+  de `01-PLAN` §4b: columna `location_id` + aceptarla en el endpoint.
+- **Marcar visualmente qué horas caen dentro de un rango** (`01-PLAN` §9.1).
+- **`handleBookInGap`** — ver §4.1: este trabajo por fin lo habilita, pero no lo hizo.
+- **El corte de 1 hora en modo rangos** (`01-PLAN` §11): el picker del doctor todavía se
+  aplica a sí mismo una regla escrita para pacientes públicos. El agente ya manda
+  `skipCutoff=1`. Cambio de comportamiento, decisión aparte.
+
+---
+
+## 9. 🔴 Lo que SIGUE — el agente de citas (y no vive en esta carpeta)
+
+**Desde `29dcdf51` esto dejó de ser una carencia y pasó a ser una incoherencia visible.** El
+picker agenda a cualquier minuto sin rango; el agente no. Mismo doctor, mismo día, misma
+hora: la UI agenda y el asistente contesta *"ese día no tiene ningún horario libre"*. **Eso se
+lee como asistente roto**, y es peor que el estado anterior, donde ninguno de los dos podía.
+
+Verificado en el código el 2026-08-03, no deducido:
+
+| | Dónde | Qué pasa |
+|---|---|---|
+| Pre-check | `agenda-agent/proposals.ts:836` | Sin `freeform` en los params ⇒ `[]` ⇒ "no hay horarios" |
+| Ejecutor | `contexts/AgentContext.tsx:164` | Postea a `range-bookings` (**rango obligatorio**), no a `range-bookings/instant` |
+
+⚠️ **No es "añadir `&freeform=1`":** esa llamada usa `fetch` pelado y `freeform=1` exige auth
+por diseño (si no, se deduce la agenda ocupada del doctor por inversión).
+
+**El trabajo es de la carpeta del agente, no de ésta.** Estado y plan en
+[`../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTES/AGENTE%20AGENDA/SESSION-REFRESCO.md)
+**§Próximos pasos punto 7**, que ya tiene los parámetros del endpoint listos para usar. Exige
+tocar la prosa del módulo agenda (⇒ `gate:prosa` + `gate:prompt`) y **DOS corridas de evals**
+— una sola no distingue regresión de ruido.

@@ -15,15 +15,23 @@
 |---|---|---|
 | [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | ESTADO | **Empieza aquí.** Dónde quedó todo, qué falta probar y qué sigue |
 | [`00-METODO-prueba-manual-punta-a-punta.md`](00-METODO-prueba-manual-punta-a-punta.md) | REFERENCIA | El guion de la prueba a mano de cada flujo de una cita |
-| [`01-PLAN-agendar-sin-rango.md`](01-PLAN-agendar-sin-rango.md) | PLAN | Agendar a cualquier hora sin declarar un rango. **v2 (hora escrita) en prod y probada; rejilla de 1 min + UI grande sin probar — §15 y §16** |
+| [`01-PLAN-agendar-sin-rango.md`](01-PLAN-agendar-sin-rango.md) | PLAN | Agendar a **cualquier minuto** sin declarar un rango: se escribe la hora. **Todo en prod (`480f7f72`); la rejilla de 1 min y la UI grande SIN probar a mano** — §15 y §16 son el código de hoy |
 
 ## En una frase
 
 El **calendario Día · Semana · Mes · Año** (2026-08-02) reemplazó el mini-calendario + panel
-de día, y desde el **2026-08-03 el clic en una cita abre su modal de acciones** — lo último
-que faltaba. La tabla "Todas las Citas" no se tocó en ninguna de las dos pasadas.
-**Todo en prod, nada probado a mano**: secciones **A–I** (tabla), **J** (calendario, 20
-checks) y **K** (modal, 16 checks) siguen sin correrse.
+de día; el **clic en una cita abre su modal de acciones** (2026-08-03); y ese mismo día el
+picker de agendar dejó de exigir un rango: **el doctor escribe la hora y agenda a cualquier
+minuto**, dentro o fuera de sus rangos ([`01-PLAN`](01-PLAN-agendar-sin-rango.md)). La tabla
+"Todas las Citas" no se tocó en ninguna pasada.
+**Todo en prod, y casi nada probado a mano**: secciones **A–I** (tabla), **J** (calendario, 20
+checks) y **K** (modal, 16 checks) siguen sin correrse, y del picker sólo se probó la v1 del
+interruptor —que se descartó por diseño— más un vistazo a la v2.
+
+🔴 **Lo que queda abierto y NO vive aquí:** el **agente** sigue sin poder agendar sin rango,
+así que hoy el picker agenda a las 4pm y el asistente dice que no hay hueco. Estado y plan en
+[`../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTES/AGENTE%20AGENDA/SESSION-REFRESCO.md)
+§Próximos pasos punto 7; resumen en [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) §9.
 
 ## Bitácora de la sesión 2026-08-03 — clic en una cita → modal
 

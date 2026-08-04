@@ -665,6 +665,34 @@ YA pasa. Se deja como está salvo que muerda a un doctor real.
    fallback DISEÑADO (`doctor.hasRanges ? RangeWidget : SlotWidget` en el perfil público +
    "existing slot mode" del BookPatientModal) — retirarlo completo va con la limpieza /v1 /v2
    de PR 4, no por pedazos.
+7. 🔴 **El agente NO puede agendar sin rango, y desde el 2026-08-03 eso es una INCOHERENCIA
+   VISIBLE, no sólo una carencia.** El picker del doctor ya agenda a cualquier minuto sin
+   declarar un rango (CITAS `29dcdf51`, en prod). El agente no. Mismo doctor, mismo día,
+   misma hora: la UI agenda y el asistente contesta *"ese día no tiene ningún horario libre"*.
+   Eso se lee como asistente roto, no como función faltante — y es peor que el estado
+   anterior, donde ninguno de los dos caminos podía.
+
+   **Dos puntos, los dos verificados en el código el 2026-08-03 (no deducidos):**
+
+   | | Dónde | Qué pasa |
+   |---|---|---|
+   | Pre-check | `agenda-agent/proposals.ts:836` (`fetchDaySlots`) | Arma sus params con `startDate`/`endDate`/`serviceId`/`skipCutoff` — **sin `freeform`** — recibe `[]` y contesta que no hay horarios |
+   | Ejecutor | `contexts/AgentContext.tsx:164` | `create_booking` postea a `/api/appointments/range-bookings`, el endpoint **público con rango OBLIGATORIO**. El picker usa `/range-bookings/instant`, que no lo exige |
+
+   ⚠️ **No es "añadir `&freeform=1`".** Esa línea usa `fetch` pelado, no `authFetch`, y
+   `freeform=1` está **gateado por auth a propósito**: servirlo abierto deja deducir la agenda
+   ocupada del doctor por inversión (toda hora que no vuelve está tomada). La llamada tiene que
+   volverse autenticada primero. Ver [`../../CITAS/01-PLAN-agendar-sin-rango.md`](../../CITAS/01-PLAN-agendar-sin-rango.md) §3.
+
+   **Lo que cuesta cerrarlo** (el código es la parte barata): toca la prosa del módulo agenda
+   —el agente hoy no tiene el concepto de "agendar fuera de rango"— así que entran `gate:prosa`
+   y `gate:prompt`, y **evals**: ⚠️ una sola corrida no distingue regresión de ruido, van DOS
+   con los conjuntos estables intersectados.
+
+   **Parámetros del endpoint, ya en prod y listos para usar:** `freeform=1` (exige DOCTOR dueño
+   del slug o ADMIN) · `interval` (sólo divisores de 15: `1·3·5·15`) · presupuesto de 6 000
+   slots por respuesta · la respuesta hace eco de `freeform` e `intervalMinutes` (el modo y la
+   rejilla REALMENTE servidos — compararlos, no asumirlos).
 
 ## Commits (en `main`, todos desplegados)
 
