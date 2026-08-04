@@ -1,0 +1,422 @@
+# 01-PLAN — agendar sin rango (hora libre en el picker)
+
+> **Tipo PLAN.** Escrito 2026-08-03. Lo del **agente** NO vive aquí — va a
+> [`../AGENTES/AGENTE AGENDA/`](../AGENTES/AGENTE%20AGENDA/) (§10).
+>
+> **Estado: FASE 1 EN PROD, SIN PROBAR A MANO.**
+> Verde: `type-check` (api con `--max-old-space-size=6144`) · `build` de `apps/doctor` ·
+> **los 5 gates** · smoke read-only del rango sintético contra datos REALES de prod
+> (§7b). ⚠️ **Nada de eso es el clic** — falta la prueba a mano. Al shippear y probar:
+> banner `🔒 SNAPSHOT` aquí y el estado se mueve a
+> [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).
+
+## En una frase
+
+El picker de agendar gana un **interruptor** que ensancha la lista de horas: apagado ofrece
+las horas que salen de los rangos (lo de hoy, sin cambios); encendido ofrece **todo el día**,
+dentro y fuera de rango. Mismo flujo de tres pasos (**servicio → día → hora**), misma
+matemática de ocupación, **sin columna nueva, sin modo de cuenta, sin migración**.
+
+---
+
+## 1. El problema
+
+Para escribir "Sra. García, martes 4pm" el doctor tiene que declarar antes una ventana de
+disponibilidad que no piensa publicar. El rango existe por la **página pública**: un paciente
+navegando necesita una respuesta legible por máquina a *"¿cuándo puedo agendar?"*. Los
+doctores que no usan esa página pagan ese precio sin recibir nada.
+
+**Lo que NO es el problema:** el backend. `POST /api/appointments/range-bookings/instant` —el
+endpoint que el botón *Agendar Cita* ya usa hoy— dice en su propia cabecera:
+
+> `// No range required — doctor can book outside their public availability ranges.`
+
+No consulta `availabilityRange` en ningún punto. **La reja es la UI**: `RangeTimePickerStep`
+es el único camino al formulario, y sus horas salen de `range-availability`, que sin rangos
+devuelve vacío.
+
+## 2. La decisión de fondo: NO es un modo de cuenta
+
+Se evaluó una bandera por doctor (`RANGES` | `FREEFORM`, excluyentes) y **se descartó**. La
+razón la dio el requisito mismo: el doctor quiere poder agendar **fuera de un rango Y también
+encima de uno**. Dos caminos que conviven el mismo día para el mismo doctor no son
+excluyentes por definición — una bandera excluyente no puede expresarlo.
+
+Lo que se evita al no ponerla, y no es poco:
+
+| Sin bandera | Con bandera |
+|---|---|
+| — | Columna nueva en `doctors` + SQL manual (`prisma db push` **revierte** el FK compuesto de `bookings`) |
+| — | UI de ajuste, endpoint, y decidir quién la prende (doctor / admin) |
+| — | Decidir qué pasa con los rangos que ya existen de un doctor que se cambia |
+| — | Fork del agente: esconder `propose_create_range` ⇒ **más scopes** que `gate:prosa` enumera (66 hoy) |
+| — | Variante FREEFORM de los 65 casos de eval |
+| Nadie pierde nada | Hay que garantizar que los doctores contentos con el picker actual no lo pierdan |
+
+Ese último renglón es el argumento decisivo. La preocupación que originó la bandera era
+**proteger a los doctores que ya usan y les gusta el picker actual**. Un interruptor apagado
+por defecto los protege igual de bien y no cuesta nada de la columna derecha.
+
+## 3. Cómo se calcula la lista de horas — rango sintético, MISMO motor
+
+La trampa obvia de "ofrecer todo el día" es ofrecer horas ya ocupadas. El picker libre
+**legacy** (`SlotPickerStep`, `/v1`) tiene justo ese defecto: su desplegable es una rejilla
+fija 06:00–22:30 que no sabe nada de citas, y el doctor se entera del choque en el `409`, ya
+con el formulario lleno.
+
+No hay que construir nada para evitarlo. `calculateAvailability` recibe los rangos como
+**array de entrada**. Se le pasa **uno sintético que cubre el día**:
+
+```ts
+ranges: [{ id: 'freeform', startTime: '00:00', endTime: '24:00', intervalMinutes: 15 }]
+```
+
+y el motor devuelve toda hora de inicio donde el servicio **cabe** y **nada la ocupa** —
+citas restadas, `extendedBlockMinutes` restado, `BlockedTime` restado, `appointmentBufferMinutes`
+aplicado. **Cero algoritmo nuevo, cero matemática duplicada, el mismo código que usa la página
+pública.**
+
+> 📌 Esto además lo deja del lado correcto de la **regla 0** (*los veredictos de negocio se
+> resuelven server-side*). Decidir *"¿15:30 está libre?"* en el cliente obligaría a replicar
+> las reglas de buffer y bloqueo extendido — que es exactamente la clase de lógica replicada
+> que este repo tiene documentada como su fuente #1 de bugs reales.
+
+**Resultado neto: el camino libre queda MEJOR que el legacy que reemplaza** — no puede
+ofrecer una hora ocupada, y el viejo sí podía.
+
+### El cambio real en el endpoint
+
+`GET /api/doctors/[slug]/range-availability` gana `freeform=1`. Con la bandera:
+
+1. No lee `availabilityRange` como fuente de la ventana.
+2. **Itera sobre cada fecha del periodo pedido**, no sobre `rangesByDate`. ⚠️ Esto es el
+   cambio no trivial: hoy si no hay rangos no hay fechas que recorrer, y el bucle no se
+   ejecuta.
+3. Por fecha, corre el motor con el rango sintético.
+
+### 🔴 `freeform=1` EXIGE autenticación — el endpoint es PÚBLICO
+
+Este es el hueco más grave que encontró la re-auditoría, y hay que arreglarlo antes de
+escribir una línea.
+
+`range-availability` **no llama a `validateAuthToken` en ningún punto** — su cabecera lo dice:
+*"Public endpoint"*. Hoy eso es correcto y acotado: un llamador anónimo sólo ve disponibilidad
+**dentro de los rangos que el doctor decidió publicar**. Lo que no se publica, no se ve.
+
+Con `freeform=1` sin auth, un anónimo con sólo el `slug` puede pedir 24h × N días y
+**deducir la agenda ocupada completa del doctor por inversión**: toda hora que NO vuelve está
+tomada por una cita o un bloqueo. Eso convierte un endpoint de disponibilidad publicada en una
+**fuga de free/busy** de un doctor que quizá ni usa la página pública.
+
+> ⚠️ Este repo ya pagó exactamente esta factura: `GET /api/doctors` servía TODAS las columnas
+> de `Doctor` a llamadores anónimos (tokens de MP, URLs de firma de 3 doctores reales).
+> Arreglado el 2026-07-26 (`faa7e829`) con `omit` de Prisma, y de ahí nació el quinto gate,
+> `pnpm gate:payload`. **Un parámetro nuevo en un endpoint público es superficie nueva, aunque
+> el endpoint ya existiera.**
+
+**Regla:** `freeform=1` sólo se atiende para un llamador **DOCTOR (dueño del slug) o ADMIN**.
+Sin auth válida ⇒ se ignora el parámetro (se responde el modo rangos de siempre) o `403` —
+decidir cuál, pero **nunca servirlo abierto**. Dos consecuencias:
+
+- El picker del doctor ya usa `authFetch` para otras llamadas, así que el cambio es de una
+  línea del lado cliente.
+- Si `freeform` es por definición doctor-only, entonces **`skipCutoff` va implícito**: el corte
+  de 1 hora es una regla para pacientes públicos (ver §11).
+
+### 🟠 En modo libre se pide POR DÍA, no por mes
+
+`RangeTimePickerStep` hoy pide `?month=YYYY-MM` para poder **resaltar qué días tienen
+disponibilidad** en el calendario. En modo libre esa pregunta no existe: **todos los días
+tienen disponibilidad**. Pedir el mes entero sería traer ~31 × 96 = **~3 000 objetos** en cada
+navegación de mes, para pintar un calendario donde todo está encendido.
+
+**En modo libre el picker pide sólo el día seleccionado** (`startDate=endDate=<día>`). La
+respuesta baja a ≤96 entradas, el calendario deja de necesitar `availableDates`, y el tope de
+la ventana deja de ser un problema de UI.
+
+⚠️ **El tope sigue haciendo falta en el servidor**, porque el endpoint es genérico y nada
+impide pedir un año: 365 × 96 ≈ **35 000 entradas**. **Tope: 62 días** con `400` si se pide
+más — mismo patrón que el tope de ~120 días que `get_ranges` del agente ya aplica.
+
+⚠️ Y el estado vacío *"Sin disponibilidad para este servicio"* **no debe rendirse en modo
+libre**: hoy se dispara con `availableDates.length === 0`, que en modo libre no significa nada.
+
+## 4. Lo que YA funciona y no hay que construir
+
+**El submit no se toca.** La rama `rangeMode && rangeSelection` (`BookPatientModal/index.tsx:350`)
+ya postea a `range-bookings/instant` con `{doctorId, date, startTime, serviceId, …}` y deriva
+`endTime` de `service.durationMinutes`. Una selección libre tiene **la misma forma**. Cero
+cambios.
+
+**El traslape entre los dos caminos ya está resuelto.** Escenario que se preguntó
+explícitamente: rango 10:00–13:00 vacío, se crea una cita libre 08:00–11:00, se vuelve a
+agendar desde el rango.
+
+| | |
+|---|---|
+| Ventana del rango | `10:00 → 13:00` |
+| Ventana bloqueada por la cita libre | `08:00 → 11:00` |
+| Tras `subtractBlocked` | `11:00 → 13:00` |
+| Horas ofrecidas | 11:00, 11:30, 12:00 … |
+
+**10:00 y 10:30 desaparecen. Correcto, y ya es así hoy** — el motor nunca pregunta *cómo* se
+creó una cita. Principio que conviene tener escrito: **un rango nunca se consume ni se
+modifica.** La fila `AvailabilityRange` sigue diciendo 10:00–13:00 para siempre; la
+disponibilidad se recalcula cada vez como *rangos − citas − bloqueos*. Por eso los dos caminos
+no pueden desincronizarse: sólo hay una fuente de verdad, y es la tabla de citas.
+
+> ⚠️ **Sutileza que se va a ver y no es un bug.** Si esa cita libre terminara a las **10:45**,
+> el rango no ofrecería 10:45: la rejilla se ancla al inicio del rango (10:00) con su
+> intervalo, así que la siguiente marca válida es 11:00. Son 15 minutos reales pero no
+> ofrecibles. Comportamiento existente de `calculateAvailability`, no lo introduce este plan.
+
+## 4b. 🟠 El consultorio: un hueco que ya existía y que el modo libre deja a la vista
+
+Verificado en el código, no deducido:
+
+| | |
+|---|---|
+| `Booking` tiene `locationId` | ❌ **No existe la columna** (grep sobre el modelo completo) |
+| `range-bookings/instant` acepta `locationId` | ❌ **Cero menciones** en todo el archivo |
+| El picker de rangos manda el consultorio al agendar | ❌ `locationName` vive en `rangeSelection` y **sólo se rinde**; el submit (`index.tsx:350`) no lo envía |
+| Quién sí lo manda | Sólo la rama **legacy** (`index.tsx:413` → `bookings/instant`), y ahí cuelga del `AppointmentSlot` |
+
+O sea: **ninguna cita basada en rangos registra su consultorio, hoy, por ningún camino.** No
+es algo que rompa este plan — es una pérdida de dato que ya está ocurriendo.
+
+Lo que sí cambia con el modo libre: hoy el picker de rangos al menos **muestra** de qué
+consultorio es cada hora (viene del rango). El rango sintético no tiene consultorio, así que
+un doctor con **2+ consultorios** pierde también esa señal visual y no tendría cómo decir en
+cuál atiende.
+
+### Medido en prod (2026-08-03, read-only)
+
+| Consultorios | Doctores |
+|---|---|
+| 1 | **8** |
+| 2 | **3** |
+
+**3 de 11 (27%)**, así que "no hacer nada" **no es gratis** — era la apuesta que la medición
+podía haber salvado y no la salvó.
+
+**Decisión para la fase 1: se agenda SIN control de consultorio, y se documenta.** Las tres
+opciones que había:
+
+| | Opción | Veredicto |
+|---|---|---|
+| (a) | Nada en el picker libre | ✅ **Fase 1.** No se pierde ningún dato: hoy tampoco se guarda |
+| (b) | Selector visual, no persistido | ❌ **Descartada.** Un control que descarta lo que el doctor elige es PEOR que su ausencia. En modo rangos el consultorio es un dato **derivado** que se muestra; un valor **elegido** que se tira es otra cosa |
+| (c) | Columna `location_id` en `bookings` + aceptarla en el endpoint | 🎯 **El arreglo de verdad**, y arregla los DOS caminos. Migración aditiva, cambio de otra naturaleza — **no se mete escondido en éste** |
+
+⚠️ **Lo que la fase 1 sí empeora para esos 3 doctores:** hoy el picker de rangos les *muestra*
+de qué consultorio es cada hora. En modo libre no habrá esa señal. Nada se guardaba antes ni
+se guarda después, pero la pantalla dice menos. Es el argumento más fuerte para priorizar (c).
+
+## 5. Qué se toca
+
+| Archivo | Cambio |
+|---|---|
+| `apps/api/src/app/api/doctors/[slug]/range-availability/route.ts` | Parámetro `freeform=1`: rango sintético + iterar fechas del periodo + tope de 62 días |
+| `apps/doctor/…/_components/RangeTimePickerStep.tsx` | Interruptor; con él encendido pide `freeform=1` y rinde **desplegable** en vez de rejilla de botones |
+| `apps/doctor/…/_components/BookPatientModal/index.tsx` | Nada en el submit. Sólo si se hace el prellenado de §9.4 |
+
+**Presentación por camino** (queda como se entendió en la conversación, y es lo correcto):
+
+| Camino | Cuántas opciones | Cómo se rinde |
+|---|---|---|
+| Rangos (interruptor apagado) | ~6–12 | **Rejilla de botones**, como hoy — muestra hora de fin y consultorio por botón |
+| Libre (interruptor encendido) | hasta 96 | **Desplegable** — una rejilla de 96 botones es inusable |
+
+## 6. Qué NO se toca
+
+- ❌ **`POST /api/appointments/bookings`** — por ahí agenda el **widget público** del sitio
+  (pendiente #7 del README lo marca en rojo).
+- ❌ **`POST /api/appointments/range-bookings`** (el público, con rango obligatorio). Sigue
+  exigiendo rango: es la reja que protege a los pacientes, y debe seguir ahí.
+- ❌ **`SlotPickerStep` y el árbol `/v1`.** Este plan **no los revive**. Siguen siendo el
+  código muerto del pendiente #7 y su borrado sigue siendo una decisión aparte. El camino
+  libre nuevo vive dentro de `RangeTimePickerStep`, con el orden de campos correcto
+  (servicio → día → hora); el legacy tiene el orden al revés (día → hora → duración, servicio
+  después) y escribe al sistema **legacy de slots** (`AppointmentSlot` por cita, duración
+  restringida a 30/60).
+- ❌ **`CreateRangeModal` y todo lo de crear/borrar rangos.** Intactos.
+
+## 7. Medido en prod antes de diseñar (2026-08-03, read-only)
+
+Método de [`../flujo de dinero permutaciones/TOOLING-acceso-railway-db.md`](../flujo%20de%20dinero%20permutaciones/TOOLING-acceso-railway-db.md)
+(`railway run --service pgvector`), sólo `SELECT`.
+
+| | |
+|---|---|
+| Doctores totales | **11** |
+| `appointment_buffer_minutes` | **0 en los 11** (sin excepción) |
+| `default_interval_minutes` | **30 en los 11** (sin excepción) |
+
+**Qué decide esto.** Se iba a diseñar alrededor de una posible discrepancia de buffer entre el
+picker (que sí lo aplica, vía el motor) y `range-bookings/instant` (que lo salta a propósito,
+por ser el camino de override del doctor). **Con buffer 0 en toda la base es invisible hoy.**
+Se deja como está y se documenta:
+
+> ⚠️ **Inconsistencia latente, no activa.** El día que un doctor ponga buffer > 0, el picker
+> libre le ofrecerá horas respetando el buffer y el endpoint aceptará horas que lo violan. No
+> se arregla ahora (no hay a quién arreglárselo) pero **está escrito para que no se
+> re-descubra desde cero**.
+
+## 7b. Smoke del rango sintético contra datos REALES de prod
+
+El diseño entero descansa en una afirmación: *"un rango sintético de día completo a través del
+mismo motor da la respuesta correcta"*. Eso **se probó**, no se dio por bueno — se corrió
+`calculateAvailability` sobre 3 combinaciones reales de doctor+fecha que tienen rangos **y**
+citas activas, comparando los dos modos:
+
+| Fecha | Rangos | Citas | Horas modo RANGOS | Horas modo LIBRE | Superset | Sin choque |
+|---|---|---|---|---|---|---|
+| 2026-11-27 | 1 | 1 (16:00–16:30) | 7 | 91 | ✅ | ✅ |
+| 2026-09-26 | 1 | 1 (11:00–11:30) | 7 | 91 | ✅ | ✅ |
+| 2026-09-19 | 1 | 1 (12:00–12:30) | 7 | 91 | ✅ | ✅ |
+
+Las **tres** invariantes que se verificaron:
+
+1. **Superset** — toda hora que ofrece el modo rangos la ofrece también el modo libre. Los dos
+   caminos no pueden contradecirse.
+2. **Sin choque** — ninguna hora del modo libre se traslapa con una cita existente (incluido
+   `extendedBlockMinutes` y el buffer) ni con un bloqueo.
+3. **Fin dentro del día** — ningún `endTime` con hora > 23 (la invariante que añadió el
+   hallazgo 4 del review). Última hora ofrecida: **23:15 → 23:45**.
+
+> 📌 **El 91 cuadra exactamente**, que es la mejor señal de que el motor hace lo que se cree:
+> 96 cuartos de hora − 2 (23:30 y 23:45 no caben en un día que termina 23:59 con consulta de
+> 30 min) − 3 que traslapan la cita (15:45, 16:00, 16:15) = **91**.
+> ⚠️ La primera corrida dio **92** con el día terminando en `24:00` — el uno de diferencia era
+> justo el 23:30 que producía el `endTime: "24:00"` del hallazgo 4. **El número cambió porque
+> se arregló un bug, no porque el smoke fuera inestable.**
+
+## 8. Decisiones tomadas
+
+1. **Aditivo, no excluyente.** Sin bandera de cuenta (§2).
+2. **Intervalo del camino libre: 15 minutos.** Elegido explícitamente. Nota: los 11 doctores
+   tienen `default_interval_minutes = 30`, así que el camino libre será **más fino** que sus
+   rangos. Es deliberado — meter un paciente entre dos citas es justo el caso de uso.
+3. **Ventana del día: las 24 horas completas**, copiando el patrón que `CreateRangeModal` ya
+   usa (`24 * 4` opciones de 15 min) con su aviso ámbar *"Horario inusual detectado"* si es
+   antes de 07:00 o después de 22:00. **No se inventa un corte artificial** que algún doctor
+   acabará topando.
+4. **Interruptor apagado por defecto.** Los doctores que usan rangos hoy no ven ningún cambio.
+
+## 9. Preguntas abiertas
+
+1. **¿Se marcan visualmente las horas que caen dentro de un rango?** El endpoint ya tiene los
+   rangos a mano; devolver `dentroDeRango: boolean` por hora es barato y ayuda a leer el
+   desplegable. **Propuesta: fase 2**, no bloquea.
+2. **¿Cómo se rotula el interruptor?** Tiene que decir qué hace sin mentir. *"Ver todos los
+   horarios"* describe el efecto; *"Agendar fuera de mis rangos"* describe la intención.
+3. **¿El interruptor recuerda su estado?** Un doctor sin rangos lo va a prender cada vez.
+   `localStorage` alcanza y no necesita columna.
+4. **¿Se cierra el watch-item de `handleBookInGap`?** Con un picker libre, clicar un hueco del
+   calendario **por fin puede** precargar fecha y hora de verdad. Hoy no lo hace y el aviso ya
+   fue reescrito dos veces para no prometerlo (README, hallazgo 2 de la 2ª ronda de review).
+   Exige darle props nuevas a `BookPatientModal`. **Propuesta: fase 2**, pero es el pendiente
+   que este trabajo por fin habilita.
+5. **El consultorio en modo libre** — las tres opciones de §4b. Antes de decidir conviene
+   medir: **¿cuántos de los 11 doctores tienen 2+ `ClinicLocation`?** Si son cero, la (a) es
+   gratis y la decisión se pospone con datos en vez de con suerte.
+6. **Sin servicios configurados, el modo libre tampoco funciona.** La duración sale del
+   servicio, así que un doctor con 0 servicios no puede agendar por ningún camino de rangos.
+   El botón de confirmar sólo se deshabilita con `services.length > 0 && !selectedServiceId`,
+   así que con 0 servicios deja enviar y el endpoint contesta `400` por `serviceId` faltante.
+   **Preexistente**, no lo introduce este plan — pero si se va a empujar el camino libre a
+   doctores nuevos, es el primer muro que van a topar.
+
+## 10. Fuera de alcance — el agente (doc aparte)
+
+**El agente NO mejora con este plan, y hay que decirlo claro:** un doctor sin rangos seguirá
+teniendo un asistente que se niega a agendar. Dos puntos independientes:
+
+| | Dónde | Qué pasa |
+|---|---|---|
+| El pre-check | `agenda-agent/proposals.ts:833` (`fetchDaySlots`) | Pregunta a `range-availability` sin `freeform`, recibe `[]`, y contesta *"Ese día no tiene ningún horario libre para ese servicio"* |
+| El ejecutor | `contexts/AgentContext.tsx:164` | `create_booking` postea a `/api/appointments/range-bookings` — el endpoint **con rango obligatorio** |
+
+Arreglarlo es trabajo de la carpeta del agente, con su propia corrida de evals (⚠️ **una sola
+corrida no distingue regresión de ruido**). Va a
+[`../AGENTES/AGENTE AGENDA/`](../AGENTES/AGENTE%20AGENDA/), no aquí — aquí sólo se
+cross-linkea.
+
+## 11. Hallazgo de paso — el picker del doctor aplica el corte de 1 hora
+
+`RangeTimePickerStep.tsx:101-104` llama a `range-availability` **sin `skipCutoff=1`**. O sea:
+`applyCutoff` esconde del propio doctor las horas de hoy a menos de 1 hora vista — una regla
+escrita para **pacientes públicos** (*"menos de 1 hora de anticipación requerida"*).
+
+El agente **sí** manda `skipCutoff=1`, con el comentario *"the lead-time filter is for public
+patients; the doctor can book inside the hour"*. Así que hoy **el asistente puede agendar en
+los próximos 60 minutos y el doctor, desde su propia UI, no.**
+
+Parece un bug real y de una línea, pero es **cambio de comportamiento** y no forma parte de
+este plan. Se anota para decidirlo aparte.
+
+## 12. Riesgos
+
+| Riesgo | Mitigación |
+|---|---|
+| El endpoint cambia y lo consumen la página pública, el agente y el picker | La rama `freeform` es **aditiva**: sin el parámetro, ni una línea del camino actual cambia |
+| Respuesta enorme sin rangos que la acoten | Tope de 62 días con `400` (§3) |
+| Forma de query nueva contra prod | **Smoke test read-only ANTES del push**, método de los `TOOLING-*`. Aquí no hay SQL crudo nuevo (es Prisma + una función pura), pero la iteración por fechas es forma nueva |
+| Doble reserva desde el picker libre | No aplica: el motor ya resta lo ocupado, y el `409` del endpoint sigue siendo la red de seguridad bajo la carrera |
+
+**Sin dependencias nuevas · sin `pnpm-lock.yaml` · sin esquema · sin migración.** Todo es un
+parámetro de endpoint más UI. Rollback = revert del commit.
+⚠️ Deja de ser cierto si se elige la opción (c) de §4b (columna `location_id` en `bookings`).
+
+## 13. Qué cambió al re-auditar este plan contra el código
+
+La primera versión se escribió y **después** se auditó contra el código en vez de darla por
+buena. Encontró **cinco** cosas; se dejan anotadas porque tres no eran deducibles del diseño,
+sólo de leer los archivos.
+
+| | Hueco | Gravedad |
+|---|---|---|
+| 1 | `freeform=1` iba a colgarse de un endpoint **público sin auth** ⇒ fuga de free/busy por inversión (§3) | 🔴 **Bloqueante.** El plan lo habría shippeado abierto |
+| 2 | El picker pide **por mes**; en modo libre eso son ~3 000 objetos para pintar un calendario donde todo está encendido (§3) | 🟠 Diseño |
+| 3 | **Ninguna cita de rangos guarda su consultorio** — `Booking` no tiene la columna y el endpoint no acepta el campo (§4b) | 🟠 Hueco preexistente, ahora visible |
+| 4 | El estado vacío *"Sin disponibilidad"* se dispara con `availableDates.length === 0`, que en modo libre no significa nada (§3) | 🟡 UI |
+| 5 | Con 0 servicios el camino libre tampoco funciona, y el botón deja enviar igual (§9.6) | 🟡 Preexistente |
+
+> 📌 El hueco 1 es el que justifica la práctica. Era **invisible desde el diseño** —
+> "agregarle un parámetro a un endpoint que ya existe" suena inerte— y sólo apareció al abrir
+> el archivo y ver que no hay `validateAuthToken` en ninguna línea. Mismo patrón que la fuga
+> de `GET /api/doctors` de julio: la superficie pública no se nota porque el endpoint ya
+> estaba ahí.
+
+## 14. `/code-review` sobre la fase 1 — 6 hallazgos, 6 arreglados
+
+Ojos frescos sobre el diff ya escrito y con `type-check` + `build` + los 5 gates + el smoke
+en verde. **Encontró seis cosas, las seis reales.** Vuelve a ser el argumento de
+`05-METODO-code-review`: lo automático estaba TODO verde y el picker tenía un bloqueo duro.
+
+| | Hallazgo | Arreglo |
+|---|---|---|
+| **1** 🔴 | **`loadingAvailability` se quedaba en `true` PARA SIEMPRE.** El `finally` no apaga el spinner si la petición fue abortada (para que una respuesta vieja no apague el de la nueva). Prender el interruptor con el fetch del mes en vuelo lo abortaba, el efecto de rangos salía por `if (freeform)` y el de libre por `!selectedDate` ⇒ **la rejilla del calendario sustituida por un spinner, sin forma de elegir fecha**. Determinista y sin salida salvo apagar el interruptor | `setLoadingAvailability(false)` explícito en cada salida temprana de los dos efectos |
+| **2** 🟠 | **El calendario entero desaparecía en cada clic de día** en modo libre: la rejilla se rinde bajo `loadingAvailability`, y el fetch por día la encendía — incluido el día recién clicado | `loadingSlots`, estado separado, que sólo apaga el **paso 3** |
+| **3** 🟠 | Saltarse `applyCutoff` no quitaba sólo el *lead time* de 1 hora: quitaba también **"no en el pasado"**. A las 18:00 el desplegable de HOY abría en "00:00 – 00:30", y `range-bookings/instant` **no tiene check de pasado** | `applyPastFilter` nuevo en `availability-calculator`: conserva exactamente esa mitad |
+| **4** 🟠 | `endTime: '24:00'` hacía alcanzable por primera vez un `endTime` de **"24:00"** (servicio de 30 min a las 23:30). Ningún `AvailabilityRange` puede tenerlo (`isValid15MinBoundary` tapa la hora en 23), `instant` lo persiste tal cual y `google-calendar.ts:152` arma `${date}T24:00:00` — **hora inválida en RFC3339, la API de Calendar lo rechaza** | El día sintético termina en **`23:59`**. El problema desaparece por construcción, no por recorte río abajo |
+| **5** 🟠 | **Degradación silenciosa.** Con la sesión caída (o un member sin el toggle de citas) el servidor ignora `freeform=1` y responde 200 con horarios de rangos, mientras la UI seguía con el interruptor prendido y el aviso de "cualquier hora". Y `if (data.success)` sin `else` rendía los 400 del endpoint como "Sin horarios disponibles" | La respuesta **devuelve el modo servido** (`freeform: boolean`); el cliente compara, se apaga solo y lo dice. Más estado de error visible |
+| **6** 🟡 | Cambiar de mes dejaba `selectedDate` viva: el paso 3 seguía ofreciendo horas de un día fuera de la rejilla — y en modo libre ni se re-piden, así que se veían válidas | El cambio de mes limpia la fecha (arregla también el modo rangos, donde ya pasaba) |
+
+> ⚠️ **La lección del hallazgo 1, que vale más allá de este picker.** El guard
+> `if (!abortController.signal.aborted)` es correcto y hay que conservarlo — existe para que
+> una respuesta vieja no apague el spinner de la nueva. Pero convierte **toda salida temprana
+> del efecto en una fuga del flag**: si el efecto se re-ejecuta y sale antes de disparar otra
+> petición, nadie apaga lo que la anterior encendió. **Un guard sobre el apagado obliga a
+> apagar a mano en cada `return` temprano.** Aquí había DOS efectos que se cubrían el uno al
+> otro, y por eso ninguno de los dos parecía incompleto leído por separado.
+
+> 📌 **El hallazgo 4 es el patrón de "un valor nuevo alcanzable por primera vez".** El código
+> río abajo (`google-calendar.ts`) llevaba años siendo correcto **porque la validación de
+> `AvailabilityRange` garantizaba hora ≤ 23**. El rango sintético no pasa por esa validación:
+> saltarse el guardián de un invariante lo rompe en sitios que ni se tocaron.
+
+---
+
+*Índice: [`README.md`](README.md) · Estado vivo: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) ·
+Prueba a mano: [`00-METODO-prueba-manual-punta-a-punta.md`](00-METODO-prueba-manual-punta-a-punta.md).*
