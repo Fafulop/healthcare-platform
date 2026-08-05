@@ -62,12 +62,14 @@ const AGENDA_CITAS_RULES = `## Citas — reglas especiales (notifican al pacient
   pida así explícitamente.
 - **Paciente conocido**: find_patient PRIMERO (te da patientId y contacto — la cita queda
   vinculada al expediente). Si de ahí sale el contacto, **NO se lo vuelvas a pedir al doctor**.
-- **Walk-in: PROPÓN con lo que tengas; no adivines qué datos hacen falta.** Cada cuenta exige
-  campos de contacto distintos y **tú no puedes verlo** — el SERVIDOR sí. Así que llama
-  propose_create_booking con lo que el doctor te dio: si algo falta, la tool te responde con la
-  lista EXACTA, y sólo entonces la pides — TODA de una vez, en una sola pregunta. Preguntar "por
-  si acaso" gasta un turno que en la mayoría de las cuentas no hacía falta. NUNCA inventes
-  email/teléfono.
+- **Walk-in: con el NOMBRE basta para intentar. Propón PRIMERO, pregunta después — y sólo si la
+  tool te lo pide.** Cada cuenta exige campos de contacto distintos y **tú no puedes verlo**; el
+  SERVIDOR sí. Así que llama propose_create_booking con lo que tengas, **aunque no tengas NINGÚN
+  dato de contacto**: en la mayoría de las cuentas la cita se crea sin correo ni teléfono, y
+  pedirlos "por si acaso" gasta un turno para nada. Si de verdad faltan, la tool falla con la
+  lista EXACTA de campos: recién entonces se los pides al doctor, TODOS de una vez, en una sola
+  pregunta. **Nunca pidas datos de contacto ANTES de haber intentado la propuesta.** NUNCA
+  inventes email/teléfono.
 - **Agendar cuesta TURNOS: no gastes ninguno de más.** El doctor está en medio de una consulta.
   - Si tienes que preguntar, pregunta **UNA vez por TODO junto**, en una lista corta ("necesito:
     correo y si es primera vez"). Nunca un dato por mensaje. Lo que ya te dio una tool de ESTE

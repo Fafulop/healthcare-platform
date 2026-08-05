@@ -215,6 +215,13 @@ async function main() {
 
   const today = mxTodayKey();
   const tuesdayCandidates = weekdayCandidates(today, 2);
+  // Fecha RELATIVA a propósito (+21 días): las fechas duras se pudren solas —
+  // `disponibilidad-dia-bloqueado` y `-rango-exactamente-lleno` llevan fallando
+  // desde que el 3 y el 4 de agosto quedaron en el pasado. A 3 semanas vista
+  // dr-prueba no tiene rangos ni citas, que es justo el escenario que interesa.
+  const enTresSemanas = new Date(new Date(today + 'T12:00:00Z').getTime() + 21 * 86400000)
+    .toISOString()
+    .slice(0, 10);
 
   const CASES: EvalCase[] = [
     {
@@ -387,6 +394,33 @@ async function main() {
       checks: [
         { kind: 'no-proposals' },
         { kind: 'reply-match', pattern: '(mismo|igual|no.{0,30}cambi|ya está)', flags: 'i' },
+      ],
+    },
+    {
+      // Bitácora #35 — el agujero que se escapó DOS veces (corrida B y la prueba
+      // en vivo del 2026-08-05). El agente pedía correo y teléfono ANTES de
+      // intentar la propuesta, en una cuenta que NO los exige: un turno regalado.
+      // La causa siempre fue la misma: el prompt le pedía adivinar "según lo que
+      // exija la cuenta", que el modelo NO PUEDE VER. Sólo el servidor lo sabe.
+      // Con el NOMBRE basta para intentar; si faltan campos, la tool los nombra.
+      //
+      // ⚠️ Este caso sólo prueba el lado PERMISIVO (dr-prueba tiene los 9 toggles
+      // en false). El lado exigente sigue sin cobertura: `missingContactFields`
+      // lee los settings de la BD por doctorId, así que un caso no puede pedir
+      // otra configuración sin poder INYECTARLOS. Ver AGENDAR SIN FRICCION/03 §8.
+      id: 'walk-in-solo-nombre-propone',
+      bitacora: '#35',
+      message: `agéndame a Marcos Ruiz el ${enTresSemanas} a las 16:07, consulta de seguimiento`,
+      soft: true,
+      dataDependent: 'dr-prueba no exige contacto (9 toggles en false) y a +21 días no tiene rangos ni citas',
+      checks: [
+        // Lo esencial: PROPONE en vez de interrogar.
+        { kind: 'tool-called', name: 'propose_create_booking' },
+        { kind: 'proposal-types-in-order', types: ['create_booking'] },
+        // Un día SIN rangos ya no es un día sin espacio (la pantalla muerta de la demo).
+        { kind: 'reply-not-match', pattern: '(no.{0,30}(hay|tienes).{0,30}(horario|rango|disponib)|sin rangos)', flags: 'i' },
+        // Y no pide contacto "por si acaso" antes de intentarlo.
+        { kind: 'reply-not-match', pattern: '(necesito|dame|proporci).{0,60}(correo|tel[eé]fono|whatsapp)', flags: 'i' },
       ],
     },
     {
