@@ -28,6 +28,7 @@ import {
   dateKeyToUtcDate,
   utcDateToKey,
   mxTodayKey,
+  mxNowString,
   isVencida,
   addMinutesToTime,
 } from './dates';
@@ -134,6 +135,13 @@ export interface ProposalContext {
    * result can name another feature ("emítela desde la tabla de citas"), which
    * is false on a plan that excludes it; absent/unknown ⇒ FULL (fail-open). */
   tier?: string | null;
+  /** Short-lived Bearer for apps/api AUTHENTICATED endpoints — same contract and
+   * same minter as ToolContext.apiToken (api-token.ts). checkSlot needs it: the
+   * doctor books in FREEFORM (any minute, range or not), and `freeform=1` on
+   * range-availability is auth-gated by design. Absent ⇒ the endpoint silently
+   * serves RANGE mode, which checkSlot detects via the echoed flag instead of
+   * assuming (see fetchDaySlots). */
+  apiToken?: string | null;
 }
 
 /** GAP-5: on cap overflow the model must NARRATE the remainder, never drop it.
@@ -209,12 +217,12 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_create_booking',
     description:
-      'PROPONE crear una CITA (🔴 notifica al paciente: SMS/email/Google Calendar — solo cuando el doctor lo pidió explícitamente). La cita nace CONFIRMADA. El horario debe salir de get_availability de ESTE turno; el servidor lo re-valida contra el motor real. Paciente conocido: usa find_patient primero y pasa patientId + su contacto. Walk-in: pide al doctor los datos de contacto que falten — NUNCA los inventes. Si el horario está ocupado por una cita que un paso anterior de ESTE plan cancela, sí puedes proponerlo (el servidor lo detecta).',
+      'PROPONE crear una CITA (🔴 notifica al paciente: SMS/email/Google Calendar — solo cuando el doctor lo pidió explícitamente). La cita nace CONFIRMADA. El horario es el que pidió el doctor —a cualquier minuto y haya o no rango publicado ese día—; el servidor lo valida aquí contra el motor real y, si está ocupado, te devuelve los libres más cercanos. Paciente conocido: usa find_patient primero y pasa patientId + su contacto. Walk-in: pide al doctor los datos de contacto que falten — NUNCA los inventes. Si el horario está ocupado por una cita que un paso anterior de ESTE plan cancela, sí puedes proponerlo (el servidor lo detecta).',
     input_schema: {
       type: 'object',
       properties: {
         date: { type: 'string', description: 'Fecha "YYYY-MM-DD"' },
-        startTime: { type: 'string', description: 'Hora inicio "HH:MM" (de get_availability de este turno)' },
+        startTime: { type: 'string', description: 'Hora inicio "HH:MM" — la que pidió el doctor, a cualquier minuto (16:07 vale) y haya o no rango publicado; el servidor valida aquí si está ocupada' },
         serviceId: { type: 'string', description: 'ID del servicio (de get_services)' },
         patientName: { type: 'string', description: 'Nombre del paciente' },
         patientId: { type: 'string', description: 'ID de expediente (de find_patient) — opcional, vincula la cita al expediente' },
@@ -255,7 +263,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_reschedule_booking',
     description:
-      'PROPONE reagendar una cita: UNA sola acción — el sistema cancela la original y crea la nueva (CONFIRMADA) con los mismos datos del paciente (🔴 notifica DOS veces: cancelación + confirmación nueva). El horario nuevo debe salir de get_availability de ESTE turno; mover la cita DENTRO de su propio horario sí es válido (el servidor descuenta la cita que se mueve). NUNCA propongas cancelar+crear por separado para reagendar.',
+      'PROPONE reagendar una cita: UNA sola acción — el sistema cancela la original y crea la nueva (CONFIRMADA) con los mismos datos del paciente (🔴 notifica DOS veces: cancelación + confirmación nueva). El horario nuevo es el que pidió el doctor, a cualquier minuto y haya o no rango publicado; el servidor lo valida aquí. Mover la cita DENTRO de su propio horario sí es válido (el servidor descuenta la cita que se mueve). NUNCA propongas cancelar+crear por separado para reagendar.',
     input_schema: {
       type: 'object',
       properties: {
@@ -767,7 +775,20 @@ function bookingLabel(b: BookingForProposal) {
  * enforces the same for doctor callers — failing at PROPOSAL time means a
  * clean "pídele X al doctor" instead of a 400 after confirmation, and on the
  * reschedule path it prevents the RSC-3 disaster of cancelling a booking whose
- * data can't satisfy the re-create). */
+ * data can't satisfy the re-create).
+ *
+ * ⚠️ WHICH settings group: the `bookingInstant*` one, because the executor posts
+ * to /range-bookings/instant — the SAME endpoint (and therefore the same three
+ * flags) the doctor's own picker uses in range mode (BookPatientModal `rangeMode`).
+ * These columns are the "Nuevo horario" section of the Campos de Cita modal.
+ *
+ * This used to read `bookingHorarios*` ("Horarios disponibles"), which matched
+ * the OLD executor endpoint (/range-bookings). The two must move together: a
+ * pre-check on one group and an endpoint enforcing the other yields cards that
+ * validate and then 400 (bitácora #12 — assuming an endpoint's semantics rather
+ * than reading them). Today no doctor has the groups set differently (0 of 11,
+ * measured 2026-08-05), so the mismatch would have been invisible until someone
+ * used the modal as designed. */
 async function missingContactFields(
   doctorId: string,
   c: { email?: string | null; phone?: string | null; whatsapp?: string | null }
@@ -775,16 +796,73 @@ async function missingContactFields(
   const doctor = await prisma.doctor.findUnique({
     where: { id: doctorId },
     select: {
-      bookingHorariosEmailRequired: true,
-      bookingHorariosPhoneRequired: true,
-      bookingHorariosWhatsappRequired: true,
+      bookingInstantEmailRequired: true,
+      bookingInstantPhoneRequired: true,
+      bookingInstantWhatsappRequired: true,
     },
   });
   return [
-    (doctor?.bookingHorariosEmailRequired ?? true) && !c.email ? 'email' : null,
-    (doctor?.bookingHorariosPhoneRequired ?? true) && !c.phone ? 'teléfono' : null,
-    (doctor?.bookingHorariosWhatsappRequired ?? true) && !c.whatsapp ? 'WhatsApp' : null,
+    (doctor?.bookingInstantEmailRequired ?? true) && !c.email ? 'email' : null,
+    (doctor?.bookingInstantPhoneRequired ?? true) && !c.phone ? 'teléfono' : null,
+    (doctor?.bookingInstantWhatsappRequired ?? true) && !c.whatsapp ? 'WhatsApp' : null,
   ].filter(Boolean) as string[];
+}
+
+/** Free times handed back when the requested one doesn't work.
+ *
+ * ⚠️ Two constraints, and satisfying only the first is a trap.
+ *
+ * SIZE: this list travels in the TOOL RESULT. In freeform with `interval=1` the
+ * server returns every free MINUTE of the day — up to 1,440 entries ≈ 11 KB,
+ * which busts the 8,000-char cap on its own and gets rows sliced mid-row
+ * (bitácoras #31 y #34).
+ *
+ * DISTINCTNESS: capping the 8 *nearest* is not enough. On a 1-minute grid the 8
+ * nearest to a taken 16:07 are `16:30, 16:31 … 16:37` — that is ONE opening
+ * shown eight times, and 15:30 (the only genuinely different slot) never
+ * appears. Starts closer together than the service duration OVERLAP each other,
+ * so they are not alternatives at all. Hence a greedy nearest-first walk that
+ * keeps a candidate only if it's at least `minGapMinutes` from every one already
+ * chosen — which yields a real spread on both sides of the target.
+ *
+ * Returned in chronological order (nearest-first would read as sorted noise). */
+const NEARBY_SLOTS_CAP = 8;
+/** Freeform spans the whole day, so "nearest" without a bound offers 04:00 to a
+ * doctor who asked for 08:00 — technically free, useless as a suggestion. Under
+ * ranges this was implicit (the list only held published hours); freeform has to
+ * state it. Beyond this, ask the doctor instead of guessing at a day-part. */
+const MAX_ALTERNATIVE_DISTANCE_MIN = 180;
+/** The synthetic freeform range is 00:00–23:59 (range-availability route). */
+const END_OF_DAY_MIN = 23 * 60 + 59;
+
+function timeToMin(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : Number.NaN;
+}
+
+export function nearestTimes(times: string[], target: string, minGapMinutes: number): string[] {
+  const targetMin = timeToMin(target);
+  const valid = times.filter((t) => Number.isFinite(timeToMin(t)));
+  // No target ⇒ no notion of "nearest". Returning the first N would hand back
+  // 00:00–00:07 on a 1-minute grid: the very defect this function exists to
+  // avoid, at the least useful hour of the day. Say nothing instead.
+  if (!Number.isFinite(targetMin)) return [];
+
+  // A gap of 0 (or a nonsense duration) would defeat the spacing entirely.
+  const gap = Number.isFinite(minGapMinutes) && minGapMinutes > 0 ? minGapMinutes : 15;
+
+  const byDistance = valid
+    .filter((t) => Math.abs(timeToMin(t) - targetMin) <= MAX_ALTERNATIVE_DISTANCE_MIN)
+    .sort((a, b) => Math.abs(timeToMin(a) - targetMin) - Math.abs(timeToMin(b) - targetMin));
+  const chosen: number[] = [];
+  for (const t of byDistance) {
+    if (chosen.length >= NEARBY_SLOTS_CAP) break;
+    const min = timeToMin(t);
+    if (chosen.every((c) => Math.abs(c - min) >= gap)) chosen.push(min);
+  }
+  return chosen
+    .sort((a, b) => a - b)
+    .map((m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
 }
 
 const TERMINAL_ERROR = (status: string) =>
@@ -795,7 +873,7 @@ const UNKNOWN_BOOKING_ERROR =
 
 /**
  * G3: re-validate a requested slot against the REAL availability engine (the
- * same endpoint get_availability uses). Plan-aware (GAP-2/3): conflicts caused
+ * same endpoint the public page uses). Plan-aware (GAP-2/3): conflicts caused
  * SOLELY by bookings in `excludeBookingIds` (the booking being rescheduled, or
  * bookings an earlier step of this plan cancels) don't count — those are gone
  * by the time the executor reaches this step. Both checks ask the SAME engine:
@@ -830,14 +908,24 @@ async function checkSlot(
   };
 
   // The real engine (never derive availability — decisión D1: ruta normal).
+  //
+  // FREEFORM: the doctor books at ANY minute, inside a published range or not
+  // (CITAS 480f7f72 gave the picker exactly this). `freeform=1` REPLACES range
+  // mode server-side — published ranges are skipped and a synthetic whole-day
+  // window takes their place, so what's left subtracted is bookings and blocks.
+  // That is the whole question the agent needs answered: "is something already
+  // there?". `interval=1` so a time the doctor TYPED ("16:07") isn't rejected
+  // for failing to land on a 15-min boundary.
   const fetchDaySlots = async (
     excludeIds?: Set<string>
-  ): Promise<{ slots: { startTime: string }[] } | { error: string }> => {
+  ): Promise<{ slots: { startTime: string }[]; freeform: boolean } | { error: string }> => {
     const params = new URLSearchParams({
       startDate: input.dateKey,
       endDate: input.dateKey,
       serviceId: input.serviceId,
       skipCutoff: '1',
+      freeform: '1',
+      interval: '1',
     });
     if (excludeIds && excludeIds.size > 0) {
       params.set('excludeBookingIds', [...excludeIds].join(','));
@@ -845,13 +933,30 @@ async function checkSlot(
     try {
       const res = await fetch(
         `${API_URL}/api/doctors/${ctx.doctorSlug}/range-availability?${params.toString()}`,
-        { cache: 'no-store' }
+        {
+          cache: 'no-store',
+          // freeform=1 is auth-gated by design: served open, an anonymous caller
+          // could derive the doctor's OCCUPIED schedule by inversion. Same Bearer
+          // as ToolContext.apiToken (api-token.ts).
+          headers: ctx.apiToken ? { authorization: `Bearer ${ctx.apiToken}` } : undefined,
+        }
       );
       if (!res.ok) {
         return { error: `No se pudo verificar disponibilidad (HTTP ${res.status}) — reintenta.` };
       }
-      const data: { timeSlots?: Record<string, { startTime: string }[]> } = await res.json();
-      return { slots: data.timeSlots?.[input.dateKey] ?? [] };
+      // Read the mode ACTUALLY served, never assume it. On an auth failure the
+      // endpoint IGNORES freeform=1 (it does not 403, on purpose) and answers in
+      // range mode — reporting that as "esa hora no está libre" would state a
+      // falsehood about the doctor's agenda (01-PLAN §8, "una lista vacía NO es
+      // una respuesta").
+      const data: {
+        timeSlots?: Record<string, { startTime: string }[]>;
+        freeform?: boolean;
+      } = await res.json();
+      return {
+        slots: data.timeSlots?.[input.dateKey] ?? [],
+        freeform: data.freeform === true,
+      };
     } catch {
       return { error: 'No se pudo verificar disponibilidad (error de red) — reintenta en un momento.' };
     }
@@ -869,7 +974,7 @@ async function checkSlot(
   // 2) Plan-aware pass: does the slot become free once the plan's earlier
   //    cancellations (or the booking being moved) are gone? Same engine, with
   //    those bookings excluded server-side.
-  const horariosDisponibles = current.slots.map((s) => s.startTime);
+  let freeSlots = current.slots;
   if (input.excludeBookingIds.size > 0) {
     const planAware = await fetchDaySlots(input.excludeBookingIds);
     if ('error' in planAware) {
@@ -883,15 +988,61 @@ async function checkSlot(
         servicio,
       };
     }
+    // Alternatives come from the PLAN-AWARE list: on a reschedule the booking
+    // being moved still occupies its own window in `current`, so offering from
+    // that list hides the times that free up the moment the move runs — exactly
+    // the window nearest to where the doctor already had the appointment.
+    freeSlots = planAware.slots;
   }
+  const horariosDisponibles = nearestTimes(
+    freeSlots.map((s) => s.startTime),
+    input.startTime,
+    servicio.duracionMinutos
+  );
+
+  // WHY it was rejected. "Ocupado" is only ONE of the reasons a time can be
+  // missing from the list, and asserting it for the others is a confident false
+  // claim about the doctor's agenda — the failure class of #32 and 01-PLAN §8.
+  // Every branch that is NOT occupancy has to say so explicitly, because the
+  // model relays this string almost verbatim.
+  //
+  // PAST: in freeform the engine applies applyPastFilter UNCONDITIONALLY (it
+  // ignores skipCutoff), so every time earlier than "now" comes back missing.
+  // Nothing occupies those minutes; they simply can't be validated. Note
+  // /instant would ACCEPT such a booking — here the pre-check is stricter than
+  // the endpoint. `<=`, not `<`: the filter keeps only `> now`, so the CURRENT
+  // minute is dropped too and would otherwise be reported as occupied.
+  const nowHHMM = mxNowString().split(' ')[1].slice(0, 5);
+  const isPastToday =
+    input.dateKey === mxTodayKey() && timeToMin(input.startTime) <= timeToMin(nowHHMM);
+
+  // DOESN'T FIT: the synthetic freeform window is 00:00–23:59, so a service that
+  // would end after 23:59 yields no slot with NOTHING occupying it (a 30-min at
+  // 23:45). Reporting that as "ocupado" invents a booking that doesn't exist.
+  const doesNotFitInDay = timeToMin(input.startTime) + servicio.duracionMinutos > END_OF_DAY_MIN;
+
+  const motivo = !current.freeform
+    ? `No se pudo verificar en modo libre (sesión sin autorizar), así que sólo se revisaron los horarios PUBLICADOS: ${input.dateKey} ${input.startTime} no cae en ninguno. NO afirmes que está ocupado ni que el día esté lleno — no se pudo comprobar.`
+    : isPastToday
+      ? `Esa hora YA PASÓ hoy (${input.startTime}). No está ocupada — el motor no valida horas pasadas, así que no puedo confirmar que esté libre. Si el doctor quiere registrar una cita que YA ocurrió, dile que la registre desde la tabla de Citas; para agendar, propón una hora futura.`
+      : doesNotFitInDay
+        ? `Una cita de ${servicio.duracionMinutos} min a las ${input.startTime} terminaría después del final del día (23:59), así que no CABE. No está ocupada: no cabe. Propón una hora más temprana o un servicio más corto.`
+        : `El horario ${input.dateKey} ${input.startTime} está OCUPADO para ${servicio.nombre} (hay una cita o un bloqueo encima).`;
+
+  // The alternatives tail is only meaningful when the freeform question was
+  // actually answered. In range mode the list covers ONLY published ranges, and
+  // for a doctor who publishes none it is ALWAYS empty — appending "no hay
+  // ningún horario libre" there would contradict the "no se pudo comprobar" we
+  // just said, and the model would relay the second half.
+  const cola = !current.freeform
+    ? ''
+    : horariosDisponibles.length > 0
+      ? ` Horarios libres más cercanos: ${horariosDisponibles.join(', ')}. Ofrece alternativas al doctor — no fuerces el horario.`
+      : ' No encontré horas libres cerca de esa. Pregúntale al doctor qué otra hora le sirve.';
 
   return {
     ok: false,
-    error: `El horario ${input.dateKey} ${input.startTime} NO está disponible para ${servicio.nombre}. ${
-      horariosDisponibles.length > 0
-        ? `Horarios libres ese día: ${horariosDisponibles.slice(0, 12).join(', ')}${horariosDisponibles.length > 12 ? '…' : ''}.`
-        : 'Ese día no tiene ningún horario libre para ese servicio.'
-    } Ofrece alternativas al doctor — no fuerces el horario.`,
+    error: `${motivo}${cola}`,
     horariosDisponibles,
   };
 }

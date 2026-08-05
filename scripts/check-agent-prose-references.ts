@@ -38,7 +38,7 @@ import {
   ALL_TOOLS,
   resolveAgentScope,
 } from '../apps/doctor/src/lib/agenda-agent/modules/registry';
-import { sectionsFor } from '../apps/doctor/src/lib/agenda-agent/prompt';
+import { sectionsFor, STABLE_SYSTEM_PROMPT } from '../apps/doctor/src/lib/agenda-agent/prompt';
 
 /**
  * Cross-references TOLERADAS hoy, con su razón. Cada entrada es DEUDA VISIBLE:
@@ -234,6 +234,55 @@ function checkScope(label: string, scope: ReturnType<typeof resolveAgentScope>) 
   }
 }
 
+/**
+ * TERCERA CLASE — prosa que nombra una tool que NO EXISTE EN NINGÚN SCOPE.
+ *
+ * `toolsNamedIn` filtra a propósito por `REAL_TOOLS` para no gritar ante nombres
+ * ilustrativos, pero ese filtro tiene un punto ciego caro: al ELIMINAR una tool,
+ * todas las frases que la nombraban dejan de existir para el gate y pasan en
+ * silencio — justo el momento de máximo riesgo de #26/#27, donde el modelo no
+ * declina sino que improvisa con la tool más parecida.
+ *
+ * Se cazó a mano el 2026-08-05 al quitar `get_availability`: dos DESCRIPCIONES
+ * (`propose_create_booking` y `propose_reschedule_booking`) seguían diciendo "el
+ * horario debe salir de get_availability de ESTE turno" y `gate:prosa` pasó
+ * verde.
+ *
+ * Cubre TRES fuentes, y las secciones COMPARTIDAS son obligatorias: la regla 2 de
+ * `RULES` (en prompt.ts, no en ningún módulo) era otro de los sitios que había que
+ * arreglar a mano. `STABLE_SYSTEM_PROMPT` es el prompt del dueño ya compuesto, así
+ * que INTRO / RESILIENCE / HOW_TO_PROPOSE / RULES entran enteras por ahí; las
+ * variantes `partial` de cada módulo se suman aparte porque NO viajan en él.
+ */
+const ghosts: { where: string; name: string }[] = [];
+{
+  const full = resolveAgentScope({ isOwner: true, permissions: null, tier: 'FULL' });
+  const corpus: [string, string | undefined][] = [
+    ['prompt compartido (STABLE_SYSTEM_PROMPT)', STABLE_SYSTEM_PROMPT],
+  ];
+  for (const m of full.modules) {
+    const s = sectionsFor(m, full);
+    corpus.push([`${m.name}.domainModel`, s.domainModel], [`${m.name}.domainRules`, s.domainRules]);
+    // Las variantes recortadas no están en STABLE_SYSTEM_PROMPT.
+    corpus.push(
+      [`${m.name}.partial.domainModel`, m.prompt.partial?.domainModel],
+      [`${m.name}.partial.domainRules`, m.prompt.partial?.domainRules]
+    );
+  }
+  for (const t of ALL_TOOLS) corpus.push([`descripción de ${t.name}`, t.description]);
+  for (const [where, text] of corpus) {
+    for (const n of new Set(text?.match(TOOL_NAME_RE) ?? [])) {
+      if (!REAL_TOOLS.has(n)) ghosts.push({ where, name: n });
+    }
+  }
+}
+if (ghosts.length > 0) {
+  console.log('\nFALLA — prosa que nombra tools INEXISTENTES (¿se eliminó una tool y quedó su prosa?)');
+  for (const g of ghosts) console.log(`  ${g.where}: ${g.name}`);
+} else {
+  console.log('OK   ninguna prosa nombra una tool inexistente (cubre el borrado de tools)');
+}
+
 for (const tier of DOCTOR_TIERS) {
   checkScope(`owner · ${tier}`, resolveAgentScope({ isOwner: true, permissions: null, tier }));
   for (const combo of toggleCombos()) {
@@ -281,7 +330,7 @@ if (violations.length === 0) {
   }
 }
 
-const failed = violations.length > 0 || staleAllowed.length > 0;
+const failed = violations.length > 0 || staleAllowed.length > 0 || ghosts.length > 0;
 console.log(failed ? `\n${grouped_count(violations)} cross-reference(s) sin declarar.` : '\nAll checks passed.');
 function grouped_count(vs: Violation[]) {
   return new Set(vs.map((v) => `${v.module}→${v.tool}`)).size;

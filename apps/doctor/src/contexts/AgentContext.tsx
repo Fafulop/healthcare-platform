@@ -161,7 +161,29 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
     // --- PR 3: citas (todo lo que notifica al paciente llegó con card 🔴) ---
 
     if (p.type === 'create_booking') {
-      const res = await authFetch(`${API_URL}/api/appointments/range-bookings`, {
+      // /instant, NOT /range-bookings: the doctor books in FREEFORM (any minute,
+      // published range or not) — the same endpoint the picker uses in range
+      // mode since CITAS 480f7f72. /range-bookings REQUIRES the time to fall
+      // inside a published range, which is what made the agent answer "ese día
+      // no tiene horarios" while the UI booked that very time (bitácora #35).
+      //
+      // ⚠️ TWO things travel with the endpoint swap:
+      //
+      // 1. WHICH SETTINGS gate the write (bookingInstant* instead of
+      //    bookingHorarios*) — proposals.ts `missingContactFields` moved with it,
+      //    and must stay in step: pre-check on one group + endpoint on the other
+      //    = cards that validate and then 400.
+      //
+      // 2. THE BUFFER. /range-bookings passes `bufferMinutes` to
+      //    findBookingOverlap; /instant deliberately does not ("No buffer here on
+      //    purpose" — it's the doctor's own booking). The proposal pre-check DOES
+      //    apply it, so the two disagree only inside the propose→confirm window:
+      //    a booking landing in between could now be written inside the doctor's
+      //    buffer where the old endpoint 409'd. INERT today — measured 2026-08-05:
+      //    0 of 11 doctors have a non-zero appointmentBufferMinutes (max 0), and
+      //    the feature has no UI that writes it (decisión 2026-07-05). It stops
+      //    being inert the day someone turns it on.
+      const res = await authFetch(`${API_URL}/api/appointments/range-bookings/instant`, {
         method: 'POST',
         body: JSON.stringify(p.params),
       });
@@ -273,7 +295,11 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
       if (!cancelData.success) {
         return { ok: false, resumen: `No se pudo cancelar la cita original: ${cancelData.error || 'error'} (nada cambió)` };
       }
-      const createRes = await authFetch(`${API_URL}/api/appointments/range-bookings`, {
+      // Freeform, same as create_booking above — and here it matters MORE: this
+      // leg runs AFTER the original is already cancelled, so a rejection because
+      // the new time sits outside a published range is the RSC-3 disaster
+      // (patient notified, no replacement booking).
+      const createRes = await authFetch(`${API_URL}/api/appointments/range-bookings/instant`, {
         method: 'POST',
         body: JSON.stringify(p.params.create),
       });

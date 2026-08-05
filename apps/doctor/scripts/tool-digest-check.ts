@@ -69,7 +69,10 @@ check('bookingId sí se conserva', r3.bookingId === 'b1', r3);
 check('llave desconocida = default-deny',
   redactInput({ campoDeUnaToolFutura: 'lo que sea' }).campoDeUnaToolFutura === '<string:10>');
 
-console.log('\n--- digestResult: get_availability (bitácora 2026-07-31) ---');
+// Payload de la extinta `get_availability` (eliminada el 2026-08-05). El caso se
+// queda: prueba `digestResult` sobre una forma "mapa + listas" que aún puede
+// llegar de otra tool, y es el que fijó la distinción `[]` vs `[…]` de #32.
+console.log('\n--- digestResult: lista de disponibilidad (bitácora 2026-07-31) ---');
 const datesOnly = digestResult({
   nota: 'Sin servicio especificado: calculado con el más corto (Consulta de Seguimiento, 30 min).',
   bufferMinutos: 0,
@@ -183,7 +186,6 @@ async function tripwire(): Promise<void> {
     ['get_day_schedule', { date: today }],
     ['get_bookings', { startDate: today }],
     ['get_bookings', { vencidas: true }],
-    ['get_availability', { startDate: today }],
     ['get_ranges', { startDate: today, endDate: today }],
     ['get_services', {}],
     ['get_pacientes_overview', {}],

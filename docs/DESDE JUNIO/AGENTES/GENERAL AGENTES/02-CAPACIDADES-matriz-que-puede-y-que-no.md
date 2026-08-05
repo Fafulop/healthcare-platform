@@ -153,15 +153,22 @@ bitácora #24 y `00-BLUEPRINT` §5.2 punto 6.
 <!-- Marcadores verificados por scripts/check-docs-numbers.ts contra el CÓDIGO.
      Si el gate falla: NO edites el marcador a mano sin entender por qué cambió el código.
      Actualiza el número Y el texto de esta sección juntos. -->
-<!-- gate:tools=39 -->
+<!-- gate:tools=38 -->
 <!-- gate:modules=5 -->
 <!-- gate:evals=85 -->
 <!-- gate:module-list=agenda,facturas,fiscal,flujo,expediente -->
 
-**39 tools / 5 módulos** — desglose real (conteo de `input_schema` por archivo): agenda 8 de
+**38 tools / 5 módulos** — desglose real (conteo de `input_schema` por archivo): agenda 7 de
 lectura (`tools.ts`) + 10 de propuesta (`proposals.ts`) · facturas 12 (10 lectura + 2
 propuestas) · fiscal 2 · flujo 5 · expediente 2. El conteo válido es `ALL_TOOLS.length` del
 registry — nunca sumar a mano.
+
+> 📉 **39 → 38 el 2026-08-05: se eliminó `get_availability`** (agenda pasó de 8 lecturas a 7).
+> Con el agendado freeform "¿qué horarios tengo libres?" dejó de tener respuesta útil —
+> libre es el día entero menos lo ocupado — y su lista vacía era la pantalla muerta de la
+> bitácora **#35**. Lo ocupado lo da `get_day_schedule`; la hora la dice el doctor y la valida
+> el servidor al proponer. **Es el primer recorte de superficie del asistente**, y se midió en
+> TURNOS, no en tokens: [`../AGENDAR SIN FRICCION/02-PLAN-agendar-freeform.md`](../AGENDAR%20SIN%20FRICCION/02-PLAN-agendar-freeform.md) §3.2 y §6.
 
 **Suite de evals: 85 casos** (contados en `scripts/agenda-agent-evals.ts`). Por familia:
 6 `f2a-*` · 6 `f2b-*` · 2 `f2c-*` · 5 `flujo-*` · 5 `xdom-*` cross-dominio · 3 `exped-*` ·

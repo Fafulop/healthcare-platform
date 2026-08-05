@@ -23,7 +23,9 @@
 // `API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003'` al
 // CARGARSE, y ESM iza los imports por encima de cualquier código de este archivo:
 // un `import ... from '../src/...'` arriba dejaría API_URL apuntando a localhost
-// y `get_availability` fallaría con "fetch failed" contra un puerto muerto.
+// y toda tool que salga por HTTP fallaría con "fetch failed" contra un puerto
+// muerto (lo destapó `get_availability`, eliminada el 2026-08-05; la trampa
+// sigue viva para checkSlot y cualquier otra llamada a la API).
 // (Pasó: 3 corridas seguidas, y la misma llamada aislada funcionaba — parecía un
 // blip de red y era determinista.) Por eso el env se fija PRIMERO y todo se
 // importa dinámicamente, igual que en `tool-digest-check.ts`.
@@ -87,7 +89,9 @@ check('recorte.mostradas == filas reales', g.recorte.mostradas === g.citas.lengt
 check('lo reporta para la traza', (grande.recorte as any)?.campo === 'citas');
 
 console.log('\n--- 3. SIN total recuperable: NO se recorta (cae al corte viejo) ---');
-// Es el caso de get_availability: `fechasDisponibles`/`horarios` sin ningún total.
+// Era el caso de `get_availability` (eliminada el 2026-08-05): una lista de
+// horarios sin ningún total. El caso se conserva porque la guarda sigue viva —
+// recortar filas de una lista sin total pierde OPCIONES, no detalle (fallo #32).
 const sinTotal = { fechasDisponibles: Array.from({ length: 300 }, (_, i) => `2026-08-${i}`), horarios: { '2026-08-05': Array.from({ length: 300 }, () => ({ startTime: '09:00', endTime: '09:30' })) } };
 const st = serializeToolResult(sinTotal);
 const stp = JSON.parse(st.content);
@@ -193,13 +197,12 @@ async function contraProd(): Promise<void> {
     ['get_bookings', {}],
     ['get_bookings', { vencidas: true }],
     ['get_billing_status', { patientId: p[0]?.id }],
-    ['get_availability', { startDate: hoy }],
     ['get_ranges', { startDate: '2026-07-01', endDate: '2026-08-31' }],
     ['get_payment_links', {}],
     ['get_day_schedule', { date: '2026-08-10' }],
   ];
   for (const [name, input] of casos) {
-    // Un reintento: `get_availability` sale por HTTP a la API pública y un blip de
+    // Un reintento: hay tools que salen por HTTP a la API pública y un blip de
     // red daría una FALSA alarma. Si los dos intentos fallan, se reporta como FALLA
     // (nunca se salta en silencio — un tripwire que omite el caso no vigila nada).
     let raw: unknown;
@@ -247,14 +250,56 @@ async function contraProd(): Promise<void> {
         `con ${listaOut.length + 1} filas serían ${JSON.stringify(unaMas).length}B`
       );
     }
-    // get_availability NUNCA debe recortarse por filas (mentiría sobre disponibilidad).
-    if (name === 'get_availability') {
-      check(`${etiqueta} — NO recortado por filas`, !(r.recorte && 'campo' in r.recorte), r.recorte);
-    }
     console.log(`         ${crudo}B -> ${r.content.length}B ${r.recorte ? JSON.stringify(r.recorte) : '(cupo entero)'}`);
   }
   await prisma.$disconnect();
 }
+
+/**
+ * `nearestTimes` (proposals.ts) — las alternativas que checkSlot devuelve cuando
+ * la hora pedida no sirve. Vive en ESTE script porque su razón de ser es el cap:
+ * en freeform con `interval=1` la lista cruda trae hasta 1,440 horas (~11 KB) y
+ * sola revienta los 8,000 chars, que es el mecanismo de #31/#34.
+ *
+ * Pero acotar por tamaño NO basta, y esa fue la trampa que cazó el code review:
+ * quedarse con las 8 MÁS CERCANAS en una rejilla de 1 minuto devuelve 8 minutos
+ * consecutivos — el MISMO hueco repetido 8 veces.
+ */
+async function horariosCercanos() {
+  console.log('\n--- 6. nearestTimes: tamaño Y distinción ---');
+  const { nearestTimes } = await import('../src/lib/agenda-agent/proposals');
+
+  // Día freeform realista: libre todo salvo 16:00–16:30, servicio de 30 min.
+  const libres: string[] = [];
+  for (let m = 0; m < 24 * 60; m++) {
+    if (m > 15 * 60 + 30 && m < 16 * 60 + 30) continue; // un 30-min no cabe ahí
+    libres.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+  }
+
+  const r = nearestTimes(libres, '16:07', 30);
+  check('cabe en el cap (<= 8 horas)', r.length <= 8, r);
+  check('no devuelve minutos consecutivos (huecos distintos)', new Set(r).size === r.length && r.every((t, i) => i === 0 || toMin(t) - toMin(r[i - 1]) >= 30), r);
+  check('orden cronológico', r.every((t, i) => i === 0 || toMin(t) > toMin(r[i - 1])), r);
+  check('ofrece opciones ANTES y DESPUÉS del objetivo', r.some((t) => toMin(t) < toMin('16:07')) && r.some((t) => toMin(t) > toMin('16:07')), r);
+  check('incluye el hueco real más cercano (16:30)', r.includes('16:30'), r);
+  check('el payload de alternativas es chico (< 100 B)', JSON.stringify(r).length < 100, JSON.stringify(r).length);
+
+  // Bordes: nada libre, objetivo con formato inválido, gap absurdo.
+  check('lista vacía → vacío', nearestTimes([], '16:07', 30).length === 0);
+  // Devolver "los primeros 8" ante un objetivo inválido reintroducía el defecto
+  // que esta función existe para evitar: 00:00–00:07 en rejilla de 1 min, o sea
+  // el MISMO hueco 8 veces a la peor hora del día (hallazgo del review 2026-08-05).
+  check('objetivo inválido → NO devuelve la madrugada, devuelve vacío', nearestTimes(libres, 'xx:yy', 30).length === 0, nearestTimes(libres, 'xx:yy', 30));
+  // Freeform abarca el día entero: sin tope, a quien pide 08:00 se le ofrece 04:00.
+  const early = nearestTimes(libres, '08:00', 30);
+  check('no ofrece horas absurdamente lejanas (<= 3 h del objetivo)', early.every((t) => Math.abs(toMin(t) - toMin('08:00')) <= 180), early);
+  check('gap 0 → cae al default y sigue espaciando', nearestTimes(libres, '16:07', 0).every((t, i, a) => i === 0 || toMin(t) - toMin(a[i - 1]) >= 15));
+  console.log(`         alternativas para 16:07 (servicio 30 min): ${r.join(', ')}`);
+}
+const toMin = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+};
 
 (async () => {
   // Dinámico y DESPUÉS de fijar el env (ver la nota de arriba).
@@ -263,6 +308,7 @@ async function contraProd(): Promise<void> {
   });
   ({ digestResult } = await import('../src/lib/agenda-agent/tool-digest'));
   puros();
+  await horariosCercanos();
   if (process.env.DATABASE_PUBLIC_URL) {
     await contraProd();
   } else {

@@ -188,6 +188,11 @@ async function main() {
   // (search_catalogo_sat). Se mintea igual que en la ruta de prod, con los datos
   // reales del user de dr-prueba (email + sessionVersion deben coincidir con la
   // BD o apps/api rechaza el token).
+  //
+  // ⚠️ Ya NO es sólo del catálogo: el pre-check de citas (checkSlot) valida en
+  // modo FREEFORM, y `freeform=1` está gateado por auth. Sin token el endpoint
+  // NO devuelve 403 — sirve modo rangos en silencio, así que los casos de crear
+  // o reagendar citas se degradan a "sólo pude revisar horarios publicados".
   let apiToken: string | null = null;
   const agentUser = await prisma.user.findFirst({
     where: { doctorId: DOCTOR_ID },
@@ -201,7 +206,11 @@ async function main() {
     });
   }
   if (!apiToken) {
-    console.warn('⚠ Sin AUTH_SECRET (o sin user de dr-prueba) — search_catalogo_sat correrá sin token y sus casos fallarán.\n');
+    console.warn(
+      '⚠ Sin AUTH_SECRET (o sin user de dr-prueba): search_catalogo_sat fallará, y el pre-check\n' +
+        '  de citas caerá a modo RANGOS (freeform necesita auth) — los casos de agendar/reagendar\n' +
+        '  se degradan sin fallar en seco. La corrida NO es comparable con una que sí tenga token.\n'
+    );
   }
 
   const today = mxTodayKey();

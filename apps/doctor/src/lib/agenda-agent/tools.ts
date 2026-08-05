@@ -80,23 +80,13 @@ export const AGENT_TOOLS: AnthropicTool[] = [
       },
     },
   },
-  {
-    name: 'get_availability',
-    description:
-      'Horarios DISPONIBLES para agendar, calculados por el mismo motor que usa la página pública (rangos menos citas, bloqueos y buffer). SIEMPRE usa esta tool para responder "¿cuándo tengo espacio?" — nunca lo calcules tú. Si no pasas serviceId, el servidor calcula con el servicio más corto del doctor (y lo indica en "nota").',
-    input_schema: {
-      type: 'object',
-      properties: {
-        startDate: { type: 'string', description: 'Desde "YYYY-MM-DD"' },
-        endDate: { type: 'string', description: 'Hasta "YYYY-MM-DD" (opcional, default +30 días)' },
-        serviceId: {
-          type: 'string',
-          description: 'ID del servicio (de get_services). Opcional — sin él se usa el servicio más corto como referencia.',
-        },
-      },
-      required: ['startDate'],
-    },
-  },
+  // get_availability SE ELIMINÓ (2026-08-05). Contestaba "¿qué horarios hay
+  // libres?" enumerando los huecos DENTRO de los rangos publicados. Con el
+  // agendado freeform esa pregunta dejó de tener respuesta útil: libre es todo
+  // el día menos lo ocupado, así que la lista o era vacía (doctor sin rangos —
+  // la pantalla muerta de la bitácora #35) o eran 1,440 minutos.
+  // Lo ocupado lo da get_day_schedule; la hora la dice el doctor y la valida el
+  // servidor al proponer. Ver AGENDAR SIN FRICCION/02-PLAN §3.2.
   {
     name: 'get_ranges',
     description:
@@ -354,55 +344,6 @@ async function getBookings(
   };
 }
 
-async function getAvailability(
-  ctx: ToolContext,
-  input: { startDate: string; endDate?: string; serviceId?: string }
-) {
-  // Without a serviceId the upstream endpoint only returns "dates that have
-  // ranges" — NOT real availability (bookings/blocks aren't subtracted). To keep
-  // the answer honest, default to the doctor's SHORTEST service: if the shortest
-  // service fits nowhere, nothing fits. No isBookingActive filter — the flag is
-  // public-page visibility, and internally every service is bookable.
-  let serviceId = input.serviceId;
-  let nota: string | null = null;
-  if (!serviceId) {
-    const shortest = await prisma.service.findFirst({
-      where: { doctorId: ctx.doctorId },
-      orderBy: { durationMinutes: 'asc' },
-      select: { id: true, serviceName: true, durationMinutes: true },
-    });
-    if (shortest) {
-      serviceId = shortest.id;
-      nota = `Sin servicio especificado: calculado con el más corto (${shortest.serviceName}, ${shortest.durationMinutes} min). Para servicios más largos puede haber menos espacios.`;
-    }
-  }
-
-  // Reuse the SAME calculator the public page uses, via the public endpoint —
-  // the agent must never derive availability on its own. skipCutoff: the 1-hour
-  // lead-time filter is for public patients; the doctor can book inside the hour.
-  const params = new URLSearchParams({ startDate: input.startDate, skipCutoff: '1' });
-  if (input.endDate) params.set('endDate', input.endDate);
-  if (serviceId) params.set('serviceId', serviceId);
-
-  const res = await fetch(
-    `${API_URL}/api/doctors/${ctx.doctorSlug}/range-availability?${params.toString()}`,
-    { cache: 'no-store' }
-  );
-  if (!res.ok) {
-    return { error: `No se pudo calcular disponibilidad (HTTP ${res.status})` };
-  }
-  const data = await res.json();
-  const fechasDisponibles: string[] = data.availableDates ?? [];
-  return {
-    nota,
-    bufferMinutos: data.bufferMinutes ?? 0,
-    servicio: data.service ?? null,
-    fechasDisponibles,
-    diasSemana: mxWeekdayMap(fechasDisponibles),
-    horarios: data.timeSlots ?? {},
-  };
-}
-
 async function getRanges(ctx: ToolContext, input: { startDate: string; endDate: string }) {
   if (!input.startDate || !input.endDate || input.endDate < input.startDate) {
     return { error: 'Se requieren startDate y endDate válidos (endDate >= startDate).' };
@@ -607,8 +548,6 @@ export async function executeTool(
       return getDaySchedule(ctx, input as any);
     case 'get_bookings':
       return getBookings(ctx, input as any);
-    case 'get_availability':
-      return getAvailability(ctx, input as any);
     case 'get_ranges':
       return getRanges(ctx, input as any);
     case 'get_services':

@@ -25,7 +25,7 @@ import {
   type ToolUseBlock,
 } from './anthropic';
 import type { ToolContext } from './tools';
-import { ProposalCollector, type AgendaProposal } from './proposals';
+import { ProposalCollector, type AgendaProposal, type ProposalContext } from './proposals';
 // Tools + prompt come from the MODULE REGISTRY (modules/registry.ts): each
 // domain (agenda today; facturas/pagos later) contributes tools, executors and
 // prompt sections there — this loop never changes when a module is added.
@@ -71,7 +71,10 @@ const TOOL_SEARCH_ENABLED = process.env.AGENDA_AGENT_TOOL_SEARCH !== '0';
 /** Non-deferred tools — the docs' "3–5 most frequently used". These are the
  * top read tools across the eval suite and cover the first hop of most
  * turns; everything else (incl. all propose_*) is one search away. */
-const HOT_TOOL_NAMES = new Set(['get_day_schedule', 'get_bookings', 'get_availability', 'find_patient']);
+// get_services entra al set caliente al salir get_availability (2026-08-05): el
+// primer hop de agendar necesita el serviceId, y en la demo de la bitácora #35
+// se pidió en CUATRO turnos seguidos.
+const HOT_TOOL_NAMES = new Set(['get_day_schedule', 'get_bookings', 'get_services', 'find_patient']);
 
 const TOOL_SEARCH_TOOL = {
   type: 'tool_search_tool_regex_20251119',
@@ -151,11 +154,15 @@ const CONTADORES_DE_FILAS = new Set(['mostradas']);
  * quepa, así que el modelo siempre recibe JSON válido y filas íntegras.
  *
  * Dos guardas, ambas default-deny:
- *  - **Solo arreglos de PRIMER NIVEL.** Excluye por construcción los slots
- *    anidados de `get_availability.horarios` (un mapa fecha→slots).
- *  - **Solo si el payload trae un `total*`.** Excluye `get_availability` entero
- *    (`fechasDisponibles` no tiene total): recortarlo haría que el agente
- *    reportara MENOS disponibilidad de la real.
+ *  - **Solo arreglos de PRIMER NIVEL.** Excluye por construcción los mapas
+ *    anidados fecha→slots.
+ *  - **Solo si el payload trae un `total*`.** Un payload de disponibilidad no lo
+ *    trae, y recortarlo haría que el agente reportara MENOS espacio del real.
+ *
+ * ⚠️ Las llaves `fechasDisponibles`/`horarios` de la lista DENY eran de
+ * `get_availability`, eliminada el 2026-08-05. Se conservan a propósito: la
+ * guarda es default-deny y el día que otra tool emita una lista de horarios,
+ * recortarla volvería a perder OPCIONES en vez de detalle (fallo #32).
  *
  * Si nada es recortable con seguridad, cae al corte por caracteres de antes: es
  * feo, pero al menos grita `truncado: true` en vez de mentir en silencio.
@@ -432,7 +439,15 @@ export async function runAgendaAgentTurn({
   // feature the plan excludes (TIERS T3 — see flujo.ts evidenceScope).
   const ctx: ToolContext = { doctorId, doctorSlug, apiToken, tier: scope.tier };
   const collector = new ProposalCollector();
-  const proposalCtx = { doctorId, doctorSlug, collector, tier: scope.tier };
+  // apiToken reaches the PROPOSAL path too: checkSlot validates the requested
+  // time in freeform mode, and `freeform=1` is auth-gated (range-availability).
+  const proposalCtx: ProposalContext = {
+    doctorId,
+    doctorSlug,
+    collector,
+    tier: scope.tier,
+    apiToken,
+  };
   // Defense in depth (01-DISENO §7.1): a blocked module's tools don't exist
   // for dispatch, not just hidden from the prompt/tools list — even though
   // the model can only ever REQUEST tools present in `tools` below, so this
