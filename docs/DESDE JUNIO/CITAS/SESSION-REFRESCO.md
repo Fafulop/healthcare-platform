@@ -179,6 +179,14 @@ que este orden aparece invertido en un texto, así que al tocar contacto convien
 
 1. **`handleBookInGap` no precarga fecha ni hora** (`page.tsx`). Al clicar un hueco, el modal
    de agendar abre vacío. El aviso ya no promete fecha/hora.
+   📌 **PEDIDO DEL USUARIO (2026-08-05), que es este item AMPLIADO:** que se pueda clicar el
+   calendario para agendar **también donde NO hay rango**, en una rejilla de **15 minutos** — la
+   misma experiencia que hoy da clicar un rango. Hoy esos huecos ni siquiera son clicables.
+   El bloqueo sigue siendo el mismo y está identificado: **`BookPatientModal` no tiene props
+   donde recibir fecha+hora**.
+   ⚠️ **La rejilla de 15 min es la AFORDANCIA, no el límite**: el motor acepta cualquier minuto y
+   el campo deja escribir 16:07 (probado en vivo el 2026-08-05, cita `cmsgk8swb0014ns0tpb4g3xc0`).
+   Una rejilla que RECHACE 16:07 sería volver al mundo de los rangos.
    ⚠️ **Corrección a lo que decía este documento:** se afirmaba que esto *"se cerraría de
    paso"* al hacer el modal de la cita. **No se cerró.** Son cosas distintas: el modal de la
    cita rinde acciones sobre una cita que YA existe, mientras que precargar el hueco exige
@@ -284,7 +292,16 @@ de HOY; §5 y §14 quedan como registro de la v1.
 
 ### Lo que quedó fuera a propósito
 
-- **El consultorio.** ⚠️ **Ninguna cita basada en rangos guarda su `locationId` hoy, por
+- **El consultorio.** 📌 **RE-PEDIDO POR EL USUARIO el 2026-08-05** (que el AGENTE pregunte en
+  cuál consultorio es la cita cuando el doctor tiene más de uno). ⚠️ **Pero el agente no puede
+  preguntarlo todavía: no hay dónde guardar la respuesta**, y preguntar algo que se descarta en
+  silencio es peor que no preguntar. Re-medido ese día: **3 de 11 doctores** con 2+ consultorios
+  (`dra-adriana-michelle`, `gerardo`, `dr-prueba`); `bookings` **sin ninguna** columna de
+  consultorio, mientras que `availability_ranges` **sí** tiene `location_id` — o sea **el dato
+  existe aguas arriba y se TIRA al crear la cita**. Orden obligatorio (columna → endpoint → UI →
+  agente) en
+  [`../AGENTES/AGENDAR SIN FRICCION/SESSION-REFRESCO.md`](../AGENTES/AGENDAR%20SIN%20FRICCION/SESSION-REFRESCO.md) §5b.
+  ⚠️ **Ninguna cita basada en rangos guarda su `locationId` hoy, por
   ningún camino** — `Booking` no tiene la columna y `range-bookings/instant` no acepta el
   campo. No lo rompió este trabajo; lo dejó a la vista. **3 de 11 doctores tienen 2+
   consultorios** (medido en prod), así que no es gratis. El arreglo de verdad es la opción (c)

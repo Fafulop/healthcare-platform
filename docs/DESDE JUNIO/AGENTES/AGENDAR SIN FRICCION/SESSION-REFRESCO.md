@@ -251,6 +251,61 @@ que ese dato falta.* El caso parecía cubierto y no lo estaba.
    - **Settings inyectables** para cubrir el lado EXIGENTE del contacto (§4d).
    - **Deducir `isFirstTime`** server-side cuando `find_patient` devuelve 0 expedientes (§0).
 
+## 5b. 📌 Pedidos NUEVOS del usuario (2026-08-05, al cerrar la sesión)
+
+Dos cosas que el usuario quiere y que **NO** están hechas. Las dos conectan con deuda ya
+documentada, así que no empiezan de cero.
+
+### A) Clic en el calendario para agendar donde NO hay rango (rejilla de 15 min)
+
+> *"En rangos, haces clic en el rango y se abre un modal donde puedes crear la cita. Quiero esa
+> misma funcionalidad para días y horas donde NO hay rangos, en intervalos de 15 minutos."*
+
+- **Dónde encaja:** es el watch-item **§4.1 de [`../../CITAS/SESSION-REFRESCO.md`](../../CITAS/SESSION-REFRESCO.md)**
+  (`handleBookInGap` no precarga fecha ni hora: al clicar un hueco el modal abre VACÍO), pero
+  extendido a los días/horas **sin rango**, que hoy ni siquiera son clicables.
+- **Ya es HACIBLE**, y no lo era antes: hasta `480f7f72` precargar un hueco fuera de rango no
+  servía de nada porque el picker no podía ofrecer esa hora. Hoy sí.
+- **El bloqueo real está identificado:** `BookPatientModal` **no tiene props donde recibir**
+  fecha+hora. Es lo que hay que abrir; el resto ya existe.
+- ⚠️ **La rejilla de 15 min es la AFORDANCIA, no el límite.** El motor acepta cualquier minuto
+  (`interval` admite 1·3·5·15) y el campo de hora ya deja escribir 16:07. O sea: se clica en
+  bloques de 15 para que el calendario sea usable, y el doctor puede afinar el minuto escribiéndolo.
+  **No se debe re-introducir una rejilla que RECHACE 16:07** — eso es volver al mundo de los rangos.
+
+### B) 🔴 El CONSULTORIO no se pregunta… porque no hay dónde guardarlo
+
+> *"A veces los doctores tienen uno o dos consultorios, y no estamos preguntando en cuál es la
+> cita cuando tienen más de uno."*
+
+**Medido en prod hoy (2026-08-05):**
+
+| | |
+|---|---|
+| Doctores con 2+ consultorios | **3 de 11** — `dra-adriana-michelle`, `gerardo`, `dr-prueba` |
+| Columna de consultorio en `bookings` | **NINGUNA** |
+| Columna en `availability_ranges` | **`location_id` SÍ existe** |
+
+🔑 **El dato existe aguas arriba y se TIRA al crear la cita.** El rango sabe su consultorio; la
+cita no lo hereda ni tiene dónde ponerlo. Así que **ninguna cita registra su consultorio, por
+ningún camino** — ni UI, ni picker, ni agente. Ya estaba anotado en
+[`../../CITAS/SESSION-REFRESCO.md`](../../CITAS/SESSION-REFRESCO.md) §8 ("lo que quedó fuera a
+propósito") y el diseño es la opción (c) de `../../CITAS/01-PLAN-agendar-sin-rango.md` §4b.
+
+⚠️ **Por eso el agente NO debe preguntarlo todavía.** Preguntar algo cuya respuesta se descarta en
+silencio es peor que no preguntar: el doctor cree que quedó registrado. **Orden obligatorio:**
+
+1. Columna `location_id` en `bookings` (**SQL manual + `prisma db execute`** — `prisma db push`
+   revierte el composite FK y los índices parciales que viven en prod).
+2. `range-bookings/instant` (y `range-bookings`) aceptan y persisten el campo.
+3. La UI lo manda: el picker, y heredarlo del rango cuando la cita nace dentro de uno.
+4. **Recién entonces** el agente: `get_locations` ya existe, así que sería preguntarlo sólo si el
+   doctor tiene 2+, y mandarlo en `propose_create_booking`.
+
+**Y hasta que exista, hay una mentira que corregir:** `02-CAPACIDADES` dice que el agente "NO
+puede filtrar citas por consultorio (**el dato no existe**)" — eso es correcto HOY y hay que
+revisarlo el día que la columna aparezca.
+
 ## 6. Decisiones ABIERTAS (del usuario, no del código)
 
 1. 🔴 **¿Contacto obligatorio cuando agenda el doctor?** Sigue en pie: (a) apagar toggles por
