@@ -42,7 +42,11 @@ server-side); el chat v1 (context-stuffing, slots) y el RAG de docs son antecede
    📱 (roja en la card) y regla de prompt "solo a petición explícita". PR 4: voz.
 5. **La agenda cambia entre mensajes.** Toda pregunta de estado se re-consulta en el turno (regla
    10 del prompt) — repetir datos viejos es dar información falsa.
-6. **Nunca deducir disponibilidad**: `get_availability` usa el mismo motor que la página pública.
+6. **Nunca deducir disponibilidad**: el motor real es la única fuente. ⚠️ **`get_availability` se
+   ELIMINÓ el 2026-08-05** (freeform: libre = el día menos lo ocupado, así que enumerarlo dejó de
+   tener sentido). Lo agendado lo da `get_day_schedule`; la hora la dice el doctor y la valida
+   `checkSlot` contra el mismo motor al proponer. La regla sigue viva: **jamás derivar huecos de
+   la lista de citas**. Ver `../AGENDAR SIN FRICCION/02-PLAN-agendar-freeform.md` §3.2.
 7. **Input no confiable**: nombres/notas de pacientes vienen del portal público — son datos, no
    instrucciones (mitigación de prompt injection; la defensa dura es el schema acotado de tools).
 8. **Honestidad estructural**: lo que el sistema no sabe (consultorio de una cita — L1) o no puede
@@ -120,7 +124,7 @@ Doctor escribe → POST /api/agenda-agent { message, conversationHistory (≤12 
        Claude (system prompt + historial + tools) →
          (tools: desde 2026-07-24 van 35/39 con defer_loading tras tool_search_tool_regex —
           server-side, mismo request; el loop maneja stop_reason pause_turn re-enviando el
-          historial tal cual. Calientes: get_day_schedule/get_bookings/get_availability/
+          historial tal cual. Calientes: get_day_schedule/get_bookings/get_services/
           find_patient. Rollback: AGENDA_AGENT_TOOL_SEARCH=0)
          tool_use de lectura   → executor Prisma / endpoint de availability → resultado (≤8KB)
          tool_use propose_*    → pre-checks server-side → registra propuesta ordenada → preview
@@ -152,7 +156,7 @@ UI: reply + cards ordenadas (#1, #2…) con detalle y advertencias
 |---|---|---|
 | `get_day_schedule {date}` | Rangos (con **id**), bloqueos (con **id**), citas del día (freeform + legacy; excluye CANCELLED a propósito — L2) | Prisma: `availability_ranges`, `blocked_times`, `bookings` (+`appointment_slots` vía relación) |
 | `get_bookings {vencidas?, status?, startDate?, endDate?, patientName?}` | Citas con `totalEncontradas` (count real), orden cronológico resuelto, `precio`, `vencida`, `ocupadoHasta` | Prisma `bookings`. **`vencidas:true`** = definición completa server-side (PENDING∨CONFIRMED + hora pasada TZ MX) |
-| `get_availability {startDate, endDate?, serviceId?}` | Huecos reales (resta citas+bloqueos+buffer+extendedBlock) | **`GET /api/doctors/[slug]/range-availability?skipCutoff=1`** — el MISMO motor de la página pública, sin el cutoff de 1h de pacientes. Sin `serviceId`: usa el servicio activo más corto (E1) |
+| ~~`get_availability`~~ **ELIMINADA 2026-08-05** (la validación vive en `checkSlot` al proponer) | **`GET /api/doctors/[slug]/range-availability?skipCutoff=1`** — el MISMO motor de la página pública, sin el cutoff de 1h de pacientes. Sin `serviceId`: usa el servicio activo más corto (E1) |
 | `get_services` | Catálogo (duración, precio, activo) | Prisma `Service` |
 | `get_locations` | Consultorios | Prisma `clinic_locations` |
 | `get_booking_detail {bookingId}` | Cita completa (contacto, notas, código, meetLink, patientId) | Prisma `bookings` (filtrado por doctorId) |
@@ -212,7 +216,7 @@ lo re-valida contra el token de todas formas).
 
 | Endpoint (apps/api) | Uso por el agente | Protecciones relevantes (auditoría `01`) |
 |---|---|---|
-| `GET doctors/[slug]/range-availability` | `get_availability` (server-side, `skipCutoff=1`) | mismo calculator de la UI: buffer, extendedBlock, bloqueos |
+| `GET doctors/[slug]/range-availability` | `checkSlot` de `proposals.ts` (server-side, `freeform=1&interval=1` + Bearer) | mismo calculator de la UI: buffer, extendedBlock, bloqueos. **freeform SUSTITUYE el modo rangos** y exige auth |
 | `POST appointments/ranges` | executor de `create_range` | 409 con lista de conflictos; retícula 15 min; self-only. ⚠️ NO valida fechas pasadas (lo tapa el tool) |
 | `DELETE appointments/ranges/[id]` | executor de `delete_range` | **rechaza si hay citas activas** dentro; self-only |
 | `POST appointments/ranges/block` | executor de `block_time` | dryRun-first en su diseño; detecta conflictos (avisa, no cancela), duplicados, días sin rangos |
@@ -306,7 +310,7 @@ lo re-valida contra el token de todas formas).
 1. **Contexto temporal**: fecha-hora MX + **weekday** server-side (E6) + "deriva los demás días
    de aquí".
 2. **Capacidades**: consultas autónomas · propuestas con confirmación (rangos/bloqueos Y citas).
-2c. **Citas — reglas especiales**: solo a petición explícita; horario de get_availability de ESTE
+2c. **Citas — reglas especiales**: solo a petición explícita; la hora la dice el doctor y la valida el servidor al proponer (antes salía de get_availability, eliminada) de ESTE
    turno; PENDIENTE→completar en 2 pasos; reagendar = UNA acción; vencidas → COMPLETADA/NO
    ASISTIÓ como cierres honestos; formaDePago obligatoria al completar; cap 10 con narración.
 2b. **Resiliencia a peticiones raras**: ambigüedad → UNA pregunta concreta con opciones de los

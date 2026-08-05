@@ -133,7 +133,30 @@
 
 > Snapshot del estado, decisiones y próximos pasos del **agente de agenda**. Para una sesión/LLM en
 > frío: lee este archivo, luego el [`README.md`](README.md) y de ahí los numerados.
-> Última sesión: **2026-07-31** (bitácora #32 — el agente ofreció 3 horarios inexistentes; se
+> Última sesión: **2026-08-05** (bitácora **#35** — una demo real tardó **7 turnos y 4 min 46 s**
+> en crear UNA cita, **sin que el agente se equivocara ni una vez**: la traza de #32 sirvió por
+> fin para replayar un fallo. Tres causas estructurales —campos de contacto obligatorios,
+> el modelo de rangos y la política de preguntas— y un **punto ciego nuevo: la suite corre
+> contra el único doctor con los 9 toggles de contacto apagados**.
+> **El mismo día se implementaron los 7 cambios** (freeform siempre · ejecutor a `/instant` ·
+> **`get_availability` ELIMINADA, 39→38 tools** · una sola pregunta · nunca pedir permiso para
+> proponer), con 2 code reviews y 12 hallazgos atendidos. ⚠️ **Sin commitear, sin desplegar y sin
+> probar a mano.** Estado vivo y los 12 hallazgos:
+> [`../AGENDAR SIN FRICCION/SESSION-REFRESCO.md`](../AGENDAR%20SIN%20FRICCION/SESSION-REFRESCO.md)).
+> 🔑 **Prefijo del dueño movido:** `32d19d6d…` → **`417383b5…`** (28,742 → **31,143 chars**, +8.4%).
+> **Creció aunque se borró una tool**: salió una TOOL y entró PROSA. Se acepta porque un turno
+> frío cuesta ~41k de budget y esto suma ~675 — si evita UN viaje, se paga 60 veces (razonamiento
+> completo en el §1 de ese doc). Al desplegar **se invalida el caché del prompt del dueño**.
+> 🛡️ **`gate:prosa` gana una tercera pasada**: caza prosa que nombra tools **inexistentes**. El
+> filtro `REAL_TOOLS.has(n)` volvía invisible toda mención a una tool BORRADA — el momento de
+> máximo riesgo #26/#27 — y dejó pasar en verde dos descripciones con `get_availability`.
+> Probada en NEGATIVO desde una sección de módulo y desde una compartida.
+> 🧪 **Método nuevo, reutilizable:** `../AGENDAR SIN FRICCION/03-METODO-como-probar-esto.md` — cuánta
+> prueba merece un cambio según DÓNDE se editó el prompt (**medido: tocar una sección COMPARTIDA
+> pone 60 de 74 casos en riesgo**; la prosa de un módulo, no), más los 5 agujeros conocidos de la
+> suite (ni un caso agenda de verdad · los campos de contacto no se ejercitan · `route.ts` nunca
+> corre · fechas de fixture que se pudren · casos obsoletos POR DISEÑO).
+> Antes: **2026-07-31** (bitácora #32 — el agente ofreció 3 horarios inexistentes; se
 > construyó la traza de tools `agent_tool_calls` para que un fallo así se pueda replayar.
 > Migración aplicada + desplegado; **pendiente: los casos de eval** de los 3 días falsos).
 > Antes: **2026-07-30** (bitácora #31 — el plan 07 completo: 4 puntos implementados, UNA
@@ -373,6 +396,8 @@ distinto). Ver bitácora **#31**. Texto original abajo, sin borrar.
 
 | 34 | **El cap de 8KB no capaba, y cortaba las filas a la mitad** (2026-07-31, hallazgo al medir para la bitácora #33 — no lo reportó nadie) | Ninguno en vivo *este* día, pero es el mecanismo del incidente **#31**: el modelo cosió el `ledgerEntryId` de un ingreso con el importe de OTRO y propuso timbrar un CFDI equivocado. Medido contra prod: `get_bookings {}` = 12,768 B y `get_billing_status` = 8,581 B contra un cap de 8,000 ⇒ llevaban tiempo truncándose | `serializeToolResult` hacía `json.slice(0, CAP)` y metía el pedazo **como string** en `parcial`. Dos fallos de una sola línea: (a) al re-serializar, cada `"` se escapa a `\"`, así que lo EMITIDO era **9,367 B** y **9,129 B** — el cap se pasaba del cap que promete; (b) el corte cae a media fila, y el modelo lee media cita y la cose con la siguiente. ⚠️ Y el guard que escribí primero (“solo recortar si el payload trae un `total*`”) **dejaba fuera a `get_day_schedule` y `find_patient`** — dos tools CALIENTES sin total — que seguían con el bug entero; eso lo cazó el **code review**, no yo | Recorte **estructural**: se quitan elementos COMPLETOS del arreglo de primer nivel más pesado hasta que quepa, reponiendo filas de a una si la estimación (por tamaño promedio) se pasó. `get_bookings` 12,194 B → 7,786 B (31/50), `get_billing_status` 8,581 B → 7,891 B (9/10). El conteo real viaja en `recorte.deUnTotalDe`, así que ya no hace falta un `total*`. `fechasDisponibles`/`horarios` en lista DENY: quitarles filas no pierde DETALLE, pierde OPCIONES (fallo #32). Contadores hermanos por allowlist (`mostradas`) y se borran las notas en prosa que citan el conteo viejo. **Verificación:** `scripts/tool-result-cap-check.ts` (33 asserts, puros + payloads reales, uno por hallazgo del review) · type-check · los CINCO gates · suite de 84 casos con **0 FAIL estables** (los 2 WARN estables son de SELECCIÓN de tool sobre queries filtradas por nombre, payloads muy por debajo del cap: el recorte ni se ejecutó ahí). ⚠️ **Pendiente: el script NO está en `pnpm gates`** | `0d105fd2` |
 
+| 35 | **Agendar UNA cita costó 7 turnos y 4 min 46 s — y el agente no se equivocó ni una vez** (2026-08-03, demo con una doctora real; diagnosticado el 2026-08-05 **desde la traza**, no de memoria) | La doctora pide agendar; el agente vuelve con otra pregunta, y otra, y otra. Reconstruido desde `agent_tool_calls`: del primer intento (23:53:48 `find_patient` + `get_availability`) a la cita creada (23:58:34) pasan **7 turnos**, con `get_services` llamado **4 veces** para los mismos 2 servicios. Dos `propose_create_booking` idénticos salvo un campo: el de 23:57:33 (sin `patientWhatsapp`) devolvió error; el de 23:58:23 pasó. Y antes, a las 23:54:56, el agente tuvo que **crear un rango en el 11-ago** cuyo único fin era desbloquear una cita a las 14:30 — porque `get_availability` había devuelto `fechasDisponibles: 0` | **Ninguna causa es del modelo:** las 29 filas de la traza salieron `ok`, ninguna lista vacía se narró como otra cosa, ningún horario se inventó. Son tres causas estructurales: (1) **campos de contacto obligatorios** — ese doctor tiene los 9 toggles en `true`, y un formulario junta N datos en UNA interacción mientras que un chat los junta en N viajes; (2) **el modelo de rangos** — el picker agenda a cualquier minuto desde `480f7f72` y el agente no, así que hubo que fabricar un rango (§7 de Próximos pasos); (3) **política de preguntas** — dos turnos (`a8935c10`, `1bc6e01d`) llamaron `get_services` y se detuvieron a preguntar en vez de proponer. ⚠️ **Y la barrera de contacto no es del agente:** otra cita del mismo doctor, creada **desde la UI** a las 23:39, lleva `patient_phone: "."`, `patient_whatsapp: "."` y el correo de la propia doctora — ya se la estaba saltando a mano ⇒ relajar sólo el agente violaría CIT-6 | **SIN FIX — documentado, plan aprobado en diseño.** ⚠️ **Punto ciego que esto destapa: la suite NO PUEDE ver este fallo.** Corre contra `dr-prueba`, el único doctor con los **9 toggles en `false`**; el de la demo los tiene en `true` ⇒ el camino "faltan campos de contacto" es **inalcanzable** para los evals — no flaky, invisible por construcción. Regla nueva: *un fixture en el modo más permisivo del sistema no prueba el sistema, prueba su mejor caso* (hermana de #32b, otra clase: ahí no se cubre el CÓDIGO, aquí no se cubre la CONFIGURACIÓN). Evidencia completa, hallazgos y plan: [`../AGENDAR SIN FRICCION/`](../AGENDAR%20SIN%20FRICCION/README.md) — `00` la traza turno por turno, `01` el modal "Campos de Cita" gobernando al agente desde un flujo muerto, `02` el plan (freeform siempre · una sola pregunta · `get_availability` fuera). **Primera vez que `agent_tool_calls` (#32) contesta un "¿qué pasó?" en vez de una teoría: costó UNA consulta** | *(sin commit — sólo docs)* |
+
 **✅ Validación en vivo post-deploy `bc7e2610` (2026-07-04):** las 3 preguntas del plan de
 lectura pasaron: (1) *vencidas* = **16 exactas**, verificadas 1:1 contra la BD — de paso se
 detectó que la query #3 del TOOLING contaba 6 porque ignoraba las citas legacy por slot (fecha en
@@ -394,6 +419,8 @@ en el lugar exacto del claim (sin borrarlo) **y** registrarla aquí.
 | Fecha | Doc y claim | Qué es verdad | Cómo se descubrió |
 |---|---|---|---|
 | 2026-07-31 | [`05-REFERENCIA-TECNICA`](05-REFERENCIA-TECNICA-AGENTE.md) §8: *"**Modelo**: `AGENDA_AGENT_MODEL` (default `claude-sonnet-5`)"* | `run-turn.ts:53` → `process.env.AGENDA_AGENT_MODEL \|\| 'claude-haiku-4-5'`, default desde el **2026-07-23** | Leyendo §8 para documentar `agent_tool_calls` (bitácora #32). Archivo que se le escapó a la pasada de `ab6c21b5` (2026-07-30), que corrigió el MISMO claim en otros docs. **`gate:docs` no lo caza**: compara conteos (tools/módulos/evals/toggles), no prosa — el mismo hueco que motivó `gate:prosa`, pero para afirmaciones de configuración |
+| 2026-08-05 | **Este archivo**, Próximos pasos §7, y [`../../CITAS/SESSION-REFRESCO.md`](../../CITAS/SESSION-REFRESCO.md) §9: *"Dos puntos, los dos verificados en el código"* (pre-check + ejecutor) | Son **TRES**: falta `tools.ts:387` (`get_availability`), que es **el que produce el "no hay horarios" que ve el doctor**. Los dos documentados sólo corren cuando el modelo ya arma una propuesta | Verificando el código antes de implementar §7. Los dos docs se escribieron el 2026-08-03 mirando el camino de ESCRITURA; nadie revisó el de LECTURA. **Corregido ⚠️ en los dos lugares el 2026-08-05** |
+| 2026-08-05 | Los mismos dos docs: *"La llamada tiene que volverse autenticada primero"* | La infraestructura **ya existe**: `api-token.ts` acuña el Bearer por turno, `ToolContext.apiToken` lo transporta y `search_catalogo_sat` lo usa desde F2a. Falta sólo pasarlo a `ProposalContext` | Igual que arriba. El claim no era falso, pero **sobrestimaba el costo** e insinuaba trabajo por construir — que es como una tarea barata se queda sin hacer semanas |
 
 ## ✅ Campaña de validación de permutaciones (2026-07-04) — RESUMEN
 
@@ -683,6 +710,26 @@ YA pasa. Se deja como está salvo que muerda a un doctor real.
    `freeform=1` está **gateado por auth a propósito**: servirlo abierto deja deducir la agenda
    ocupada del doctor por inversión (toda hora que no vuelve está tomada). La llamada tiene que
    volverse autenticada primero. Ver [`../../CITAS/01-PLAN-agendar-sin-rango.md`](../../CITAS/01-PLAN-agendar-sin-rango.md) §3.
+
+   > ⚠️ **CORRECCIÓN 2026-08-05 — la tabla de arriba está INCOMPLETA y el costo de auth está
+   > SOBRESTIMADO.** Verificado contra el árbol de esa fecha; detalle en
+   > [`../AGENDAR SIN FRICCION/02-PLAN-agendar-freeform.md`](../AGENDAR%20SIN%20FRICCION/02-PLAN-agendar-freeform.md) §3.
+   >
+   > - **Falta un tercer punto, y es el visible para el doctor:** `tools.ts:387`
+   >   (`get_availability`) llama al mismo endpoint, con `fetch` pelado y sin `freeform`. El
+   >   pre-check de `proposals.ts` sólo corre cuando el modelo YA arma una propuesta; el
+   >   *"ese día no tiene ningún horario libre"* que motivó todo este punto **sale de
+   >   `get_availability`**. Se comprobó en vivo: en la demo del 03-ago devolvió
+   >   `fechasDisponibles: 0` para el 11-ago y el agente terminó **creando un rango** sólo para
+   >   poder agendar ([`../AGENDAR SIN FRICCION/00-EVIDENCIA-traza-demo.md`](../AGENDAR%20SIN%20FRICCION/00-EVIDENCIA-traza-demo.md) §3.2).
+   > - **"Volverse autenticada primero" suena a infraestructura por construir: ya está.**
+   >   `api-token.ts` acuña el Bearer HS256 por turno desde la sesión, `ToolContext.apiToken` lo
+   >   transporta, y `search_catalogo_sat` lo usa desde F2a (`modules/facturas.ts:1009`). Falta
+   >   sólo que `ProposalContext` lo lleve — el mismo movimiento con que `tier` se enhebró en T3.
+   > - **Trampa no listada:** `/range-bookings` valida contra `bookingHorarios*` y
+   >   `/range-bookings/instant` contra `bookingInstant*`, y el pre-check del agente
+   >   (`proposals.ts:778`) lee las de Horarios ⇒ **cambiar el ejecutor sin cambiar el pre-check
+   >   da cards que validan y luego 400** (molde de la bitácora #12).
 
    **Lo que cuesta cerrarlo** (el código es la parte barata): toca la prosa del módulo agenda
    —el agente hoy no tiene el concepto de "agendar fuera de rango"— así que entran `gate:prosa`

@@ -314,6 +314,25 @@ Verificado en el código el 2026-08-03, no deducido:
 ⚠️ **No es "añadir `&freeform=1`":** esa llamada usa `fetch` pelado y `freeform=1` exige auth
 por diseño (si no, se deduce la agenda ocupada del doctor por inversión).
 
+> ⚠️ **CORRECCIÓN 2026-08-05 — son TRES puntos, no dos, y el de auth ya está resuelto.**
+> Verificado contra el árbol de esa fecha (`docs/DESDE JUNIO/AGENTES/AGENDAR SIN FRICCION/`):
+>
+> 1. **Falta el tercero, y es el que el doctor VE:** `agenda-agent/tools.ts:387`
+>    (`get_availability`) también llama a `range-availability` con `fetch` pelado y sin
+>    `freeform`. El pre-check de arriba sólo corre cuando el modelo YA está armando una
+>    propuesta; **`get_availability` es el que contesta "ese día no tiene horarios"**. Arreglar
+>    los dos de la tabla y no éste deja la queja intacta.
+> 2. **"La llamada tiene que volverse autenticada primero" da a entender infraestructura que
+>    falta — no falta.** `agenda-agent/api-token.ts` ya acuña el Bearer HS256 por turno desde la
+>    sesión del doctor, `ToolContext.apiToken` ya lo transporta y `search_catalogo_sat` ya lo usa
+>    (`modules/facturas.ts:1009`). Lo único pendiente es pasarlo a `ProposalContext`.
+> 3. **Trampa que ninguna de las dos filas menciona:** los dos endpoints validan contra
+>    **columnas de settings DISTINTAS** (`range-bookings` → `bookingHorarios*`; `/instant` →
+>    `bookingInstant*`), y el pre-check del agente lee las de Horarios. Cambiar el ejecutor sin
+>    cambiar el pre-check produce cards que validan y luego **400**.
+>
+> Evidencia y plan: [`../AGENTES/AGENDAR SIN FRICCION/`](../AGENTES/AGENDAR%20SIN%20FRICCION/README.md).
+
 **El trabajo es de la carpeta del agente, no de ésta.** Estado y plan en
 [`../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTES/AGENTE%20AGENDA/SESSION-REFRESCO.md)
 **§Próximos pasos punto 7**, que ya tiene los parámetros del endpoint listos para usar. Exige
