@@ -105,7 +105,7 @@ pnpm gate:prompt          # imprime sha256(STABLE_SYSTEM_PROMPT) y verifica inva
 
 Anota **sha + chars** en cada cambio de prompt: el sha nuevo **invalida el caché del dueño** al
 desplegar, y los chars son el costo de toda pregunta fría (≈ prefijo × 1.25). El 2026-08-05:
-`32d19d6d…` / 28,742 → `417383b5…` / **31,143**.
+`32d19d6d…` / 28,742 → `5469e674…` / **31,350**.
 
 ⚠️ **Un número de tokens sin su modelo al lado es una trampa** (`project_agent_cost_optimization`):
 el mismo prompt mide distinto en Haiku que en Sonnet. Compara chars, o tokens SIEMPRE con el modelo.
@@ -114,8 +114,8 @@ el mismo prompt mide distinto en Haiku que en Sonnet. Compara chars, o tokens SI
 
 | Agujero | Por qué | Estado |
 |---|---|---|
-| **No hay ni un caso que AGENDE de verdad** | los 3 asserts positivos cubren rangos, bloqueos y CFDI; todo `create_booking` es un assert NEGATIVO | 🔴 abierto — es el camino que este trabajo reconstruyó |
-| **Los campos de contacto no se ejercitan** | `dr-prueba` tiene los 9 toggles en `false`; `missingContactFields` los lee de la BD por `doctorId`, así que un caso no puede pedir otra config | 🔴 abierto — exige poder INYECTAR los settings |
+| ~~No hay ni un caso que AGENDE de verdad~~ | los 3 asserts positivos cubrían rangos, bloqueos y CFDI; todo `create_booking` era un assert NEGATIVO — por eso el bug de sólo-nombre se escapó DOS veces con la suite en verde | ✅ **CERRADO 2026-08-05**: `walk-in-solo-nombre-propone`, con fecha RELATIVA (+21 días) para que no se pudra |
+| **El lado EXIGENTE del contacto no se ejercita** | `dr-prueba` tiene los 9 toggles en `false`; `missingContactFields` los lee de la BD por `doctorId`, así que un caso no puede pedir otra config. El lado permisivo ya está cubierto (arriba) | 🔴 abierto — exige poder INYECTAR los settings |
 | **`route.ts` nunca corre** | los evals importan `runAgendaAgentTurn` directo ⇒ auth, presupuesto y los 3 loggers quedan fuera para siempre (#32b) | permanente por diseño ⇒ **turno REAL post-deploy** |
 | **Fechas hardcodeadas se pudren** | `disponibilidad-dia-bloqueado` (3-ago) y `-rango-exactamente-lleno` (4-ago) fallan desde que esas fechas pasaron | 🔴 abierto — hacerlas relativas a `hoy` |
 | **Un caso puede quedar OBSOLETO por diseño** | `fuera-de-horario-ruta-normal` exige "no hay rango": es la premisa de CIT-6, muerta desde `480f7f72` | 🔴 abierto — **invertirlo**, no arreglarlo |
@@ -126,8 +126,11 @@ el mismo prompt mide distinto en Haiku que en Sonnet. Compara chars, o tokens SI
 CITAS el type-check estuvo verde TODAS las veces que algo estuvo mal, y la v1 de agendar sin rango
 pasó todo eso —incluida una prueba a mano— y se tiró igual, porque el CONTROL era el equivocado.
 
-Para este trabajo la prueba de aceptación es concreta: **crear una cita a mano, a las 16:07, en un
-día sin rango publicado.** Si aparece la card y ejecuta, el cambio es real.
+Para este trabajo la prueba de aceptación era concreta: **crear una cita a mano, a las 16:07, en un
+día sin rango publicado.** ✅ **Hecha el 2026-08-05 y verificada contra la BD**
+(`cmsgk8swb0014ns0tpb4g3xc0`, 16:07–16:37, 0 rangos ese día) — y en esa misma corrida se cazó un
+bug que las dos suites completas NO habían visto: el agente pedía contacto antes de intentar la
+propuesta. **La prueba a mano sigue encontrando lo que 86 casos no.**
 
 ---
 

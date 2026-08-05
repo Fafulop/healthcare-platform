@@ -143,7 +143,7 @@
 > proponer), con 2 code reviews y 12 hallazgos atendidos. ⚠️ **Sin commitear, sin desplegar y sin
 > probar a mano.** Estado vivo y los 12 hallazgos:
 > [`../AGENDAR SIN FRICCION/SESSION-REFRESCO.md`](../AGENDAR%20SIN%20FRICCION/SESSION-REFRESCO.md)).
-> 🔑 **Prefijo del dueño movido:** `32d19d6d…` → **`417383b5…`** (28,742 → **31,143 chars**, +8.4%).
+> 🔑 **Prefijo del dueño movido:** `32d19d6d…` → **`5469e674…`** (28,742 → **31,350 chars**, +9.1%).
 > **Creció aunque se borró una tool**: salió una TOOL y entró PROSA. Se acepta porque un turno
 > frío cuesta ~41k de budget y esto suma ~675 — si evita UN viaje, se paga 60 veces (razonamiento
 > completo en el §1 de ese doc). Al desplegar **se invalida el caché del prompt del dueño**.

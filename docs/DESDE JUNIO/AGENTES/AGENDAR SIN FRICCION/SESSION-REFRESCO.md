@@ -5,14 +5,47 @@
 
 ## En una frase
 
-**El agente ya agenda como el picker —a cualquier minuto, con o sin rango— y `get_availability`
-dejó de existir.** Todo implementado, revisado dos veces y verde en type-check, los CINCO gates,
-smoke contra prod y la primera corrida de evals. ⚠️ **NADA está commiteado ni desplegado**, y la
-prueba que de verdad importa —**una cita creada a mano**— sigue sin hacerse.
+**EN PROD Y PROBADO A MANO: el agente agendó una cita a las 16:07 en un día SIN NINGÚN RANGO.**
+Es exactamente la pantalla muerta que costó dos turnos y un rango basura en la demo. Tres commits
+desplegados (`2d343df8` · `0d2181ed` · `f51696c6`), `get_availability` eliminada, y la prueba de
+aceptación **verificada contra la BD**, no sólo vista en pantalla.
+
+## 0. ✅ La prueba de aceptación (2026-08-05, post-deploy)
+
+Mensaje real del doctor: *"agéndame a Marcos Ruiz el jueves 6 de agosto a las 16:07, consulta de
+seguimiento"*. Fila verificada read-only en `public.bookings`:
+
+```
+id             : cmsgk8swb0014ns0tpb4g3xc0
+fecha          : 2026-08-06   start_time: 16:07   end_time: 16:37   duration: 30
+status         : CONFIRMED    slot_id: null              ← freeform
+patient_email  : ""           patient_phone: ""          ← strings vacíos, NO null
+google_event_id: t6slph3h316hiia15kd6hc942k
+confirmation_email_sent_at: null
+rangos publicados el 6-ago : 0                           ← SIN RANGO
+```
+
+Lo que esto prueba, punto por punto:
+
+| | |
+|---|---|
+| **Se agendó sin rango** | 0 rangos ese día. Antes: *"ese día no tiene ningún horario libre"* |
+| **El minuto raro sobrevivió** | 16:07 → 16:37, el fin lo calculó el servidor con la duración |
+| **`get_availability` ya no existe** | no aparece en la traza — confirma el deploy sin mirar el dashboard |
+| **La columna no-nula aguantó** | `patient_email`/`patient_phone` = `""` con una cita SIN contacto: es el fix de la bitácora #21 bajo el caso que lo rompió en prod |
+| **Honestidad de notificaciones** | GCal creado, `confirmation_email_sent_at` NULL — y el agente **lo dijo**: *"como no había teléfono ni correo, no se enviaron notificaciones"* |
+| **Turnos** | **2** (la demo del #35 gastó 7). Con `f51696c6` debería bajar a 1 |
+
+⚠️ **En esa misma corrida se cazó el último residuo**: con `dr-prueba` (que NO exige contacto) el
+agente **pidió correo y teléfono antes de intentar la propuesta** — un turno regalado. Ver §4d.
+
+🔎 **Nit conocido, sin arreglar:** también preguntó *"¿es primera vez?"*, y con `find_patient`
+devolviendo 0 expedientes eso es deducible server-side (misma forma de regla 0 que la nota de
+walk-in de #31). No amerita un push propio: va en la próxima pasada de prosa de agenda.
 
 ---
 
-## 1. Qué se implementó (7 cambios, ningún commit)
+## 1. Qué se implementó (7 cambios · 3 commits · EN PROD)
 
 | # | Dónde | Qué |
 |---|---|---|
@@ -27,13 +60,13 @@ prueba que de verdad importa —**una cita creada a mano**— sigue sin hacerse.
 
 | | Antes (2026-07-30) | Ahora |
 |---|---|---|
-| sha256 del prompt del dueño | `32d19d6d…` | **`417383b5…`** |
-| chars del prefijo estable | 28,742 | **31,143** (+2,401 · **+8.4%**) |
+| sha256 del prompt del dueño | `32d19d6d…` | **`5469e674…`** (tras `f51696c6`) |
+| chars del prefijo estable | 28,742 | **31,350** (+2,608 · **+9.1%**) |
 | tools | 39 | **38** |
 
 ⚠️ **El prefijo CRECIÓ aunque se borró una tool** — quitamos una *tool* y añadimos *prosa*. Y la
 prosa de `agenda` ya iba 2.4× sobre su presupuesto antes de hoy (`00-BLUEPRINT` §5.3). La cuenta
-que lo justifica: +2,334 chars ≈ **+540 tok ≈ +675 de budget** en pregunta fría, contra **~41k de
+que lo justifica: +2,608 chars ≈ **~600 tok ≈ ~750 de budget** en pregunta fría, contra **~41k de
 budget** que cuesta UN turno frío. **Si esta prosa evita un solo viaje, se paga ~60 veces.** La
 demo tenía SEIS turnos de sobra. Aun así es deuda en la dirección que el blueprint vigila.
 🔴 **Al desplegar se invalida el caché del prompt del dueño** (sha nuevo). Esperado.
@@ -167,6 +200,35 @@ espontáneas, `create-sin-hueco`, `bloqueo-simple`, `disponibilidad-dia-sin-rang
 Todo el método —qué correr según dónde editaste, cómo no quedarte ciego, y los agujeros conocidos
 de la suite— quedó en [`03-METODO-como-probar-esto.md`](03-METODO-como-probar-esto.md).
 
+## 4d. El último residuo: "con el NOMBRE basta" (`f51696c6`)
+
+En la prueba en vivo, con `dr-prueba` —que tiene los **9 toggles en `false`**— el agente pidió
+correo y teléfono ANTES de intentar la propuesta. Datos que esa cuenta **no exige**: un turno
+regalado, justo el que este trabajo quiere ahorrar.
+
+**Es el mismo agujero que la corrida B ya había marcado y que el fix del §4b no cerró.** Causa:
+*"propón con lo que tengas"* se lee como inútil cuando no tienes NADA. Y el eval que debía
+cubrirlo (`create-sin-hueco`) **trae un teléfono en el mensaje**, así que el caso de sólo-nombre
+no se ejercitaba jamás.
+
+**Fix:** la prosa dice ahora explícitamente que **con el nombre basta para INTENTAR**, que se
+propone aunque no haya ningún dato de contacto, y que los datos sólo se piden si la tool falla
+nombrándolos. *Nunca pedir contacto antes de haber intentado la propuesta.*
+
+✅ **Y se cerró la cobertura: `walk-in-solo-nombre-propone`** — el **PRIMER caso de la suite que
+agenda de verdad** (los 3 asserts positivos que existían cubrían rangos, bloqueos y CFDI; todo
+`create_booking` era un assert NEGATIVO — por eso esto pudo romperse dos veces con la suite en
+verde). Suite **85 → 86**. Fecha **relativa (+21 días)** a propósito: las fechas duras se pudren
+solas, como ya les pasó a los dos casos de #32. Verificado 3/3, con la secuencia
+`find_patient → get_services → propose_create_booking`.
+
+⚠️ **Sólo cubre el lado PERMISIVO.** `dr-prueba` no exige contacto; el lado exigente sigue sin
+cobertura porque `missingContactFields` lee los settings de la BD por `doctorId` — hace falta poder
+INYECTARLOS ([`03-METODO`](03-METODO-como-probar-esto.md) §8).
+
+**Lección que vale más que el fix:** *un eval que trae el dato en el mensaje no prueba el caso en
+que ese dato falta.* El caso parecía cubierto y no lo estaba.
+
 ## 5. Qué sigue, en orden
 
 1. ✅ **A ∩ B hecho** (§4b): sólo los dos fixtures de fecha podrida. Sin regresión.
@@ -175,18 +237,19 @@ de la suite— quedó en [`03-METODO-como-probar-esto.md`](03-METODO-como-probar
    (4/4 y 6/6). Para rigor pleno antes del push falta una corrida completa **C** que intersecar
    con B; la alternativa es apoyarse en la prueba a mano del punto 4, que es la que de verdad
    valida este trabajo.
-2. **Commit en DOS** (`feat(citas):` + `docs(citas):`) — el rollback del código no debe borrar la
-   evidencia de por qué se escribió. ⚠️ Requiere OK explícito del usuario.
-3. Al desplegar, **`@healthcare/api` saldrá SKIPPED**: no se tocó nada suyo. Es correcto, no es un
-   deploy perdido.
-4. 🔴 **LA prueba que falta: crear una cita A MANO** post-deploy con `dr-prueba` — hora con minutos
-   raros (16:07) en un día SIN rango. La suite **no tiene ni un caso que agende de verdad**
-   (los 5 asserts positivos cubren rangos, bloqueos, CFDI y completar), así que todo el camino que
-   se reconstruyó está sin verificar punta a punta. Además los evals no pasan por `route.ts` (#32b).
-5. **Deuda de evals** (sesión aparte): invertir `fuera-de-horario-ruta-normal` · des-podrir las
-   fechas de los `disponibilidad-*` · **añadir el caso positivo que falta** (walk-in con contacto
-   requerido → UNA pregunta consolidada → card), que exige poder inyectar los settings porque
-   `missingContactFields` los lee de la BD por `doctorId`.
+2. ✅ **Commiteado, pusheado y desplegado**: `2d343df8` (código) · `0d2181ed` (docs) ·
+   `f51696c6` (el fix de sólo-nombre + su eval).
+3. ✅ **Prueba de aceptación HECHA y verificada contra la BD** — ver §0.
+4. 🔁 **Falta re-correr la prueba con `f51696c6` desplegado**: el mismo mensaje debería crear la
+   card **sin pedir ningún dato**, en UN turno.
+5. **Deuda de evals** (sesión aparte):
+   - **Invertir `fuera-de-horario-ruta-normal`** — exige "no hay rango", que es la premisa MUERTA
+     de CIT-6; hoy la respuesta correcta es la contraria.
+   - **Des-podrir las fechas** de `disponibilidad-dia-bloqueado` y `-rango-exactamente-lleno`
+     (3 y 4 de agosto, hardcodeadas). Patrón a copiar: el `enTresSemanas` de
+     `walk-in-solo-nombre-propone`.
+   - **Settings inyectables** para cubrir el lado EXIGENTE del contacto (§4d).
+   - **Deducir `isFirstTime`** server-side cuando `find_patient` devuelve 0 expedientes (§0).
 
 ## 6. Decisiones ABIERTAS (del usuario, no del código)
 

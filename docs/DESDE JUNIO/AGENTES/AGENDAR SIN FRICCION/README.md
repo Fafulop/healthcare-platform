@@ -30,10 +30,10 @@ fue correcta, cada lista vacía fue honesta, y no inventó ni un horario. Lo que
 minutos fue **estructural**: tres campos de contacto obligatorios, un rango que hubo que
 inventar para poder agendar, y una pregunta por dato en vez de una sola.
 
-> ✅ **Estado al 2026-08-05:** los 7 cambios del plan están **implementados y verificados**
-> (2 code reviews · 12 hallazgos · `get_availability` eliminada · gate nuevo) pero **sin
-> commitear, sin desplegar y sin probar a mano**. Lee
-> [`SESSION-REFRESCO`](SESSION-REFRESCO.md) antes de tocar nada.
+> ✅ **EN PROD Y PROBADO A MANO (2026-08-05).** Los 7 cambios desplegados en 3 commits, y la
+> prueba de aceptación **verificada contra la BD**: una cita a las **16:07 en un día con CERO
+> rangos** (`cmsgk8swb0014ns0tpb4g3xc0`) — la pantalla muerta de la demo, cerrada. Detalle en
+> [`SESSION-REFRESCO`](SESSION-REFRESCO.md) §0.
 
 ## Las tres cosas que esta carpeta quiere que no se re-aprendan
 
