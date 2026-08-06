@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarOff, MapPin, Trash2 } from "lucide-react";
 import { getLocalDateString, getClinicDateString, getClinicMinutesOfDay } from "@/lib/dates";
 import {
-  buildDayEvents, layoutDayEvents, computeFreeGaps,
-  minToTime, timeToMin, statusMeta,
-  type TimedBooking, type PositionedEvent,
+  buildDayEvents, layoutDayEvents, computeOpenSpans, snapToGrid,
+  minToTime, timeToMin, statusMeta, BOOKING_GRID_MINUTES,
+  type TimedBooking, type PositionedEvent, type Span,
 } from "../../_lib/event-model";
 import { DAY_NAMES_SHORT } from "../../_lib/calendar-labels";
 import type { AvailabilityRange } from "../../_hooks/useRanges";
@@ -36,7 +36,8 @@ interface DayModel {
   dateStr: string;
   ranges: AvailabilityRange[];
   events: PositionedEvent[];
-  gaps: Array<{ start: number; end: number }>;
+  /** Lo LIBRE de la ventana visible, dentro y fuera de rango. Es lo clicable. */
+  openSpans: Span[];
 }
 
 export function TimeGrid({
@@ -53,16 +54,13 @@ export function TimeGrid({
 
   const todayStr = getClinicDateString();
 
-  const dayModels: DayModel[] = useMemo(() => days.map((date) => {
+  const dayBases = useMemo(() => days.map((date) => {
     const dateStr = getLocalDateString(date);
-    const dayRanges = ranges.filter((r) => r.date.split("T")[0] === dateStr);
-    const events = buildDayEvents(dateStr, bookings, blockedTimes);
     return {
       date,
       dateStr,
-      ranges: dayRanges,
-      events: layoutDayEvents(events),
-      gaps: computeFreeGaps(dayRanges, events),
+      ranges: ranges.filter((r) => r.date.split("T")[0] === dateStr),
+      events: layoutDayEvents(buildDayEvents(dateStr, bookings, blockedTimes)),
     };
   }), [days, ranges, bookings, blockedTimes]);
 
@@ -71,7 +69,7 @@ export function TimeGrid({
   const [startHour, endHour] = useMemo(() => {
     let min = DEFAULT_START_HOUR * 60;
     let max = DEFAULT_END_HOUR * 60;
-    for (const d of dayModels) {
+    for (const d of dayBases) {
       for (const r of d.ranges) {
         min = Math.min(min, timeToMin(r.startTime));
         max = Math.max(max, timeToMin(r.endTime));
@@ -82,7 +80,36 @@ export function TimeGrid({
       }
     }
     return [Math.floor(min / 60), Math.ceil(max / 60)];
-  }, [dayModels]);
+  }, [dayBases]);
+
+  /**
+   * Lo clicable de cada día: TODO lo libre de la ventana visible, no sólo lo que cae dentro
+   * de un rango publicado. Es lo que hace agendable un día sin ningún rango — la pantalla
+   * muerta que originó este trabajo.
+   *
+   * ⚠️ Se calcula DESPUÉS del encuadre porque depende de él: la ventana visible es el límite
+   * de lo que se puede clicar, y se estira sola para cubrir rangos y citas.
+   *
+   * Lo PASADO se recorta (hoy, hasta la hora de la clínica; los días anteriores, enteros): el
+   * picker rechazaría esa hora con "ya pasó", y ofrecer un clic que sólo puede terminar en un
+   * rechazo es peor que no ofrecerlo.
+   *
+   * ⚠️ `nowMin + 1`, no `nowMin`: en modo libre el servidor conserva estrictamente
+   * `startTime > now` (`applyPastFilter`), así que el minuto EXACTO de ahora no está en su
+   * lista y el picker lo clasifica como pasado. Es el mismo `<=` que ya vive en
+   * `classifyTypedTime`; aquí se replica el BORDE, no la regla de ocupación.
+   * ⚠️ El corte de 1 hora NO se replica a propósito: `freeform` no lo aplica (la ruta lo dice
+   * y el agente ya manda `skipCutoff=1`), así que el doctor puede agendar dentro de la hora.
+   */
+  const dayModels: DayModel[] = useMemo(() => dayBases.map((base) => {
+    const windowStart = base.dateStr === todayStr
+      ? Math.max(startHour * 60, nowMin + 1)
+      : startHour * 60;
+    const openSpans = base.dateStr < todayStr
+      ? []
+      : computeOpenSpans(base.events, windowStart, endHour * 60);
+    return { ...base, openSpans };
+  }), [dayBases, startHour, endHour, todayStr, nowMin]);
 
   const totalMin = (endHour - startHour) * 60;
   const gridHeight = (totalMin / 60) * HOUR_PX;
@@ -283,14 +310,28 @@ function DayColumn({
         );
       })}
 
-      {/* Huecos libres — clic para agendar, igual que en el panel de día */}
-      {day.gaps.map((gap) => (
+      {/* Lo libre del día — clic para agendar, DENTRO o FUERA de un rango.
+          La hora sale de DÓNDE se clicó, alineada a la rejilla de 15 min: un hueco puede
+          durar horas, así que mandar siempre su inicio agendaría a las 07:00 a quien clicó
+          las 16:20. El fondo azul de los rangos sigue diciendo qué está publicado; ya no
+          decide qué es clicable. */}
+      {day.openSpans.map((span) => (
         <button
-          key={`gap-${gap.start}`}
-          onClick={() => onBookInGap(day.dateStr, minToTime(gap.start))}
-          title={`${minToTime(gap.start)}–${minToTime(gap.end)} libre — clic para agendar`}
+          key={`open-${span.start}`}
+          type="button"
+          onClick={(e) => {
+            // `detail === 0` = activado con TECLADO (Enter/Espacio): no hay punto de clic,
+            // así que se propone el primer inicio de rejilla del hueco.
+            const rect = e.currentTarget.getBoundingClientRect();
+            const clicked = e.detail === 0 || rect.height === 0
+              ? span.start
+              : span.start + ((e.clientY - rect.top) / rect.height) * (span.end - span.start);
+            onBookInGap(day.dateStr, minToTime(snapToGrid(clicked, span)));
+          }}
+          title={`${minToTime(span.start)}–${minToTime(span.end)} libre — clic para agendar (bloques de ${BOOKING_GRID_MINUTES} min; en el formulario puedes escribir cualquier minuto)`}
+          aria-label={`Agendar entre ${minToTime(span.start)} y ${minToTime(span.end)}`}
           className="absolute inset-x-0.5 rounded border border-dashed border-transparent hover:border-green-400 hover:bg-green-50/60 transition-colors z-[5]"
-          style={{ top: `${topFor(gap.start)}px`, height: `${heightFor(gap.start, gap.end)}px` }}
+          style={{ top: `${topFor(span.start)}px`, height: `${heightFor(span.start, span.end)}px` }}
         />
       ))}
 

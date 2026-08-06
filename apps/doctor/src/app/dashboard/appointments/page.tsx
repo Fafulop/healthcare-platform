@@ -71,6 +71,10 @@ export default function AppointmentsPage() {
   const [showDeleteRangesModal, setShowDeleteRangesModal] = useState(false);
   const [showBlockTimeModal, setShowBlockTimeModal] = useState(false);
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
+  // Fecha + hora del hueco clicado en el calendario. `null` = el modal se abrió por el botón
+  // de siempre y elige el doctor. Se limpia al cerrar para que el siguiente "Agendar cita"
+  // no herede el hueco de un clic anterior.
+  const [gapPreset, setGapPreset] = useState<{ date: string; startTime: string } | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
   const rescheduleBookingRef = useRef<Booking | null>(null);
   const [formLinkModalOpen, setFormLinkModalOpen] = useState(false);
@@ -157,6 +161,7 @@ export default function AppointmentsPage() {
   const openBookModal = () => {
     rescheduleBookingRef.current = null;
     setRescheduleBooking(null);
+    setGapPreset(null);
     setBookPatientModalOpen(true);
   };
 
@@ -185,6 +190,9 @@ export default function AppointmentsPage() {
     setOpenBookingId(null);
     rescheduleBookingRef.current = booking;
     setRescheduleBooking(booking);
+    // Reagendar elige horario NUEVO desde cero: heredar el hueco de un clic anterior
+    // pondría al paciente en una hora que nadie pidió para esta cita.
+    setGapPreset(null);
     setBookPatientModalOpen(true);
   }, []);
 
@@ -194,13 +202,18 @@ export default function AppointmentsPage() {
     setFormLinkModalOpen(true);
   }, []);
 
-  // ⚠️ El modal NO recibe fecha ni hora — `BookPatientModal` no tiene props para
-  // precargarlas (sólo `preSelectedSlot`/`rescheduleBooking`). El aviso decía "Agendar cita:
-  // {fecha} a las {hora}" y el doctor podía creer que ya venían puestas y agendar en el
-  // horario equivocado. Mientras no se pasen de verdad, el texto no las promete.
-  // Pasarlas de verdad = watch-item en `docs/DESDE JUNIO/CITAS/README.md`.
-  const handleBookInGap = (_date: string, _startTime: string) => {
-    toast.success("Elige el horario en el formulario para agendar la cita");
+  // El hueco clicado en el calendario viaja al modal y precarga fecha + hora. Antes se
+  // abría VACÍO con un aviso ("elige el horario en el formulario") porque `BookPatientModal`
+  // no tenía dónde recibirlas; el aviso existía para no prometer una precarga que no ocurría.
+  // Ahora ocurre, así que el aviso sobra: la fecha y la hora se VEN en el picker.
+  //
+  // ⚠️ La hora es una PROPUESTA, no un hecho: el picker la valida contra la lista del
+  // servidor igual que si el doctor la hubiera escrito, y si no está libre ofrece las
+  // vecinas. El cliente no decide disponibilidad (regla 0).
+  const handleBookInGap = (date: string, startTime: string) => {
+    rescheduleBookingRef.current = null;
+    setRescheduleBooking(null);
+    setGapPreset({ date, startTime });
     setBookPatientModalOpen(true);
   };
 
@@ -512,11 +525,13 @@ export default function AppointmentsPage() {
 
       <BookPatientModal
         isOpen={bookPatientModalOpen}
-        onClose={() => { setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); }}
+        onClose={() => { setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); setGapPreset(null); }}
         doctorId={doctorId}
         clinicLocations={clinicLocations}
         rangeMode
         doctorSlug={doctorProfile?.slug}
+        preselectedDate={gapPreset?.date}
+        preselectedTime={gapPreset?.startTime}
         onSuccess={async () => {
           const toCancel = rescheduleBookingRef.current;
           if (toCancel) {

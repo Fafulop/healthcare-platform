@@ -260,39 +260,129 @@ export function layoutDayEvents(events: CalendarEvent[]): PositionedEvent[] {
   return positioned;
 }
 
+export interface Span { start: number; end: number }
+
 /**
- * Huecos LIBRES dentro de los rangos de disponibilidad de un día.
- *
- * Misma regla que ya usaba el panel de día: ocupan las citas activas (extendidas por
+ * Ventanas OCUPADAS del día, fundidas. Ocupan las citas activas (extendidas por
  * `extendedBlockMinutes`) y los bloqueos; lo demás es agendable.
  */
-export function computeFreeGaps(
-  ranges: AvailabilityRange[],
-  events: CalendarEvent[],
-): Array<{ start: number; end: number }> {
+function mergeOccupied(events: CalendarEvent[]): Span[] {
   const occupied = events
     .filter((e) => e.kind === "blocked" || !FREES_THE_SLOT.has(e.status ?? ""))
     .map((e) => ({ start: e.startMin, end: Math.max(e.endMin, e.blockEndMin) }))
     .sort((a, b) => a.start - b.start);
 
-  const merged: Array<{ start: number; end: number }> = [];
+  const merged: Span[] = [];
   for (const w of occupied) {
     const last = merged[merged.length - 1];
     if (last && w.start <= last.end) last.end = Math.max(last.end, w.end);
     else merged.push({ ...w });
   }
+  return merged;
+}
 
-  const gaps: Array<{ start: number; end: number }> = [];
-  for (const r of ranges) {
-    const rangeStart = timeToMin(r.startTime);
-    const rangeEnd = timeToMin(r.endTime);
-    let cursor = rangeStart;
-    for (const m of merged) {
-      if (m.end <= cursor || m.start >= rangeEnd) continue;
-      if (m.start > cursor) gaps.push({ start: cursor, end: Math.min(m.start, rangeEnd) });
-      cursor = Math.max(cursor, m.end);
-    }
-    if (cursor < rangeEnd) gaps.push({ start: cursor, end: rangeEnd });
+/** Resta las ventanas ocupadas (ya fundidas y ordenadas) de una ventana cualquiera. */
+function subtractOccupied(windowStart: number, windowEnd: number, merged: Span[]): Span[] {
+  const free: Span[] = [];
+  let cursor = windowStart;
+  for (const m of merged) {
+    if (m.end <= cursor || m.start >= windowEnd) continue;
+    if (m.start > cursor) free.push({ start: cursor, end: Math.min(m.start, windowEnd) });
+    cursor = Math.max(cursor, m.end);
   }
+  if (cursor < windowEnd) free.push({ start: cursor, end: windowEnd });
+  return free;
+}
+
+/**
+ * Huecos LIBRES dentro de los rangos de disponibilidad de un día.
+ *
+ * ⚠️ **Hoy su único llamador es `scripts/event-model-check.ts`.** La rejilla Día/Semana dejó de
+ * usarla al volverse clicable fuera de rango (rinde `computeOpenSpans`), y `DayTimelinePanel`
+ * —que es lo que uno supondría— **nunca la usó**: tiene su propio bucle de resta en línea, y
+ * además sólo lo alcanzan las rutas muertas `v1`/`v2`.
+ *
+ * Se conserva porque responde una pregunta que sigue existiendo —"¿qué queda libre DENTRO de
+ * lo publicado?"— y porque sus 7 comprobaciones son las que prueban que el refactor de
+ * `mergeOccupied`/`subtractOccupied` no cambió nada. Pero es código sin consumidor: **si nadie
+ * la reclama en la próxima pasada, se borra**, y el duplicado de `DayTimelinePanel` es lo que
+ * habría que colapsar sobre estos helpers.
+ */
+export function computeFreeGaps(
+  ranges: AvailabilityRange[],
+  events: CalendarEvent[],
+): Array<{ start: number; end: number }> {
+  const merged = mergeOccupied(events);
+  const gaps: Span[] = [];
+  for (const r of ranges) {
+    gaps.push(...subtractOccupied(timeToMin(r.startTime), timeToMin(r.endTime), merged));
+  }
+  // Un hueco de menos de 15 min dentro de un rango es ruido visual: el rango existe para
+  // ofrecer citas de su `intervalMinutes`, y ninguna cabe ahí.
   return gaps.filter((g) => g.end - g.start >= 15);
+}
+
+/**
+ * Rejilla de la AFORDANCIA de agendar en el calendario.
+ *
+ * ⚠️ NO es el límite de lo agendable. El motor acepta cualquier minuto (`interval` admite
+ * 1·3·5·15) y el campo de hora del picker deja escribir 16:07 — probado en vivo el 2026-08-05
+ * (cita `cmsgk8swb0014ns0tpb4g3xc0`). Se clica en bloques de 15 para que el calendario sea
+ * usable con el ratón; el minuto fino se afina escribiéndolo. Una rejilla que RECHACE 16:07
+ * sería volver al mundo de los rangos.
+ *
+ * Comparte el número con el filtro de `computeFreeGaps` y NO su razón: allá es "no cabe una
+ * cita del rango", aquí es "no cabe una celda clicable". Dos preguntas, dos constantes.
+ */
+export const BOOKING_GRID_MINUTES = 15;
+
+/**
+ * Ventanas LIBRES de una ventana ARBITRARIA del día — la misma resta que `computeFreeGaps`,
+ * pero sin exigir que exista un rango publicado.
+ *
+ * Es lo que hace clicable un día sin rangos: el rango describe lo que el doctor PUBLICA en su
+ * página, no lo que puede agendar él mismo, así que la rejilla no tiene por qué callarse fuera
+ * de él. Se descartan las ventanas más cortas que una celda de la rejilla: no habría dónde
+ * clicar.
+ */
+export function computeOpenSpans(
+  events: CalendarEvent[],
+  windowStart: number,
+  windowEnd: number,
+): Span[] {
+  // ⚠️ La ventana se recorta al DÍA. El encuadre de la rejilla se estira para que quepa todo
+  // lo que hay, y `blockEndMin` no tiene tope: una cita a las 22:00 con `extendedBlockMinutes`
+  // de 150 lo empuja a las 24:30, y ahí se ofrecía como clicable un hueco que `minToTime`
+  // rinde como "24:45" — una hora que `<input type="time">` rechaza, así que el doctor recibía
+  // el campo VACÍO sin ninguna explicación. Con rangos no podía pasar: el hueco terminaba
+  // donde termina el rango.
+  const from = Math.max(0, windowStart);
+  const to = Math.min(windowEnd, 24 * 60);
+  if (to <= from) return [];
+  return subtractOccupied(from, to, mergeOccupied(events))
+    .filter((s) => s.end - s.start >= BOOKING_GRID_MINUTES);
+}
+
+/**
+ * Minuto CLICADO → hora de inicio propuesta, alineada a la rejilla de 15 min.
+ *
+ * Se redondea hacia ABAJO: quien clica a las 16:20 quiere las 16:15, no las 16:30 (que ya es
+ * el siguiente bloque visual). El resultado nunca se sale del hueco.
+ */
+export function snapToGrid(
+  clickedMin: number,
+  span: Span,
+  grid: number = BOOKING_GRID_MINUTES,
+): number {
+  const down = Math.floor(clickedMin / grid) * grid;
+  const firstInSpan = Math.ceil(span.start / grid) * grid;
+  const candidate = Math.max(down, firstInSpan);
+  if (candidate < span.end) return candidate;
+  // Ninguna marca de la rejilla sirve. Dos casos, y el mismo remedio: la ÚLTIMA hora del hueco
+  // que sí es marca, o su inicio real si tampoco hay ninguna.
+  //  · Hueco más corto que una celda (09:50–10:00) → 09:50. El motor acepta cualquier minuto.
+  //  · Clic exactamente en el borde inferior (`clientY === rect.bottom`, que en pantallas de
+  //    DPI fraccionario se alcanza de verdad) con un fin en punto de rejilla. Devolver
+  //    `span.start` ahí proponía las 07:00 a quien clicó el fondo de una columna de 14 h.
+  return Math.max(span.start, Math.floor((span.end - 1) / grid) * grid);
 }

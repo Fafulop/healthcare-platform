@@ -320,11 +320,11 @@ Las **tres** invariantes que se verificaron:
    horarios"* describe el efecto; *"Agendar fuera de mis rangos"* describe la intención.
 3. **¿El interruptor recuerda su estado?** Un doctor sin rangos lo va a prender cada vez.
    `localStorage` alcanza y no necesita columna.
-4. **¿Se cierra el watch-item de `handleBookInGap`?** Con un picker libre, clicar un hueco del
-   calendario **por fin puede** precargar fecha y hora de verdad. Hoy no lo hace y el aviso ya
-   fue reescrito dos veces para no prometerlo (README, hallazgo 2 de la 2ª ronda de review).
-   Exige darle props nuevas a `BookPatientModal`. **Propuesta: fase 2**, pero es el pendiente
-   que este trabajo por fin habilita.
+4. ✅ **`handleBookInGap`: RESUELTO el 2026-08-06.** Se hizo la fase 2 y con creces: además de
+   precargar fecha y hora, la rejilla Día/Semana es clicable **fuera de los rangos**, en
+   bloques de 15 min y con la hora tomada de dónde se clicó. `BookPatientModal` recibe
+   `preselectedDate`/`preselectedTime`. Detalle en
+   [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) §10.
 5. **El consultorio en modo libre** — las tres opciones de §4b. Antes de decidir conviene
    medir: **¿cuántos de los 11 doctores tienen 2+ `ClinicLocation`?** Si son cero, la (a) es
    gratis y la decisión se pospone con datos en vez de con suerte.

@@ -253,25 +253,28 @@ que ese dato falta.* El caso parecía cubierto y no lo estaba.
 
 ## 5b. 📌 Pedidos NUEVOS del usuario (2026-08-05, al cerrar la sesión)
 
-Dos cosas que el usuario quiere y que **NO** están hechas. Las dos conectan con deuda ya
-documentada, así que no empiezan de cero.
+Dos cosas que el usuario pidió. **A quedó hecha el 2026-08-06** (sin probar a mano); **B sigue
+sin hacer** y su orden obligatorio no cambió.
 
-### A) Clic en el calendario para agendar donde NO hay rango (rejilla de 15 min)
+### A) ✅ Clic en el calendario para agendar donde NO hay rango (rejilla de 15 min)
 
 > *"En rangos, haces clic en el rango y se abre un modal donde puedes crear la cita. Quiero esa
 > misma funcionalidad para días y horas donde NO hay rangos, en intervalos de 15 minutos."*
 
-- **Dónde encaja:** es el watch-item **§4.1 de [`../../CITAS/SESSION-REFRESCO.md`](../../CITAS/SESSION-REFRESCO.md)**
-  (`handleBookInGap` no precarga fecha ni hora: al clicar un hueco el modal abre VACÍO), pero
-  extendido a los días/horas **sin rango**, que hoy ni siquiera son clicables.
-- **Ya es HACIBLE**, y no lo era antes: hasta `480f7f72` precargar un hueco fuera de rango no
-  servía de nada porque el picker no podía ofrecer esa hora. Hoy sí.
-- **El bloqueo real está identificado:** `BookPatientModal` **no tiene props donde recibir**
-  fecha+hora. Es lo que hay que abrir; el resto ya existe.
-- ⚠️ **La rejilla de 15 min es la AFORDANCIA, no el límite.** El motor acepta cualquier minuto
-  (`interval` admite 1·3·5·15) y el campo de hora ya deja escribir 16:07. O sea: se clica en
-  bloques de 15 para que el calendario sea usable, y el doctor puede afinar el minuto escribiéndolo.
-  **No se debe re-introducir una rejilla que RECHACE 16:07** — eso es volver al mundo de los rangos.
+**HECHO el 2026-08-06 — es trabajo de UI, así que vive en la carpeta CITAS:**
+[`../../CITAS/SESSION-REFRESCO.md`](../../CITAS/SESSION-REFRESCO.md) **§10** (qué cambió, las
+cinco decisiones no obvias y qué falta probar a mano). ⚠️ **Sin probar a mano al escribir esto.**
+
+Resumen de una línea: la capa clicable de la rejilla Día/Semana pasó de "los huecos DENTRO de
+un rango" a "todo lo libre de la ventana visible", la hora sale de **dónde** se clicó alineada a
+15 min hacia abajo, y `BookPatientModal` por fin tiene los props (`preselectedDate` /
+`preselectedTime`) que le faltaban desde julio.
+
+⚠️ **Lo que hay que seguir respetando: la rejilla de 15 min es la AFORDANCIA, no el límite.** El
+motor acepta cualquier minuto (`interval` admite 1·3·5·15) y el campo de hora deja escribir
+16:07. **No se debe re-introducir una rejilla que RECHACE 16:07** — eso es volver al mundo de los
+rangos. Hay una comprobación en `event-model-check.ts` que lo fija (un hueco 09:50–10:00 propone
+09:50, no una marca de la rejilla).
 
 ### B) 🔴 El CONSULTORIO no se pregunta… porque no hay dónde guardarlo
 

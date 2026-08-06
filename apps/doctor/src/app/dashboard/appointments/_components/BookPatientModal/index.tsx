@@ -50,6 +50,17 @@ interface Props {
   rangeMode?: boolean;
   /** Required when rangeMode is true — doctor's URL slug for range-availability API */
   doctorSlug?: string;
+  /**
+   * Hueco clicado en el calendario (`YYYY-MM-DD` + `HH:MM`). Sólo se atiende en `rangeMode`:
+   * precarga el picker en esa fecha y escribe esa hora en el campo.
+   *
+   * ⚠️ Precarga, NO confirma. La hora se valida contra la lista del servidor igual que si la
+   * hubiera escrito el doctor —puede salir ocupada, pasada o fuera de rejilla— y confirmar
+   * sigue siendo un acto aparte. Pasar de esto a "agendar al clicar" sería dar por libre una
+   * hora que el cliente no puede decidir (regla 0).
+   */
+  preselectedDate?: string;
+  preselectedTime?: string;
 }
 
 export function BookPatientModal({
@@ -62,6 +73,8 @@ export function BookPatientModal({
   rescheduleBooking = null,
   rangeMode = false,
   doctorSlug,
+  preselectedDate,
+  preselectedTime,
 }: Props) {
   const initialStep: Step = preSelectedSlot ? "form" : "slot";
 
@@ -538,6 +551,12 @@ export function BookPatientModal({
                 doctorId={doctorId}
                 doctorSlug={doctorSlug}
                 selectedServiceId={null}
+                // Lo YA elegido gana sobre el hueco del calendario. Este árbol se desmonta al
+                // pasar al paso 2 y se vuelve a montar con "← Cambiar horario", así que sin
+                // esto el regreso reponía en silencio el 16:15 del clic original y tiraba las
+                // 17:30 que el doctor acababa de elegir.
+                initialDate={rangeSelection?.date ?? preselectedDate}
+                initialTime={rangeSelection?.startTime ?? preselectedTime}
                 onSelectTime={(sel) => {
                   setRangeSelection(sel);
                   setSelectedServiceId(sel.serviceId);

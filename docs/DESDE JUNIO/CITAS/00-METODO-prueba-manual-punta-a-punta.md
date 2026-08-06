@@ -242,8 +242,10 @@ si algo de las secciones A–I falla, no es de aquí.
       Comprobarlo en **Semana**, donde el nombre va truncado y el tooltip es la única forma
       de leerlo. Su bloque **sí** se queda el clic — es a propósito: no se agenda hacia atrás
       y el tooltip vale más.
-- [ ] **J-19.** Al hacer clic en un hueco, el aviso **no** promete fecha ni hora — el modal
-      no las precarga (watch-item abierto).
+- [ ] **J-19.** ⚠️ **INVERTIDO el 2026-08-06.** Decía: *"el aviso no promete fecha ni hora — el
+      modal no las precarga"*. Hoy **sí** las precarga y el aviso desapareció, así que el check
+      viejo codificaba el mundo anterior. Lo que hay que comprobar ahora vive en la
+      sección **L**.
 
 ## K. Clic en una cita → modal con sus acciones (2026-08-03, `3447b9c3`)
 
@@ -302,14 +304,52 @@ Si un botón falla igual desde la tabla, no es de aquí.
 
 ---
 
+## L. Clic en el calendario para agendar, con y sin rango (2026-08-06)
+
+Lo que se prueba aquí NO es si el modal agenda —eso lo cubre el picker (§B) y ya está probado—
+sino **qué fecha y qué hora llegan** cuando el clic viene de la rejilla. Un fallo típico de esta
+sección es una hora **plausible pero equivocada** (el inicio del hueco en vez de donde se clicó),
+que no falla ni avisa: simplemente agenda mal.
+
+Prepara un día **sin ningún rango publicado** y otro **con rango y dos citas**.
+
+- [ ] **L-1.** Día SIN rangos: la columna es clicable. Clic a media tarde → el modal abre con
+      **esa fecha** y **esa hora**, y el picker dice *"Libre"*.
+- [ ] **L-2.** **Dónde se clicó, no el inicio del hueco.** Clic a la altura de las 16:20 → la
+      hora precargada es **16:15**, no las 07:00 ni las 16:30. Es el bug que esta sección existe
+      para atrapar.
+- [ ] **L-3.** Con **2+ servicios**: clic → elegir el servicio → **la fecha y la hora siguen
+      puestas**. (Antes, elegir servicio borraba la fecha.)
+- [ ] **L-4.** Clic en un hueco **entre dos citas**: la hora propuesta cae dentro del hueco, no
+      encima de ninguna cita, y respeta el **bloqueo extendido** si lo hay.
+- [ ] **L-5.** **Hoy, arriba de la línea roja de "ahora"**: no hay nada clicable. Justo debajo,
+      sí — y el picker **no** dice "ya pasó".
+- [ ] **L-6.** Un día **anterior a hoy**: nada clicable en toda la columna.
+- [ ] **L-7.** **La rejilla de 15 es la afordancia, no el límite.** Tras la precarga de 16:15,
+      escribe **16:07**: debe seguir aceptándose y agendar a esa hora exacta.
+- [ ] **L-8.** El hueco de un rango se comporta **igual** que uno fuera de rango (misma
+      precarga, misma alineación). El fondo azul del rango sólo informa.
+- [ ] **L-9.** Clic en un hueco de un día de **otro mes** (vista Semana a caballo entre dos, o
+      navegando): el mini-calendario del modal abre en **ese** mes, con el día marcado.
+- [ ] **L-10.** Abre el modal con el botón **"Agendar cita"** de siempre justo después de haber
+      usado un hueco: debe abrir **vacío**, sin heredar el hueco anterior. Lo mismo al
+      **Reagendar**.
+- [ ] **L-11.** **Teclado:** llega con Tab a un hueco y activa con Enter. Debe abrir el modal
+      con una hora del hueco (la primera marca de 15 min), no con una hora fuera de él.
+- [ ] **L-12.** **Semana:** todo lo anterior sigue valiendo con 7 columnas angostas, y el clic
+      en el **encabezado** del día sigue bajando a la vista de Día en vez de agendar.
+
+---
+
 **Fuera de este guion:** el agente (sus 3 deudas van juntas en `AGENTE FACTURAS/SESSION-REFRESCO`
 §8, una sola corrida de 81 casos), recordatorios, envío de formularios por correo, y el acomodo
 final de la fila.
 
 **Deudas a confirmar, no a descubrir:** `notes` al reagendar (E-7) · el agente ignora la casilla
 Factura (**G-10**) · `formulariosPreConsulta` cuenta los FISCALES · vincular expediente sigue sin
-ser obligatorio · el formulario pre-cita dice "Crear formulario" y su `wa.me` va sin número ·
-`handleBookInGap` no precarga fecha ni hora (J-19).
+ser obligatorio · el formulario pre-cita dice "Crear formulario" y su `wa.me` va sin número.
+~~`handleBookInGap` no precarga fecha ni hora (J-19)~~ — **pagada el 2026-08-06**; lo que queda
+es probar la sección **L**.
 
 ⚠️ Esta lista decía también *"el agente lee el contacto de la CITA (#30)"*. **Ya no es cierto:**
 se pagó el 2026-07-30 (`d1f9a4d3`), `get_booking_detail` resuelve `patient.email || patientEmail`

@@ -13,8 +13,8 @@
  *  - y que una cita que libera su horario siga dibujada encima del hueco.
  */
 import {
-  buildDayEvents, layoutDayEvents, computeFreeGaps, minToTime,
-  FREES_THE_SLOT, NO_WORKLOAD,
+  buildDayEvents, layoutDayEvents, computeFreeGaps, computeOpenSpans, snapToGrid, minToTime,
+  BOOKING_GRID_MINUTES, FREES_THE_SLOT, NO_WORKLOAD,
 } from "../src/app/dashboard/appointments/_lib/event-model";
 
 let failures = 0;
@@ -107,6 +107,79 @@ console.log("\ncomputeFreeGaps");
   // Una cita FUERA de todo rango no debe inventar hueco ni romper el recorte.
   const g7 = computeFreeGaps([range("09:00", "11:00")], buildDayEvents(D, [slotBooking("a", "14:00", "14:30")], []));
   check("cita fuera de rango no afecta", g7.map(g => `${minToTime(g.start)}-${minToTime(g.end)}`), ["09:00-11:00"]);
+}
+
+console.log("\ncomputeOpenSpans (clic para agendar FUERA de rango)");
+{
+  const w = (spans: Array<{ start: number; end: number }>) =>
+    spans.map((s) => `${minToTime(s.start)}-${minToTime(s.end)}`);
+
+  // Lo que motivó todo: un día SIN ningún rango publicado tiene que ser clicable entero.
+  const s1 = computeOpenSpans(buildDayEvents(D, [], []), 7 * 60, 21 * 60);
+  check("día sin rangos ni citas → toda la ventana es clicable", w(s1), ["07:00-21:00"]);
+  check("y computeFreeGaps ahí no ofrece NADA (por eso hizo falta)",
+    computeFreeGaps([], buildDayEvents(D, [], [])).length, 0);
+
+  const s2 = computeOpenSpans(buildDayEvents(D, [slotBooking("a", "10:00", "10:30")], []), 7 * 60, 21 * 60);
+  check("una cita parte la ventana en dos", w(s2), ["07:00-10:00", "10:30-21:00"]);
+
+  const s3 = computeOpenSpans(buildDayEvents(D, [slotBooking("a", "10:00", "10:30", "CANCELLED")], []), 7 * 60, 21 * 60);
+  check("una cancelada no parte nada", w(s3), ["07:00-21:00"]);
+
+  const s4 = computeOpenSpans(buildDayEvents(D, [slotBooking("a", "10:00", "10:30", "CONFIRMED", 90)], []), 7 * 60, 21 * 60);
+  check("el bloqueo extendido recorta lo clicable", w(s4), ["07:00-10:00", "11:30-21:00"]);
+
+  const s5 = computeOpenSpans(buildDayEvents(D, [], [block("bt", "10:00", "11:00")]), 7 * 60, 21 * 60);
+  check("un bloqueo recorta lo clicable", w(s5), ["07:00-10:00", "11:00-21:00"]);
+
+  // Recorte del pasado: la rejilla arranca la ventana en "ahora" para hoy. Un hueco de menos
+  // de una celda no se rinde — no habría dónde clicar.
+  const s6 = computeOpenSpans(buildDayEvents(D, [], []), 20 * 60 + 50, 21 * 60);
+  check("ventana de 10 min → nada clicable", s6.length, 0);
+  const s7 = computeOpenSpans(buildDayEvents(D, [], []), 20 * 60 + 45, 21 * 60);
+  check("ventana de 15 min → sí", w(s7), ["20:45-21:00"]);
+  check("ventana invertida (ya pasó todo el día) → vacío",
+    computeOpenSpans(buildDayEvents(D, [], []), 22 * 60, 21 * 60).length, 0);
+
+  // El encuadre de la rejilla se estira con `blockEndMin`, que no tiene tope: una cita de las
+  // 22:00 con 150 min de bloqueo extendido lo empuja a las 24:30. Sin recortar al día se
+  // ofrecía un hueco cuyas horas `minToTime` rinde como "24:45" — y `<input type="time">` las
+  // rechaza, así que el campo llegaba VACÍO y sin explicación.
+  const nocturno = computeOpenSpans(buildDayEvents(D, [slotBooking("a", "22:00", "23:00", "CONFIRMED", 150)], []), 7 * 60, 25 * 60);
+  check("la ventana se recorta a las 24:00", w(nocturno), ["07:00-22:00"]);
+  check("y ninguna hora propuesta se pasa del día",
+    nocturno.every((s) => s.end <= 24 * 60 && minToTime(s.end) <= "24:00"), true);
+}
+
+console.log("\nsnapToGrid (la rejilla de 15 min ES la afordancia, no el límite)");
+{
+  const dia = { start: 7 * 60, end: 21 * 60 };
+  check("la rejilla es de 15 min", BOOKING_GRID_MINUTES, 15);
+  check("16:20 → 16:15 (hacia abajo: se clicó ESE bloque)", minToTime(snapToGrid(16 * 60 + 20, dia)), "16:15");
+  check("16:00 exacto se queda", minToTime(snapToGrid(16 * 60, dia)), "16:00");
+  check("16:59 → 16:45", minToTime(snapToGrid(16 * 60 + 59, dia)), "16:45");
+
+  // Hueco que empieza en minuto raro (cita que terminó 09:07): nunca se propone una hora
+  // ANTERIOR al hueco, que estaría ocupada.
+  const raro = { start: 9 * 60 + 7, end: 10 * 60 };
+  check("no se cae fuera del hueco por redondear hacia abajo", minToTime(snapToGrid(9 * 60 + 10, raro)), "09:15");
+
+  // Hueco tan corto que ninguna marca de 15 min cae dentro: se propone su inicio REAL. El
+  // motor acepta cualquier minuto, así que 09:50 es una propuesta válida — rechazarla sería
+  // volver a la rejilla que este trabajo quitó.
+  const corto = { start: 9 * 60 + 50, end: 10 * 60 };
+  check("hueco sin marca de rejilla → su inicio real", minToTime(snapToGrid(9 * 60 + 55, corto)), "09:50");
+  // Mientras SÍ quepa una marca de rejilla, gana la marca aunque el hueco empiece en 16:07:
+  // la afordancia es de 15 min. El 16:07 se propone sólo cuando es la ÚNICA hora libre.
+  check("con marca dentro, gana la marca", minToTime(snapToGrid(16 * 60 + 9, { start: 16 * 60 + 7, end: 16 * 60 + 20 })), "16:15");
+  check("sin marca dentro, sobrevive el 16:07", minToTime(snapToGrid(16 * 60 + 9, { start: 16 * 60 + 7, end: 16 * 60 + 14 })), "16:07");
+
+  // Clic EXACTO en el borde inferior (`clientY === rect.bottom`, alcanzable de verdad en
+  // pantallas de DPI fraccionario). El candidato cae justo en el fin del hueco, que no es una
+  // hora libre. El remedio es la última marca DENTRO, no el inicio: devolver `span.start`
+  // proponía las 07:00 a quien clicó el fondo de una columna de 14 horas.
+  check("clic en el borde inferior → la última marca del hueco", minToTime(snapToGrid(21 * 60, dia)), "20:45");
+  check("y no se cae al inicio del hueco", minToTime(snapToGrid(21 * 60, dia)) !== "07:00", true);
 }
 
 console.log("\nlos DOS predicados (el bug de la vista de año)");

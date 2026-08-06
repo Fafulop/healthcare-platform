@@ -128,6 +128,18 @@ interface Props {
   doctorSlug: string;
   /** Pre-selected service from parent (if any) */
   selectedServiceId: string | null;
+  /**
+   * Hueco clicado en el calendario: `YYYY-MM-DD` + `HH:MM`. Precargan la fecha del paso 2 y
+   * el campo de hora del paso 3 — nada más. El veredicto lo sigue dando el servidor, así que
+   * una hora precargada puede perfectamente salir "no está libre" y ofrecer vecinas.
+   *
+   * Se leen SÓLO al montar — y este árbol se monta MÁS de una vez por sesión del modal: al
+   * cerrarse (`isOpen` rinde `null`) y también al ir y volver del paso 2 ("← Cambiar horario"),
+   * porque sólo se rinde con `step === "slot"`. Por eso el padre manda aquí lo YA elegido si
+   * existe, y el hueco del calendario sólo cuando todavía no hay nada elegido.
+   */
+  initialDate?: string;
+  initialTime?: string;
   onSelectTime: (data: {
     date: string;
     startTime: string;
@@ -144,6 +156,8 @@ export function RangeTimePickerStep({
   doctorId,
   doctorSlug,
   selectedServiceId: initialServiceId,
+  initialDate,
+  initialTime,
   onSelectTime,
 }: Props) {
   // Services
@@ -152,8 +166,15 @@ export function RangeTimePickerStep({
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(initialServiceId);
 
   // Calendar
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // ⚠️ El mes arranca en el del hueco clicado, no en el de hoy: si no, un clic en un día de
+  // septiembre dejaba la fecha seleccionada FUERA de la rejilla visible (agosto) — el paso 3
+  // ya rendido para un día que la rejilla no muestra, que es justo la incoherencia por la que
+  // cambiar de mes limpia la fecha unas líneas más abajo. Mediodía a propósito: `new Date`
+  // sobre `YYYY-MM-DD` pelado se parsea como UTC y en México caería en el día anterior.
+  const [currentMonth, setCurrentMonth] = useState(() =>
+    initialDate ? new Date(`${initialDate}T12:00:00`) : new Date()
+  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialDate ?? null);
 
   // Availability
   const [availableDates, setAvailableDates] = useState<string[]>([]);
@@ -198,7 +219,7 @@ export function RangeTimePickerStep({
    *  nunca llegó. */
   const [monthError, setMonthError] = useState<string | null>(null);
   /** La hora escrita, en "HH:MM" 24h (lo que da `<input type="time">`). */
-  const [typedTime, setTypedTime] = useState("");
+  const [typedTime, setTypedTime] = useState(initialTime ?? "");
 
   // Fetch services
   useEffect(() => {
@@ -425,10 +446,16 @@ export function RangeTimePickerStep({
               <button
                 key={svc.id}
                 type="button"
-                onClick={() => {
-                  setSelectedServiceId(svc.id);
-                  setSelectedDate(null);
-                }}
+                // Cambiar de servicio ya NO borra la fecha. La borraba para obligar a
+                // re-elegirla, pero las dos peticiones dependen de `selectedServiceId` y se
+                // relanzan solas (y ambas vacían su estado al empezar, así que no se rinde
+                // nada del servicio anterior). Con la fecha precargada de un hueco del
+                // calendario, borrarla era además una pérdida real: el doctor que clica un
+                // hueco y luego elige servicio —el camino normal con 2+ servicios— perdía
+                // justo el dato que venía a traer. La hora escrita se conserva por lo mismo:
+                // se revalida contra la lista del servicio nuevo, que puede rechazarla si la
+                // consulta es más larga y ya no cabe.
+                onClick={() => setSelectedServiceId(svc.id)}
                 className={`w-full text-left px-3.5 py-3 rounded-xl border-2 transition-all ${
                   selectedServiceId === svc.id
                     ? "border-blue-600 bg-blue-50 shadow-sm"

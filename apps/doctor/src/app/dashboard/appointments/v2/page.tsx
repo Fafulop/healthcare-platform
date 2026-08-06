@@ -65,6 +65,8 @@ export default function AppointmentsV2RangePage() {
   const [showDeleteRangesModal, setShowDeleteRangesModal] = useState(false);
   const [showBlockTimeModal, setShowBlockTimeModal] = useState(false);
   const [bookPatientModalOpen, setBookPatientModalOpen] = useState(false);
+  /** Hueco clicado en el calendario. `null` = lo elige el doctor en el modal. */
+  const [gapPreset, setGapPreset] = useState<{ date: string; startTime: string } | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
   const rescheduleBookingRef = useRef<Booking | null>(null);
   const [formLinkModalOpen, setFormLinkModalOpen] = useState(false);
@@ -123,17 +125,26 @@ export default function AppointmentsV2RangePage() {
   const openBookModal = () => {
     rescheduleBookingRef.current = null;
     setRescheduleBooking(null);
+    setGapPreset(null);
     setBookPatientModalOpen(true);
   };
 
   const handleReschedule = useCallback((booking: Booking) => {
+    setGapPreset(null);
     rescheduleBookingRef.current = booking;
     setRescheduleBooking(booking);
     setBookPatientModalOpen(true);
   }, []);
 
+  // ⚠️ Este aviso decía "Agendar cita: {fecha} a las {hora}" y el modal NO recibía ninguna de
+  // las dos: el doctor podía creerlas puestas y agendar en el horario equivocado. La página
+  // principal lo quitó cuando `BookPatientModal` estrenó `preselectedDate`/`preselectedTime`;
+  // esta ruta (muerta, pero viva mientras exista el archivo) se quedó afirmándolo. Ahora
+  // precarga de verdad, así que el aviso sobra.
   const handleBookInGap = (date: string, startTime: string) => {
-    toast.success(`Agendar cita: ${date} a las ${startTime}`);
+    rescheduleBookingRef.current = null;
+    setRescheduleBooking(null);
+    setGapPreset({ date, startTime });
     setBookPatientModalOpen(true);
   };
 
@@ -420,11 +431,13 @@ export default function AppointmentsV2RangePage() {
 
       <BookPatientModal
         isOpen={bookPatientModalOpen}
-        onClose={() => { setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); }}
+        onClose={() => { setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); setGapPreset(null); }}
         doctorId={doctorId}
         clinicLocations={clinicLocations}
         rangeMode
         doctorSlug={doctorProfile?.slug}
+        preselectedDate={gapPreset?.date}
+        preselectedTime={gapPreset?.startTime}
         onSuccess={async () => {
           const toCancel = rescheduleBookingRef.current;
           if (toCancel) {

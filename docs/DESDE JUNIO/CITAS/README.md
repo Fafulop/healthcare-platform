@@ -115,6 +115,8 @@ watch-item de `handleBookInGap` (el modal de agendar no precarga fecha ni hora) 
 de paso"* con este trabajo. **No se cerró**, y no son lo mismo: este modal rinde acciones
 sobre una cita que YA existe; precargar el hueco exige tocar los props de `BookPatientModal`,
 que no tiene dónde recibirlas. **Sigue abierto.**
+> ✅ **Cerrado el 2026-08-06**, junto con el clic fuera de rango: `BookPatientModal` ya recibe
+> `preselectedDate`/`preselectedTime`. Ver `SESSION-REFRESCO.md` §10.
 
 ## Bitácora de la sesión 2026-08-02 — calendario tipo Google
 

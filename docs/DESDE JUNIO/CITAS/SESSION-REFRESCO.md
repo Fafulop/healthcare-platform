@@ -1,6 +1,6 @@
 # 🔄 SESSION-REFRESCO — CITAS / calendario
 
-> **Para la próxima sesión.** Dónde quedó todo el 2026-08-03 y qué sigue. Tipo
+> **Para la próxima sesión.** Dónde quedó todo el 2026-08-06 y qué sigue. Tipo
 > **ESTADO / BITÁCORA**: se actualiza al cerrar cada sesión.
 > El detalle histórico (qué se construyó y por qué) vive en [`README.md`](README.md);
 > el guion de prueba a mano, en
@@ -17,7 +17,11 @@ calendario ya abría su modal de acciones (`3447b9c3`). ⚠️ **Lo único proba
 del interruptor y un vistazo a la v2; la rejilla de 1 minuto y la UI grande NO se han
 probado**, y el calendario (**J**), el modal (**K**) y la tabla (**A–I**) siguen sin correr.
 
-🔴 **Lo más importante que queda abierto no está en esta carpeta: el AGENTE.** Ver §9.
+🆕 **2026-08-06, en el árbol y sin commitear:** el calendario ya es **clicable donde NO hay
+rango** y el clic **precarga fecha y hora** en el modal, en bloques de 15 min. Cierra el
+watch-item §4.1 y el pedido A del usuario. Detalle en **§10**.
+
+✅ **Lo del AGENTE (§9) se cerró el 2026-08-05** en la carpeta del agente.
 
 ---
 
@@ -55,9 +59,10 @@ Esto sigue siendo lo más importante de este documento.
 | `ca627673` (v1, interruptor) | ✅ **Probada por el doctor: funcionaba.** Se descartó igual, por diseño (§8) |
 | `dcf64de6` (v2, hora escrita) | ⚠️ **Vistazo del doctor: "se ve mucho mejor".** No es la corrida del guion |
 | `480f7f72` (1 min + UI grande) | ❌ **Sin probar por nadie.** Sólo se confirmó que desplegó |
+| **Clic en el calendario para agendar sin rango (§10)** | ❌ **Sin probar por nadie, y ni siquiera commiteado.** Verde: `type-check`, `build`, **49** comprobaciones de `event-model-check.ts` (eran 28) |
 
-Lo automático está verde en todos (`type-check`, `build`, los 5 gates, las 28 comprobaciones
-de `event-model-check.ts`), más **smoke read-only contra prod** en los dos commits que tocaron
+Lo automático está verde en todos (`type-check`, `build`, los 5 gates, las **49** comprobaciones
+de `event-model-check.ts` — eran 28 antes de §10), más **smoke read-only contra prod** en los dos commits que tocaron
 disponibilidad, más `/code-review` en cada uno (6 · 5 · 6 hallazgos, **todos reales**).
 
 **Nada de eso es el clic.** En este trabajo el `type-check` estuvo verde TODAS las veces que
@@ -66,7 +71,18 @@ hallazgos reales, tres de ellos introducidos por la ronda anterior al arreglar o
 
 ### Qué correr primero
 
-**Del picker nuevo (`480f7f72`), que es lo más fresco y lo menos ejercitado:**
+**Del clic en el calendario (§10), que es lo más fresco y NO ha sido tocado por nadie:**
+
+0. **Clic en un día SIN NINGÚN rango, a media tarde.** Debe abrir el modal con esa fecha y esa
+   hora ya puestas, alineadas a los 15 min más cercanos hacia abajo (clic a las 16:20 → 16:15),
+   y el picker debe decir *"Libre"*. Con 2+ servicios, el orden real es: clic → elegir servicio
+   → la fecha y la hora **siguen ahí** (esa preservación es nueva; si se pierden, es el bug).
+   0b. **Clic en un hueco ENTRE dos citas** — la hora propuesta no puede caer dentro de ninguna.
+   0c. **Hoy, encima de la línea roja de "ahora"** — no debe haber nada clicable arriba de ella.
+   0d. **Escribe 16:07 después de que la precarga puso 16:15.** Debe seguir aceptándolo: la
+   rejilla de 15 es la afordancia del clic, no el límite de lo agendable.
+
+**Del picker (`480f7f72`), que sigue siendo lo menos ejercitado de lo que ya está en prod:**
 
 1. **Escribe la hora ACTUAL** para agendar "ahora mismo". Debe decir *"ya pasó"* sólo si de
    verdad pasó — el minuto exacto de ahora se rendía como *"no está libre"* hasta este commit,
@@ -177,24 +193,9 @@ que este orden aparece invertido en un texto, así que al tocar contacto convien
 
 ## 4. Watch-items abiertos
 
-1. **`handleBookInGap` no precarga fecha ni hora** (`page.tsx`). Al clicar un hueco, el modal
-   de agendar abre vacío. El aviso ya no promete fecha/hora.
-   📌 **PEDIDO DEL USUARIO (2026-08-05), que es este item AMPLIADO:** que se pueda clicar el
-   calendario para agendar **también donde NO hay rango**, en una rejilla de **15 minutos** — la
-   misma experiencia que hoy da clicar un rango. Hoy esos huecos ni siquiera son clicables.
-   El bloqueo sigue siendo el mismo y está identificado: **`BookPatientModal` no tiene props
-   donde recibir fecha+hora**.
-   ⚠️ **La rejilla de 15 min es la AFORDANCIA, no el límite**: el motor acepta cualquier minuto y
-   el campo deja escribir 16:07 (probado en vivo el 2026-08-05, cita `cmsgk8swb0014ns0tpb4g3xc0`).
-   Una rejilla que RECHACE 16:07 sería volver al mundo de los rangos.
-   ⚠️ **Corrección a lo que decía este documento:** se afirmaba que esto *"se cerraría de
-   paso"* al hacer el modal de la cita. **No se cerró.** Son cosas distintas: el modal de la
-   cita rinde acciones sobre una cita que YA existe, mientras que precargar el hueco exige
-   tocar los props de `BookPatientModal`, que no tiene dónde recibirlas. Sigue abierto.
-   🎯 **Pero ahora por fin es HACIBLE de verdad:** hasta `480f7f72`, precargar un hueco fuera
-   de rango no servía de nada porque el picker no podía ofrecer esa hora. Hoy sí — el hueco
-   clicado se traduce a una fecha + una hora que el campo acepta tal cual. Es el pendiente que
-   este trabajo habilita (`01-PLAN` §9.4).
+1. ✅ **`handleBookInGap` ya precarga fecha y hora, y el calendario es clicable FUERA de los
+   rangos** (2026-08-06). Ver §10 — el detalle completo está ahí. ⚠️ **Sin probar a mano y sin
+   commitear** al escribir esto.
 2. **`AppointmentsCalendar` y `DayTimelinePanel`** ya no los usa la página principal, sólo
    las rutas muertas `v1`/`v2`. Borrarlas es una decisión aparte.
 3. **Los `useCallback` inertes** de `page.tsx` (hallazgo 5 de arriba).
@@ -311,6 +312,11 @@ de HOY; §5 y §14 quedan como registro de la v1.
 - **El corte de 1 hora en modo rangos** (`01-PLAN` §11): el picker del doctor todavía se
   aplica a sí mismo una regla escrita para pacientes públicos. El agente ya manda
   `skipCutoff=1`. Cambio de comportamiento, decisión aparte.
+  ⚠️ **Precisión (2026-08-06):** alcanza SÓLO a los **botones de rango**, que salen de la
+  petición del MES. La lista contra la que se valida la hora escrita va con `freeform=1`, y esa
+  rama de la ruta **no aplica el corte** (`range-availability/route.ts:421` — sólo
+  `applyPastFilter`). O sea: el doctor SÍ puede escribir una hora dentro de la próxima hora; lo
+  que no puede es verla como botón.
 
 ---
 
@@ -350,8 +356,122 @@ por diseño (si no, se deduce la agenda ocupada del doctor por inversión).
 >
 > Evidencia y plan: [`../AGENTES/AGENDAR SIN FRICCION/`](../AGENTES/AGENDAR%20SIN%20FRICCION/README.md).
 
+⚠️ **Cerrado el 2026-08-05** en `docs/DESDE JUNIO/AGENTES/AGENDAR SIN FRICCIÓN/`
+(`2d343df8` · `0d2181ed` · `f51696c6`). Se deja el diagnóstico porque explica POR QUÉ eran tres
+puntos y no dos.
+
 **El trabajo es de la carpeta del agente, no de ésta.** Estado y plan en
 [`../AGENTES/AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTES/AGENTE%20AGENDA/SESSION-REFRESCO.md)
 **§Próximos pasos punto 7**, que ya tiene los parámetros del endpoint listos para usar. Exige
 tocar la prosa del módulo agenda (⇒ `gate:prosa` + `gate:prompt`) y **DOS corridas de evals**
 — una sola no distingue regresión de ruido.
+
+---
+
+## 10. ✅ Clic en el calendario para agendar SIN RANGO (2026-08-06, en el árbol)
+
+**El pedido:** *"En rangos, haces clic en el rango y se abre un modal donde puedes crear la
+cita. Quiero esa misma funcionalidad para días y horas donde NO hay rangos, en intervalos de
+15 minutos."* Era el watch-item §4.1 ampliado, y cierra los dos pendientes de una vez: el hueco
+ya **es clicable fuera de rango** y el modal ya **recibe la fecha y la hora**.
+
+### Qué cambió, en cinco piezas
+
+| Dónde | Qué |
+|---|---|
+| `_lib/event-model.ts` | `computeOpenSpans(events, ventana)` — lo libre de una ventana ARBITRARIA, sin exigir rango. `snapToGrid` + `BOOKING_GRID_MINUTES`. `computeFreeGaps` se reescribió sobre los mismos dos helpers (`mergeOccupied` / `subtractOccupied`) **sin cambiar su resultado**: sus 7 comprobaciones siguen verdes |
+| `calendar/TimeGrid.tsx` | La capa clicable ya no sale de `computeFreeGaps` sino de `computeOpenSpans` sobre la ventana visible entera. Una sola capa, misma afordancia dentro y fuera de rango |
+| `appointments/page.tsx` | `handleBookInGap` guarda `{date, startTime}` y abre el modal. **Se quitó el aviso** *"elige el horario en el formulario"*: existía para no prometer una precarga que no ocurría |
+| `BookPatientModal/index.tsx` | Props nuevos `preselectedDate` / `preselectedTime` — el bloqueo que este item arrastraba desde julio |
+| `RangeTimePickerStep.tsx` | Los lee al montar: fecha del paso 2, hora del paso 3, **y el mes arranca en el del hueco** |
+
+### Las cinco decisiones que no son obvias
+
+1. **La hora sale de DÓNDE se clicó, no del inicio del hueco.** Con rangos daba igual (un hueco
+   duraba lo que el rango), pero sin rangos un hueco puede ir de 07:00 a 21:00: mandar su
+   inicio agendaría a las 07:00 a quien clicó las 16:20. Se traduce la posición vertical del
+   clic a minutos y se alinea **hacia abajo** a los 15 — quien clica 16:20 quiere las 16:15, que
+   es el bloque que estaba tocando. Con teclado (`e.detail === 0`) no hay punto de clic, así que
+   se propone la primera marca del hueco.
+2. **Los 15 min son la AFORDANCIA, no el límite** — y hay una comprobación que lo fija: un
+   hueco 09:50–10:00, donde ninguna marca de 15 cae dentro, propone **09:50**. El motor acepta
+   cualquier minuto y el campo sigue aceptando 16:07. Una rejilla que rechazara 16:07 sería
+   volver al mundo de los rangos.
+3. **Una sola capa clicable, no dos.** Los huecos de rango y lo libre fuera de rango se
+   comportan igual, así que superponer dos capas de botones sólo decide clics por z-index. El
+   fondo azul de los rangos sigue diciendo qué está publicado; ya no decide qué es clicable.
+4. **Se recorta lo PASADO** (hoy hasta `ahora + 1 min`, los días anteriores enteros): el picker
+   contestaría *"esa hora ya pasó"*, y un clic que sólo puede terminar en rechazo es peor que
+   ningún clic. El `+1` copia el borde exacto del servidor (`applyPastFilter` conserva
+   estrictamente `startTime > now`), el mismo `<=` que ya vive en `classifyTypedTime`.
+   ⚠️ **El corte de 1 hora NO se replica**: `freeform` no lo aplica (§8), así que el doctor sí
+   puede agendar dentro de la hora. Replicarlo aquí habría sido inventar una restricción que el
+   servidor no tiene.
+5. **Elegir servicio ya no borra la fecha.** La borraba para forzar re-elegirla, pero las dos
+   peticiones dependen de `selectedServiceId` y se relanzan solas (vaciando su estado al
+   empezar, así que no se rinde nada del servicio anterior). Con la fecha precargada era además
+   una pérdida real: **con 2+ servicios el camino normal es clic → servicio**, y ahí se perdía
+   justo el dato que el clic venía a traer.
+
+### Lo que NO cambió, a propósito
+
+- **Precargar no es agendar.** La hora viaja como propuesta y se valida contra la lista del
+  servidor igual que si el doctor la hubiera escrito: puede salir ocupada u ofrecer vecinas, y
+  confirmar sigue siendo un acto aparte (botón o Enter). El cliente no decide disponibilidad.
+- **Sólo la rejilla Día/Semana.** Mes y Año no ganan clic para agendar; Mes baja al día.
+- **La ventana visible sigue siendo el límite de lo clicable** (7–21 h por defecto, estirada
+  por rangos y citas). Para las 06:00 de un día vacío hay que escribir la hora en el modal.
+- **El consultorio sigue sin preguntarse** — no hay columna donde guardarlo (§8 y
+  [`../AGENTES/AGENDAR SIN FRICCION/SESSION-REFRESCO.md`](../AGENTES/AGENDAR%20SIN%20FRICCION/SESSION-REFRESCO.md) §5b B).
+
+### Verificación
+
+`type-check` ✅ · `build` de `@healthcare/doctor` ✅ · los 5 gates ✅ ·
+`event-model-check.ts` **49 comprobaciones** (eran 28; las **21** nuevas cubren `computeOpenSpans`
+y `snapToGrid`, incluida la de que `computeFreeGaps` no ofrece NADA en un día sin rangos —
+que es por lo que hizo falta la función nueva).
+
+⚠️ **El número se contó mal la primera vez** (decía 46/18 en tres sitios, medido "a ojo" en vez
+de con `| grep -c "  ok "`). Lo cazó el `/code-review`. `gate:numeros` **no** cubre este script,
+así que un número de aquí sólo lo protege quien lo vuelva a contar.
+
+⚠️ **Nada de eso es el clic.** Sin API nueva ni SQL, no hay smoke contra prod que valga aquí:
+lo que falta es la corrida a mano del punto 0 de §2.
+
+### El `/code-review` — 6 hallazgos, 6 atendidos
+
+Los dos primeros son bugs de verdad, y los dos existen **porque quitamos el marco de los
+rangos**: mientras lo clicable venía de un rango, un rango acotaba por los dos lados.
+
+1. 🔴 **Un hueco podía pasarse de las 24:00.** El encuadre se estira con `blockEndMin`, que no
+   tiene tope: una cita de 22:00–23:00 con `extendedBlockMinutes = 150` lo empuja a las 24:30,
+   y ahí se ofrecía un clic cuya hora `minToTime` rinde como **"24:45"** — que
+   `<input type="time">` rechaza, así que el doctor recibía el campo **vacío y sin
+   explicación**. `computeOpenSpans` recorta la ventana al día.
+2. 🔴 **`snapToGrid` proponía las 07:00 por un clic en el fondo de la columna.** Si el clic cae
+   exactamente en el borde inferior (`clientY === rect.bottom`, alcanzable en pantallas de DPI
+   fraccionario) y el fin del hueco es marca de rejilla, el candidato quedaba fuera y el
+   fallback devolvía `span.start`: **14 horas de error**. Ahora devuelve la última marca DENTRO
+   del hueco. ⚠️ Mis pruebas sólo ejercitaban el caso *previsto* del fallback (hueco más corto
+   que una celda), que la propia criba de `>= 15 min` vuelve inalcanzable desde la rejilla — o
+   sea que **probaban la rama por el único camino que no ocurre en producción**.
+3. **Mi comentario inventaba un consumidor.** Decía que `computeFreeGaps` "sigue viva para el
+   panel de día"; `DayTimelinePanel` **nunca la usó** —tiene su propio bucle en línea— y hoy su
+   único llamador es el script de comprobaciones. Corregido, con la deuda dicha en voz alta.
+4. **Volver de "← Cambiar horario" reponía el hueco original.** El picker sólo se rinde con
+   `step === "slot"`, así que ir y volver lo **remonta** y re-aplicaba el 16:15 del clic,
+   tirando las 17:30 recién elegidas. Ahora el padre manda lo YA elegido y el hueco sólo cuando
+   no hay nada elegido.
+5. **La ruta muerta `v2` seguía con el aviso mentiroso** (*"Agendar cita: {fecha} a las
+   {hora}"*) y sin precargar nada — justo el peligro que documentaba el comentario que esta
+   sesión borró de `page.tsx`. Se le pasaron los props: ya no miente por ninguno de los dos
+   lados.
+6. **Los números de este documento estaban mal** (46/18 en vez de 49/21). Ver arriba.
+
+**Lo que el review verificó y salió limpio:** el refactor de `computeFreeGaps` es
+comportamiento idéntico · la matemática del clic normaliza por `rect.height`, así que el piso
+de 14px de `heightFor` no la sesga, y `clientY`/`getBoundingClientRect` son ambos relativos al
+viewport (el scroll no la afecta) · el z-index no le roba clics a los bloques de cita · el
+`gapPreset` se limpia en las tres entradas · quitar el borrado de la fecha al cambiar de
+servicio no puede confirmar un horario del servicio anterior · `nowMin + 1` refleja el borde
+del servidor.
