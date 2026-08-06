@@ -131,10 +131,21 @@ export function formatLocalDate(
  * SSR y cliente pueden diferir. Hoy es seguro porque el modal no se rinde hasta que el doctor
  * lo abre (`isOpen` rinde `null`), pero si algo de esto acaba en HTML prerenderizado hay que
  * volver a mirarlo.
+ *
+ * ℹ️ **`"24:00"` se rinde bien y a propósito no se valida.** El producto SÍ construye horas de
+ * fin de `"24:00"` (una cita de 23:30 con servicio de 30 min), y `Date(2000,0,1,24,0)` rueda a la
+ * medianoche siguiente ⇒ `"12:00 AM"`, que en notación de 12 h **es** la medianoche: no hay otra
+ * forma de escribirla. Rechazar `h > 23` haría caer al passthrough y rendiría `"24:00"` crudo
+ * junto a horas en 12 h — exactamente la mezcla que esta función existe para quitar. Como HORA DE
+ * INICIO el 24:00 no ocurre (el servidor sólo lo produce como fin/centinela de corte).
  */
-export function formatTimeOfDay(hhmm: string): string {
+// El tipo admite `null`/`undefined` a propósito: el cuerpo ya se defendía de ellos mientras la
+// firma decía `string`, y esa mentira es justo la que hace que nadie revise el call site — un
+// campo opcional de un JSON sin tipar entraba, salía `undefined`, y React lo rinde como vacío
+// sin que `type-check` diga nada. Ahora entra, y sale una cadena.
+export function formatTimeOfDay(hhmm: string | null | undefined): string {
   const [h, m] = (hhmm ?? '').split(':').map(Number);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm ?? '';
   return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, {
     hour: 'numeric',
     minute: '2-digit',

@@ -567,6 +567,7 @@ model ClinicLocation {
   doctor             Doctor              @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   slots              AppointmentSlot[]
   availabilityRanges AvailabilityRange[]
+  bookings           Booking[]
 
   @@map("clinic_locations")
   @@index([doctorId])
@@ -664,6 +665,14 @@ model Booking {
   serviceId          String?       @map("service_id")
   serviceName        String?       @map("service_name")
 
+  // Which consultorio this appointment is at. Added 2026-08-06: until then NO appointment
+  // recorded its consultorio by any path, even though ranges did and range-bookings already had
+  // the range's locationId in hand at creation time and dropped it.
+  // ⚠️ null = NOT RECORDED, *not* "the default location" (unlike the same-named columns on
+  // appointment_slots and availability_ranges). Guessing the default would make half of
+  // `dra-adriana-michelle`'s appointments name the wrong hospital. See add-booking-location.sql.
+  locationId         String?       @map("location_id")
+
   // Visit context
   isFirstTime        Boolean?      @map("is_first_time")
   appointmentMode    String?       @map("appointment_mode") // "PRESENCIAL" | "TELEMEDICINA"
@@ -717,6 +726,9 @@ model Booking {
   doctor             Doctor           @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   service            Service?         @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   patient            Patient?         @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  // SetNull, no Cascade: borrar un consultorio jamás puede borrar citas — sólo deja de decir
+  // dónde eran. Es lo mismo que ya hace la relación de availability_ranges.
+  location           ClinicLocation?  @relation(fields: [locationId], references: [id], onDelete: SetNull)
   review             Review?
   paymentLink        PaymentLink?
   mpPaymentPreference MpPaymentPreference?
@@ -729,6 +741,11 @@ model Booking {
   @@map("bookings")
   @@index([doctorId, status])
   @@index([slotId])
+  // Declarado aquí Y creado en el SQL: Prisma nombra este índice `bookings_location_id_idx`,
+  // exactamente el mismo que crea `add-booking-location.sql`, así que no hay duplicado. Si sólo
+  // viviera en el SQL sería drift, y un `db push` lo borraría en silencio — justo el índice que
+  // da sentido a la columna (filtrar citas por consultorio).
+  @@index([locationId])
   @@index([doctorId, date])
   @@index([patientEmail])
   @@index([reviewToken])

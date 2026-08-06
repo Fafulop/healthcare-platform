@@ -140,7 +140,10 @@ export function SlotPickerStep({
                   `${String(h).padStart(2, "0")}:00`,
                   `${String(h).padStart(2, "0")}:30`,
                 ]).map((val) => (
-                  <option key={val} value={val}>{val}</option>
+                  // El VALUE se queda en "HH:MM" 24 h — es lo que viaja al servidor. Sólo se
+                  // localiza la ETIQUETA, para no dejar este formulario en 24 h mientras el
+                  // encabezado y la pantalla de éxito del mismo modal hablan en 12 h.
+                  <option key={val} value={val}>{formatTimeOfDay(val)}</option>
                 ))}
               </select>
             </div>
@@ -163,7 +166,7 @@ export function SlotPickerStep({
             <p className="text-xs text-gray-500">
               Hora de fin:{" "}
               <span className="font-medium">
-                {calcEndTime(newSlotForm.startTime, newSlotForm.duration)}
+                {formatTimeOfDay(calcEndTime(newSlotForm.startTime, newSlotForm.duration))}
               </span>
             </p>
           )}
