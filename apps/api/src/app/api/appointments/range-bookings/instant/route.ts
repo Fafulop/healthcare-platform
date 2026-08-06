@@ -13,6 +13,7 @@ import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
+import { validateRequestedLocation, inheritLocationFromRange } from '@/lib/booking-location';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
 
 export async function POST(request: Request) {
@@ -38,6 +39,10 @@ export async function POST(request: Request) {
       appointmentMode,
       isRescheduled,
       patientId,
+      // En cuál consultorio es la cita. Opcional: si no viene, se hereda del rango que la
+      // contiene (booking-location.ts). Sólo hay algo que elegir cuando el doctor tiene 2+
+      // consultorios Y la cita cae fuera de todo rango.
+      locationId,
     } = body;
 
     if (!doctorId || !date || !startTime || !serviceId || !patientName) {
@@ -117,6 +122,21 @@ export async function POST(request: Request) {
       );
     }
 
+    // El consultorio EXPLÍCITO se valida aquí, junto a `serviceId` y `patientId`, y no dentro de
+    // la transacción: es una lectura que no necesita el lock del día, y validarla adentro hacía
+    // que una petición condenada a 400 tomara primero el advisory lock de doctor+fecha.
+    // `null` = no lo mandaron ⇒ se hereda del rango, ya dentro de la transacción.
+    const requestedLocation = await validateRequestedLocation(prisma, {
+      doctorId,
+      requestedLocationId: locationId,
+    });
+    if (!requestedLocation.ok) {
+      return NextResponse.json(
+        { success: false, error: requestedLocation.error },
+        { status: 400 }
+      );
+    }
+
     const serviceDuration = service.durationMinutes;
     const serviceName = service.serviceName;
     const finalPrice = Number(service.price) || 0;
@@ -178,6 +198,18 @@ export async function POST(request: Request) {
           );
         }
 
+        // Consultorio: el explícito ya se validó arriba. Si no vino ninguno, se HEREDA aquí
+        // dentro para que la herencia lea el mismo estado que los checks de traslape — si
+        // alguien borra el rango a medio camino, no se hereda de un rango fantasma.
+        const resolvedLocationId =
+          requestedLocation.locationId ??
+          (await inheritLocationFromRange(tx, {
+            doctorId,
+            date: bookingDate,
+            startTime: normalizedStartTime,
+            endTime,
+          }));
+
         // Create booking (slotId = null → range-based freeform)
         const b = await tx.booking.create({
           data: {
@@ -208,12 +240,21 @@ export async function POST(request: Request) {
             confirmedAt: new Date(),
             isRescheduled: isRescheduled === true,
             patientId: patientId || null,
+            locationId: resolvedLocationId,
           },
         });
 
         return b;
       });
     } catch (txErr: any) {
+      // ⚠️ Nota: un consultorio inválido NO llega aquí — se contesta 400 antes de abrir la
+      // transacción. Se hizo así a propósito: mientras vivió aquí dentro, dependía de que su
+      // rama estuviera ANTES de la de `bookingError`, y el ternario de abajo manda a la frase de
+      // traslape todo lo que no sea TIME_BLOCKED. Reordenar las ramas —o meter un handler nuevo
+      // arriba— habría convertido "consultorio inválido" en un 409 "este horario se traslapa con
+      // una cita existente (undefined–undefined)": un hecho FALSO sobre la agenda del doctor,
+      // pidiéndole que cambie de HORA cuando lo que está mal es el CONSULTORIO. Validar fuera
+      // quita el orden de en medio.
       if (txErr?.bookingError) {
         const msg = txErr.message === 'TIME_BLOCKED'
           ? `Este horario se encuentra bloqueado (${txErr.blockedStart}–${txErr.blockedEnd}). Elige otro momento.`

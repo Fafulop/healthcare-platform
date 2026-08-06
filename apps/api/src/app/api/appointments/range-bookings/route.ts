@@ -277,6 +277,20 @@ export async function POST(request: Request) {
             status: bookingStatus,
             isRescheduled: isRescheduled === true,
             patientId: patientId || null,
+            // El consultorio se HEREDA del rango que contiene la cita. Aquí no hay nada que
+            // preguntar ni que validar: por definición esta ruta exige que la cita caiga dentro
+            // de un rango (`NO_RANGE` si no), y ese rango es de este doctor.
+            // Hasta hoy `matchingRange.locationId` se seleccionaba y se tiraba: se pedía el dato
+            // a la BD y no se usaba en ninguna de las tres referencias a `matchingRange`.
+            //
+            // ⚠️ Esta ruta NO llama a `inheritLocationFromRange` (lib/booking-location.ts) a
+            // propósito: el rango ya está en la mano por el check de `NO_RANGE`, y volver a
+            // pedirlo sería una query de más en el camino público. La diferencia con el helper es
+            // que él filtra `locationId: { not: null }` y esta query no — hoy da igual porque el
+            // API prohíbe rangos solapados, así que a lo sumo UN rango contiene la ventana y los
+            // dos predicados eligen el mismo. Si algún día se permiten rangos solapados, esto
+            // tiene que pasar a llamar al helper o las dos rutas divergen.
+            locationId: matchingRange.locationId,
             ...(autoConfirm && { confirmedAt: new Date() }),
           },
         });

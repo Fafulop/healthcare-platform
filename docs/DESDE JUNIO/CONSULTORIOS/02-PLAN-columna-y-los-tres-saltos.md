@@ -1,7 +1,9 @@
 # 02 — El plan: una columna y tres saltos
 
-> Tipo **DECISIÓN / REFERENCIA**. Escrito el **2026-08-06**. El paso 1 tiene el SQL listo y
-> **nada corrido**.
+> Tipo **DECISIÓN / REFERENCIA**. Escrito el **2026-08-06**.
+>
+> **Estado:** paso 1 ✅ corrido en prod (`e2d10151`) · paso 2 ✅ los dos endpoints de rangos ·
+> pasos 3 y 4 pendientes. El backfill de §5.1 **NO se ha corrido**.
 
 ## 1. El orden, y por qué no es negociable
 
@@ -31,9 +33,18 @@ ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS location_id TEXT;
 
 Tres decisiones que ya están tomadas en ese archivo:
 
-1. **`NULL` = el consultorio por defecto del doctor.** Es la convención que ya usan
-   `appointment_slots.location_id` y `availability_ranges.location_id` — está escrita en el
-   `schema.prisma` de las dos. No se inventa un significado nuevo.
+1. 🔴 **`NULL` = NO REGISTRADO.** *(Corregido al implementar. Este punto decía antes lo
+   contrario: "`NULL` = el consultorio por defecto", por seguir la convención de
+   `appointment_slots.location_id` y `availability_ranges.location_id`.)*
+
+   **Se invierte a propósito, y es la decisión central de toda la feature.** Heredar esa
+   convención convertiría un dato ausente en una afirmación concreta y falsa: para
+   `dra-adriana-michelle`, resolver `NULL` al default manda al paciente al hospital equivocado
+   (§5.1 — medido: **2 citas** de las suyas caen en el que NO es el default). Un `NULL` que
+   se ve `NULL` se puede arreglar; un `NULL` que se rinde como "Hospital Ángeles" no.
+
+   ⚠️ Por eso **ningún lector puede resolver `bookings.location_id` al default**, y por eso el
+   paso 2 hereda sólo de rangos que **sí** tienen consultorio (`locationId: { not: null }`).
 2. **`ON DELETE SET NULL`**, que es lo que Prisma genera para la relación opcional de
    `availability_ranges`. Borrar un consultorio **nunca** puede borrar citas; sólo deja de decir
    dónde eran.
@@ -79,12 +90,91 @@ contra prod. Además imprime el **host** al conectarse, para poder afirmar contr
 
 | Paso | Qué |
 |---|---|
-| **2. Endpoints** | `range-bookings/instant` acepta `locationId` y lo guarda. `range-bookings` **hereda** el del rango que ya tiene en la mano (`01-ESTADO` §3) — una línea. |
+| **2. Endpoints** ✅ | `range-bookings/instant` acepta `locationId` y lo guarda. `range-bookings` **hereda** el del rango que ya tiene en la mano (`01-ESTADO` §3) — una línea. Ver §4.1. |
 | **3. UI** | El picker manda el consultorio; una cita que nace dentro de un rango lo hereda sin preguntar. Sólo hay algo que elegir cuando el doctor tiene 2+ **y** la cita es freeform. |
 | **4. Agente** | `get_locations` ya existe. Preguntar **sólo** si el doctor tiene 2+ y la cita no hereda de un rango; mandar `locationId` en `propose_create_booking`. Toca prosa del módulo agenda ⇒ `gate:prosa` + `gate:prompt` + **DOS corridas de evals**. |
 
 Y al cerrar: **revisar `02-CAPACIDADES`**, que hoy dice que el agente no puede filtrar por
 consultorio *"porque el dato no existe"*. Esa frase deja de ser cierta con el paso 2.
+
+### 4.1 — Paso 2, como quedó
+
+La regla es la misma en los dos endpoints de rangos:
+
+```
+1. explícito  →  se valida que el consultorio sea DE ESE DOCTOR  →  gana
+2. si no      →  se HEREDA del rango que contiene la cita (sólo si el rango tiene uno)
+3. si no      →  NULL = no registrado   (NUNCA el default — §2.1)
+```
+
+**`apps/api/src/lib/booking-location.ts`** la parte en dos funciones, y **dónde corre cada una
+es la decisión de diseño**, no un detalle:
+
+| Función | Dónde corre | Por qué ahí |
+|---|---|---|
+| `validateRequestedLocation` | **FUERA** de la transacción, junto a `serviceId` y `patientId` | Es una lectura que no necesita el lock del día. Adentro, una petición condenada a 400 tomaba primero el advisory lock de doctor+fecha y corría los checks de traslape — gastando presupuesto de transacción interactiva en una ruta que ya trata el timeout `P2028` como modo de fallo conocido. |
+| `inheritLocationFromRange` | **DENTRO** de la transacción | Para leer el mismo estado que los checks de traslape: si alguien borra el rango a medio camino, no se hereda de un rango fantasma. |
+
+| Endpoint | Qué hace |
+|---|---|
+| `range-bookings/instant` | Usa las dos: acepta `locationId` del cliente, valida antes de abrir la transacción, hereda adentro si no vino ninguno. |
+| `range-bookings` | Sólo hereda, y **no importa el helper**: el rango ya está en la mano por el check de `NO_RANGE`, así que volver a pedirlo sería una query de más en el camino público. |
+
+Cuatro cosas que no son obvias y por eso están así:
+
+- **El check de pertenencia no es decorativo.** La FK apunta a `clinic_locations`, no a "los
+  consultorios de este doctor": sin validar, cualquiera con sesión podría colgarle a su cita el
+  consultorio de otro doctor y la BD lo aceptaría. Es el mismo check que ya tenía `serviceId`.
+- **Un `locationId` presente pero malformado (un número, un objeto) da 400, NO se cae a la
+  herencia.** Tratarlo como "no dijo nada" guardaría la cita en un consultorio **distinto** al
+  pedido y contestaría `201`: la petición atendida mal, y nadie se entera. Para un campo cuyo
+  propósito es no rendir una suposición como un hecho, un explícito roto tiene que fallar fuerte.
+  (Cadena vacía sí cuenta como "ninguno" — es como los formularios mandan el vacío.)
+- **Un consultorio inválido contesta 400 antes de abrir la transacción**, y eso además **quita el
+  orden de las ramas de en medio**. Mientras la validación vivió dentro, el 400 dependía de que
+  su rama estuviera antes que la de `bookingError`, y el ternario de errores manda a la frase de
+  traslape todo lo que no sea `TIME_BLOCKED`: reordenar las ramas habría convertido "consultorio
+  inválido" en *"este horario se traslapa con una cita existente (undefined–undefined)"* — un
+  hecho falso sobre la agenda, pidiéndole al doctor que cambie de **hora** cuando lo que está mal
+  es el **consultorio**.
+- **Las dos rutas coinciden porque el API prohíbe rangos solapados.** El helper filtra
+  `locationId: { not: null }` y la query de `range-bookings` no; como a lo sumo UN rango contiene
+  la ventana, los dos predicados eligen el mismo. Si algún día se permiten rangos solapados esa
+  equivalencia se rompe y `range-bookings` tiene que pasar a llamar al helper. Está anotado en
+  los dos archivos.
+
+**Lo que NO toca el paso 2:** los endpoints de slots (`bookings`, `bookings/instant`). El
+mecanismo de slots está obsoleto y la UI viva no lo alcanza — `/dashboard/appointments` pasa
+`rangeMode` sin condición, así que las ramas de slot del modal (`BookPatientModal/index.tsx:407`
+y `:455`) no se ejecutan; sólo las alcanza `/dashboard/appointments/v1`, a la que no enlaza nada.
+Ver `01-ESTADO` §5.
+
+🔸 **Pendiente anotado, no arreglado — son TRES sitios**, no uno *(los otros dos los encontró el
+`/code-review high` del 2026-08-06)*:
+
+| Archivo | Línea |
+|---|---|
+| `appointments/bookings/instant/route.ts` | `:104` — `resolvedLocationId = locationId \|\| null` |
+| `appointments/slots/route.ts` | `:303` — `locationId ?? null` |
+| `appointments/slots/[id]/route.ts` | `:96` — `locationId ?? null` |
+
+Los tres aceptan el `locationId` del cliente **sin validar pertenencia** y lo escriben en el slot,
+así que un doctor puede colgarle a su horario el consultorio de otro y la disponibilidad
+renderiza la dirección ajena. Rutas muertas en la UI, endpoints vivos en la API. Es verbatim la
+regla que `validateRequestedLocation` aplica del lado de rangos, y `ranges/route.ts:206` ya lo
+hace bien. **No se tocan aquí** porque son el camino de slots (§`01-ESTADO` §5) y arreglarlos es
+una decisión aparte, no parte del paso 2.
+
+**Verificado:** `type-check` de `apps/api` limpio · los 5 gates en verde · las dos formas de query
+nuevas probadas read-only contra prod (`yamanote.proxy.rlwy.net`, 2026-08-06): el check de
+pertenencia acepta el par propio y devuelve `null` en el cruzado, y la herencia devuelve el
+consultorio correcto del rango contenedor · `/code-review high`, cuyos hallazgos #2 #3 #4 y #5
+están aplicados arriba (#1 es el pendiente de slots).
+
+🔴 **Falta el clic real.** Nadie ha creado una cita por la UI y visto la columna poblada — y hoy
+**ningún cliente manda `locationId`**: `BookPatientModal/index.tsx:363-389` no lo incluye, así
+que el campo nuevo del body no lo ejercita nadie hasta el paso 3. Lo único que corre en
+producción con esto es la **herencia**. `type-check` + gates + smoke read-only ≠ probado.
 
 ## 5. Decisiones ABIERTAS (del usuario, no del código)
 
@@ -100,10 +190,18 @@ consultorio *"porque el dato no existe"*. Esa frase deja de ser cierta con el pa
    ausente que se ve ausente; es un dato ausente que se rinde como una afirmación falsa — la
    misma clase que *"una lista vacía no es una respuesta"*.
 
-   **Alcance real, medido:** de 268 citas heredables en toda la BD, sólo **6** tienen una
+   **Alcance real, medido:** de 269 citas heredables en toda la BD, sólo **6** tienen una
    respuesta no obvia, y son todas suyas (`01-ESTADO` §4). Cada una cae dentro de **exactamente
    un** rango — el API prohíbe que dos rangos se solapen — así que no hay inferencia ni empate:
    el rango nombra su hospital y ya.
+
+   🎯 **Y de esas 6, las que hoy mentirían son DOS** *(re-medido contra prod el 2026-08-06 al
+   cerrar el paso 2)*: 4 caen en Hospital Ángeles Valle Oriente, que **es** su default, y 2 en
+   CHRISTUS Muguerza Cumbres, que **no**. Ése es el tamaño verdadero del daño que evita esta
+   feature: dos citas que, resueltas al default, mandarían al paciente a otro hospital de
+   Monterrey. Las otras 267 heredables coinciden con el default de su doctor, así que el
+   backfill es mayormente confirmatorio — pero sigue siendo lo que convierte un `NULL`
+   ambiguo en un dato afirmado.
 
    **Cómo se hace, entonces:** paso aparte del `ALTER TABLE`, con las 6 filas impresas ANTES y
    DESPUÉS. A esa escala se revisan a ojo, que es lo que vuelve seguro un backfill que a escala
