@@ -306,6 +306,16 @@ Si un botón falla igual desde la tabla, no es de aquí.
 
 ## L. Clic en el calendario para agendar, con y sin rango (2026-08-06)
 
+✅ **CORRIDA Y PASADA por el doctor el 2026-08-06.** Único hallazgo: notación 12h/24h entre el
+campo y la etiqueta de al lado — arreglado (`SESSION-REFRESCO` §10). Se deja el guion para las
+regresiones. ⚠️ **L-13 es nueva y NO se ha corrido.**
+
+- [ ] **L-13.** Las horas del modal se leen en **la misma notación que el campo**: si el campo
+      dice `03:45 PM`, el botón dice *"Usar 3:45 PM – 4:30 PM"*, no *"15:45 – 16:30"*. Vale
+      también para los botones de rango, las horas cercanas, el encabezado y la pantalla de
+      éxito. ⚠️ **El calendario detrás sigue en 24 h a propósito** — no es una inconsistencia
+      que arreglar.
+
 Lo que se prueba aquí NO es si el modal agenda —eso lo cubre el picker (§B) y ya está probado—
 sino **qué fecha y qué hora llegan** cuando el clic viene de la rejilla. Un fallo típico de esta
 sección es una hora **plausible pero equivocada** (el inicio del hueco en vez de donde se clicó),

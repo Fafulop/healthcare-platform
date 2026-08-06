@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { X, Loader2, ChevronRight } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
-import { getLocalDateString, getClinicDateString, formatLocalDate } from "@/lib/dates";
+import { getLocalDateString, getClinicDateString, formatLocalDate, formatTimeOfDay } from "@/lib/dates";
 import type { AppointmentSlot, ClinicLocation } from "../../_hooks/useSlots";
 import type { Booking } from "../../_hooks/useBookings";
 import { SlotPickerStep } from "./SlotPickerStep";
@@ -511,7 +511,7 @@ export function BookPatientModal({
             {step === "form" && displaySlot && (
               <p className="text-sm text-gray-500">
                 {formatLocalDate(displaySlot.date, { weekday: "short", day: "numeric", month: "short" })}
-                {" · "}{displaySlot.startTime} – {displaySlot.endTime}
+                {" · "}{formatTimeOfDay(displaySlot.startTime)} – {formatTimeOfDay(displaySlot.endTime)}
               </p>
             )}
             {step === "success" && <p className="text-sm text-gray-500">Cita confirmada</p>}

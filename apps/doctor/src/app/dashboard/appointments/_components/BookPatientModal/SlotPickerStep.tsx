@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar, Clock, Loader2, Stethoscope, MapPin, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
-import { formatLocalDate, getClinicDateString } from "@/lib/dates";
+import { formatLocalDate, getClinicDateString, formatTimeOfDay } from "@/lib/dates";
 import type { AppointmentSlot } from "../../_hooks/useSlots";
 import type { ClinicLocation } from "../../_hooks/useSlots";
 
@@ -332,7 +332,7 @@ export function SlotPickerStep({
                     <div className="flex items-center gap-1.5 mb-1">
                       <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500" />
                       <span className="font-semibold text-gray-900 text-sm">
-                        {slot.startTime} – {slot.endTime}
+                        {formatTimeOfDay(slot.startTime)} – {formatTimeOfDay(slot.endTime)}
                       </span>
                     </div>
                     <span className="text-xs text-gray-400">{slot.duration} min</span>

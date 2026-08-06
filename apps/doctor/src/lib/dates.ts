@@ -107,3 +107,36 @@ export function formatLocalDate(
     return isoStr;
   }
 }
+
+/**
+ * "HH:MM" en 24 h (como lo guarda la BD y lo devuelve el API) → escrito **como lo escribe el
+ * navegador del doctor**: "15:45" o "3:45 PM" según su locale.
+ *
+ * Existe por una sola razón, y es de coherencia visible: el campo de hora del modal de
+ * agendar es un `<input type="time">` y **su formato lo elige el navegador, no nosotros** —
+ * no hay atributo para forzarlo. Con las etiquetas en 24 h duras, la misma hora aparecía dos
+ * veces y en dos notaciones a un centímetro de distancia: el campo decía `03:45 PM` y el
+ * botón de al lado `Usar 15:45 – 16:30`. No estaba mal; obligaba a traducir.
+ *
+ * ⚠️ **Locale del NAVEGADOR a propósito** (`undefined`), no `es-MX` como `formatLocalDate`.
+ * El objetivo no es "hablar español", es **coincidir con el campo** — y el campo sigue al
+ * navegador. Fijar un locale aquí reintroduciría el desacuerdo para quien tenga el navegador
+ * en otro idioma, que es justo el caso que se está arreglando.
+ *
+ * ⚠️ **Sólo para el modal de agendar.** La rejilla del calendario, la franja de rangos y la
+ * tabla siguen en 24 h: ahí no hay ningún `<input type="time">` con el que coincidir, y son
+ * densas en horas (una columna de 14 h con "3 PM" en vez de "15:00" se lee peor).
+ *
+ * ⚠️ **No usar en render de servidor.** El locale del navegador no existe en el build, así que
+ * SSR y cliente pueden diferir. Hoy es seguro porque el modal no se rinde hasta que el doctor
+ * lo abre (`isOpen` rinde `null`), pero si algo de esto acaba en HTML prerenderizado hay que
+ * volver a mirarlo.
+ */
+export function formatTimeOfDay(hhmm: string): string {
+  const [h, m] = (hhmm ?? '').split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}

@@ -17,9 +17,10 @@ calendario ya abría su modal de acciones (`3447b9c3`). ⚠️ **Lo único proba
 del interruptor y un vistazo a la v2; la rejilla de 1 minuto y la UI grande NO se han
 probado**, y el calendario (**J**), el modal (**K**) y la tabla (**A–I**) siguen sin correr.
 
-🆕 **2026-08-06, en el árbol y sin commitear:** el calendario ya es **clicable donde NO hay
-rango** y el clic **precarga fecha y hora** en el modal, en bloques de 15 min. Cierra el
-watch-item §4.1 y el pedido A del usuario. Detalle en **§10**.
+🆕 **2026-08-06 (`d6e6d08c`):** el calendario ya es **clicable donde NO hay rango** y el clic
+**precarga fecha y hora** en el modal, en bloques de 15 min. Cierra el watch-item §4.1 y el
+pedido A del usuario. **Y por una vez SÍ se probó a mano el mismo día: la sección L pasó.**
+Detalle en **§10**.
 
 ✅ **Lo del AGENTE (§9) se cerró el 2026-08-05** en la carpeta del agente.
 
@@ -59,7 +60,7 @@ Esto sigue siendo lo más importante de este documento.
 | `ca627673` (v1, interruptor) | ✅ **Probada por el doctor: funcionaba.** Se descartó igual, por diseño (§8) |
 | `dcf64de6` (v2, hora escrita) | ⚠️ **Vistazo del doctor: "se ve mucho mejor".** No es la corrida del guion |
 | `480f7f72` (1 min + UI grande) | ❌ **Sin probar por nadie.** Sólo se confirmó que desplegó |
-| **Clic en el calendario para agendar sin rango (§10)** | ❌ **Sin probar por nadie, y ni siquiera commiteado.** Verde: `type-check`, `build`, **49** comprobaciones de `event-model-check.ts` (eran 28) |
+| **Clic en el calendario para agendar sin rango (§10)** | ✅ **PROBADO POR EL DOCTOR el 2026-08-06 (sección L): pasó.** Único hallazgo, de notación (12h/24h), arreglado — §10. Verde además: `type-check`, `build`, los 5 gates, **49** comprobaciones de `event-model-check.ts` (eran 28) |
 
 Lo automático está verde en todos (`type-check`, `build`, los 5 gates, las **49** comprobaciones
 de `event-model-check.ts` — eran 28 antes de §10), más **smoke read-only contra prod** en los dos commits que tocaron
@@ -475,3 +476,40 @@ viewport (el scroll no la afecta) · el z-index no le roba clics a los bloques d
 `gapPreset` se limpia en las tres entradas · quitar el borrado de la fecha al cambiar de
 servicio no puede confirmar un horario del servicio anterior · `nowMin + 1` refleja el borde
 del servidor.
+
+### La corrida a mano SÍ ocurrió — y salió limpia salvo un detalle de notación
+
+**El doctor corrió la sección L el 2026-08-06: todo correcto.** Es la primera vez en esta
+carpeta que algo de este tamaño se prueba a mano el mismo día. Lo único que salió fue esto, y
+**no era un error**:
+
+```
+Hora
+Escribe la hora
+  [ 03:45 PM ]          ← el <input type="time">
+  Usar 15:45 – 16:30    ← nuestra etiqueta
+```
+
+La misma hora, dos notaciones, a un centímetro. **El formato del campo lo elige el NAVEGADOR y
+no hay atributo para forzarlo**, así que la única pieza que podíamos mover era la nuestra.
+
+**Decisión del usuario: el modal habla la notación del navegador.** `formatTimeOfDay`
+(`lib/dates.ts`) con locale `undefined` —deliberadamente **no** `es-MX` como `formatLocalDate`:
+el objetivo no es hablar español, es **coincidir con el campo**, y el campo sigue al navegador.
+Alcanza a las horas del modal: botones de rango, el botón "Usar …", las horas cercanas, el
+encabezado y la pantalla de éxito (y de paso `SlotPickerStep`, del modal viejo).
+
+⚠️ **El calendario, la franja de rangos y la tabla siguen en 24 h**, a propósito: ahí no hay
+ningún `<input type="time">` con el que coincidir, y son densas en horas (una columna de 14 h
+con "3 PM" en vez de "15:00" se lee peor). O sea que la coherencia se buscó **dentro de cada
+superficie**, no a través de todas.
+
+⚠️ **El `value` del input sigue siendo "HH:MM" 24 h** — lo exige el HTML. Sólo cambió lo que se
+RINDE, nunca lo que se manda al servidor.
+
+⚠️ **No usar `formatTimeOfDay` en render de servidor**: el locale del navegador no existe en el
+build. Hoy es seguro porque el modal no se rinde hasta abrirlo, y está dicho en su docstring.
+
+**De paso, la duda que trajo el reporte y su respuesta medida:** el `16:30` de `15:45 – 16:30`
+no lo inventa el cliente — `endTime = startTime + serviceDurationMinutes`, calculado en el
+servidor (`availability.ts:210`). Son 45 min porque el servicio dura 45.

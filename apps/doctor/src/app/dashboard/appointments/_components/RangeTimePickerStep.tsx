@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Clock, ChevronLeft, ChevronRight, Loader2, MapPin } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
-import { getClinicDateString, getClinicMinutesOfDay } from "@/lib/dates";
+import { getClinicDateString, getClinicMinutesOfDay, formatTimeOfDay } from "@/lib/dates";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -597,8 +597,10 @@ export function RangeTimePickerStep({
                   onClick={() => { setTypedTime(""); commitSlot(slot); }}
                   className="flex flex-col items-center py-2.5 px-2 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 active:scale-[0.97] transition-all"
                 >
-                  <span className="text-sm font-bold text-gray-900">{slot.startTime}</span>
-                  <span className="text-[11px] text-gray-400">{slot.endTime}</span>
+                  {/* Todas las horas del modal van en la notación del NAVEGADOR, la misma que
+                      usa el campo `type="time"` de abajo. Ver `formatTimeOfDay`. */}
+                  <span className="text-sm font-bold text-gray-900">{formatTimeOfDay(slot.startTime)}</span>
+                  <span className="text-[11px] text-gray-400">{formatTimeOfDay(slot.endTime)}</span>
                   {slot.locationName && (
                     <span className="text-[10px] text-indigo-500 truncate w-full text-center mt-0.5 flex items-center justify-center gap-0.5">
                       <MapPin className="w-2.5 h-2.5 shrink-0" />
@@ -648,7 +650,7 @@ export function RangeTimePickerStep({
                   onClick={() => commitSlot(typedVerdict.slot)}
                   className="flex-1 min-w-[9rem] px-3 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:scale-[0.98] shadow-sm transition-all"
                 >
-                  Usar {typedVerdict.slot.startTime} – {typedVerdict.slot.endTime}
+                  Usar {formatTimeOfDay(typedVerdict.slot.startTime)} – {formatTimeOfDay(typedVerdict.slot.endTime)}
                 </button>
               )}
               {loadingSlots && <Loader2 className="w-4 h-4 animate-spin text-blue-600" />}
@@ -689,7 +691,7 @@ export function RangeTimePickerStep({
                           onClick={() => { setTypedTime(s.startTime); commitSlot(s); }}
                           className="px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 active:scale-[0.97] text-[13px] font-semibold tabular-nums transition-all"
                         >
-                          {s.startTime}
+                          {formatTimeOfDay(s.startTime)}
                         </button>
                       ))}
                     </div>

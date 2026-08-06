@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle, DollarSign, Stethoscope, Mail } from "lucide-react";
-import { formatLocalDate } from "@/lib/dates";
+import { formatLocalDate, formatTimeOfDay } from "@/lib/dates";
 
 interface DoctorService {
   id: string;
@@ -64,7 +64,7 @@ export function SuccessStep({
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Horario</span>
               <span className="font-semibold text-gray-900">
-                {displaySlot.startTime} – {displaySlot.endTime}
+                {formatTimeOfDay(displaySlot.startTime)} – {formatTimeOfDay(displaySlot.endTime)}
               </span>
             </div>
           </>
