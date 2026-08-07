@@ -311,7 +311,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_delete_range',
     description:
-      'PROPONE eliminar rango(s) de disponibilidad por id (los ids salen de get_day_schedule o get_ranges de ESTE turno — para varios días usa get_ranges, UNA llamada). Si un rango tiene citas activas dentro, PROPÓN IGUAL y transmite la advertencia que la tool te devuelva: el veredicto lo da el servidor al ejecutar y el doctor decide en la tarjeta — no te detengas tú. Para REEMPLAZAR un rango propón eliminar y LUEGO crear, en el mismo turno. IMPORTANTE: eliminar un rango NUNCA afecta las citas — no sugieras cancelar/reagendar citas como requisito para borrar rangos.',
+      'PROPONE eliminar rango(s) de disponibilidad por id (los ids salen de get_day_schedule o get_ranges de ESTE turno — para varios días usa get_ranges, UNA llamada). Si un rango tiene citas activas dentro, PROPÓN IGUAL y transmite la advertencia que la tool te devuelva: el rango se elimina de todos modos y las citas siguen agendadas — el doctor decide en la tarjeta, no te detengas tú. Para REEMPLAZAR un rango propón eliminar y LUEGO crear, en el mismo turno. IMPORTANTE: eliminar un rango NUNCA afecta las citas — no sugieras cancelar/reagendar citas como requisito para borrar rangos.',
     input_schema: {
       type: 'object',
       properties: {
@@ -668,12 +668,20 @@ async function proposeDeleteRange(ctx: ProposalContext, input: { rangeIds: strin
     return { error: 'Ningún rango con esos ids pertenece a este doctor — usa ids de get_day_schedule de este turno.' };
   }
 
-  // Pre-check: active citas inside each range (the individual DELETE endpoint
-  // refuses those — warn now instead of failing at execution).
+  // Pre-check: citas activas dentro de cada rango.
+  // ⚠️ Ya NO es un pre-check de RECHAZO: el endpoint individual dejó de negarse a borrar rangos
+  // con citas (`ranges/[id]/route.ts`), igual que el masivo, porque una cita no depende de su
+  // rango. Se sigue calculando para INFORMAR — el doctor decide viendo qué sigue agendado ahí.
   const dateKeys = [...new Set(ranges.map((r) => utcDateToKey(r.date)))];
   const bookingsByDate = await activeBookingsByDate(ctx.doctorId, dateKeys);
-  const conRango: string[] = [];
-  const protegidos: string[] = [];
+  const sinCitas: string[] = [];
+  const conCitas: string[] = [];
+  // TODOS los rangos que la tarjeta va a borrar, en orden, anotando los que tienen citas.
+  // ⚠️ `detalle` tiene que listarlos TODOS: cuando el servidor rechazaba los que tenían citas,
+  // enseñar sólo `sinCitas` era exacto — describía justo lo que iba a pasar. Ahora se borran
+  // todos, así que esa lista dejaría fuera parte de lo que la tarjeta ejecuta, y si TODOS los
+  // rangos tuvieran citas la tarjeta de confirmación no nombraría NADA de lo que borra.
+  const detalleTodos: string[] = [];
   for (const r of ranges) {
     const key = utcDateToKey(r.date);
     const inside = (bookingsByDate.get(key) ?? []).filter((b) =>
@@ -681,23 +689,26 @@ async function proposeDeleteRange(ctx: ProposalContext, input: { rangeIds: strin
     );
     const label = `${key} ${r.startTime}–${r.endTime}`;
     if (inside.length > 0) {
-      protegidos.push(`${label} (${inside.length} cita(s): ${inside.map((b) => b.patientName).slice(0, 3).join(', ')})`);
+      const conNombres = `${label} (${inside.length} cita(s): ${inside.map((b) => b.patientName).slice(0, 3).join(', ')})`;
+      conCitas.push(conNombres);
+      detalleTodos.push(conNombres);
     } else {
-      conRango.push(label);
+      sinCitas.push(label);
+      detalleTodos.push(label);
     }
   }
 
   const advertencias: string[] = [];
-  if (protegidos.length > 0) {
+  if (conCitas.length > 0) {
     advertencias.push(
-      `⚠️ ${protegidos.length} rango(s) no se pueden eliminar porque tienen citas agendadas: ${protegidos.join(' · ')}. Las citas no se tocan: eliminar rangos nunca afecta citas ya agendadas.`
+      `⚠️ ${conCitas.length} rango(s) tienen citas agendadas dentro y SE VAN A ELIMINAR IGUAL: ${conCitas.join(' · ')}. Las citas NO se tocan — siguen agendadas tal cual; lo que se retira es la publicación de esos horarios.`
     );
   }
 
   const proposal = ctx.collector.add({
     type: 'delete_range',
     titulo: `Eliminar ${ranges.length} rango(s) de disponibilidad`,
-    detalle: conRango.length > 0 ? conRango : ['(todos los rangos seleccionados tienen citas — ver advertencia)'],
+    detalle: detalleTodos,
     advertencias,
     params: { rangeIds: ranges.map((r) => r.id) },
   });
@@ -706,9 +717,13 @@ async function proposeDeleteRange(ctx: ProposalContext, input: { rangeIds: strin
   return {
     propuestaId: proposal.id,
     orden: proposal.orden,
-    rangosSinCitas: conRango,
-    rangosProtegidosPorCitas: protegidos,
-    nota: protegidos.length > 0 ? 'AVISA al doctor cuáles rangos serán rechazados por tener citas.' : undefined,
+    rangosSinCitas: sinCitas,
+    // Antes se llamaba `rangosProtegidosPorCitas` y el modelo leía "protegidos" como "no se van
+    // a borrar" — que ya es falso. El nombre del campo ES el dato para el modelo.
+    rangosConCitasDentro: conCitas,
+    nota: conCitas.length > 0
+      ? 'AVISA cuántas citas quedan agendadas en esos horarios. SE ELIMINAN IGUAL y las citas no se tocan — no pidas cancelarlas.'
+      : undefined,
   };
 }
 

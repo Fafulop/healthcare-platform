@@ -176,12 +176,23 @@ propuestas/turno**, horizonte 1 año, máx 120 días por propuesta.
 | `propose_create_range` (único/recurrente) | `date >= hoy` TZ MX (**el endpoint NO lo valida** — RNG-10), retícula 15 min, fin>inicio, interval∈{15,30,45,60}, traslapes/duplicados por día contra rangos existentes | `POST /api/appointments/ranges` (mode single/recurring — mismo payload que `CreateRangeModal`) |
 | `propose_block_time` | días pasados fuera, días con/sin rangos, duplicados exactos, **citas activas que quedan VIVAS dentro** (BLK-3: el bloqueo no cancela) | `POST /api/appointments/ranges/block` (`dryRun:false`; el endpoint re-detecta conflictos/duplicados) |
 | `propose_unblock_time` | ids pertenecen al doctor (los ids salen de `get_day_schedule` del turno) | `DELETE /api/appointments/ranges/block { ids }` |
-| `propose_delete_range` | ids del doctor + **qué rangos tienen citas activas dentro** (serán rechazados) | `DELETE /api/appointments/ranges/[id]` **uno por uno — camino INDIVIDUAL protegido** |
+| `propose_delete_range` | ids del doctor + **qué rangos tienen citas activas dentro** (se informan; **ya NO se rechazan**) | `DELETE /api/appointments/ranges/[id]` **uno por uno** |
 
 **Decisión deliberada:** `delete_range` NO usa el camino bulk (`DELETE ranges/bulk`). El bulk
-borra aunque haya citas (las deja huérfanas) y **borra en cascada los bloqueos** de los días que
-quedan sin rangos (RNG-11/12, validado en vivo). El camino individual rechaza rangos con citas
-activas → el agente v1 no puede dejar citas sin ventana ni disparar la cascada.
+**borra en cascada los bloqueos** de los días que quedan sin rangos (RNG-11/12, validado en
+vivo); el individual no. Ésa es hoy la razón COMPLETA de la elección.
+
+> ⚠️ **Corrección 2026-08-06 — la mitad de esta razón ya no existe.** Este párrafo decía
+> también: *"El camino individual rechaza rangos con citas activas → el agente v1 no puede dejar
+> citas sin ventana"*. Ese rechazo (409 *"Cancela las citas primero"*) **se levantó a pedido del
+> usuario**: hoy `ranges/[id]` borra el rango tenga o no citas dentro, y las citas siguen
+> agendadas intactas — no hay FK entre `AvailabilityRange` y `Booking`, así que nunca pudieron
+> verse afectadas. Lo que el agente sí evita usando el camino individual sigue siendo la
+> **cascada de bloqueos**, y sólo eso.
+>
+> Se anota en vez de reescribirse porque explica por qué `propose_delete_range` se diseñó
+> individual: se creyó que el endpoint lo protegía de dejar citas sin ventana. La decisión
+> resultó correcta por una razón distinta de la que se escribió.
 
 ### Tools de PROPUESTA de CITAS (PR 3 — tier 🔴, notifican al paciente)
 

@@ -171,10 +171,17 @@ pertenencia acepta el par propio y devuelve `null` en el cruzado, y la herencia 
 consultorio correcto del rango contenedor · `/code-review high`, cuyos hallazgos #2 #3 #4 y #5
 están aplicados arriba (#1 es el pendiente de slots).
 
-🔴 **Falta el clic real.** Nadie ha creado una cita por la UI y visto la columna poblada — y hoy
-**ningún cliente manda `locationId`**: `BookPatientModal/index.tsx:363-389` no lo incluye, así
-que el campo nuevo del body no lo ejercita nadie hasta el paso 3. Lo único que corre en
-producción con esto es la **herencia**. `type-check` + gates + smoke read-only ≠ probado.
+✅ **Y el clic real, hecho en prod el 2026-08-06** (deploy `536f83e0`): cita creada desde
+`/dashboard/appointments` dentro de un rango publicado, `2026-08-07 11:15-12:15`, y la columna
+quedó en **Consultorio Polanco** — el consultorio del rango que la contiene. Es la primera cita
+de la BD que sabe dónde es (413 citas, 1 con consultorio). Lo importante que prueba: **crear
+citas sigue funcionando** — el riesgo real de este push, porque este repo ya se tumbó una vez
+por un cambio de esta forma.
+
+⚠️ **Lo que ese clic NO probó:** hoy **ningún cliente manda `locationId`**
+(`BookPatientModal/index.tsx:363-389` no lo incluye), así que la rama del **explícito** —
+validación de pertenencia incluida — sigue sin ejercitarse por nadie hasta el paso 3. Lo único
+vivo en producción es la **herencia**.
 
 ## 5. Decisiones ABIERTAS (del usuario, no del código)
 
@@ -194,6 +201,26 @@ producción con esto es la **herencia**. `type-check` + gates + smoke read-only 
    respuesta no obvia, y son todas suyas (`01-ESTADO` §4). Cada una cae dentro de **exactamente
    un** rango — el API prohíbe que dos rangos se solapen — así que no hay inferencia ni empate:
    el rango nombra su hospital y ya.
+
+   🔴 **Y hay una ventana que se puede CERRAR SOLA — y desde 2026-08-06 se cierra MÁS FÁCIL.**
+   El borrado **masivo** de rangos (`ranges/bulk/route.ts:119`) siempre eliminó los rangos
+   **aunque tuvieran citas activas** — sólo advierte; el campo `protectedRanges` de la respuesta
+   tiene nombre engañoso y el propio código lo dice en la línea 65.
+
+   ⚠️ **Y el borrado de UN rango ya tampoco bloquea.** Antes contestaba 409 *"Cancela las citas
+   primero"*; se levantó a propósito (pedido del usuario: *"que se puedan borrar rangos aunque
+   tengan citas dentro, y que las citas queden intactas"*). O sea que el dato ya no sólo se
+   pierde con una operación masiva y deliberada: **se pierde un clic a la vez desde el calendario
+   y desde una tarjeta del agente.**
+
+   Para las citas **nuevas** da igual: el consultorio se **copia** al crearlas, no se apunta al
+   rango, así que borrar el rango después no les borra nada. Pero las **269 viejas** tienen su
+   `location_id` en `NULL`, y el único lugar donde sobrevive el dato es el rango que las
+   contiene: **si esos rangos se borran, el backfill deja de ser posible para siempre.**
+
+   📌 **Decisión del usuario (2026-08-06): el backfill NO se hace.** Se registra aquí con su
+   consecuencia aceptada — esas 269 citas se quedan sin consultorio, y las 2 de CHRISTUS
+   Muguerza no van a poder distinguirse nunca de las del hospital por defecto.
 
    🎯 **Y de esas 6, las que hoy mentirían son DOS** *(re-medido contra prod el 2026-08-06 al
    cerrar el paso 2)*: 4 caen en Hospital Ángeles Valle Oriente, que **es** su default, y 2 en

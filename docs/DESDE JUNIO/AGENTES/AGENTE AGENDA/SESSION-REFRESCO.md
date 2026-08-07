@@ -335,7 +335,10 @@ Se hicieron como pasadas SEPARADAS (blast radius distinto), como mandaba el dise
 - **El endpoint del agente NUNCA escribe**: lecturas autónomas; escrituras = propuesta→card→el
   CLIENTE ejecuta el endpoint real tras confirmación del doctor (PR 2 ya vivo para
   rangos/bloqueos; PR 3 citas). Todo lo que notifica a un paciente = confirmación SIEMPRE.
-- `delete_range` del agente usa SOLO el camino individual protegido, nunca el bulk (RNG-11/12).
+- `delete_range` del agente usa SOLO el camino individual, nunca el bulk (RNG-11/12) — la razón
+  viva es la **cascada de bloqueos** del bulk. ⚠️ 2026-08-06: ese camino ya **no** está
+  "protegido" — el 409 que rechazaba rangos con citas se levantó a pedido del usuario; las citas
+  nunca dependieron del rango. Ver `05-REFERENCIA-TECNICA-AGENTE` §tools de rangos.
 - `get_availability` usa el **endpoint real** (nunca deducir huecos de la lista de citas).
 - El modelo NUNCA aporta `doctorId` ni IDs sin validar contra la sesión.
 - Regla dura post-outage: **todo SQL crudo / query shape nuevo se smoke-testea contra prod
@@ -459,7 +462,8 @@ TOOLING (usuario actúa en la UI de prod → LLM verifica read-only en BD):
 ## ✅ PR 2 — CONSTRUIDO Y DESPLEGADO (2026-07-04, `1b90b3fd`)
 
 Propuestas internas con cards de confirmación: `propose_create_range` / `propose_block_time` /
-`propose_unblock_time` / `propose_delete_range` (camino individual protegido, NUNCA bulk).
+`propose_unblock_time` / `propose_delete_range` (camino individual, NUNCA bulk — ⚠️ decía
+"protegido"; el rechazo por citas se levantó el 2026-08-06, ver §invariantes).
 Planes ORDENADOS multi-paso con executor secuencial client-side y corte en fallo; resultados
 re-inyectados a la conversación (turno de verificación). Referencia completa del sistema:
 [`05-REFERENCIA-TECNICA-AGENTE.md`](05-REFERENCIA-TECNICA-AGENTE.md).

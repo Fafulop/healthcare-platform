@@ -1,5 +1,7 @@
 // GET    /api/appointments/ranges/[id] - Get a single availability range
-// DELETE /api/appointments/ranges/[id] - Delete a range (blocks if active bookings exist)
+// DELETE /api/appointments/ranges/[id] - Delete a range. NO bloquea si hay citas dentro: una
+//        cita no depende de su rango (sin FK ni cascade). Devuelve `affectedBookings` = las que
+//        siguen agendadas ahí. Con `?dryRun=1` sólo las cuenta y NO borra.
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
@@ -56,7 +58,7 @@ export async function GET(
 }
 
 // ---------------------------------------------------------------------------
-// DELETE — Remove a range (blocked if active bookings overlap)
+// DELETE — Remove a range. Las citas de adentro NO lo impiden ni se tocan.
 // ---------------------------------------------------------------------------
 
 export async function DELETE(
@@ -65,6 +67,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    // `?dryRun=1` = contar sin borrar, para poder ADVERTIR al doctor ANTES. Borrar un rango es
+    // irreversible (no hay soft delete en `availability_ranges`) y el camino masivo ya hace su
+    // preview con `dryRun`; sin esto, el borrado de UNO era la única operación destructiva de
+    // rangos que informaba DESPUÉS de consumarse.
+    const dryRun = new URL(request.url).searchParams.get('dryRun') === '1';
 
     // Authenticate
     const { role, userId, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
@@ -103,9 +110,19 @@ export async function DELETE(
       );
     }
 
-    // Check for active bookings that overlap with this range's time window.
-    // Active = PENDING or CONFIRMED (not cancelled/completed/no-show).
-    // Check both range-based (slotId = null) and legacy slot-based bookings.
+    // Citas activas que caen dentro de la ventana de este rango.
+    // Activa = PENDING o CONFIRMED (no canceladas/completadas/no-show).
+    // Cubre las de rango (slotId = null) y las legacy basadas en slot.
+    //
+    // ⚠️ Esto YA NO BLOQUEA el borrado — antes contestaba 409 "Cancela las citas primero".
+    // Se levanta a propósito: **una cita no depende de su rango.** `AvailabilityRange` no tiene
+    // ninguna relación con `Booking` en el schema — ni FK ni cascade — así que borrar el rango
+    // no puede tocar las citas, y el calculador de disponibilidad usa las citas como ventanas
+    // ocupadas por sí solas. El rango sólo dice "aquí publico horarios"; retirarlo no cancela
+    // nada. El borrado MASIVO (`ranges/bulk`) ya se comportaba así, y bloquear sólo el borrado
+    // de uno era la inconsistencia, no el permiso.
+    //
+    // Se siguen consultando para poder DECIRLE al doctor qué citas siguen agendadas ahí.
     const activeBookings = await prisma.booking.findMany({
       where: {
         doctorId: range.doctorId,
@@ -131,24 +148,31 @@ export async function DELETE(
       select: { id: true, patientName: true, startTime: true, endTime: true },
     });
 
-    if (activeBookings.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `No se puede eliminar este rango porque tiene ${activeBookings.length} cita(s) activa(s). Cancela las citas primero.`,
-          activeBookings: activeBookings.map((b) => ({
-            id: b.id,
-            patientName: b.patientName,
-            startTime: b.startTime,
-            endTime: b.endTime,
-          })),
-        },
-        { status: 409 }
-      );
+    const affectedBookings = activeBookings.map((b) => ({
+      id: b.id,
+      patientName: b.patientName,
+      startTime: b.startTime,
+      endTime: b.endTime,
+    }));
+
+    // Preview: se contesta ANTES de borrar y sin borrar nada.
+    if (dryRun) {
+      return NextResponse.json({ success: true, dryRun: true, affectedBookings });
     }
 
-    // Safe to delete
     await prisma.availabilityRange.delete({ where: { id } });
+
+    // ⚠️ DIFERENCIA CONOCIDA con el borrado masivo, que NO se cerró aquí: `ranges/bulk` borra
+    // además los `blockedTime` de las fechas que se quedan con CERO rangos; este camino no.
+    // Consecuencia: si el doctor bloquea 10:00–12:00, borra el único rango de ese día y después
+    // crea un rango nuevo ahí, el bloqueo huérfano revive y parte del rango nuevo no se le
+    // ofrece a nadie, sin nada en la UI que lo explique.
+    // Se deja así a propósito y no por descuido: la cascada del masivo es justo lo que el agente
+    // evita usando SIEMPRE el camino individual (RNG-12), así que replicarla aquí le quitaría al
+    // agente su única salida segura. Cerrar esta diferencia es un cambio de comportamiento con
+    // su propia decisión, no un efecto secundario de haber quitado el 409.
+    // Levantar el 409 NO empeora esto: un rango con citas no tenía por qué ser inmune al
+    // problema, simplemente antes no llegaba hasta aquí.
 
     // Log activity
     const dateKey = range.date.toISOString().split('T')[0];
@@ -169,9 +193,15 @@ export async function DELETE(
       },
     }).catch((err) => console.error('Activity log failed:', err));
 
+    // `affectedBookings` va en la respuesta para que la UI pueda decir CUÁNTAS citas siguen
+    // agendadas en ese horario. Nombre nuevo a propósito: el viejo `activeBookings` viajaba en
+    // una respuesta de ERROR y significaba "por esto no se borró"; ahora el borrado ya ocurrió y
+    // significa "esto sigue en pie". Reusar el nombre habría dejado dos sentidos opuestos para
+    // el mismo campo según el `success`.
     return NextResponse.json({
       success: true,
       message: 'Availability range deleted',
+      affectedBookings,
     });
   } catch (error) {
     console.error('Error deleting availability range:', error);

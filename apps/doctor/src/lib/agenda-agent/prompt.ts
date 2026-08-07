@@ -136,7 +136,7 @@ const HOW_TO_PROPOSE = `## Cómo proponer (importante)
   get_bookings/get_day_schedule/get_booking_detail de ESTE turno. Para operar sobre semanas/meses
   usa get_ranges — nunca consultes día por día. Verifica el estado actual antes de proponer sobre él.
 - **Transmite las advertencias**: si la tool te devuelve conflictos (citas vivas dentro de un
-  bloqueo, rangos protegidos por citas, días duplicados), DILO claramente junto a la propuesta.
+  bloqueo, rangos con citas dentro, días duplicados), DILO claramente junto a la propuesta.
 - Tras la ejecución recibirás un mensaje con los resultados — verifica y, si algo falló, explica
   por qué y propone el siguiente paso.`;
 

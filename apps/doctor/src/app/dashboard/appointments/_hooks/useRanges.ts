@@ -93,16 +93,39 @@ export function useRanges(
   }, [fetchRanges, enabled]);
 
   const deleteRange = async (rangeId: string) => {
-    if (!await practiceConfirm("¿Estás seguro de que quieres eliminar este rango de disponibilidad?")) return;
-
     try {
+      // Preview ANTES de preguntar: borrar un rango es irreversible, así que el doctor tiene que
+      // ver cuántas citas quedan ahí mientras todavía puede decir que no. El servidor las cuenta
+      // (mismo predicado que usa al borrar) en vez de recalcularlo aquí: replicar el solapamiento
+      // en el cliente sería otra copia de la regla, y las dos se separarían.
+      const previewRes = await authFetch(
+        `${API_URL}/api/appointments/ranges/${rangeId}?dryRun=1`,
+        { method: "DELETE" }
+      );
+      const preview = await previewRes.json();
+      const afectadasPreview: number = preview?.affectedBookings?.length ?? 0;
+
+      const pregunta = afectadasPreview > 0
+        ? `Este rango tiene ${afectadasPreview} cita(s) agendadas dentro. Se eliminará el rango y las citas SEGUIRÁN agendadas tal cual — solo dejas de ofrecer esos horarios. ¿Eliminar el rango?`
+        : "¿Estás seguro de que quieres eliminar este rango de disponibilidad?";
+      if (!await practiceConfirm(pregunta)) return;
+
       const response = await authFetch(`${API_URL}/api/appointments/ranges/${rangeId}`, {
         method: "DELETE",
       });
       const data = await response.json();
 
       if (data.success) {
-        toast.success("Rango eliminado exitosamente");
+        // Las citas que caían en ese rango NO se tocan: una cita no depende de su rango (no hay
+        // FK entre los dos). Se dice el número igual, porque el doctor acaba de quitar de la
+        // vista el bloque donde vivían y "eliminado exitosamente" a secas dejaría creer que se
+        // fueron con él.
+        const afectadas = data.affectedBookings?.length ?? 0;
+        toast.success(
+          afectadas > 0
+            ? `Rango eliminado. ${afectadas} cita(s) siguen agendadas en ese horario y no se modificaron.`
+            : "Rango eliminado exitosamente"
+        );
         fetchRanges();
       } else {
         toast.error(data.error || "Error al eliminar el rango");

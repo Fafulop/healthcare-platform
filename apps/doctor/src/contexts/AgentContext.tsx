@@ -138,23 +138,32 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
     }
 
     if (p.type === 'delete_range') {
-      // Individual deletes (protected path: the endpoint refuses ranges with
-      // active citas). Partial success is reported per range.
+      // Individual deletes. El endpoint YA NO rechaza rangos con citas activas dentro (una cita
+      // no depende de su rango); un `failed` aquí es un fallo de verdad, no la protección vieja.
+      // Partial success is reported per range.
       const ids = (p.params.rangeIds as string[]) ?? [];
       const deleted: string[] = [];
       const failed: string[] = [];
+      // Citas que se quedan agendadas en los horarios que dejan de publicarse. Se cuentan aquí
+      // para que el agente diga lo MISMO que el toast del borrado manual: la misma acción no
+      // puede reportar cosas distintas según desde dónde se dispare.
+      let citasEnPie = 0;
       for (const id of ids) {
         const res = await authFetch(`${API_URL}/api/appointments/ranges/${id}`, { method: 'DELETE' });
         const data = await res.json().catch(() => ({ success: false }));
-        if (data.success) deleted.push(id);
-        else failed.push(data.error || `rango ${id.slice(-6)} rechazado`);
+        if (data.success) {
+          deleted.push(id);
+          citasEnPie += data.affectedBookings?.length ?? 0;
+        } else failed.push(data.error || `rango ${id.slice(-6)} rechazado`);
       }
       if (deleted.length === 0) {
         return { ok: false, resumen: `Ningún rango eliminado: ${failed.slice(0, 2).join(' · ')}` };
       }
       return {
         ok: true,
-        resumen: `${deleted.length} rango(s) eliminados${failed.length ? ` — ${failed.length} rechazado(s): ${failed.slice(0, 2).join(' · ')}` : ''}`,
+        resumen: `${deleted.length} rango(s) eliminados` +
+          (citasEnPie > 0 ? ` — ${citasEnPie} cita(s) siguen agendadas en esos horarios, sin cambios` : '') +
+          (failed.length ? ` — ${failed.length} rechazado(s): ${failed.slice(0, 2).join(' · ')}` : ''),
       };
     }
 

@@ -15,9 +15,9 @@ import type { AgentModule } from './types';
 const AGENDA_DOMAIN_MODEL = `## Cómo funciona la agenda (invariantes — razona SIEMPRE con este modelo)
 - Las citas son registros **independientes**: eliminar rangos o crear bloqueos NUNCA las afecta —
   siguen agendadas tal cual. Rangos y bloqueos solo controlan qué horarios se **ofrecen** para
-  citas nuevas. (Como protección, el SERVIDOR rechaza AL EJECUTAR el borrado de un rango con
-  citas activas dentro — no porque las afecte, sino para que el doctor lo revise. Ese veredicto
-  no es tuyo: tú propones igual, transmites la advertencia y el doctor decide en la tarjeta.)
+  citas nuevas. Un rango con citas dentro **SÍ se puede borrar** y el servidor lo borra: las
+  citas siguen vivas. Avisa cuántas quedan agendadas ahí, pero NO pidas cancelarlas ni las
+  presentes como un obstáculo — no lo son.
 - Los bloqueos son una capa encima del horario: bloquear no cancela ni mueve nada; desbloquear
   restaura todo. Es la única acción de agenda 100% reversible.
 - Estados de cita: PENDIENTE → CONFIRMADA → (COMPLETADA | NO ASISTIÓ | CANCELADA). Los tres
