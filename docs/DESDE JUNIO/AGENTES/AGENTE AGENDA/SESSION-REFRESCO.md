@@ -1,6 +1,41 @@
 # 🔄 Refresco de sesión — AGENTE AGENDA — LÉEME PRIMERO
 
-> # 🤝 HANDOFF 2026-07-31 (fin de sesión) — EMPIEZA POR AQUÍ
+> # 🤝 HANDOFF 2026-08-06 (fin de sesión) — EMPIEZA POR AQUÍ
+>
+> ## En una frase
+> El agente ya sabe **en cuál consultorio es una cita**: la hereda del rango, y cuando no hay de
+> dónde heredarla y el doctor tiene 2+, **se niega a proponer y pregunta**. Además ya puede LEER
+> el consultorio de las citas. Nadie lo ha visto en una conversación real.
+>
+> | commit | qué |
+> |---|---|
+> | `ea2b62f7` | **CONSULTORIOS paso 4**: veredicto server-side en `propose_create_booking` (hereda / única sede / **SE NIEGA y pide elegir** / no registrado) · reagendar arrastra el de la cita original · `BOOKING_SELECT` + `mapBooking` devuelven `consultorio` en get_bookings/get_day_schedule/get_booking_detail |
+> | `b32fde2f` | **Se levantó el 409** que impedía borrar un rango con citas dentro. La prosa del módulo, la descripción de la tool y el campo `rangosProtegidosPorCitas` afirmaban que el servidor lo rechazaba — ya no es cierto |
+>
+> ## 🧪 LO PRIMERO: ver la negativa en vivo (sólo se ha visto en evals)
+> Con `dr-prueba` (Polanco + Satélite), pídele *"agéndame a Juan Pérez mañana a las 16:07"* —una
+> hora fuera de todo rango—. Debe preguntar en cuál consultorio, con las dos opciones, y proponer
+> al contestarle. **Riesgo a vigilar:** que la pregunta del consultorio le GANE a una respuesta
+> más útil. Ya pasó una vez en evals (corrida 2 de `fuera-de-horario-ruta-normal`: preguntó la
+> sede en vez de decir *"ese domingo no tienes horarios publicados"*). Pasó al reintento, así que
+> es ruido — pero es el modo conocido de degradación de esta feature.
+>
+> ## Bitácora #36 — un caso VERDE puede estar afirmando algo falso
+> `limite-l1-consultorio` pasó en DOS corridas mientras el agente decía *"las citas no registran
+> dónde se llevaron a cabo"* — cierto hasta el 2026-08-06, falso desde el paso 1 de CONSULTORIOS.
+> El regex del caso (`no… (registr|guard|filtr)`) se conformaba con la explicación equivocada.
+> **Causa raíz:** se ESCRIBÍA `bookings.location_id` y ningún tool de lectura lo devolvía, así que
+> el modelo observaba bien ("no puedo filtrar") e inventaba el porqué ("el dato no existe").
+> **Fix:** `BOOKING_SELECT` trae `location.name` (`ea2b62f7`) + `02-CAPACIDADES` §2 corregido.
+> **Lección:** el check verifica la FORMA de la respuesta, no su VERDAD. Cuando una feature
+> cambia lo que es cierto, hay que revisar los casos que afirmaban lo viejo — no basta con que
+> sigan verdes.
+>
+> Estado completo de la feature: [`../../CONSULTORIOS/SESSION-REFRESCO.md`](../../CONSULTORIOS/SESSION-REFRESCO.md).
+>
+> ---
+>
+> # 🤝 HANDOFF 2026-07-31 (sesión anterior)
 >
 > ## ✅ Lo que se desplegó HOY (todo verificado en prod)
 > | commit | qué |

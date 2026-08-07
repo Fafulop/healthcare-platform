@@ -5,27 +5,31 @@
 
 ## En una frase
 
-Un doctor ya puede tener **dos consultorios** y ya puede asignarle uno a cada **rango** — pero la
-**cita** no guarda el suyo por ningún camino, así que nadie puede decir a qué dirección tiene que
-llegar el paciente. Falta **una columna** y los tres saltos que cuelgan de ella.
+**Ya está: la cita sabe en cuál consultorio es** — la hereda del rango que la contiene, y cuando
+no hay de dónde heredarla se pregunta (sólo si el doctor tiene 2+), tanto en el modal como en el
+agente. **Los 4 pasos están en producción desde el 2026-08-06.**
 
 ## Los documentos
 
 | | |
 |---|---|
-| [`01-ESTADO-que-ya-funciona.md`](01-ESTADO-que-ya-funciona.md) | Qué existe HOY, medido contra el código: el modelo, la UI de perfil, los rangos, y el punto exacto donde el dato se tira |
-| [`02-PLAN-columna-y-los-tres-saltos.md`](02-PLAN-columna-y-los-tres-saltos.md) | Los 4 pasos en orden, por qué el orden es obligatorio, el SQL, y las decisiones abiertas |
+| 👉 [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | **EMPIEZA AQUÍ** — estado vivo, qué falta MIRAR en prod, y lo que costó caro |
+| [`02-PLAN-columna-y-los-tres-saltos.md`](02-PLAN-columna-y-los-tres-saltos.md) | Los 4 pasos, el porqué del orden, y cómo quedó cada uno (§4.1 endpoints · §4.2 modal · §4.3 agente + evals) |
+| [`01-ESTADO-que-ya-funciona.md`](01-ESTADO-que-ya-funciona.md) | El diagnóstico ORIGINAL (§§2-3 ya no describen el presente, están marcadas) |
 
 ## Estado (2026-08-06)
 
 | Paso | Estado |
 |---|---|
-| 0. Pre-vuelo read-only contra prod | ✅ **HECHO 2026-08-06** — la columna no existe, `clinic_locations.id` es `text` (la FK empata), y **una sola doctora opera de verdad en dos sedes** (`01-ESTADO` §4) |
-| 1. Columna `location_id` en `bookings` | ✅ **CORRIDA EN PROD 2026-08-06** y verificada — ver abajo |
-| 1b. Backfill de **6** citas (`dra-adriana-michelle`) | 📝 Decidido con datos (`02-PLAN` §5.1), sin escribir |
-| 2. Los endpoints la aceptan y la guardan | ⬜ Sin empezar |
-| 3. La UI la manda / la hereda del rango | ⬜ Sin empezar |
-| 4. El agente pregunta (sólo si hay 2+) | ⬜ Sin empezar |
+| 0. Pre-vuelo read-only contra prod | ✅ **HECHO** — `clinic_locations.id` es `text` (la FK empata), y **una sola doctora opera de verdad en dos sedes** (`01-ESTADO` §4) |
+| 1. Columna `location_id` en `bookings` | ✅ **EN PROD** (`e2d10151`) |
+| 1b. Backfill de las citas viejas | ❌ **DESCARTADO por el usuario.** Las 269 se quedan sin consultorio (`02-PLAN` §5.1) |
+| 2. Los endpoints la aceptan y la guardan | ✅ **EN PROD** (`75fdcbd2`) — único paso **probado con un clic real** |
+| 3. La UI la manda / la hereda del rango | ✅ **EN PROD** (`06aad405`) — modal. ⬜ Falta MOSTRARLA en la tabla de citas |
+| 4. El agente pregunta (sólo si hay 2+) | ✅ **EN PROD** (`ea2b62f7`) — y ya LEE el consultorio de las citas |
+
+⚠️ **Extra que salió de aquí:** borrar un rango con citas dentro **ya se puede** (`b32fde2f`,
+pedido del usuario); las citas quedan intactas porque nunca dependieron del rango.
 
 🔴 **El orden no es negociable.** Preguntar el consultorio antes de tener dónde guardarlo es peor
 que no preguntarlo: el doctor cree que quedó registrado y se descarta en silencio.
