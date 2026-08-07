@@ -55,15 +55,22 @@ export default function AppointmentsPage() {
 
   // Clinic locations (fetched independently since we don't use useSlots)
   const [clinicLocations, setClinicLocations] = useState<ClinicLocation[]>([]);
+  // ⚠️ Se distingue "el doctor NO tiene consultorios" de "no pude preguntarlo". Los dos dejaban
+  // `clinicLocations` en `[]`, y con la lista vacía el modal no enseña selector NI manda
+  // `locationId`: un doctor con DOS sedes reales agendaría fuera de rango y la cita quedaría sin
+  // consultorio, en silencio, por una petición fallida. Una lista vacía no es una respuesta.
+  const [clinicLocationsError, setClinicLocationsError] = useState(false);
   useEffect(() => {
     const slug = doctorProfile?.slug;
     if (!slug) return;
+    setClinicLocationsError(false);
     fetch(`${API_URL}/api/doctors/${slug}/locations`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success && Array.isArray(d.data)) setClinicLocations(d.data);
+        else setClinicLocationsError(true);
       })
-      .catch(() => {});
+      .catch(() => setClinicLocationsError(true));
   }, [doctorProfile?.slug]);
 
   // Modal state
@@ -528,6 +535,7 @@ export default function AppointmentsPage() {
         onClose={() => { setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); setGapPreset(null); }}
         doctorId={doctorId}
         clinicLocations={clinicLocations}
+        clinicLocationsError={clinicLocationsError}
         rangeMode
         doctorSlug={doctorProfile?.slug}
         preselectedDate={gapPreset?.date}

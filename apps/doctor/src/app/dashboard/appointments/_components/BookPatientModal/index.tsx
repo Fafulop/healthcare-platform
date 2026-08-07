@@ -43,6 +43,8 @@ interface Props {
   onClose: () => void;
   doctorId: string;
   clinicLocations: ClinicLocation[];
+  /** `true` = la lista NO se pudo cargar. Distinto de "no hay consultorios" — ver page.tsx. */
+  clinicLocationsError?: boolean;
   onSuccess: (newBookingId: string) => void;
   preSelectedSlot?: AppointmentSlot | null;
   rescheduleBooking?: Booking | null;
@@ -68,6 +70,7 @@ export function BookPatientModal({
   onClose,
   doctorId,
   clinicLocations,
+  clinicLocationsError = false,
   onSuccess,
   preSelectedSlot = null,
   rescheduleBooking = null,
@@ -132,8 +135,30 @@ export function BookPatientModal({
   const [rangeSelection, setRangeSelection] = useState<{
     date: string; startTime: string; endTime: string;
     serviceId: string; serviceName: string; duration: number; price: number;
+    locationId?: string | null;
     locationName?: string | null;
   } | null>(null);
+
+  // Consultorio elegido A MANO. Sólo se usa (y sólo se manda) cuando NO hay herencia: si la hora
+  // cae dentro de un rango, el rango manda y el servidor lo resuelve solo.
+  // Arranca en el PRIMERO de la lista, que viene ordenada por `displayOrder` — el mismo orden de
+  // Editar Perfil, así que "el de arriba" es el mismo de los dos lados.
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  useEffect(() => {
+    setSelectedLocationId((prev) => prev ?? clinicLocations[0]?.id ?? null);
+  }, [clinicLocations]);
+
+  /**
+   * ¿Hay herencia? UN SOLO predicado, y es el ID — nunca el nombre. La UI y el envío tienen que
+   * decidir con lo MISMO: si la UI preguntara por `locationName` y el envío por `locationId`, un
+   * rango con id pero sin nombre le enseñaría el selector al doctor y luego tiraría su elección
+   * en silencio, porque el envío lo vería como heredado. Hoy no puede pasar (el join siempre
+   * trae nombre), y por eso mismo la divergencia sería invisible hasta que dejara de ser cierto.
+   */
+  const consultorioHeredadoId = rangeMode ? rangeSelection?.locationId ?? null : null;
+  const consultorioHeredado = consultorioHeredadoId
+    ? { nombre: rangeSelection?.locationName || "el del rango" }
+    : null;
 
   // "Nuevo horario" mode
   const [slotMode, setSlotMode] = useState<"existing" | "new">("existing");
@@ -210,6 +235,11 @@ export function BookPatientModal({
       rp ? { firstName: rp.firstName ?? "", lastName: rp.lastName ?? "", email: rp.email ?? "", phone: rp.phone ?? "" } : null
     );
     setRangeSelection(null);
+    // Vuelve al de arriba de Editar Perfil en CADA cita. Sin esto, haber agendado a un paciente
+    // en el segundo consultorio dejaba ese elegido para el siguiente — y como el prellenado se
+    // manda como elección explícita, la cita de otro paciente se guardaría en el consultorio de
+    // la anterior sin que nadie lo pidiera.
+    setSelectedLocationId(clinicLocations[0]?.id ?? null);
     setSlotMode("existing");
     setNewSlotForm({ date: todayStr(), startTime: "09:00", duration: 60, locationId: clinicLocations[0]?.id ?? "" });
   }, [preSelectedSlot, clinicLocations, rescheduleBooking]);
@@ -386,6 +416,18 @@ export function BookPatientModal({
             // paciente salía como "nueva cita" en vez de "reagendada" (gmail.ts usa este
             // flag para el asunto y el encabezado) y el dato quedaba mal en la BD.
             isRescheduled: !!rescheduleBooking,
+            // Se manda SÓLO cuando no hay de dónde heredar. Si la hora cae dentro de un rango no
+            // se manda nada y el servidor hereda: repetir aquí lo que el picker cree sería
+            // duplicar la regla en el cliente y arriesgar que las dos se separen.
+            //
+            // ⚠️ `length > 0`, no `> 1`. Con UN solo consultorio no se pregunta nada —no hay qué
+            // elegir— pero la respuesta correcta existe y es única, así que se registra igual.
+            // Con `> 1` las citas fuera de rango de un doctor de una sola sede quedaban en NULL
+            // (= "no registrado") mientras las de dentro de rango sí lo tenían: el mismo doctor,
+            // el mismo consultorio, y la mitad de su agenda sin poder decir dónde es.
+            ...(!consultorioHeredadoId && selectedLocationId
+              ? { locationId: selectedLocationId }
+              : {}),
           }),
         });
         const data = await res.json();
@@ -623,6 +665,14 @@ export function BookPatientModal({
                 selectedPatientId={selectedPatientId}
                 selectedPatientName={selectedPatientName}
                 datosDelExpediente={patientContactAlSeleccionar}
+                // Sólo el flujo de rangos registra el consultorio EN LA CITA. Las ramas de slot
+                // ya tienen su propio selector en SlotPickerStep y lo guardan en el SLOT.
+                pedirConsultorio={rangeMode}
+                clinicLocations={clinicLocations}
+                clinicLocationsError={clinicLocationsError}
+                selectedLocationId={selectedLocationId}
+                setSelectedLocationId={setSelectedLocationId}
+                consultorioHeredado={consultorioHeredado}
                 onSelectPatient={(p) => {
                   setSelectedPatientId(p?.id ?? null);
                   setSelectedPatientName(p ? `${p.firstName} ${p.lastName}` : "");

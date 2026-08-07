@@ -87,6 +87,23 @@ export async function validateRequestedLocation(
 }
 
 /**
+ * "El rango CONTIENE esta ventana." Comparación lexicográfica de "HH:MM" con cero a la
+ * izquierda, que es cronológica.
+ *
+ * Existe como función suelta porque el mismo predicado se necesita en dos formas distintas:
+ * como filtro de Prisma (abajo, al crear la cita) y **en memoria** sobre rangos ya cargados
+ * (`range-availability` en modo freeform, para poder decirle al doctor qué consultorio heredaría
+ * una hora ANTES de agendarla). Las dos tienen que contestar lo mismo: si divergen, el picker
+ * enseña un consultorio y la cita se guarda en otro.
+ */
+export function rangeContains(
+  range: { startTime: string; endTime: string },
+  window: { startTime: string; endTime: string }
+): boolean {
+  return range.startTime <= window.startTime && range.endTime >= window.endTime;
+}
+
+/**
  * Paso 2 de la regla: hereda del rango que CONTIENE la cita.
  *
  * Va **dentro** de la transacción, al revés que la validación: lee el mismo estado que los checks

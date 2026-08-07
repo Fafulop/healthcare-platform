@@ -148,6 +148,13 @@ interface Props {
     serviceName: string;
     duration: number;
     price: number;
+    /**
+     * Consultorio que la cita HEREDARÍA por caer dentro de un rango con consultorio, o
+     * `null`/ausente si la hora está fuera de todo rango. Lo calcula el SERVIDOR
+     * (`range-availability`, modo freeform) con el mismo predicado que usa al crear la cita —
+     * el cliente no deduce contención por su cuenta.
+     */
+    locationId?: string | null;
     locationName?: string | null;
   }) => void;
 }
@@ -423,6 +430,7 @@ export function RangeTimePickerStep({
       serviceName: selectedService.serviceName,
       duration: selectedService.durationMinutes,
       price: Number(selectedService.price),
+      locationId: slot.locationId,
       locationName: slot.locationName,
     });
   };

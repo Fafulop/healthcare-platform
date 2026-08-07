@@ -91,7 +91,7 @@ contra prod. Además imprime el **host** al conectarse, para poder afirmar contr
 | Paso | Qué |
 |---|---|
 | **2. Endpoints** ✅ | `range-bookings/instant` acepta `locationId` y lo guarda. `range-bookings` **hereda** el del rango que ya tiene en la mano (`01-ESTADO` §3) — una línea. Ver §4.1. |
-| **3. UI** | El picker manda el consultorio; una cita que nace dentro de un rango lo hereda sin preguntar. Sólo hay algo que elegir cuando el doctor tiene 2+ **y** la cita es freeform. |
+| **3. UI** ✅ (modal) | El picker manda el consultorio; una cita que nace dentro de un rango lo hereda sin preguntar. Sólo hay algo que elegir cuando el doctor tiene 2+ **y** la cita es freeform. Ver §4.2. |
 | **4. Agente** | `get_locations` ya existe. Preguntar **sólo** si el doctor tiene 2+ y la cita no hereda de un rango; mandar `locationId` en `propose_create_booking`. Toca prosa del módulo agenda ⇒ `gate:prosa` + `gate:prompt` + **DOS corridas de evals**. |
 
 Y al cerrar: **revisar `02-CAPACIDADES`**, que hoy dice que el agente no puede filtrar por
@@ -182,6 +182,56 @@ por un cambio de esta forma.
 (`BookPatientModal/index.tsx:363-389` no lo incluye), así que la rama del **explícito** —
 validación de pertenencia incluida — sigue sin ejercitarse por nadie hasta el paso 3. Lo único
 vivo en producción es la **herencia**.
+
+### 4.2 — Paso 3, el MODAL (el agente sigue pendiente)
+
+Decidido por el usuario el 2026-08-06: **dentro de un rango no se pregunta** (ya se sabe) y
+**fuera de todo rango se elige**, con un selector debajo de *Modalidad*, prellenado con el
+consultorio **de arriba en Editar Perfil**.
+
+| Caso | Qué ve el doctor |
+|---|---|
+| 1 consultorio | Nada. No hay pregunta — pero la cita **sí** registra ese consultorio (§hallazgo 2) |
+| 2+, hora DENTRO de un rango | Una línea gris: *"Consultorio: X — Se toma del rango que contiene esta hora"* |
+| 2+, hora FUERA de todo rango | El selector, prellenado con `clinicLocations[0]` |
+
+🎯 **El hallazgo que hizo falta para que esto funcionara.** El modal pide sus horas en modo
+`freeform=1`, y ese modo **descarta los rangos reales** y los sustituye por un rango sintético de
+día completo con `locationId: null`. O sea: toda hora ESCRITA salía sin consultorio, incluidas
+las que caen dentro de un rango real. El servidor sí heredaba bien al crear la cita, así que el
+picker no podía distinguir *"no hay consultorio"* de *"hay uno y no te lo dije"*.
+
+Arreglado en `range-availability`: en freeform ahora también se consultan los rangos reales —no
+como ventana, sólo para **anotar** cada hora con el consultorio que heredaría— usando
+`rangeContains`, **importado** de `booking-location.ts`. Es el mismo predicado que corre al crear
+la cita: si el picker dedujera la contención por su cuenta, podría enseñar un consultorio y
+guardar otro.
+
+*"El de arriba de Editar Perfil"* está **verificado, no supuesto**: el perfil y
+`/api/doctors/[slug]/locations` ordenan los dos por `displayOrder`, que se asigna por posición al
+guardar (`doctors/[slug]/route.ts:287`).
+
+**Del `/code-review`, cinco arreglos** (el sexto se rebatió con evidencia: el selector queda
+ARRIBA de los campos de contacto obligatorios, así que no se puede enviar sin haberlo visto):
+
+1. Con **UN** consultorio y hora fuera de rango, la cita quedaba en `NULL`. La guarda era
+   `length > 1`; ahora se manda siempre que se sepa cuál es. Una sola sede = una sola respuesta
+   posible: no hay que preguntarla, pero tampoco hay por qué tirarla.
+2. 🔑 Si `/locations` fallaba, `clinicLocations` quedaba en `[]` — **idéntico a "no tiene
+   consultorios"**: sin selector, sin `locationId`, y un doctor con DOS sedes reales agendaba y
+   la cita quedaba sin consultorio en silencio. Ahora se distingue el error y se dice.
+   Otra vez *"una lista vacía no es una respuesta"*.
+3. La UI decidía con `locationName` y el envío con `locationId`. Un solo predicado
+   (`consultorioHeredadoId`), o un rango con id y sin nombre enseñaría el selector y tiraría la
+   elección al enviar.
+4. `reset()` no limpiaba el consultorio: agendar en el segundo dejaba ese elegido para el
+   paciente siguiente.
+5. Anotada la invariante de la que ahora depende el modo freeform (`freeformDateKeys` tiene que
+   cubrir toda fecha con rangos, o esa fecha calcularía desde los rangos publicados diciendo
+   `freeform: true`).
+
+🔴 **Falta el agente** (paso 4): `propose_create_booking` todavía no manda consultorio, así que
+una cita agendada por el asistente fuera de un rango sigue quedando sin él.
 
 ## 5. Decisiones ABIERTAS (del usuario, no del código)
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Mail, Phone, MessageSquare, Stethoscope, UserSquare2, X, Lock } from "lucide-react";
+import { User, Mail, Phone, MessageSquare, Stethoscope, UserSquare2, X, Lock, MapPin } from "lucide-react";
 import { InlinePatientSearch } from "../InlinePatientSearch";
 
 interface DoctorService {
@@ -59,6 +59,25 @@ interface Props {
    * el único lugar donde ese número existe.
    */
   datosDelExpediente: { firstName: string; lastName: string; email: string; phone: string } | null;
+  /**
+   * ¿Este flujo registra el consultorio EN LA CITA? Sólo el de rangos. Las ramas de slot tienen
+   * su propio selector en `SlotPickerStep` y guardan el consultorio en el SLOT, no en la cita
+   * (camino obsoleto — CONSULTORIOS `01-ESTADO` §5); sin esta condición el doctor vería dos
+   * selectores de consultorio en el mismo modal.
+   */
+  pedirConsultorio: boolean;
+  /** Consultorios del doctor, en el ORDEN de Editar Perfil (`displayOrder`). El [0] es el de arriba. */
+  clinicLocations: Array<{ id: string; name: string; address?: string | null }>;
+  /** `true` = la lista no se pudo cargar (≠ "no tiene consultorios"). */
+  clinicLocationsError?: boolean;
+  selectedLocationId: string | null;
+  setSelectedLocationId: (id: string) => void;
+  /**
+   * El consultorio que la cita HEREDA del rango que contiene la hora elegida, o `null` si la
+   * hora cae fuera de todo rango. Cuando trae valor no se pregunta nada: sólo se enseña.
+   * Lo decide el ID del rango, no el nombre — ver `consultorioHeredadoId` en el padre.
+   */
+  consultorioHeredado: { nombre: string } | null;
 }
 
 export function PatientFormStep({
@@ -78,6 +97,12 @@ export function PatientFormStep({
   selectedPatientName,
   onSelectPatient,
   datosDelExpediente,
+  pedirConsultorio,
+  clinicLocations,
+  clinicLocationsError = false,
+  selectedLocationId,
+  setSelectedLocationId,
+  consultorioHeredado,
 }: Props) {
   // Escape del candado. Se reinicia al cambiar de paciente para que desbloquear a uno no
   // deje abierto al siguiente.
@@ -276,6 +301,69 @@ export function PatientFormStep({
           ))}
         </div>
       </div>
+
+      {/* Consultorio — sólo cuando hay algo que ELEGIR de verdad.
+          Se muestra si el doctor tiene 2+ consultorios Y la hora elegida NO cae dentro de un
+          rango: cuando cae, el rango ya dice cuál es y el servidor lo hereda solo — preguntar
+          algo cuya respuesta ya se conoce es ruido. Con un solo consultorio no hay pregunta.
+          Va aquí, después de Modalidad, porque es la última cosa del "cómo/dónde" de la cita. */}
+      {pedirConsultorio && clinicLocations.length > 1 && !consultorioHeredado && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Consultorio *</label>
+          <div className="space-y-1.5">
+            {clinicLocations.map((loc) => (
+              <button
+                key={loc.id}
+                type="button"
+                onClick={() => setSelectedLocationId(loc.id)}
+                className={`w-full text-left px-3 py-2 rounded-lg border transition-colors ${
+                  selectedLocationId === loc.id
+                    ? "border-blue-600 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <span className="block text-sm font-medium text-gray-900">{loc.name}</span>
+                {loc.address && (
+                  <span className="block text-xs text-gray-500 mt-0.5">{loc.address}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs text-gray-500">
+            Esta hora no está dentro de ninguno de tus rangos, así que no hay de dónde deducir el
+            consultorio.
+          </p>
+        </div>
+      )}
+
+      {/* Cuando SÍ se hereda, se ENSEÑA sin preguntar: el doctor tiene que poder ver dónde
+          quedó la cita antes de crearla. Callarlo del todo dejaría el dato correcto e
+          invisible, que es la mitad del problema que esta feature vino a resolver. */}
+      {pedirConsultorio && clinicLocations.length > 1 && consultorioHeredado && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+          <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+          <p className="text-xs text-gray-600">
+            Consultorio: <span className="font-medium text-gray-900">{consultorioHeredado.nombre}</span>
+            <span className="block text-gray-500">Se toma del rango que contiene esta hora.</span>
+          </p>
+        </div>
+      )}
+
+      {/* No se pudo saber cuáles son sus consultorios. Se DICE, en vez de comportarse como si no
+          tuviera ninguno: sin esto la cita se guarda sin consultorio y el doctor no se entera.
+          No bloquea el agendado — la cita importa más que el dato — pero deja de ser silencioso. */}
+      {pedirConsultorio && clinicLocationsError && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+          <MapPin className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-800">
+            No se pudieron cargar tus consultorios.
+            <span className="block">
+              La cita se creará normalmente, pero quedará <strong>sin consultorio registrado</strong>.
+              Recarga la página si quieres elegirlo.
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* Aviso — pegado a los campos que describe, no suelto arriba.
           Se muestra con CUALQUIER paciente seleccionado, no solo cuando hay algo

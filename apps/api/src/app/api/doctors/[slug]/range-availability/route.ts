@@ -19,6 +19,7 @@ import {
   type BlockedTimeInput,
   type AvailableSlot,
 } from '@/lib/availability-calculator';
+import { rangeContains } from '@/lib/booking-location';
 
 /** Synthetic range id returned for freeform slots — NOT a real AvailabilityRange row. */
 const FREEFORM_RANGE_ID = 'freeform';
@@ -225,8 +226,15 @@ export async function GET(
     }
 
     // Fetch availability ranges for this doctor + date range.
-    // Skipped in freeform: the synthetic whole-day range replaces them as the window source.
-    const ranges = freeform ? [] : await prisma.availabilityRange.findMany({
+    //
+    // ⚠️ En freeform TAMBIÉN se consultan, aunque NO son la ventana (esa la da el rango
+    // sintético de día completo). Se usan sólo para ANOTAR cada hora con el consultorio que
+    // heredaría si se agenda ahí. Antes se saltaban, y como el rango sintético lleva
+    // `locationId: null`, TODA hora escrita salía sin consultorio — incluidas las que caen
+    // dentro de un rango real con consultorio. El servidor sí heredaba bien al crear la cita,
+    // así que el picker no podía distinguir "no hay consultorio" de "hay uno y no te lo dije":
+    // la misma clase de vacío que se rinde como respuesta.
+    const ranges = await prisma.availabilityRange.findMany({
       where: {
         doctorId: doctor.id,
         date: dateFilter,
@@ -297,6 +305,16 @@ export async function GET(
       });
     }
 
+    // Copia de los rangos REALES con consultorio, para anotar las horas del modo freeform.
+    // Se toma ANTES de que el bloque de abajo pise `rangesByDate` con el rango sintético.
+    // Sólo los que tienen consultorio: uno sin él no aporta nada y `locationId: null` en el
+    // rango también significa "no dicho" — misma regla que `inheritLocationFromRange`.
+    const realRangesByDate = freeform
+      ? new Map(
+          [...rangesByDate].map(([k, rs]) => [k, rs.filter((r) => r.locationId)] as const)
+        )
+      : null;
+
     // --- Freeform: one synthetic whole-day range per date in the window ---
     //
     // The ENTIRE point is that this goes through calculateAvailability unchanged: bookings,
@@ -316,6 +334,15 @@ export async function GET(
     // `${date}T${endTime}:00` => "2026-08-05T24:00:00", which is not a valid RFC3339 hour and
     // the Calendar API rejects. 1439 caps the last endTime at "23:59" and the problem is gone
     // by construction instead of by clamping downstream.
+    // ⚠️ INVARIANTE de la que depende que esto sea correcto, y que se volvió cargante desde que
+    // los rangos reales SÍ se consultan en freeform: `freeformDateKeys` tiene que cubrir TODA
+    // fecha para la que `dateFilter` pueda devolver un rango, porque este `.set` es lo que
+    // reemplaza los rangos publicados por la ventana de día completo. Hoy se cumple por
+    // construcción — los rangos guardan medianoche UTC y `enumerateDateKeys` recorre el MISMO
+    // `dateFilter` en UTC — así que el pisado es total. Si alguna vez deja de cumplirse, esa
+    // fecha calcularía la disponibilidad desde los rangos PUBLICADOS mientras la respuesta sigue
+    // diciendo `freeform: true`, y el picker llamaría "ocupado" a un minuto libre con total
+    // seguridad. Cualquier cambio a `dateFilter` o a `enumerateDateKeys` tiene que preservarla.
     if (freeform) {
       for (const dateKey of freeformDateKeys) {
         rangesByDate.set(dateKey, [
@@ -420,6 +447,22 @@ export async function GET(
       // lead time and is nonsense in every flow. applyPastFilter keeps exactly that half.
       if (freeform) {
         slots = applyPastFilter(slots, dateKey);
+
+        // Anotar cada hora con el consultorio que HEREDARÍA. El rango sintético no tiene
+        // ninguno, así que sin esto todas saldrían en null. `rangeContains` es el MISMO
+        // predicado que usa `inheritLocationFromRange` al crear la cita — importado, no
+        // reescrito, para que el picker no pueda enseñar un consultorio distinto del que se
+        // va a guardar. Las horas fuera de todo rango se quedan en null: ahí no hay nada que
+        // heredar y es justo cuando la UI tiene que preguntar.
+        const realRanges = realRangesByDate?.get(dateKey) ?? [];
+        if (realRanges.length > 0) {
+          slots = slots.map((s) => {
+            const containing = realRanges.find((r) => rangeContains(r, s));
+            return containing
+              ? { ...s, locationId: containing.locationId, locationName: containing.locationName }
+              : s;
+          });
+        }
       } else if (!skipCutoff) {
         slots = applyCutoff(slots, dateKey);
       }
