@@ -414,13 +414,47 @@ async function main() {
       soft: true,
       dataDependent: 'dr-prueba no exige contacto (9 toggles en false) y a +21 días no tiene rangos ni citas',
       checks: [
-        // Lo esencial: PROPONE en vez de interrogar.
+        // Lo esencial: INTENTA agendar en vez de interrogar.
+        //
+        // ⚠️ 2026-08-06: este caso exigía además la PROPUESTA `create_booking` en este mismo
+        // turno, y dejó de cumplirse — no por regresión, sino por diseño. `dr-prueba` tiene DOS
+        // consultorios y las 16:07 de dentro de 3 semanas caen fuera de todo rango, así que
+        // `propose_create_booking` se niega a propósito y le pide al doctor en cuál sede es
+        // (CONSULTORIOS paso 4). El flujo pasó a ser de DOS turnos, y el segundo lo cubre
+        // `walk-in-consultorio-segundo-turno`.
+        //
+        // Lo que este caso protege (bitácora #35) sobrevive intacto: que el agente LLAME a la
+        // tool en vez de contestar "ese día no tienes horarios". Por eso se conserva
+        // `tool-called` y se suelta `proposal-types-in-order`.
         { kind: 'tool-called', name: 'propose_create_booking' },
-        { kind: 'proposal-types-in-order', types: ['create_booking'] },
         // Un día SIN rangos ya no es un día sin espacio (la pantalla muerta de la demo).
         { kind: 'reply-not-match', pattern: '(no.{0,30}(hay|tienes).{0,30}(horario|rango|disponib)|sin rangos)', flags: 'i' },
         // Y no pide contacto "por si acaso" antes de intentarlo.
         { kind: 'reply-not-match', pattern: '(necesito|dame|proporci).{0,60}(correo|tel[eé]fono|whatsapp)', flags: 'i' },
+      ],
+    },
+    {
+      // El SEGUNDO turno del flujo de arriba: el doctor ya dijo en cuál consultorio, y ahora sí
+      // tiene que salir la propuesta. Sin este caso, soltar `proposal-types-in-order` del caso
+      // anterior dejaría sin cubrir justo lo que la feature agregó — el agente podría quedarse
+      // preguntando en bucle y la suite seguiría verde.
+      id: 'walk-in-consultorio-segundo-turno',
+      bitacora: 'CONSULTORIOS paso 4',
+      history: [
+        { role: 'user', content: `agéndame a Marcos Ruiz el ${enTresSemanas} a las 16:07, consulta de seguimiento` },
+        {
+          role: 'assistant',
+          content:
+            'Esa hora cae fuera de tus rangos publicados y tienes dos consultorios. ¿En cuál es la cita: Consultorio Polanco o Consultorio Satélite?',
+        },
+      ],
+      message: 'en Polanco',
+      soft: true,
+      dataDependent: 'dr-prueba tiene DOS consultorios (Polanco + Satélite) y a +21 días no tiene rangos',
+      checks: [
+        { kind: 'proposal-types-in-order', types: ['create_booking'] },
+        // No vuelve a preguntar lo que el doctor ACABA de contestar.
+        { kind: 'reply-not-match', pattern: '¿en cu[áa]l consultorio', flags: 'i' },
       ],
     },
     {

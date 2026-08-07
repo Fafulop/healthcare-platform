@@ -2,8 +2,13 @@
 
 > Tipo **DECISIÓN / REFERENCIA**. Escrito el **2026-08-06**.
 >
-> **Estado:** paso 1 ✅ corrido en prod (`e2d10151`) · paso 2 ✅ los dos endpoints de rangos ·
-> pasos 3 y 4 pendientes. El backfill de §5.1 **NO se ha corrido**.
+> **Estado (2026-08-06): LOS CUATRO PASOS ESTÁN HECHOS.** Paso 1 corrido en prod (`e2d10151`) ·
+> paso 2 los dos endpoints de rangos (`75fdcbd2`, probado con clic real) · paso 3 el modal
+> (`06aad405`) · paso 4 el agente (§4.3, con dos corridas de evals).
+>
+> Lo que NO se hizo, por decisión del usuario: **el backfill de §5.1** — las 269 citas viejas se
+> quedan sin consultorio. Y sigue **sin haber filtro server-side** por consultorio: el agente lo
+> lee y separa, pero no filtra en la consulta.
 
 ## 1. El orden, y por qué no es negociable
 
@@ -92,10 +97,11 @@ contra prod. Además imprime el **host** al conectarse, para poder afirmar contr
 |---|---|
 | **2. Endpoints** ✅ | `range-bookings/instant` acepta `locationId` y lo guarda. `range-bookings` **hereda** el del rango que ya tiene en la mano (`01-ESTADO` §3) — una línea. Ver §4.1. |
 | **3. UI** ✅ (modal) | El picker manda el consultorio; una cita que nace dentro de un rango lo hereda sin preguntar. Sólo hay algo que elegir cuando el doctor tiene 2+ **y** la cita es freeform. Ver §4.2. |
-| **4. Agente** | `get_locations` ya existe. Preguntar **sólo** si el doctor tiene 2+ y la cita no hereda de un rango; mandar `locationId` en `propose_create_booking`. Toca prosa del módulo agenda ⇒ `gate:prosa` + `gate:prompt` + **DOS corridas de evals**. |
+| **4. Agente** ✅ | `get_locations` ya existe. Preguntar **sólo** si el doctor tiene 2+ y la cita no hereda de un rango; mandar `locationId` en `propose_create_booking`. Toca prosa del módulo agenda ⇒ `gate:prosa` + `gate:prompt` + **DOS corridas de evals**. Ver §4.3. |
 
-Y al cerrar: **revisar `02-CAPACIDADES`**, que hoy dice que el agente no puede filtrar por
-consultorio *"porque el dato no existe"*. Esa frase deja de ser cierta con el paso 2.
+✅ **Y al cerrar: revisar `02-CAPACIDADES`** — HECHO en el commit del paso 4. Decía que el agente
+no puede filtrar por consultorio *"porque el dato no existe"*; dejó de ser cierto con el paso 1 y
+se quedó ahí hasta que **las evals lo cazaron** afirmándolo en voz del agente (§4.3).
 
 ### 4.1 — Paso 2, como quedó
 
@@ -232,6 +238,80 @@ ARRIBA de los campos de contacto obligatorios, así que no se puede enviar sin h
 
 🔴 **Falta el agente** (paso 4): `propose_create_booking` todavía no manda consultorio, así que
 una cita agendada por el asistente fuera de un rango sigue quedando sin él.
+
+### 4.3 — Paso 4, el AGENTE
+
+El veredicto es **server-side** (regla 0): el modelo no decide si hace falta preguntar, porque
+eso exige saber si la hora cae dentro de un rango con consultorio.
+`propose_create_booking` lo resuelve y, en el único caso que lo amerita, **se niega**:
+
+| Caso | Qué hace la tool |
+|---|---|
+| Hora dentro de un rango | Hereda. La tarjeta dice *"(heredado del rango)"* |
+| 1 consultorio | Lo registra, sin preguntar |
+| **2+ y fuera de todo rango** | **Se NIEGA y pide elegir**, devolviendo la lista. No propone sobre una suposición |
+| 0 consultorios | No registrado |
+
+**Reagendar** sigue el mismo orden, con un escalón extra: rango nuevo → si no, **se arrastra el
+de la cita original** (mover la hora no mueve el lugar, y es un dato registrado, no una
+suposición) → si no, la única sede → si no, sin registrar. Reagendar **nunca** se bloquea por
+esto.
+
+🔑 **De dónde sale la herencia sin duplicar la regla.** `checkSlot` ya llamaba a
+`range-availability` con `freeform=1` — el mismo endpoint que el paso 3 enseñó a anotar cada
+hora con su consultorio. El agente lo LEE de ahí. Volver a preguntar "¿qué rango contiene esta
+hora?" desde `apps/doctor` habría sido una TERCERA copia del predicado, en otra app, y la que se
+separara haría que la tarjeta prometiera un consultorio y la cita se guardara en otro.
+
+**Del `/code-review`, cuatro arreglos**, y el primero es el que importa:
+
+1. 🔴 Un `locationId` explícito le ganaba al rango **en silencio**. El modelo arrastra argumentos
+   entre turnos: tras la negativa le decimos *"vuelve a proponer con locationId"*, y si en la
+   misma respuesta el doctor además mueve la hora a un rango de la OTRA sede, la re-propuesta
+   llega con el id viejo y la tarjeta afirma *"Hospital A (elegido)"* para una hora publicada en
+   Hospital B. Ahora el conflicto levanta una advertencia que nombra **los dos**. El explícito
+   sigue ganando —es la palabra del doctor— pero ya no calladito.
+2. El texto de la negativa afirmaba *"esa hora no cae dentro de ningún rango"*, y eso es sólo UNA
+   de las dos razones por las que no hay herencia (la otra: cae en un rango **sin** consultorio).
+   Para un doctor con 2 sedes era una mentira segura sobre su propia agenda publicada.
+3. Reagendar no tenía el caso de "una sola sede", así que reagendar una cita vieja la dejaba otra
+   vez en `NULL` mientras CREARLA con los mismos datos sí la registraba.
+4. Un helper quedó entre el JSDoc de `checkSlot` y `checkSlot`.
+
+#### Las DOS corridas de evals (2026-08-06, 10 casos dirigidos)
+
+| | Corrida 1 | Corrida 2 |
+|---|---|---|
+| Primer intento | 8/10 PASS · 2 WARN · **0 FAIL** | 7/10 PASS · 3 WARN · **0 FAIL** |
+| WARN **estables** | `walk-in-solo-nombre-propone` | `walk-in-solo-nombre-propone` |
+| Flaky | `reschedule-noop` | `reschedule-noop`, `fuera-de-horario-ruta-normal` |
+
+**La negativa funciona, y se ve bien en las dos corridas** — el agente pregunta con las opciones,
+sin bucle y sin inventar sede. El único WARN estable era el caso esperando la propuesta en UN
+turno; con dos consultorios el flujo pasó a DOS por diseño. Se soltó `proposal-types-in-order` de
+ese caso (conserva `tool-called`, que es lo que protege la bitácora #35) y se agregó
+**`walk-in-consultorio-segundo-turno`**, que cubre el segundo turno — sin él, soltar el check
+habría dejado sin cubrir justo lo que la feature agregó.
+
+⚠️ **Y una que sólo se ve corriendo dos veces:** en la corrida 2, la pregunta del consultorio
+**le ganó** a la respuesta más útil (*"ese domingo no tienes horarios publicados"*) en
+`fuera-de-horario-ruta-normal`. Pasó al reintento y en la corrida 1 pasó de una — es ruido, no
+regresión, pero queda anotado porque es el modo en que esta feature puede degradar una respuesta
+buena.
+
+#### El hallazgo que las evals destaparon sin fallar
+
+`limite-l1-consultorio` **PASÓ en las dos corridas afirmando algo falso**:
+
+> *"los consultorios se asignan a rangos de disponibilidad, **no a citas individuales**"* (r1)
+> *"**las citas no registran** dónde se llevaron a cabo"* (r2)
+
+Cierto hasta el 2026-08-06 y falso desde el paso 1 — y el regex del caso se conformaba con la
+explicación equivocada. La causa era real: se ESCRIBÍA el consultorio y no se LEÍA de vuelta.
+Arreglado en el mismo commit: `BOOKING_SELECT` trae `location.name` y `mapBooking` lo devuelve
+como `consultorio`, así que `get_bookings`, `get_day_schedule` y `get_booking_detail` ya lo
+enseñan. `02-CAPACIDADES` §2 decía *"filtrar citas por consultorio (el dato no existe)"*:
+corregido — sigue sin haber filtro server-side, pero el dato existe y se ve.
 
 ## 5. Decisiones ABIERTAS (del usuario, no del código)
 

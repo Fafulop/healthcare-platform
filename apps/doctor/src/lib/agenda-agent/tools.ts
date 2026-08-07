@@ -61,7 +61,7 @@ export const AGENT_TOOLS: AnthropicTool[] = [
   {
     name: 'get_bookings',
     description:
-      'Lista citas del doctor con filtros. Una cita VENCIDA es una PENDIENTE **o AGENDADA (CONFIRMED)** cuya hora ya pasó sin resolverse — para buscarlas usa `vencidas: true` (el servidor aplica la definición completa; NO intentes reconstruirla filtrando por status tú mismo).',
+      'Lista citas del doctor con filtros. Una cita VENCIDA es una PENDIENTE **o AGENDADA (CONFIRMED)** cuya hora ya pasó sin resolverse — para buscarlas usa `vencidas: true` (el servidor aplica la definición completa; NO intentes reconstruirla filtrando por status tú mismo). Cada cita trae su `consultorio`; `null` = NO REGISTRADO (no quiere decir "el de por defecto"), y las citas creadas antes del 2026-08-06 están todas así porque el dato no existía. No hay filtro por consultorio: si el doctor pregunta por uno, trae las citas del periodo y sepáralas por ese campo, diciendo cuántas quedaron sin registrar.',
     input_schema: {
       type: 'object',
       properties: {
@@ -112,7 +112,7 @@ export const AGENT_TOOLS: AnthropicTool[] = [
   },
   {
     name: 'get_booking_detail',
-    description: 'Detalle completo de una cita por su id (contacto, notas, servicio, modalidad, links).',
+    description: 'Detalle completo de una cita por su id (contacto, notas, servicio, modalidad, consultorio, links).',
     input_schema: {
       type: 'object',
       properties: {
@@ -152,6 +152,11 @@ const BOOKING_SELECT = {
   startTime: true,
   endTime: true,
   slot: { select: { date: true, startTime: true, endTime: true } },
+  // El consultorio de la CITA (CONSULTORIOS paso 1). Se lee de la cita, no del rango: el rango
+  // dice dónde se PUBLICÓ el horario, la cita dice dónde ES. Sin esto el agente no tenía forma
+  // de ver el dato y, al preguntarle "¿qué citas tengo en Polanco?", explicaba que las citas no
+  // registran consultorio — cierto hasta el 2026-08-06 y falso desde entonces.
+  location: { select: { name: true } },
 } as const;
 
 function mapBooking(b: {
@@ -167,6 +172,7 @@ function mapBooking(b: {
   startTime: string | null;
   endTime: string | null;
   slot: { date: Date; startTime: string; endTime: string } | null;
+  location?: { name: string } | null;
 }) {
   const date = b.slot?.date ?? b.date;
   const startTime = b.slot?.startTime ?? b.startTime;
@@ -197,6 +203,10 @@ function mapBooking(b: {
     precio: Number(b.finalPrice),
     primeraVez: b.isFirstTime ?? false,
     modalidad: b.appointmentMode ?? null,
+    // `null` = NO REGISTRADO, y hay que decirlo así: NO significa "el consultorio por defecto"
+    // (al revés que la columna del mismo nombre en rangos y slots). Las citas anteriores al
+    // 2026-08-06 están todas en null porque la columna no existía cuando se crearon.
+    consultorio: b.location?.name ?? null,
     vencida: fecha && endTime ? isVencida(fecha, endTime, b.status) : false,
   };
 }

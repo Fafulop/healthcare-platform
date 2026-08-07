@@ -18,6 +18,12 @@ const AGENDA_DOMAIN_MODEL = `## Cómo funciona la agenda (invariantes — razona
   citas nuevas. Un rango con citas dentro **SÍ se puede borrar** y el servidor lo borra: las
   citas siguen vivas. Avisa cuántas quedan agendadas ahí, pero NO pidas cancelarlas ni las
   presentes como un obstáculo — no lo son.
+- **Consultorio de una cita**: si la hora cae dentro de un rango, la cita hereda el consultorio de
+  ese rango — no preguntes nada. Sólo hay algo que preguntar cuando la hora queda FUERA de todo
+  rango **y** el doctor tiene dos o más: ahí propose_create_booking te lo pedirá explícitamente
+  y te dará las opciones. **Nunca supongas el consultorio ni uses "el de por defecto"**: mandar a
+  un paciente a la sede equivocada es un daño real, y una cita sin consultorio registrado es
+  preferible a una con el consultorio inventado.
 - Los bloqueos son una capa encima del horario: bloquear no cancela ni mueve nada; desbloquear
   restaura todo. Es la única acción de agenda 100% reversible.
 - Estados de cita: PENDIENTE → CONFIRMADA → (COMPLETADA | NO ASISTIÓ | CANCELADA). Los tres

@@ -217,7 +217,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_create_booking',
     description:
-      'PROPONE crear una CITA (🔴 notifica al paciente: SMS/email/Google Calendar — solo cuando el doctor lo pidió explícitamente). La cita nace CONFIRMADA. El horario es el que pidió el doctor —a cualquier minuto y haya o no rango publicado ese día—; el servidor lo valida aquí contra el motor real y, si está ocupado, te devuelve los libres más cercanos. Paciente conocido: usa find_patient primero y pasa patientId + su contacto. Walk-in: pide al doctor los datos de contacto que falten — NUNCA los inventes. Si el horario está ocupado por una cita que un paso anterior de ESTE plan cancela, sí puedes proponerlo (el servidor lo detecta).',
+      'PROPONE crear una CITA (🔴 notifica al paciente: SMS/email/Google Calendar — solo cuando el doctor lo pidió explícitamente). La cita nace CONFIRMADA. El horario es el que pidió el doctor —a cualquier minuto y haya o no rango publicado ese día—; el servidor lo valida aquí contra el motor real y, si está ocupado, te devuelve los libres más cercanos. Paciente conocido: usa find_patient primero y pasa patientId + su contacto. Walk-in: pide al doctor los datos de contacto que falten — NUNCA los inventes. Si el horario está ocupado por una cita que un paso anterior de ESTE plan cancela, sí puedes proponerlo (el servidor lo detecta). CONSULTORIO: no te preocupes por él — el servidor lo hereda del rango o lo resuelve solo. SÓLO si te contesta que hace falta (hora fuera de todo rango y el doctor tiene 2+), pregúntale al doctor cuál y vuelve a proponer con locationId.',
     input_schema: {
       type: 'object',
       properties: {
@@ -232,6 +232,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
         notes: { type: 'string', description: 'Notas (opcional)' },
         appointmentMode: { type: 'string', enum: ['PRESENCIAL', 'TELEMEDICINA'], description: 'Modalidad (opcional)' },
         isFirstTime: { type: 'boolean', description: 'Primera vez (opcional)' },
+        locationId: { type: 'string', description: 'Consultorio (id de get_locations). NO lo mandes por tu cuenta: sólo cuando el tool te lo haya PEDIDO y el doctor te haya dicho cuál. Si la hora cae dentro de un rango, el consultorio se hereda solo y mandarlo aquí lo pisaría.' },
       },
       required: ['date', 'startTime', 'serviceId', 'patientName'],
     },
@@ -749,6 +750,10 @@ const BOOKING_PROPOSAL_SELECT = {
   date: true,
   startTime: true,
   endTime: true,
+  // El consultorio de la cita ORIGINAL. Al reagendar se arrastra: es un dato REGISTRADO de esta
+  // cita, no una suposición, y mover la hora no cambia a dónde tiene que ir el paciente.
+  locationId: true,
+  location: { select: { name: true } },
   slot: { select: { date: true, startTime: true, endTime: true } },
   patient: { select: { rfc: true, razonSocial: true } },
 } as const;
@@ -880,6 +885,11 @@ export function nearestTimes(times: string[], target: string, minGapMinutes: num
     .map((m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
 }
 
+/** Lee la anotación de consultorio de UNA hora del motor. El id manda; el nombre es cosmético. */
+function heredadoDe(slot: { locationId?: string | null; locationName?: string | null }) {
+  return slot.locationId ? { id: slot.locationId, nombre: slot.locationName ?? null } : null;
+}
+
 const TERMINAL_ERROR = (status: string) =>
   `La cita está en estado ${status} — es FINAL y no se puede modificar. El camino es siempre una cita nueva.`;
 
@@ -899,7 +909,18 @@ async function checkSlot(
   ctx: ProposalContext,
   input: { dateKey: string; startTime: string; serviceId: string; excludeBookingIds: Set<string> }
 ): Promise<
-  | { ok: true; dependencia: string | null; servicio: { nombre: string; duracionMinutos: number; precio: number } }
+  | {
+      ok: true;
+      dependencia: string | null;
+      servicio: { nombre: string; duracionMinutos: number; precio: number };
+      /**
+       * El consultorio que la cita HEREDARÍA por caer dentro de un rango que lo tiene, o `null`
+       * si la hora está fuera de todo rango. Lo dice el SERVIDOR (`range-availability` lo anota
+       * por hora); aquí sólo se lee. `null` significa "no hay de dónde heredarlo" — que es
+       * justo cuando hay que preguntarle al doctor, no cuando se puede suponer el default.
+       */
+      consultorioHeredado: { id: string; nombre: string | null } | null;
+    }
   | { ok: false; error: string; horariosDisponibles: string[] }
 > {
   // No isBookingActive filter: the flag only hides the service from the PUBLIC
@@ -933,7 +954,13 @@ async function checkSlot(
   // for failing to land on a 15-min boundary.
   const fetchDaySlots = async (
     excludeIds?: Set<string>
-  ): Promise<{ slots: { startTime: string }[]; freeform: boolean } | { error: string }> => {
+  ): Promise<
+    | {
+        slots: { startTime: string; locationId?: string | null; locationName?: string | null }[];
+        freeform: boolean;
+      }
+    | { error: string }
+  > => {
     const params = new URLSearchParams({
       startDate: input.dateKey,
       endDate: input.dateKey,
@@ -964,8 +991,16 @@ async function checkSlot(
       // range mode — reporting that as "esa hora no está libre" would state a
       // falsehood about the doctor's agenda (01-PLAN §8, "una lista vacía NO es
       // una respuesta").
+      // `locationId`/`locationName` los ANOTA el servidor por hora, con el mismo predicado de
+      // contención que corre al crear la cita (`rangeContains` de booking-location.ts). Se leen
+      // de aquí en vez de volver a preguntar "¿qué rango contiene esta hora?" desde el agente:
+      // esa consulta sería una TERCERA copia de la regla, en otra app, y la que se separara
+      // haría que la tarjeta prometa un consultorio y la cita se guarde en otro.
       const data: {
-        timeSlots?: Record<string, { startTime: string }[]>;
+        timeSlots?: Record<
+          string,
+          { startTime: string; locationId?: string | null; locationName?: string | null }[]
+        >;
         freeform?: boolean;
       } = await res.json();
       return {
@@ -982,8 +1017,9 @@ async function checkSlot(
   if ('error' in current) {
     return { ok: false, error: current.error, horariosDisponibles: [] };
   }
-  if (current.slots.some((s) => s.startTime === input.startTime)) {
-    return { ok: true, dependencia: null, servicio };
+  const enCurrent = current.slots.find((s) => s.startTime === input.startTime);
+  if (enCurrent) {
+    return { ok: true, dependencia: null, servicio, consultorioHeredado: heredadoDe(enCurrent) };
   }
 
   // 2) Plan-aware pass: does the slot become free once the plan's earlier
@@ -995,12 +1031,14 @@ async function checkSlot(
     if ('error' in planAware) {
       return { ok: false, error: planAware.error, horariosDisponibles: [] };
     }
-    if (planAware.slots.some((s) => s.startTime === input.startTime)) {
+    const enPlanAware = planAware.slots.find((s) => s.startTime === input.startTime);
+    if (enPlanAware) {
       return {
         ok: true,
         dependencia:
           'Depende de pasos anteriores del plan: el horario se libera cuando este mismo plan cancele la cita que lo ocupa — si esa cancelación falla o se rechaza, este paso fallará con conflicto.',
         servicio,
+        consultorioHeredado: heredadoDe(enPlanAware),
       };
     }
     // Alternatives come from the PLAN-AWARE list: on a reschedule the booking
@@ -1076,6 +1114,7 @@ async function proposeCreateBooking(
     notes?: string;
     appointmentMode?: string;
     isFirstTime?: boolean;
+    locationId?: string;
   }
 ) {
   const today = mxTodayKey();
@@ -1121,6 +1160,75 @@ async function proposeCreateBooking(
   const endTime = addMinutesToTime(input.startTime, slot.servicio.duracionMinutos);
   const advertencias = [NOTIFY_WARNING, ...(slot.dependencia ? [slot.dependencia] : [])];
 
+  // --- Consultorio (veredicto SERVER-SIDE, regla 0) --------------------------------------
+  // El modelo NO decide si hace falta preguntarlo: eso exige saber si la hora cae dentro de un
+  // rango con consultorio, y deducirlo contando campos es justo lo que la regla 0 prohíbe.
+  // Aquí se resuelve y, si de verdad falta, se DEVUELVE un error que le dice al agente qué
+  // preguntar y con qué opciones.
+  const consultorios = await prisma.clinicLocation.findMany({
+    where: { doctorId: ctx.doctorId },
+    orderBy: [{ isDefault: 'desc' }, { displayOrder: 'asc' }],
+    select: { id: true, name: true },
+  });
+
+  let consultorioElegido: { id: string; nombre: string | null } | null = null;
+  let consultorioNota: string;
+
+  if (input.locationId) {
+    // Explícito: se valida PERTENENCIA, igual que patientId y serviceId.
+    const propio = consultorios.find((c) => c.id === input.locationId);
+    if (!propio) {
+      return { error: 'Ese consultorio no es de este doctor — usa los ids de get_locations.' };
+    }
+    consultorioElegido = { id: propio.id, nombre: propio.name };
+    consultorioNota = `Consultorio: ${propio.name} (elegido)`;
+
+    // 🔴 El explícito gana, pero NO en silencio si contradice al rango.
+    // El modelo arrastra argumentos entre turnos: tras un rechazo le decimos "vuelve a proponer
+    // con locationId", y si en la misma respuesta el doctor además mueve la hora a uno de sus
+    // rangos —publicado para la OTRA sede— la re-propuesta llega con el locationId viejo. Sin
+    // esta advertencia la tarjeta diría "Hospital A (elegido)" para una hora que el doctor
+    // publicó en Hospital B, y el doctor confirmaría sin enterarse: exactamente el paciente
+    // mandado a la sede equivocada que esta feature existe para evitar. Se avisa en vez de
+    // rechazar porque la elección explícita del doctor SÍ debe poder ganarle al rango.
+    if (slot.consultorioHeredado && slot.consultorioHeredado.id !== propio.id) {
+      advertencias.push(
+        `⚠️ Consultorio en conflicto: esa hora cae dentro de un rango publicado en ` +
+          `"${slot.consultorioHeredado.nombre ?? 'otro consultorio'}", pero la cita se creará en ` +
+          `"${propio.name}" porque así se pidió. Confírmalo con el doctor si no fue a propósito.`
+      );
+    }
+  } else if (slot.consultorioHeredado) {
+    // Lo hereda del rango que la contiene. NO se manda en `params`: el endpoint lo resuelve
+    // solo con la misma regla. Mandarlo sería repetir aquí una decisión ya tomada allá.
+    consultorioNota = `Consultorio: ${slot.consultorioHeredado.nombre ?? 'el del rango'} (heredado del rango)`;
+  } else if (consultorios.length === 1) {
+    // Una sola sede: no hay nada que preguntar, pero la respuesta existe y es única.
+    consultorioElegido = { id: consultorios[0].id, nombre: consultorios[0].name };
+    consultorioNota = `Consultorio: ${consultorios[0].name}`;
+  } else if (consultorios.length > 1) {
+    // 🔴 El ÚNICO caso en que hay que preguntar: dos o más sedes y nada de dónde heredar.
+    // Se corta la propuesta en vez de suponer el default — mandar al paciente al consultorio
+    // equivocado es el daño concreto que esta feature existe para evitar.
+    // ⚠️ La frase NO afirma "está fuera de todo rango": `heredadoDe` devuelve null por DOS
+    // motivos distintos — la hora queda fuera de todo rango, O cae en un rango al que nadie le
+    // puso consultorio (los dos lados filtran por `locationId != null`). Afirmar el primero
+    // sería, para el segundo, una mentira segura sobre la agenda publicada del propio doctor —
+    // y el modelo relata este texto casi literal. Misma disciplina que la escalera de `motivo`
+    // de checkSlot: lo que no se sabe, no se afirma.
+    return {
+      error:
+        `No hay de dónde heredar el consultorio de esa hora (o queda fuera de todos los rangos, ` +
+        `o el rango que la contiene no tiene consultorio asignado), y el doctor tiene ` +
+        `${consultorios.length}. PREGÚNTALE en cuál es la cita y vuelve a proponer pasando ` +
+        `locationId. NO lo supongas ni uses el de por defecto.`,
+      consultorios: consultorios.map((c) => ({ id: c.id, nombre: c.name })),
+    };
+  } else {
+    // Sin consultorios configurados: no hay dato que registrar y no hay nada que preguntar.
+    consultorioNota = 'Consultorio: no registrado (el doctor no tiene consultorios configurados)';
+  }
+
   const proposal = ctx.collector.add({
     type: 'create_booking',
     titulo: `Crear cita ${input.date} ${input.startTime}–${endTime} · ${input.patientName}`,
@@ -1128,6 +1236,9 @@ async function proposeCreateBooking(
       `${slot.servicio.nombre} (${slot.servicio.duracionMinutos} min) · $${slot.servicio.precio}`,
       `Contacto: ${[input.patientEmail, input.patientPhone, input.patientWhatsapp].filter(Boolean).join(' · ') || 'sin datos'}`,
       input.patientId ? 'Vinculada al expediente del paciente' : 'Sin expediente (walk-in)',
+      // El consultorio va en la TARJETA porque es lo que el doctor confirma. Guardarlo sin
+      // enseñarlo dejaría el dato correcto e invisible justo en el momento de decidir.
+      consultorioNota,
       'La cita nace CONFIRMADA (creación del doctor)',
     ],
     advertencias,
@@ -1147,6 +1258,9 @@ async function proposeCreateBooking(
       ...(input.appointmentMode ? { appointmentMode: input.appointmentMode } : {}),
       ...(input.isFirstTime !== undefined ? { isFirstTime: input.isFirstTime } : {}),
       ...(input.patientId ? { patientId: input.patientId } : {}),
+      // Sólo cuando se ELIGIÓ o es la única sede. Si se hereda no se manda: el endpoint aplica
+      // la misma regla y repetirla aquí abriría la puerta a que las dos se separen.
+      ...(consultorioElegido ? { locationId: consultorioElegido.id } : {}),
     },
   });
   if (!proposal) return { error: CAP_ERROR };
@@ -1301,6 +1415,30 @@ async function proposeRescheduleBooking(
       ? originalPrice
       : null;
 
+  // --- Consultorio de la cita NUEVA (mismo orden de precedencia que al crear) --------------
+  // 1. Si la hora nueva cae dentro de un rango, ese rango manda — el doctor publicó ESA hora en
+  //    ESA sede. No se manda nada: el endpoint lo hereda solo.
+  // 2. Si no, se ARRASTRA el de la cita original: reagendar mueve la hora, no el lugar, y es un
+  //    dato registrado —no una suposición— así que no hay a quién preguntarle.
+  // 3. Si la original tampoco lo tenía, pero el doctor tiene UNA sola sede, se usa ésa: hay una
+  //    única respuesta posible. Sin este caso, reagendar una de las citas viejas (las que
+  //    quedaron en NULL) la dejaba otra vez sin consultorio, mientras que CREARLA con los mismos
+  //    datos sí lo habría registrado — misma entrada, dos filas distintas según el camino.
+  // 4. Si no, se queda sin registrar. NO se cae al de por defecto ni se interrumpe el reagendado
+  //    por esto: la cita importa más que el dato, y una sede inventada es peor que una ausente.
+  const consultoriosDelDoctor = await prisma.clinicLocation.findMany({
+    where: { doctorId: ctx.doctorId },
+    orderBy: [{ isDefault: 'desc' }, { displayOrder: 'asc' }],
+    select: { id: true, name: true },
+  });
+  const consultorioNuevo = slot.consultorioHeredado
+    ? { enviar: null, nota: `Consultorio: ${slot.consultorioHeredado.nombre ?? 'el del rango'} (heredado del rango nuevo)` }
+    : b.locationId
+      ? { enviar: b.locationId, nota: `Consultorio: ${b.location?.name ?? 'el mismo'} (se conserva el de la cita original)` }
+      : consultoriosDelDoctor.length === 1
+        ? { enviar: consultoriosDelDoctor[0].id, nota: `Consultorio: ${consultoriosDelDoctor[0].name}` }
+        : { enviar: null, nota: 'Consultorio: no registrado (la cita original tampoco lo tenía)' };
+
   const advertencias = [
     '📱 Notifica DOS veces: email de cancelación de la cita original + SMS/email/Calendar de la nueva. Los avisos no se pueden deshacer.',
     ...(b.status === 'PENDING' ? ['La cita original es PENDIENTE — la nueva nace CONFIRMADA (creación del doctor).'] : []),
@@ -1317,6 +1455,7 @@ async function proposeRescheduleBooking(
     detalle: [
       `${slot.servicio.nombre} (${slot.servicio.duracionMinutos} min) · nueva: ${input.newDate} ${input.newStartTime}–${endTime}`,
       'UNA acción: el sistema cancela la original y crea la nueva con los mismos datos del paciente',
+      consultorioNuevo.nota,
     ],
     advertencias,
     params: {
@@ -1336,6 +1475,7 @@ async function proposeRescheduleBooking(
         ...(b.appointmentMode ? { appointmentMode: b.appointmentMode } : {}),
         ...(b.isFirstTime !== null ? { isFirstTime: b.isFirstTime } : {}),
         ...(b.patientId ? { patientId: b.patientId } : {}),
+        ...(consultorioNuevo.enviar ? { locationId: consultorioNuevo.enviar } : {}),
         isRescheduled: true,
       },
     },
