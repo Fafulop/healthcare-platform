@@ -356,6 +356,7 @@ model Doctor {
 
   // Patient AI Summaries
   patientSummaries   PatientSummary[]
+  medicalReports     MedicalReport[]
 
   // Team (secondary users)
   members            DoctorMember[]
@@ -1890,6 +1891,13 @@ model Patient {
   constanciaFiscalUrl   String?  @map("constancia_fiscal_url") @db.Text
   constanciaFiscalName  String?  @map("constancia_fiscal_name") @db.VarChar(255)
 
+  // Póliza de gastos médicos. GNP EXIGE el número en su Informe Médico y no
+  // existía en ninguna tabla (04-MAPEO §3). No es dato del doctor: lo trae el
+  // paciente, se captura UNA vez y sirve para todos sus informes futuros.
+  // NULL = NO REGISTRADO.
+  numeroPoliza          String?  @map("numero_poliza") @db.VarChar(60)
+  polizaAseguradora     String?  @map("poliza_aseguradora") @db.VarChar(100)
+
   // Timestamps
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -1906,6 +1914,7 @@ model Patient {
   bookings             Booking[]
   formLinks            AppointmentFormLink[]
   summaries            PatientSummary[]
+  medicalReports       MedicalReport[]
 
   @@unique([doctorId, internalId])
   @@index([doctorId, status])
@@ -1998,6 +2007,7 @@ model ClinicalEncounter {
   versions        EncounterVersion[]
   media           PatientMedia[]
   prescriptions   Prescription[]
+  medicalReports  MedicalReport[]
 
   @@index([patientId, encounterDate])
   @@index([doctorId, encounterDate])
@@ -2434,6 +2444,97 @@ model PatientSummary {
 
   @@index([patientId])
   @@map("patient_summaries")
+  @@schema("medical_records")
+}
+
+// -----------------------------------------------------------------------------
+// INFORME MÉDICO — formatos de aseguradora llenados desde el expediente
+// Diseño: docs/DESDE JUNIO/INFORME MEDICO/
+// Migración: prisma/migrations/create-informe-medico.sql (SQL manual, ya en prod)
+// -----------------------------------------------------------------------------
+
+/// Catálogo de formatos a nivel PLATAFORMA (NO por doctor): los formatos oficiales
+/// son iguales para todos. Se baja del dominio de la ASEGURADORA, nunca de un
+/// intermediario — uno de tercero estaba 7 años atrasado (03-FORMATOS).
+model InsuranceForm {
+  id                String   @id @default(cuid())
+  insurer           String   @db.VarChar(100)
+  name              String   @db.VarChar(200)
+  /// Un informe ya emitido debe re-generarse con el mapeo VIEJO cuando la
+  /// aseguradora cambie su hoja. AXA la imprime: "AI-346 FEBRERO 2022".
+  version           String   @db.VarChar(80)
+
+  sourceUrl         String?   @map("source_url") @db.Text
+  fetchedAt         DateTime? @map("fetched_at")
+
+  pdfUrl            String   @map("pdf_url") @db.Text
+  /// campoCanónico -> nombre del campo AcroForm en ESE PDF. Agregar una
+  /// aseguradora = escribir este JSON, no tocar código (04-MAPEO §1).
+  fieldDict         Json     @default("{}") @map("field_dict")
+  /// TRUE cuando los campos rellenables los pusimos NOSOTROS sobre un PDF plano
+  /// (caso Allianz): ese archivo ya no es el oficial byte a byte.
+  fieldsAddedByUs   Boolean  @default(false) @map("fields_added_by_us")
+
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  reports           MedicalReport[]
+
+  /// ⚠️ En PROD hay además un índice ÚNICO PARCIAL que Prisma no sabe expresar:
+  /// `UNIQUE (insurer, name) WHERE is_active` — sólo UNA versión vigente por formato, para
+  /// que el dropdown nunca ofrezca la hoja vigente y la superseded a la vez.
+  /// `prisma db push` lo REVERTIRÍA. Vive en `migrations/create-informe-medico.sql`.
+  @@unique([insurer, name, version])
+  @@index([insurer, isActive])
+  @@map("insurance_forms")
+  @@schema("medical_records")
+}
+
+/// El informe de UN paciente contra UN formato.
+model MedicalReport {
+  id            String    @id @default(cuid())
+  doctorId      String    @map("doctor_id")
+  patientId     String    @map("patient_id")
+  /// De cuál consulta salió: sin esto no se reconstruye por qué el documento dice
+  /// lo que dice — el expediente pudo cambiar después (01-FUENTES §6).
+  encounterId   String?   @map("encounter_id")
+  formId        String    @map("form_id")
+
+  /// Respuestas CON PROCEDENCIA, no valores sueltos:
+  /// { "paciente.edad": { value, source, origin } }
+  /// origin ∈ deterministic | llm | voice | manual | empty. "empty" es un estado
+  /// EXPLÍCITO: falta de dato y borrado a propósito no son lo mismo (01-FUENTES §4).
+  answers       Json      @default("{}")
+  status        String    @default("draft") @db.VarChar(20)
+
+  /// Transferencia a un TERCERO bajo LFPDPPP: se registra la autorización.
+  consentGiven  Boolean   @default(false) @map("consent_given")
+  consentAt     DateTime? @map("consent_at")
+
+  issuedAt      DateTime? @map("issued_at")
+  createdBy     String    @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  doctor        Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  /// ⚠️ En PROD esta FK es COMPUESTA — `(patient_id, doctor_id) → patients(id, doctor_id)` —
+  /// para que la BD impida que un informe apunte al paciente de OTRO doctor. Prisma no la
+  /// modela (igual que en `Booking`), así que aquí va la de una sola columna y `prisma db push`
+  /// la REVERTIRÍA. Vive en `migrations/create-informe-medico.sql`.
+  patient       Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  /// Restrict, NO SetNull: las consultas se borran de verdad
+  /// (`clinicalEncounter.delete` en encounters/[encounterId]/route.ts) y un informe EMITIDO
+  /// que pierde de cuál consulta salió ya no se puede reconstruir (01-FUENTES §6).
+  encounter     ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: Restrict)
+  /// Restrict a propósito: un formato con informes emitidos no se borra.
+  form          InsuranceForm      @relation(fields: [formId], references: [id], onDelete: Restrict)
+
+  @@index([patientId, createdAt])
+  @@index([doctorId, status])
+  @@index([formId])
+  @@index([encounterId])
+  @@map("medical_reports")
   @@schema("medical_records")
 }
 

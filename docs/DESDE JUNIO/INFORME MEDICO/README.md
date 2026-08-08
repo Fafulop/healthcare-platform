@@ -1,0 +1,126 @@
+# 📄 INFORME MÉDICO — llenar el formato de la aseguradora desde el expediente
+
+> **Índice de la carpeta.** Tipo **ESTADO / BITÁCORA**: se actualiza al cerrar cada sesión.
+> Abierta el **2026-08-08** a pedido del usuario.
+
+## En una frase
+
+El doctor elige el formato de una aseguradora de una lista, el sistema **lo pre-llena con lo que
+ya sabe del paciente y de la consulta**, el doctor corrige (tecleando o hablándole al LLM), y sale
+un **PDF idéntico al oficial de la aseguradora** para descargar o mandarle al paciente.
+
+## ⚠️ Estado (2026-08-08): **las TABLAS ya están en prod. La aplicación NO existe.**
+
+| | |
+|---|---|
+| Tablas `insurance_forms` + `medical_reports` + columnas de póliza | ✅ **EN PROD** |
+| `schema.prisma` | ✅ actualizado (sin commitear) |
+| Motor de PDF (llenar · aplanar · borrador) | ⚠️ **probado, pero sólo como scripts de scratchpad** |
+| `pdf-lib` y `pdfjs-dist` en el repo | ❌ **NO instalados** |
+| Endpoint · pantalla · pre-llenado · filas en `insurance_forms` | ❌ nada |
+
+🔴 **Un doctor no puede llegar a nada de esto todavía.** Lo probado vive fuera de la aplicación.
+
+🔴 **PROD tiene las tablas y el repo NO tiene commit.** Si alguien corre `prisma db push` desde un
+checkout sin este `schema.prisma`, **las borra** — y además revierte la FK compuesta y el índice
+parcial (los dos son cosas que Prisma no modela).
+
+## Los dos hallazgos del día
+
+**1. No son escaneos.** Se midieron 3 formatos reales (Allianz, AXA, GNP): traen **campos
+rellenables**, capa de texto, sin cifrar, sin XFA, sin rotación. Llenar por nombre de campo es
+mucho más barato que estampar coordenadas ([`02-PLAN`](02-PLAN-el-formato-y-los-pasos.md) §2).
+
+**2. 🔴 Pero esos PDFs venían de Eleonor (`eleonor.mx`), no de las aseguradoras — y dos están mal.**
+Comparados contra el sitio oficial de cada aseguradora
+([`03-FORMATOS`](03-FORMATOS-procedencia-y-versiones.md)):
+
+| | Veredicto |
+|---|---|
+| **AXA** | ✅ Mismo documento. **El oficial ya es rellenable** (277 campos) — usar ése |
+| **GNP** | ⚠️ El del tercero (3 pág) y el oficial (2 pág) son **documentos distintos**. Hay que preguntar cuál rige |
+| **Allianz** | 🔴 El del tercero es de **2016**; el oficial es de **2023**. Y el oficial es **plano** |
+
+⇒ **DECIDIDO: el PDF base se baja del dominio de la aseguradora.** v1 arranca con estas 3.
+Mandar un formato obsoleto es justo el riesgo que esta funcionalidad existe para evitar.
+
+**3. ✅ Y el motor de salida ya está probado — con el clic** (2026-08-08): `pdf-lib` llenó **10/10**
+campos del AXA oficial, `flatten()` dejó **0 campos vivos**, los acentos y la ñ sobrevivieron
+(`Muñoz`, `Peña`, `María de los Ángeles`), y **el usuario abrió el PDF: se ve bien y no se puede
+editar**. Detalle en [`SESSION-REFRESCO`](SESSION-REFRESCO.md).
+
+## Los documentos
+
+| | |
+|---|---|
+| 👉 [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | **EMPIEZA AQUÍ** — estado vivo, decisiones tomadas y las preguntas abiertas |
+| [`01-FUENTES-de-donde-sale-cada-campo.md`](01-FUENTES-de-donde-sale-cada-campo.md) | **El documento importante.** De dónde sale cada valor, y por qué la consulta NO tiene un esquema fijo |
+| [`02-PLAN-el-formato-y-los-pasos.md`](02-PLAN-el-formato-y-los-pasos.md) | Qué se midió en los PDFs reales (§2), el diccionario de campos (§3), las tablas y los 7 pasos |
+| [`03-FORMATOS-procedencia-y-versiones.md`](03-FORMATOS-procedencia-y-versiones.md) | **De dónde bajar el PDF y por qué el del tercero no sirve** — oficial vs. intermediario, formato por formato |
+| [`04-MAPEO-expediente-a-formato.md`](04-MAPEO-expediente-a-formato.md) | Qué columna llena qué campo de cada formato · el **canónico** intermedio · **lo que NO podemos llenar** (empezando por el nº de póliza) |
+
+## De dónde viene este pedido
+
+Del usuario, el 2026-08-08:
+
+> *"Una funcionalidad en expediente que se llama informe médico. El doctor puede escoger de un
+> dropdown de muchos PDFs que contienen las estructuras que necesitan las aseguradoras, para
+> llenarlas y mandarlas a la aseguradora o al paciente, para que le cubran gastos."*
+
+Y la precisión que define el diseño, del mismo día:
+
+> *"Las consultas pueden tener diferentes esquemas, no todas caen bajo la arquitectura SOAP. Los
+> doctores pueden crear los suyos."*
+
+## Lo que ya está decidido
+
+| Decisión | Cuál | Dónde se explica |
+|---|---|---|
+| Formato de edición | **JSON, nunca PDF.** El PDF es una SALIDA, no una superficie de captura | [`02-PLAN`](02-PLAN-el-formato-y-los-pasos.md) §1 |
+| Fidelidad del PDF | **Idéntico al oficial** — y sale barato: los formatos **ya traen campos rellenables** | [`02-PLAN`](02-PLAN-el-formato-y-los-pasos.md) §2 |
+| Entrega | **Descarga** + **link al paciente**. NO se le manda correo a la aseguradora en v1 | [`02-PLAN`](02-PLAN-el-formato-y-los-pasos.md) §5 |
+| Llenado | Los CUATRO: automático de la ficha · automático de la consulta · voz+LLM · manual | [`01-FUENTES`](01-FUENTES-de-donde-sale-cada-campo.md) |
+
+## Lo que NO se re-litiga
+
+🔴 **El PDF jamás es la superficie de captura.** Se teclea sobre un formulario HTML contra un JSON;
+el PDF se genera al final. Un PDF editable no se puede pre-llenar, ni validar, ni leérselo al LLM,
+ni re-emitir para una segunda aseguradora.
+
+🔴 **Un campo sin fuente se queda VACÍO y marcado.** Nunca se adivina. Este documento lo firma un
+médico y va a una aseguradora: un dato inventado con formato correcto es peor que un hueco, porque
+el hueco se ve y la invención no. Mismo criterio que
+[`../../AGENTES/`](../AGENTES) sobre no dejar que el modelo deduzca veredictos.
+
+🔴 **Cada campo llenado carga de dónde salió.** No es lo mismo copiar `patient.dateOfBirth` que un
+valor que el LLM sacó interpretando el `customData` de una plantilla que inventó el doctor. El
+doctor tiene que VER la diferencia antes de firmar ([`01-FUENTES`](01-FUENTES-de-donde-sale-cada-campo.md) §4).
+
+## Lo que toca de lo que ya existe
+
+Casi todo está construido para otras cosas y se reusa:
+
+| Pieza | Dónde vive |
+|---|---|
+| Definición de campos (`FieldDefinition`) | `apps/doctor/src/types/custom-encounter.ts` |
+| Editor visual de formularios | `apps/doctor/src/components/form-builder/` (Canvas, ConfigPanel, PreviewMode) |
+| LLM que edita formularios conversando | `form-builder/AIChatPanel.tsx` + `hooks/useFormBuilderChat` |
+| Voz | `apps/doctor/src/components/voice-assistant/` |
+| PDF | `lib/pdf/encounter-pdf.ts` (jsPDF) · `lib/pdf/PrescriptionTemplate.tsx` (@react-pdf/renderer) |
+| Render de un PDF a canvas | `pdfjs-dist` — ⚠️ **NO declarado**, ver abajo |
+| Link con token al paciente | `apps/public/src/app/formulario-cita/[token]/page.tsx` |
+| Resolver claves crudas → etiquetas | `lib/receta-custom-content.ts` — **el precedente exacto** |
+
+### ⚠️ Hay que instalar DOS, no una
+
+| | Estado real (verificado 2026-08-08) |
+|---|---|
+| `pdf-lib` | ❌ No está. Se usó **sólo en el scratchpad**, con un `npm install` fuera del repo |
+| `pdfjs-dist` | ❌ **Tampoco está declarada.** Existe únicamente bajo `node_modules/.pnpm` como dependencia **transitiva de `pdf-parse`**; `node_modules/pdfjs-dist` **no existe** y no aparece en ningún `package.json` |
+
+🔴 Los scripts de medición la resolvieron por la ruta larga de `.pnpm`. Con el layout estricto de
+pnpm, un `require('pdfjs-dist')` normal **truena con MODULE_NOT_FOUND**, y cualquier `pnpm install`
+ajeno puede cambiarle la versión o quitarla.
+
+**Las dos hay que declararlas, y eso obliga a regenerar `pnpm-lock.yaml` en el MISMO commit**, o
+Railway falla el build con frozen lockfile y el push no shipea (`CLAUDE.md`).
