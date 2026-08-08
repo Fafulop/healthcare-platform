@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // pdfjs-dist NO se empaqueta: carga su "fake worker" con un `import()` dinámico
+  // de `pdf.worker.mjs` que el bundler no resuelve. Sin esto funciona con tsx en
+  // local y truena con `Cannot find module` en la ruta desplegada.
+  // Lo usa src/lib/informe-medico/add-fields.ts (alta de un formato plano).
+  serverExternalPackages: ["pdfjs-dist"],
   images: {
     remotePatterns: [
       {

@@ -2523,9 +2523,13 @@ model MedicalReport {
   /// modela (igual que en `Booking`), así que aquí va la de una sola columna y `prisma db push`
   /// la REVERTIRÍA. Vive en `migrations/create-informe-medico.sql`.
   patient       Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  /// Restrict, NO SetNull: las consultas se borran de verdad
-  /// (`clinicalEncounter.delete` en encounters/[encounterId]/route.ts) y un informe EMITIDO
-  /// que pierde de cuál consulta salió ya no se puede reconstruir (01-FUENTES §6).
+  /// ⚠️ En PROD esta FK es `ON DELETE NO ACTION` **DEFERRABLE INITIALLY DEFERRED**, que
+  /// Prisma no sabe expresar (aquí queda `Restrict`, lo más cercano). PROBADO contra prod:
+  /// con `Restrict` —y también con `NoAction` a secas— **borrar un PACIENTE truena**,
+  /// porque sus cascades a `clinical_encounters` y a `medical_reports` corren en un orden
+  /// que no controlamos. Diferida se comprueba hasta el COMMIT: borrar paciente funciona y
+  /// borrar una CONSULTA con informes sigue bloqueado (23503), que es lo que protege la
+  /// procedencia (01-FUENTES §6). `prisma db push` lo revertiría.
   encounter     ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: Restrict)
   /// Restrict a propósito: un formato con informes emitidos no se borra.
   form          InsuranceForm      @relation(fields: [formId], references: [id], onDelete: Restrict)

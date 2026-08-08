@@ -14,16 +14,19 @@ un **PDF idéntico al oficial de la aseguradora** para descargar o mandarle al p
 | | |
 |---|---|
 | Tablas `insurance_forms` + `medical_reports` + columnas de póliza | ✅ **EN PROD** |
-| `schema.prisma` | ✅ actualizado (sin commitear) |
-| Motor de PDF (llenar · aplanar · borrador) | ⚠️ **probado, pero sólo como scripts de scratchpad** |
-| `pdf-lib` y `pdfjs-dist` en el repo | ❌ **NO instalados** |
+| `schema.prisma` | ✅ actualizado y commiteado |
+| Motor de PDF (llenar · aplanar · borrador · alta de formato plano) | ✅ **en `apps/doctor/src/lib/informe-medico/`**, probado |
+| `pdf-lib` y `pdfjs-dist` | ✅ declaradas, con lockfile en el mismo commit |
 | Endpoint · pantalla · pre-llenado · filas en `insurance_forms` | ❌ nada |
 
-🔴 **Un doctor no puede llegar a nada de esto todavía.** Lo probado vive fuera de la aplicación.
+🔴 **Un doctor no puede llegar a nada de esto todavía:** no hay endpoint ni pantalla, y
+`insurance_forms` tiene **0 filas** — no hay ni un formato que elegir.
 
-🔴 **PROD tiene las tablas y el repo NO tiene commit.** Si alguien corre `prisma db push` desde un
-checkout sin este `schema.prisma`, **las borra** — y además revierte la FK compuesta y el índice
-parcial (los dos son cosas que Prisma no modela).
+🔴 **`prisma db push` REVIERTE TRES cosas que viven sólo en prod** y que Prisma no sabe modelar:
+la **FK compuesta** `(patient_id, doctor_id)`, el **índice único parcial** de versión vigente, y
+la FK **`DEFERRABLE`** de `encounter_id` (sin la cual **borrar un paciente truena**). Las tres
+están comentadas en `schema.prisma` y viven en
+`packages/database/prisma/migrations/create-informe-medico.sql`.
 
 ## Los dos hallazgos del día
 

@@ -5,11 +5,21 @@
 
 ## Estado en una línea
 
-**Las TABLAS están en prod y el motor de PDF está probado — pero la APLICACIÓN no existe:** cero
-endpoints, cero pantallas, cero filas en `insurance_forms`, y `pdf-lib`/`pdfjs-dist` **no están
-instalados en el repo**. Todo lo probado vive en scripts de scratchpad, fuera de la app.
+**Las tablas están en prod y el motor de PDF ya vive EN EL REPO y está probado — pero la
+funcionalidad no existe todavía:** cero endpoints, cero pantallas, cero filas en `insurance_forms`.
+Un doctor no puede llegar a nada.
 
-⬜ **Nada commiteado.** Prod tiene las tablas; el repo no tiene el commit.
+| | |
+|---|---|
+| Tablas + columnas de póliza | ✅ **EN PROD** (`3bad4c32` + 2 deltas del review) |
+| `pdf-lib` + `pdfjs-dist` declaradas | ✅ con `pnpm-lock.yaml` en el mismo commit |
+| `src/lib/informe-medico/` (4 módulos) | ✅ **en el repo**, probados contra los PDFs oficiales |
+| Endpoint · pantalla · pre-llenado · filas en `insurance_forms` | ❌ nada |
+
+⬜ **Commiteado, SIN PUSH** (a propósito: es el primer commit que Railway sí va a construir —
+cambia dependencias y toca un endpoint vivo—, así que se empuja cuando alguien pueda mirar el
+build). Hacerlo esperar es seguro: `medical_reports` tiene **0 filas**, así que la FK nueva no
+puede dispararse todavía.
 
 ## Qué se hizo el 2026-08-08
 
@@ -338,9 +348,83 @@ preguntas abiertas ya resueltas, y dos hallazgos de hechos verificados aparte:
 > del cumpleaños**. Medido: el día del cumpleaños las dos funciones dan lo mismo; la mala falla
 > **el día ANTERIOR**, dando `edad+1`. El bug es real, la descripción no lo era.
 
+## ✅ El motor ya vive EN EL REPO (2026-08-08)
+
+`apps/doctor/src/lib/informe-medico/`, con `pdf-lib@^1.17.1` y `pdfjs-dist@^5.4.296` declaradas en
+`apps/doctor/package.json` y `pnpm-lock.yaml` regenerado **en el mismo commit**.
+
+> `pdfjs-dist` se fijó en la línea **5.x** —la que ya estaba en el store como transitiva de
+> `pdf-parse`— y no en la 6.2.108 publicada: todo el código de medición está probado contra
+> 5.4.296 y así no entra un segundo major al store.
+
+| Módulo | Qué hace |
+|---|---|
+| `types.ts` | `AnswerOrigin` (conjunto CERRADO), `AnswerValue` con procedencia, `FieldDict` |
+| `winansi.ts` | Qué caracteres NO puede imprimir el formato |
+| `render-pdf.ts` | `renderFinal()` (llena + aplana) · `renderBorrador()` (dos capas + sólo lectura) |
+| `add-fields.ts` | Ponerle campos a un formato PLANO (Allianz): reglas + etiqueta por vecindad |
+
+`serverExternalPackages: ["pdfjs-dist"]` en `next.config.ts`: el "fake worker" hace un `import()`
+dinámico de `pdf.worker.mjs` que el bundler no resuelve — funciona con `tsx` en local y truena con
+`Cannot find module` en la ruta desplegada.
+
+## 🔴 El `/code-review` del paso 1 — dos hallazgos CAROS y uno que venía mal
+
+### 1. Cualquier `β`, `≥` o `→` tumbaba el informe ENTERO
+
+`setText()` no falla; **falla `save()`**, y ahí se cae la generación completa, no un campo. Medido
+contra el AXA oficial:
+
+| Texto | |
+|---|---|
+| `Neumonía de Muñoz` · `dolor — intenso` · `dijo “me duele”` | ✅ pasa (los acentos SÍ son WinAnsi) |
+| `HCG-β elevada` · `≥ 3 días` · `mejoría → alta` · `T ≈ 38°` | 🔴 **TRUENA** |
+
+⇒ `winansi.ts` valida ANTES de escribir. **No se reescribe el texto del médico**: cambiar `β` por
+"beta" en un documento firmado es peor que no imprimirlo. El campo se OMITE y se REPORTA con el
+carácter culpable, para que la UI diga exactamente qué quitar:
+
+```
+omitido Tratamiento recibidoRow1 :: caracteres-no-imprimibles ["β","≥","→"]
+```
+
+### 2. 🔴 El `RESTRICT` que puse ROMPÍA borrar un paciente — y el arreglo del review tampoco servía
+
+Probado contra prod dentro de una transacción con **rollback** (no quedó nada):
+
+| `medical_reports.encounter_id` | Borrar CONSULTA con informe | Borrar PACIENTE |
+|---|---|---|
+| `RESTRICT` (lo que se shipeó) | ✅ bloquea | 🔴 **TRUENA** |
+| `NO ACTION` (lo que sugirió el review) | ✅ bloquea | 🔴 **TRUENA IGUAL** |
+| **`NO ACTION DEFERRABLE INITIALLY DEFERRED`** | ✅ bloquea (23503) | ✅ **funciona** |
+
+Borrar un paciente dispara sus DOS cascades (a `clinical_encounters` y a `medical_reports`) en un
+orden que no controlamos. Sin `DEFERRABLE`, la comprobación cae al final de la sentencia interna
+del cascade y protesta aunque el informe se iba a borrar de todos modos. **Diferida se comprueba
+hasta el COMMIT**, cuando ya no queda nada que apunte.
+
+⚠️ Prisma no sabe expresar `DEFERRABLE` ⇒ es la **tercera** cosa que `db push` revertiría, junto con
+la FK compuesta y el índice parcial. Las tres están comentadas en `schema.prisma`.
+
+> 🔎 **Lección de método:** el review acertó el problema y falló el remedio. `NO ACTION` a secas
+> no arregla nada aquí. Sin la prueba con rollback se habría "arreglado" y seguiría roto.
+> Y mi PRIMERA corrida de esa prueba dijo "borrar la consulta PASÓ ❌" — era la prueba la que
+> estaba rota (el parche no empató por un acento), no la restricción.
+
+### Lo demás que salió del review
+
+- Buffer de pdf.js **detached**: se transfiere al worker; ahora va una COPIA por llamada y se abre
+  el PDF **una sola vez** con `destroy()` (antes: dos aperturas por página, todas sin cerrar).
+- Widget sin `/P` ya no se pinta en la página 1 con coordenadas de OTRA página: se salta y se cuenta.
+- "el campo no existe" ya no se confunde con "existe pero es una casilla".
+- Un nombre de campo repetido ya no aborta el alta entera del formato.
+- Borrar una consulta con informes devolvía **400 "referencia inválida"** — lo contrario de la
+  verdad. Ahora es **409** con el número de informes que la bloquean.
+
 ## Lo siguiente
 
 **Paso 0: ✅** · **Paso 1 (tablas): ✅ EN PROD** · **Paso 2: ✅** · **Allianz: ✅** · **Borrador: ✅**
+· **Motor en el repo: ✅**
 
 ⬜ **Nada de esto está commiteado.** El `.sql`, el `schema.prisma` y los docs están en el working
 tree esperando OK.

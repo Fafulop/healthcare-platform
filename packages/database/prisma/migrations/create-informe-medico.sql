@@ -69,10 +69,8 @@ CREATE TABLE IF NOT EXISTS medical_records.medical_reports (
   -- para que la BD impida que un informe apunte al paciente de OTRO doctor.
   patient_id    TEXT NOT NULL,
 
-  -- De cuál consulta salió. RESTRICT y no SET NULL: las consultas se borran DE VERDAD
-  -- (`clinicalEncounter.delete` en encounters/[encounterId]/route.ts), y un informe ya
-  -- EMITIDO que pierde de cuál consulta salió no se puede reconstruir (01-FUENTES §6).
-  encounter_id  TEXT REFERENCES medical_records.clinical_encounters(id) ON DELETE RESTRICT,
+  -- De cuál consulta salió. La FK se declara ABAJO porque necesita ser DEFERRABLE.
+  encounter_id  TEXT,
 
   -- RESTRICT a propósito: un formato con informes emitidos no se borra.
   form_id       TEXT NOT NULL REFERENCES medical_records.insurance_forms(id) ON DELETE RESTRICT,
@@ -109,6 +107,32 @@ ALTER TABLE medical_records.medical_reports
   FOREIGN KEY (patient_id, doctor_id)
   REFERENCES medical_records.patients(id, doctor_id)
   ON DELETE CASCADE;
+
+-- PROVENIENCIA: no se puede borrar una CONSULTA que tenga informes.
+-- Las consultas se borran de verdad (`clinicalEncounter.delete` en
+-- encounters/[encounterId]/route.ts) y un informe EMITIDO que pierde de cuál
+-- consulta salió ya no se puede reconstruir (01-FUENTES §6).
+--
+-- 🔴 DEFERRABLE INITIALLY DEFERRED, y NO es un detalle: PROBADO contra prod en una
+-- transacción con rollback (2026-08-08).
+--   · Con RESTRICT   → borrar un PACIENTE TRUENA. Sus dos cascades (a
+--     clinical_encounters y a medical_reports) corren en un orden que no
+--     controlamos, y RESTRICT se comprueba de inmediato.
+--   · Con NO ACTION a secas → TAMBIÉN truena: sin DEFERRABLE la comprobación
+--     sigue cayendo al final de la sentencia interna del cascade.
+--   · Con DEFERRABLE INITIALLY DEFERRED → se comprueba hasta el COMMIT, cuando
+--     el informe ya se fue con su propio cascade. Borrar paciente FUNCIONA y
+--     borrar una consulta con informes sigue BLOQUEADO (SQLSTATE 23503).
+--
+-- ⚠️ Prisma no sabe expresar DEFERRABLE ⇒ `prisma db push` lo revierte.
+ALTER TABLE medical_records.medical_reports
+  DROP CONSTRAINT IF EXISTS medical_reports_encounter_id_fkey;
+ALTER TABLE medical_records.medical_reports
+  ADD CONSTRAINT medical_reports_encounter_id_fkey
+  FOREIGN KEY (encounter_id)
+  REFERENCES medical_records.clinical_encounters(id)
+  ON DELETE NO ACTION
+  DEFERRABLE INITIALLY DEFERRED;
 
 CREATE INDEX IF NOT EXISTS medical_reports_patient_id_created_at_idx
   ON medical_records.medical_reports(patient_id, created_at);

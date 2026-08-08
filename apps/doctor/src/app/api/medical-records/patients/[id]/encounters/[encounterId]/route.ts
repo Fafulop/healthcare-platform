@@ -202,6 +202,21 @@ export async function DELETE(
       );
     }
 
+    // Un INFORME MÉDICO enviado a una aseguradora se construyó a partir de esta
+    // consulta; borrarla dejaría el informe sin poder reconstruirse. La BD lo
+    // impide (FK diferida, SQLSTATE 23503), pero ese error sale como un 400
+    // genérico de "referencia inválida" — que dice lo contrario de la verdad:
+    // el recurso relacionado SÍ existe, y justamente por eso bloquea.
+    const informes = await prisma.medicalReport.count({ where: { encounterId } });
+    if (informes > 0) {
+      return NextResponse.json(
+        {
+          error: `No se puede eliminar esta consulta: tiene ${informes} informe(s) médico(s) que se generaron a partir de ella. Elimina primero los informes.`,
+        },
+        { status: 409 }
+      );
+    }
+
     // Delete encounter
     await prisma.clinicalEncounter.delete({
       where: { id: encounterId }
