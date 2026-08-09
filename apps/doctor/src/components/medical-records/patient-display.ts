@@ -19,16 +19,8 @@ export function formatSex(sex: string): string {
   return SEX_LABELS[sex?.toLowerCase()] ?? sex;
 }
 
-export function calculateAge(dateOfBirth: string): number {
-  const today = new Date();
-  const birth = new Date(dateOfBirth);
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-}
+// Reexportado desde `lib/edad.ts` — ver la nota en `practice-utils.ts`.
+export { calcularEdad as calculateAge } from '@/lib/edad';
 
 export function formatPatientDate(dateString: string): string {
   try {

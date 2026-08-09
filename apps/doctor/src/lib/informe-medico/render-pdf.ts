@@ -12,7 +12,18 @@
  * Allianz oficial: 10/10 y 12/12 campos llenados, 0 campos vivos tras aplanar, y
  * los acentos y la ñ intactos (`Muñoz`, `Peña`, `María de los Ángeles`).
  */
-import { PDFDocument, PDFTextField, rgb, StandardFonts, type PDFForm } from 'pdf-lib';
+import {
+  PDFCheckBox,
+  PDFDocument,
+  PDFDropdown,
+  PDFOptionList,
+  PDFRadioGroup,
+  PDFTextField,
+  rgb,
+  StandardFonts,
+  type PDFField,
+  type PDFForm,
+} from 'pdf-lib';
 import type { Answers, FieldDict } from './types';
 import { caracteresNoImprimibles } from './winansi';
 
@@ -82,6 +93,28 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
 }
 
 /**
+ * ¿Este campo ya tiene algo? Decide el color del borrador.
+ *
+ * 🔴 No basta con `getText()`: **sólo los campos de texto lo tienen**. Una
+ * casilla usa `isChecked()` y un desplegable `getSelected()`, así que
+ * preguntarles por `getText` devuelve `undefined` y las 45 casillas de AXA
+ * saldrían en AZUL —"aquí se puede escribir"— aunque estuvieran marcadas.
+ */
+function tieneContenido(field: PDFField): boolean {
+  try {
+    if (field instanceof PDFTextField) return (field.getText() ?? '').trim() !== '';
+    if (field instanceof PDFCheckBox) return field.isChecked();
+    if (field instanceof PDFRadioGroup) return field.getSelected() !== undefined;
+    if (field instanceof PDFDropdown) return field.getSelected().length > 0;
+    if (field instanceof PDFOptionList) return field.getSelected().length > 0;
+  } catch {
+    // Un campo con la apariencia corrupta no debe tumbar el borrador entero.
+    return false;
+  }
+  return false;
+}
+
+/**
  * FINAL — el PDF que se descarga o se le manda al paciente.
  * Aplanado: los campos dejan de existir y el informe firmado no se puede editar.
  */
@@ -127,23 +160,22 @@ export async function renderBorrador(
   let widgetsSinPagina = 0;
 
   for (const field of form.getFields()) {
-    let valor = '';
-    try {
-      valor = (field as { getText?: () => string | undefined }).getText?.() ?? '';
-    } catch {
-      valor = '';
-    }
-    const lleno = valor.trim() !== '';
+    const lleno = tieneContenido(field);
 
     field.enableReadOnly();
 
     for (const widget of field.acroField.getWidgets()) {
       const r = widget.getRectangle();
-      const pageRef = widget.P();
+      // `/P` es OPCIONAL en el spec y muchos generadores no lo ponen. Cuando
+      // falta hay que buscar la página que referencia al widget — es lo que
+      // hace `flatten()` por dentro, y por eso el FINAL sí funciona en PDFs
+      // donde el borrador se quedaba sin pintar NADA (277 widgets, 0 recuadros,
+      // reportado sólo como un contador que ninguna UI lee todavía).
+      const widgetRef = pdf.context.getObjectRef(widget.dict);
+      const pageRef = widget.P() ?? (widgetRef ? pdf.findPageForAnnotationRef(widgetRef) : undefined);
       const page = pages.find((p) => p.ref === pageRef);
-      // Sin `/P` no sabemos en qué página va. Pintarlo en la 1 con las
-      // coordenadas de OTRA página tira recuadros de color encima del texto
-      // impreso, sin ninguna señal. Mejor no pintarlo y contarlo.
+      // Sin página no se pinta: hacerlo en la 1 con las coordenadas de OTRA
+      // tira recuadros de color encima del texto impreso, sin ninguna señal.
       if (!page) { widgetsSinPagina++; continue; }
       page.drawRectangle({
         x: r.x,

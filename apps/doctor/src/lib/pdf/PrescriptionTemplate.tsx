@@ -1,5 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import { calcularEdad as calculateAge } from '@/lib/edad';
 
 const styles = StyleSheet.create({
   page: {
@@ -267,17 +268,6 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
     </Document>
   );
 };
-
-function calculateAge(dateOfBirth: string): number {
-  const today = new Date();
-  const birth = new Date(dateOfBirth);
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-}
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('es-MX', {

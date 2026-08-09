@@ -1,5 +1,6 @@
 // jsPDF is dynamically imported — safe for client-only use, no SSR issues
 import { DEFAULT_PDF_SETTINGS, type PdfSettings } from '@/types/pdf-settings';
+import { calcularEdad as calcAge } from '@/lib/edad';
 
 function formatLocalDate(dateString: string): string {
   try {
@@ -13,15 +14,6 @@ function formatLocalDate(dateString: string): string {
   } catch {
     return dateString;
   }
-}
-
-function calcAge(dob: string): number {
-  const [y, m, d] = dob.split('T')[0].split('-').map(Number);
-  const today = new Date();
-  let age = today.getFullYear() - y;
-  const md = today.getMonth() - (m - 1);
-  if (md < 0 || (md === 0 && today.getDate() < d)) age--;
-  return age;
 }
 
 function encTypeLabel(t: string): string {

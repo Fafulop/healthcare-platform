@@ -101,6 +101,23 @@ function reglasDeOperadores(
     if (fn === OPS.save) { pila.push([...ctm] as Matriz); continue; }
     if (fn === OPS.restore) { ctm = pila.pop() ?? [1, 0, 0, 1, 0, 0]; continue; }
     if (fn === OPS.transform) { ctm = multiplicar(ctm, args as Matriz); continue; }
+
+    // 🔴 Un Form XObject TAMBIÉN transforma, con su `/Matrix`, y pdf.js lo
+    // emite como un operador aparte — no como `save` + `transform`. Ignorarlo
+    // no sólo saca mal las reglas de dentro del XObject: deja la pila
+    // DESBALANCEADA (su `End` haría un `restore` de más) y a partir de ahí toda
+    // la página sale corrida. Allianz no lo trae y por eso no mordió.
+    if (fn === OPS.paintFormXObjectBegin || fn === OPS.beginGroup) {
+      pila.push([...ctm] as Matriz);
+      const matriz = (args as unknown[] | undefined)?.[0];
+      if (Array.isArray(matriz) && matriz.length === 6) ctm = multiplicar(ctm, matriz as Matriz);
+      continue;
+    }
+    if (fn === OPS.paintFormXObjectEnd || fn === OPS.endGroup) {
+      ctm = pila.pop() ?? [1, 0, 0, 1, 0, 0];
+      continue;
+    }
+
     if (fn !== OPS.constructPath) continue;
 
     const mm = (args as unknown[])[2] as ArrayLike<number> | undefined;
@@ -230,7 +247,12 @@ export async function agregarCamposAFormatoPlano(pdfBase: Uint8Array): Promise<R
   return {
     pdf: await pdf.save(),
     campos,
-    sinEtiqueta: campos.filter((c) => !c.name).length,
+    // Se cuentan las reglas SIN ETIQUETA, no las que no tienen `name`: un campo
+    // que reventó en `createTextField` entra con `name: null` pero CON label, y
+    // contarlo aquí infla el número que la pantalla de revisión usa para decir
+    // cuántas reglas hay que etiquetar a mano. Los que reventaron ya van en
+    // `noCreados`.
+    sinEtiqueta: campos.filter((c) => !c.label).length,
     noCreados,
   };
 }

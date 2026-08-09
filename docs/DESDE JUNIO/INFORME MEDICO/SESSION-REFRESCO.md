@@ -1,25 +1,32 @@
 # 🔄 SESSION-REFRESCO — INFORME MÉDICO
 
 > **Handoff canónico de esta carpeta.** Estado vivo. Se actualiza al cerrar cada sesión.
-> Última actualización: **2026-08-08**.
+> Última actualización: **2026-08-09**.
 
 ## Estado en una línea
 
-**Las tablas están en prod y el motor de PDF ya vive EN EL REPO y está probado — pero la
-funcionalidad no existe todavía:** cero endpoints, cero pantallas, cero filas en `insurance_forms`.
-Un doctor no puede llegar a nada.
+**Las tablas están en prod, el motor de PDF está desplegado y el pre-llenado determinista ya
+produce un AXA lleno — pero la funcionalidad sigue sin existir para un doctor:** cero endpoints,
+cero pantallas, cero filas en `insurance_forms`.
 
 | | |
 |---|---|
 | Tablas + columnas de póliza | ✅ **EN PROD** (`3bad4c32` + 2 deltas del review) |
 | `pdf-lib` + `pdfjs-dist` declaradas | ✅ con `pnpm-lock.yaml` en el mismo commit |
-| `src/lib/informe-medico/` (4 módulos) | ✅ **en el repo**, probados contra los PDFs oficiales |
-| Endpoint · pantalla · pre-llenado · filas en `insurance_forms` | ❌ nada |
+| `src/lib/informe-medico/` (motor de PDF) | ✅ **EN PROD** (`df14d647`, build verde 2026-08-09) |
+| **Paso 4 — pre-llenado determinista** | ✅ **escrito y verificado**, ⬜ sin commitear |
+| Endpoint · pantalla · filas en `insurance_forms` | ❌ nada |
 
-⬜ **Commiteado, SIN PUSH** (a propósito: es el primer commit que Railway sí va a construir —
-cambia dependencias y toca un endpoint vivo—, así que se empuja cuando alguien pueda mirar el
-build). Hacerlo esperar es seguro: `medical_reports` tiene **0 filas**, así que la FK nueva no
-puede dispararse todavía.
+### El push de `df14d647` — build verde (2026-08-09)
+
+Era el primer commit que Railway sí iba a construir (dependencias nuevas + un endpoint vivo).
+**Sólo se redesplegó `@healthcare/doctor`**, que es lo correcto: los otros tres servicios no
+tocan nada de esto. `BUILDING` → `SUCCESS` en ~2 min, y la app responde.
+
+⚠️ **Lo que el build verde NO prueba:** el `serverExternalPackages: ["pdfjs-dist"]` sólo importa
+cuando algo llama a `add-fields.ts` en runtime, y **nada lo llama todavía** (no hay endpoints). Ese
+riesgo está diferido, no descartado. Igual el 409 de borrar-consulta-con-informes: inalcanzable
+mientras `medical_reports` tenga 0 filas.
 
 ## Qué se hizo el 2026-08-08
 
@@ -421,17 +428,135 @@ la FK compuesta y el índice parcial. Las tres están comentadas en `schema.pris
 - Borrar una consulta con informes devolvía **400 "referencia inválida"** — lo contrario de la
   verdad. Ahora es **409** con el número de informes que la bloquean.
 
+## ✅ PASO 4 — el pre-llenado determinista (2026-08-09)
+
+Tres módulos nuevos y una deuda vieja saldada. **Sin LLM y sin base de datos**: el pre-llenado es
+una función pura, y por eso se pudo verificar campo por campo antes de que exista una pantalla.
+
+| Archivo | Qué hace |
+|---|---|
+| `lib/edad.ts` | La edad, **UNA sola implementación** (antes 4, con 3 rotas — abajo) |
+| `informe-medico/canonical.ts` | El canónico: **38** campos escalares + la lista de 10 medicamentos |
+| `informe-medico/prefill.ts` | `construirPrefillDeterminista(entrada) → { answers, avisos }` |
+| `informe-medico/dicts/axa.ts` | `campoCanónico → campo AcroForm` del AXA oficial |
+
+### Verificado contra el PDF OFICIAL, no contra los docs
+
+Los 27 nombres de campo del diccionario **se leyeron del PDF con pdf-lib**, no se copiaron de la
+prosa de `04-MAPEO`. La corrida completa con un paciente realista:
+
+| | |
+|---|---|
+| Campos canónicos con valor | **46** |
+| Escritos en el AXA oficial | **27** · **0 omitidos** ⇒ los 27 nombres existen y son de texto |
+| Tras `flatten()` | **0 campos vivos** |
+| Acentos leídos de vuelta | ✅ `Muñoz` · `Peña` · `María de los Ángeles` · `Neumonía` |
+
+Y el caso ESCASO (paciente con casi todo en NULL): **19 con valor, 59 en `empty`**, todos con
+`value: ''` y `source: null`. Ningún fallo se disfrazó de vacío legítimo.
+
+### 🔴 La edad estaba mal HOY, y el pre-llenado la habría copiado
+
+`01-FUENTES` §2 decía que había 4 implementaciones y 3 con un bug de zona horaria. Se extrajo
+`lib/edad.ts` y las cuatro apuntan ahí. Medido en esta máquina (UTC-6, 2026-08-09):
+
+| Nacimiento | La vieja | La correcta |
+|---|---|---|
+| 1979-08-**10** (cumple MAÑANA) | **47** ❌ | **46** ✅ |
+| 1979-08-09 · 1979-08-11 · 1980-05-15 | igual | igual |
+
+⚠️ **Esto no era teórico: falla el día ANTERIOR al cumpleaños, y hoy es ese día para ese paciente.**
+El arreglo también corrige la edad que ya se mostraba en el perfil del paciente, el timeline, las
+tarjetas y el PDF de receta — las tres copias malas vivían ahí.
+
+### Cuatro decisiones que quedaron tomadas en el código
+
+1. **`Talla` sale en `cm`, no en `m`.** Todo el repo guarda `vitalsHeight` en centímetros
+   (`VitalsInput`, el prompt de voz, el PDF de consulta). El `1.62 m` de la prueba del 2026-08-08
+   era dato tecleado a mano, no del expediente: el pre-llenado escribe `162 cm`.
+2. **`plan` NO va a `Tratamiento recibidoRow1`.** Ese renglón es tratamiento **pasado**; `plan` es
+   el propuesto. Va a `Tratamiento propuesto quirúrgico no quirúrgico`.
+3. **La cédula de especialidad se queda VACÍA si no se puede saber cuál rige.** Se descarta la
+   entrada de "médico general" (ésa es la profesional, y repetirla haría que el informe declare la
+   misma cédula dos veces) y, con varias especialidades, sólo se llena si una empata con
+   `primarySpecialty`. "La primera" sería inventar cuál ejerce en este caso.
+4. **Partir el apellido emite un AVISO**, siempre. Es una heurística (`de la Cruz`,
+   `Ponce de León`) y el doctor tiene que verla. El `source` dice que viene de una heurística pero
+   el `origin` sigue siendo `deterministic`: el conjunto está CERRADO en tres lugares ya shipeados.
+
+Los `avisos` son un canal aparte de las respuestas — `medicamentos-truncados` (más de 10 recetados),
+`apellido-heuristico`, `apellido-unico`, `sexo-desconocido`. Sin ellos el informe sale corto y se
+ve completo.
+
+### 🔴 El `/code-review` del paso 4 — la fecha estaba mal por la MISMA razón que la edad
+
+Seis hallazgos reales, todos arreglados y verificados. El caro es el primero:
+
+**1. `consulta.fecha` y la fecha de emisión salían en UTC.** `toISOString()` toma el día **UTC**, y
+`ClinicalEncounter.encounterDate` **no es `@db.Date`: es un timestamp con hora.** Medido:
+
+| Consulta | Lo que escribía | Correcto |
+|---|---|---|
+| 2026-08-09 **18:30** en CDMX (UTC-6) | **10/08/2026** ❌ | 09/08/2026 |
+| 2026-08-09 09:00 | 09/08/2026 | 09/08/2026 |
+
+Una consulta de las 6 de la tarde salía fechada **al día siguiente**, en el campo que la aseguradora
+cruza contra la fecha del siniestro. Es **la misma clase de bug de zona horaria** que acabábamos de
+extirpar de la edad, reintroducida en el mismo archivo el mismo día.
+
+⇒ Ahora son **dos** helpers, y la diferencia es del esquema, no de gusto:
+`fechaCalendario()` lee componentes **UTC** (para `@db.Date`, que Prisma devuelve a medianoche UTC)
+y `fechaMomento()` lee componentes **locales** (para timestamps y para el "hoy" de la emisión).
+Un `YYYY-MM-DD` pelón se trata como día calendario: `new Date('2026-08-05')` sería el día 4 en local.
+
+**2–5. En el motor que ya está en prod** (`df14d647`), tres de ellos con el mismo patrón — algo
+falla y se reporta como un vacío legítimo:
+
+- **El borrador podía salir SIN PINTAR NADA.** `/P` es **opcional** en el spec del PDF y muchos
+  generadores no lo ponen; sin él no se resolvía la página y el widget se saltaba. Un formato de
+  277 campos habría dado un borrador "exitoso" con **cero recuadros** y un contador que ninguna UI
+  lee. Ahora cae al `findPageForAnnotationRef()` — que es justo lo que hace `flatten()` por dentro,
+  y por eso el FINAL sí funcionaba en esos PDFs.
+- **Las 45 casillas de AXA se pintaban de AZUL** ("aquí se puede escribir") aunque estuvieran
+  marcadas: sólo los campos de texto tienen `getText()`. Ahora cada tipo se pregunta por lo suyo
+  (`isChecked()`, `getSelected()`).
+- **El tracker de la matriz ignoraba los Form XObject.** pdf.js emite `paintFormXObjectBegin` con
+  la `/Matrix` como operador **aparte**, no como `save` + `transform`. Un formato que envuelva su
+  contenido en un XObject no sólo sacaba mal las reglas de dentro: dejaba la **pila desbalanceada**
+  y corría el resto de la página. Allianz no lo trae y por eso no mordió.
+- **`sinEtiqueta` contaba de más**: incluía las reglas cuyo `createTextField` reventó (que ya van
+  en `noCreados`), inflando el número que la pantalla de revisión usa para decir cuánto hay que
+  etiquetar a mano.
+
+**6.** Este mismo doc decía "40 campos escalares" y son **38**.
+
+**Regresión verificada tras los arreglos:** Allianz da **exactamente** los mismos números de antes
+(61 reglas → 56 campos, 43 por la izquierda + 13 por arriba, 5 sin etiqueta, 0 no creados) y AXA
+sigue en **0 omitidos** con `widgetsSinPagina: 0`.
+
+> 🔎 **Lección:** `lib/edad.ts` se extrajo *para* matar un bug de zona horaria, y el pre-llenado
+> que lo usaba metió otro igual tres funciones más abajo. Saber del bug no basta: lo que separa
+> los dos casos es **si la columna es `@db.Date` o un timestamp**, y eso hay que mirarlo en el
+> esquema cada vez.
+
+### ⚠️ Lo que falta antes de creerle a esto
+
+- **El CLIC.** Nadie ha abierto `Downloads/axa-PREFILL.pdf`. Que los 27 campos existan y se
+  escriban **no prueba que sean los correctos**: `Nombre` (campo 217, entre `Tipo de participación`
+  y `Especialidad`) se mapeó al médico por su posición en el bloque, y eso hay que verlo.
+- **No hay fila en `insurance_forms`.** El diccionario de AXA vive en el repo porque todavía no
+  existe la pantalla de alta; su lugar definitivo es `field_dict`.
+- **Nada llama a esto.** Sigue sin haber endpoint ni pantalla (paso 5).
+
 ## Lo siguiente
 
 **Paso 0: ✅** · **Paso 1 (tablas): ✅ EN PROD** · **Paso 2: ✅** · **Allianz: ✅** · **Borrador: ✅**
-· **Motor en el repo: ✅**
+· **Motor: ✅ EN PROD** · **Paso 4 (pre-llenado): ✅ escrito, sin commitear**
 
-⬜ **Nada de esto está commiteado.** El `.sql`, el `schema.prisma` y los docs están en el working
-tree esperando OK.
-
-- **Paso 4** (pre-llenado determinista) ya tiene un mapeo obvio contra AXA:
-  `Nombres`/`Apellido paterno`/`Apellido materno`/`Edad` ← `Patient`;
-  `Talla`/`Peso`/`Tensión arterial` ← `vitalsHeight`/`vitalsWeight`/`vitalsBloodPressure`.
+- **Paso 5** — la pantalla del doctor: dropdown de formato, formulario HTML contra el canónico,
+  procedencia visible, y descargar borrador/final. Es lo que convierte todo lo anterior en algo
+  que un doctor puede usar.
+- **Paso 3** — el diccionario de GNP (`P1_7`, cero semántica) y la fila real en `insurance_forms`.
 
 ⚠️ Sólo se vieron **3** formatos, y son los 3 con los que arranca v1 por decisión del usuario.
 

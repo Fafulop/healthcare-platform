@@ -44,16 +44,9 @@ export function formatDateLong(dateString: string): string {
   } catch { return dateString; }
 }
 
-export function calculateAge(dateOfBirth: string): number {
-  const today = new Date();
-  const birth = new Date(dateOfBirth);
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-}
+// Reexportado desde `lib/edad.ts`: la copia que vivía aquí tenía el bug de zona
+// horaria que hacía cumplir años un día antes en UTC-6 (01-FUENTES §2).
+export { calcularEdad as calculateAge } from './edad';
 
 export function formatDateTime(dateString: string): string {
   return new Date(dateString).toLocaleString('es-MX', {
