@@ -235,7 +235,7 @@ editar por voz y funciona. Lo único que la voz no puede hacer es **vaciar**.
 Revisión pedida por el usuario. Los dos primeros **los agrava la voz en particular** y hay que
 resolverlos ANTES de construir el dictado.
 
-### 10.1 🔴 WinAnsi: el dictado hace probables los caracteres que NO se imprimen
+### 10.1 ✅ RESUELTO (2026-08-09) — WinAnsi: el dictado hace probables los caracteres que NO se imprimen
 
 `render-pdf` **omite el campo entero** si trae un carácter que la fuente del formato no codifica
 (`winansi.ts`, medido): `HCG-β` · `≥ 3 días` · `mejoría → alta` · `T ≈ 38°`.
@@ -247,16 +247,35 @@ señal.
 
 ⇒ **Dos arreglos, los dos baratos:**
 1. El prompt pide símbolos **en palabras** (`mayor o igual a`, `beta`, `aproximadamente`).
-2. El visor avisa **al escribir**, con `caracteresNoImprimibles()` que ya existe: *"quita el `≥`,
-   este formato no lo puede imprimir"*.
+   ⬜ Pendiente, va con el dictado.
+2. ✅ **HECHO:** el visor avisa **al escribir** con `caracteresNoImprimibles()`: marco rojo sobre la
+   caja y el texto *"El formato no puede imprimir «≥» — este campo saldría VACÍO"*. La pestaña de
+   lista avisa igual, y el endpoint del PDF manda el detalle en `X-Informe-Problemas`.
 
-### 10.2 🔴 El texto largo no cabe, y no hay auto-ajuste
+### 10.2 ✅ RESUELTO (2026-08-09) — El texto largo no cabe, y no hay auto-ajuste
 
 `setText()` se llama sin `setFontSize` ni control de largo.
 [`02-PLAN`](02-PLAN-el-formato-y-los-pasos.md) §7 prometía *"auto-ajuste de tamaño, nunca recorte
-silencioso"* y **nunca se implementó**. Tecleando salen entradas cortas; **dictando salen párrafos**,
-y hay campos de 43 pt de ancho (`Edad`). ⇒ Hace falta auto-ajuste o un aviso de "no cabe" — nunca
-un recorte callado.
+silencioso"* y **nunca se implementó**.
+
+**Medido sobre el AXA oficial, campo `Edad` (43×14 pt):** `pdf-lib` no recorta — **encoge la letra
+y desborda**.
+
+| Texto | Letra que usa |
+|---|---|
+| `46` | 10 pt |
+| `cuarenta y seis` (15 ch) | **6 pt**, al límite |
+| 40 caracteres | **3 pt**, ilegible |
+| 109 caracteres | **3 pt en una línea**: imposible en 43 pt, se sale de la caja |
+
+Una aseguradora que recibe un dato en 3 pt lo lee mal o rechaza la hoja.
+
+✅ **HECHO:** `capacidad.ts` calcula cuánto texto admite una caja a **6 pt** (el mínimo legible).
+El valor **se sigue escribiendo** —borrarlo sería perder lo que tecleó el médico— pero se reporta
+como `no-cabe` con cuántos caracteres sobran, y el visor lo marca en rojo mientras se escribe.
+
+> 🔎 **La aproximación está calibrada:** el modelo dice 14 caracteres máximo en esa caja a 6 pt, y
+> `pdf-lib` empíricamente eligió 6 pt para 15 caracteres. Coincide.
 
 ### 10.3 Carrera: teclear mientras el dictado se procesa
 

@@ -68,6 +68,11 @@ export async function GET(
         // Sólo los omitidos que son un problema de verdad: un canónico que
         // esta hoja no pide es normal y contarlo enseñaría a ignorar el número.
         'X-Informe-Omitidos': String(r.problemas.length),
+        // El detalle, para que la UI pueda decir QUÉ campo y por qué en vez de
+        // un número suelto. Se recorta: es una cabecera, no un cuerpo.
+        'X-Informe-Problemas': encodeURIComponent(
+          JSON.stringify(r.problemas.slice(0, 20).map((p) => ({ c: p.campoCanonico, m: p.motivo })))
+        ).slice(0, 3500),
         // PHI: que no quede en cachés intermedias.
         'Cache-Control': 'private, no-store',
       },

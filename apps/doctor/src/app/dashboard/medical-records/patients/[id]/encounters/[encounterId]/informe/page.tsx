@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Download, FileText, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import InformeVisor, { type ValorVisor } from './InformeVisor';
+import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
 
 interface Formato { id: string; insurer: string; name: string; version: string }
 interface Valor { value: string; source: string | null; origin: string }
@@ -144,6 +145,17 @@ export default function InformeMedicoPage() {
     await abrirInforme(informe.id);
     setGuardado(clave);
     return true;
+  }
+
+  /**
+   * El mismo aviso que da el visor, para que las dos pestañas digan lo mismo.
+   * Aquí no se conoce la geometría de la caja, así que sólo se puede comprobar
+   * lo que no depende del tamaño: los caracteres que el formato no imprime.
+   */
+  function avisoDeImpresion(c: Campo): string | null {
+    const malos = caracteresNoImprimibles(c.valor.value);
+    if (malos.length === 0) return null;
+    return `El formato no puede imprimir ${malos.map((m) => `"${m}"`).join(' ')} — saldría vacío.`;
   }
 
   /** `clave -> { value, origin }`, que es lo que el visor pinta. */
@@ -369,6 +381,9 @@ export default function InformeMedicoPage() {
                       />
                       {guardado === c.clave && (
                         <span className="text-[11px] text-green-700">guardado</span>
+                      )}
+                      {avisoDeImpresion(c) && (
+                        <span className="block text-[11px] text-red-700 mt-0.5">{avisoDeImpresion(c)}</span>
                       )}
                     </div>
                   </div>

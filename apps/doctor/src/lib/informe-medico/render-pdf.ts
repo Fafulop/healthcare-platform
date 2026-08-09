@@ -26,6 +26,7 @@ import {
   type PDFForm,
 } from 'pdf-lib';
 import { nombrePdfDe, type Answers, type FieldDict } from './types';
+import { capacidadDeCaja } from './capacidad';
 import { caracteresNoImprimibles } from './winansi';
 
 /** Azul: aquí SE PUEDE escribir (campo vacío). */
@@ -41,9 +42,12 @@ export interface CampoOmitido {
     | 'no-existe'                    // el diccionario nombra un campo que este PDF no tiene
     | 'sin-campo-en-el-formato'      // NORMAL: el canónico tiene el dato y esta hoja no lo pide
     | 'no-es-de-texto'
-    | 'caracteres-no-imprimibles';
+    | 'caracteres-no-imprimibles'
+    | 'no-cabe';                     // SÍ se escribió, pero en letra ilegible
   /** Sólo para `caracteres-no-imprimibles`: qué hay que quitar. */
   caracteres?: string[];
+  /** Sólo para `no-cabe`: cuántos caracteres sobran para que se lea. */
+  sobran?: number;
 }
 
 export interface RenderResult {
@@ -130,6 +134,17 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
 
     field.setText(respuesta.value);
     llenados++;
+
+    // 🔴 `pdf-lib` no recorta: encoge la letra hasta 3 pt y desborda. El valor SÍ
+    // se escribe (borrarlo sería perder lo que tecleó el médico), pero se reporta
+    // para que la UI diga "esto no se va a poder leer" — nunca en silencio.
+    const r = field.acroField.getWidgets()[0]?.getRectangle();
+    if (r) {
+      const cap = capacidadDeCaja(r.width, r.height, field.isMultiline(), respuesta.value.length);
+      if (cap.excede) {
+        omitidos.push({ campoCanonico, nombrePdf, motivo: 'no-cabe', sobran: cap.sobran });
+      }
+    }
   }
   return { omitidos, llenados };
 }

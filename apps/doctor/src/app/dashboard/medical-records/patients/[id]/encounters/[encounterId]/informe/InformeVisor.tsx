@@ -17,6 +17,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
+import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
+import { capacidadDeCaja } from '@/lib/informe-medico/capacidad';
 
 export interface Caja {
   clave: string;
@@ -57,6 +59,27 @@ async function mensajeDeError(r: Response, porDefecto: string): Promise<string> 
     }
   } catch { /* cae al mensaje por defecto */ }
   return porDefecto;
+}
+
+/**
+ * Los dos problemas que sólo se ven al IMPRIMIR, avisados mientras se escribe.
+ *
+ * 🔴 Sin esto los dos son invisibles hasta que la aseguradora recibe la hoja:
+ *  - un `≥` o una `β` hacen que el campo **no se imprima** (winansi.ts);
+ *  - un texto largo se imprime en 3 pt, ilegible (capacidad.ts).
+ * Los dos se cuentan en `problemas` del render, pero ese número llega DESPUÉS de
+ * generar el PDF. Aquí llega mientras todavía se puede corregir.
+ */
+function problemaDelTexto(texto: string, c: Caja): string | null {
+  const malos = caracteresNoImprimibles(texto);
+  if (malos.length > 0) {
+    return `El formato no puede imprimir ${malos.map((m) => `"${m}"`).join(' ')} — este campo saldría VACÍO.`;
+  }
+  const cap = capacidadDeCaja(c.ancho, c.alto, c.multilinea, texto.length);
+  if (cap.excede) {
+    return `No cabe: sobran ${cap.sobran} caracteres y se imprimiría en letra ilegible (caben ~${cap.maximo}).`;
+  }
+  return null;
 }
 
 function estiloDe(origin: string | undefined, hayTexto: boolean): string {
@@ -288,9 +311,10 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar }
                 const v = valores[c.clave];
                 const texto = borradores[c.clave] ?? v?.value ?? '';
                 const Comp = c.multilinea ? 'textarea' : 'input';
+                const problema = texto.trim() === '' ? null : problemaDelTexto(texto, c);
                 return (
+                  <div key={`w-${c.clave}-${c.x}-${c.y}`}>
                   <Comp
-                    key={`${c.clave}-${c.x}-${c.y}`}
                     title={c.etiqueta}
                     value={texto}
                     disabled={soloLectura}
@@ -314,6 +338,30 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar }
                       resize: 'none',
                     }}
                   />
+                  {problema && (
+                    <>
+                      {/* Marco rojo sobre la caja: se ve sin tener que leer nada */}
+                      <span
+                        className="absolute pointer-events-none ring-2 ring-red-500 rounded-[2px]"
+                        style={{
+                          left: c.x * escala,
+                          top: (pag.alto - c.y - c.alto) * escala,
+                          width: c.ancho * escala,
+                          height: c.alto * escala,
+                        }}
+                      />
+                      <span
+                        className="absolute z-10 bg-red-600 text-white text-[10px] leading-tight px-1.5 py-0.5 rounded shadow max-w-[260px]"
+                        style={{
+                          left: c.x * escala,
+                          top: (pag.alto - c.y) * escala + 2,
+                        }}
+                      >
+                        {problema}
+                      </span>
+                    </>
+                  )}
+                  </div>
                 );
               })}
             </div>
