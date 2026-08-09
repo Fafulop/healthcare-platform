@@ -29,6 +29,11 @@ export interface Caja {
   alto: number;
   tipo: 'texto' | 'casilla';
   multilinea: boolean;
+  /** Casillas: el on-state de ESTE recuadro. El valor guardado dice cuál del
+   * grupo está marcado, así que un recuadro se pinta marcado sólo si el valor
+   * es el SUYO — antes todos compartían el valor del campo y se marcaban los
+   * cuatro a la vez. */
+  onState?: string;
 }
 export interface Geometria {
   paginas: Array<{ ancho: number; alto: number }>;
@@ -255,7 +260,10 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar }
                 style={{ width: w, height: h }}
               />
               {geo.cajas.filter((c) => c.pagina === i && c.tipo === 'casilla').map((c) => {
-                const marcada = (valores[c.clave]?.value ?? '').trim() !== '';
+                const guardado = (valores[c.clave]?.value ?? '').trim();
+                // Un grupo es EXCLUYENTE: el PDF guarda un valor por campo. Si
+                // el valor es el on-state de otro recuadro, éste va apagado.
+                const marcada = c.onState ? guardado === c.onState : guardado !== '';
                 return (
                   <input
                     key={`${c.clave}-${c.x}-${c.y}`}
@@ -265,7 +273,7 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar }
                     disabled={soloLectura}
                     // Una casilla no tiene borrador local: se guarda al instante
                     // porque no hay "terminar de escribir" que esperar.
-                    onChange={(e) => guardar(c.clave, e.target.checked ? '1' : '')}
+                    onChange={(e) => guardar(c.clave, e.target.checked ? (c.onState ?? '1') : '')}
                     className={`absolute cursor-pointer accent-sky-600 ${marcada ? '' : 'opacity-70'}`}
                     style={{
                       left: c.x * escala,

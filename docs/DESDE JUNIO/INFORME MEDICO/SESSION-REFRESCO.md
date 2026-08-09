@@ -807,12 +807,59 @@ diccionario + respuestas ya guardadas (`campos-del-informe.ts`): el caso rotado 
 en la hoja compartiendo un valor. Marcar uno marca sus hermanos. Es como está armado el PDF, no un
 bug, pero sorprende la primera vez.
 
+## ✅ Las CASILLAS son grupos excluyentes, no booleanos (2026-08-09)
+
+El usuario probó el visor: *"if I click on one, the other two also get selected… and when I download
+that PDF, no check marks are checked at all."*
+
+Los dos síntomas salen de **la misma premisa equivocada**: yo trataba cada casilla como un booleano
+independiente. **No lo son.** Medido en el AXA oficial:
+
+| Campo | Recuadros | on-states |
+|---|---|---|
+| `MAM` | 4 | `/M` `/A` `/E` `/S` |
+| `TE` | 4 | `/U` `/H` `/CE` `/C` |
+| `Consultorio_2` | 4 | `/1` `/2` `/3` `/4` |
+| `Sí acepto` | 2 | `/On` `/O` |
+
+Son **22 campos con 49 recuadros**: un campo = un grupo de opciones mutuamente excluyentes, y el
+PDF guarda **UN valor por campo** que dice cuál recuadro está encendido. De ahí los dos bugs:
+
+1. **Se marcaban todos los hermanos** — los 4 recuadros compartían la misma clave, así que un solo
+   valor los pintaba a los cuatro.
+2. **La marca caía en el recuadro equivocado** — `check()` de pdf-lib pone el on-state del
+   **PRIMER** recuadro. Si el doctor elegía la tercera opción, el PDF marcaba la primera; mirando
+   la casilla que uno tocó, se ve **sin marcar**.
+
+### El arreglo: el VALOR es el on-state
+
+Es como lo modela el PDF, así que no hace falta inventar claves nuevas ni migrar nada:
+`answers['campo:MAM'] = { value: 'E' }` significa "la opción `/E`". El recuadro se pinta marcado
+sólo si el valor es **el suyo**, y al renderizar se pone `/V` al on-state elegido y el `/AS` de cada
+recuadro en consecuencia.
+
+Un valor que no empate con ningún on-state (el `'1'` que guardó la versión anterior) cae a
+`check()`: marca el primero en vez de perder la respuesta.
+
+**Verificado** eligiendo la TERCERA opción de `MAM`:
+
+```
+el visor marcaría: M=·  A=·  E=✔  S=·      ← sólo una
+/V del campo = /E    /AS por recuadro = /Off /Off /E /Off
+49 de 49 casillas con on-state detectado
+```
+
+> 🔎 **Lo que NO se pudo reproducir:** "cero marcas". El código viejo sí marcaba el primer recuadro
+> de cada grupo. La explicación más probable es que la marca caía en una opción distinta de la que
+> el doctor tocó — que al mirar la casilla que uno eligió se lee exactamente como "no se marcó
+> nada". El arreglo cubre las dos lecturas, pero conviene confirmarlo con los ojos.
+
 ## Lo siguiente
 
 **Pasos 0 · 1 · 2 · 4 · 5: ✅** · **Allianz: ✅** · **Borrador: ✅** · **Motor: ✅ EN PROD**
 
-- 🔴 **Ver las CASILLAS renderizadas.** Nadie las ha visto: son 49 widgets nuevos y es lo único de
-  esta tanda que no se puede verificar desde aquí.
+- 🔴 **Volver a probar las CASILLAS**: elegir una opción que NO sea la primera de su grupo,
+  descargar el PDF y confirmar que la marca cae donde se tocó.
 - 🔴 **Abrir el VISOR y ver si las cajas caen en su raya.** La geometría cuadra en números
   (60/60, nada fuera de la hoja), pero que los números cuadren no es que se vea bien al 130% en un
   navegador. Es lo único que no se puede verificar desde aquí.

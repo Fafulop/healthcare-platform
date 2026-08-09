@@ -28,6 +28,17 @@ export interface CajaCampo {
   tipo: 'texto' | 'casilla';
   /** El campo admite varios renglones: el visor pone un `<textarea>`. */
   multilinea: boolean;
+  /**
+   * Sólo casillas: el estado "encendido" de ESTE recuadro (`M`, `A`, `On`…).
+   *
+   * 🔴 Las casillas de AXA no son booleanos independientes: son GRUPOS
+   * mutuamente excluyentes. Un campo (`MAM`) tiene varios recuadros y cada uno
+   * su propio on-state (`/M`, `/A`, `/E`, `/S`); el PDF guarda UN valor por
+   * campo, y ese valor dice cuál recuadro está marcado. Sin esto, marcar uno
+   * marcaba los cuatro y el PDF terminaba con la marca en el primero,
+   * independientemente de cuál eligió el doctor.
+   */
+  onState?: string;
 }
 
 export interface GeometriaFormato {
@@ -45,6 +56,21 @@ export interface GeometriaFormato {
  * sabe llenar. Los otros ~220 campos de AXA se quedan como parte de la imagen
  * de fondo, que es exactamente lo que son hasta que alguien los mapee.
  */
+/**
+ * El nombre del estado ENCENDIDO de un recuadro: la clave de su `/AP /N` que no
+ * es `/Off`. Es el valor que hay que ponerle al campo para que se marque ESTE
+ * recuadro y no otro del mismo grupo.
+ */
+function onStateDe(widget: { getAppearances: () => { normal?: unknown } | undefined }): string | undefined {
+  const normal = widget.getAppearances()?.normal as { dict?: Map<{ asString(): string }, unknown> } | undefined;
+  if (!normal?.dict) return undefined;
+  for (const k of normal.dict.keys()) {
+    const nombre = k.asString().replace(/^\//, '');
+    if (nombre !== 'Off') return nombre;
+  }
+  return undefined;
+}
+
 export async function geometriaDelFormato(
   pdfBase: Uint8Array | ArrayBuffer,
   dict: FieldDict
@@ -154,6 +180,7 @@ export async function geometriaDelFormato(
         alto: r.height,
         tipo: esTexto ? 'texto' : 'casilla',
         multilinea: esTexto ? (field as PDFTextField).isMultiline() : false,
+        ...(esCasilla ? { onState: onStateDe(widget) } : {}),
       });
     }
   }

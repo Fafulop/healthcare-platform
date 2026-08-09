@@ -15,6 +15,7 @@
 import {
   PDFCheckBox,
   PDFDocument,
+  PDFName,
   PDFDropdown,
   PDFOptionList,
   PDFRadioGroup,
@@ -105,7 +106,7 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
     // significan lo mismo y no deben perderse.
     if (field instanceof PDFCheckBox) {
       if (vacia) field.uncheck();
-      else { field.check(); llenados++; }
+      else { marcarOpcion(field, respuesta.value); llenados++; }
       continue;
     }
 
@@ -129,6 +130,43 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
     llenados++;
   }
   return { omitidos, llenados };
+}
+
+/**
+ * Marca UNA opción de un grupo de casillas.
+ *
+ * 🔴 `check()` de pdf-lib pone el on-state del PRIMER recuadro, así que en un
+ * grupo (`MAM` = `/M` `/A` `/E` `/S`) siempre marcaba el primero sin importar
+ * cuál eligió el doctor. El valor guardado ES el on-state, que es como el PDF
+ * lo modela: un valor por campo que dice qué recuadro está encendido.
+ *
+ * `valor` que no empate con ningún on-state (p.ej. el `'1'` que guardó una
+ * versión anterior) cae a `check()`, que al menos marca el primero en vez de
+ * perder la respuesta.
+ */
+function marcarOpcion(field: PDFCheckBox, valor: string) {
+  const buscado = valor.trim();
+  const widgets = field.acroField.getWidgets();
+  const estados = widgets.map((w) => {
+    const normal = w.getAppearances()?.normal as { dict?: Map<{ asString(): string }, unknown> } | undefined;
+    if (!normal?.dict) return undefined;
+    for (const k of normal.dict.keys()) {
+      const n = k.asString().replace(/^\//, '');
+      if (n !== 'Off') return n;
+    }
+    return undefined;
+  });
+
+  if (!estados.includes(buscado)) {
+    field.check();
+    return;
+  }
+
+  const on = PDFName.of(buscado);
+  field.acroField.dict.set(PDFName.of('V'), on);
+  widgets.forEach((w, i) => {
+    w.dict.set(PDFName.of('AS'), estados[i] === buscado ? on : PDFName.of('Off'));
+  });
 }
 
 /** ¿Ese nombre corresponde a una casilla de este formato? Barato y sin tirar. */
