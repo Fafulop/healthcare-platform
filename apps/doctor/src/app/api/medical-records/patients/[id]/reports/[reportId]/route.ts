@@ -4,6 +4,7 @@ import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { etiquetaCanonica } from '@/lib/informe-medico/canonical';
 import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
+import { clavesDelInforme, geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { cargarPrefill } from '@/lib/informe-medico/cargar-prefill';
 import { leerAnswers, type Answers, type AnswerValue } from '@/lib/informe-medico/types';
 
@@ -47,12 +48,23 @@ export async function GET(
 
     const report = await prisma.medicalReport.findFirst({
       where: { id: reportId, patientId, doctorId },
-      include: { form: { select: { id: true, insurer: true, name: true, version: true, fieldDict: true } } },
+      include: { form: { select: { id: true, insurer: true, name: true, version: true, fieldDict: true, updatedAt: true } } },
     });
     if (!report) return NextResponse.json({ error: 'Informe no encontrado' }, { status: 404 });
 
     const formato = formatoDe(report.form);
     const answers = leerAnswers(report.answers);
+
+    // Los campos llenables: la unión de la hoja, el diccionario y lo ya guardado
+    // (ver `clavesDelInforme`). Recorrer sólo la hoja dejaba la lista VACÍA en un
+    // formato con la página rotada, y escondía respuestas que sí se escriben en
+    // el PDF.
+    let claves: string[] = [];
+    if (formato) {
+      const dict = dictParaRender(formato, report.form.fieldDict);
+      const geo = await geometriaCacheada(formato, dict, report.form.updatedAt.toISOString());
+      claves = clavesDelInforme(geo, dict, answers);
+    }
 
     // Los avisos se RECALCULAN, no se guardan. Si sólo viajaran en la respuesta
     // del POST, un doctor que pre-llena, recarga y emite al día siguiente nunca
@@ -83,9 +95,12 @@ export async function GET(
         issuedAt: report.issuedAt,
         form: { id: report.form.id, insurer: report.form.insurer, name: report.form.name, version: report.form.version },
       },
-      // El formulario se arma de los campos del DICCIONARIO: son exactamente los
-      // que caben en la hoja. Un canónico que este formato no pide sólo confunde.
-      campos: Object.keys(formato ? dictParaRender(formato, report.form.fieldDict) : {}).map((clave) => ({
+      // 🔴 La lista muestra los MISMOS campos que el visor: todos los blancos
+      // del formato, no sólo los 60 del diccionario. Si las dos vistas ofrecen
+      // conjuntos distintos, el doctor llena algo en una y no lo encuentra en la
+      // otra — que es justo el desajuste que había entre el visor y el borrador
+      // descargado.
+      campos: claves.map((clave) => ({
         clave,
         etiqueta: etiquetaCanonica(clave),
         valor: answers[clave] ?? { value: '', source: null, origin: 'empty' },

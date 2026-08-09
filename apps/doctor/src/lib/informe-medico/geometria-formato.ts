@@ -11,7 +11,7 @@
  * mitad de las cajas volteadas.
  */
 import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
-import type { FieldDict } from './types';
+import { claveCruda, type FieldDict } from './types';
 
 export interface CajaCampo {
   /** Clave canónica: con esto el visor sabe qué respuesta va aquí. */
@@ -92,19 +92,31 @@ export async function geometriaDelFormato(
     };
   }
 
+  // `nombre del campo en el PDF -> clave canónica`, para saber cuáles de los
+  // campos de la hoja ya tienen concepto y cuáles son CRUDOS.
+  const canonicaDe = new Map<string, string>();
+  for (const [clave, nombrePdf] of Object.entries(dict)) canonicaDe.set(nombrePdf, clave);
+
+  // Un campo que el diccionario nombra y el PDF no tiene: el diccionario va
+  // contra otra versión del formato. Se reporta aunque no se dibuje nada.
   for (const [clave, nombrePdf] of Object.entries(dict)) {
-    let field;
-    try {
-      field = form.getField(nombrePdf);
-    } catch {
-      sinUbicar.push({ clave, nombrePdf, motivo: 'no-existe' });
-      continue;
-    }
+    try { form.getField(nombrePdf); } catch { sinUbicar.push({ clave, nombrePdf, motivo: 'no-existe' }); }
+  }
+
+  // 🔴 Se recorre el FORMATO entero, no el diccionario. El diccionario dice qué
+  // se pre-llena; no tiene por qué decidir dónde puede teclear un humano. Con
+  // sólo los 60 mapeados, el borrador descargado pintaba 266 blancos de azul
+  // —"aquí puedes escribir"— y la app dejaba escribir en 60.
+  for (const field of form.getFields()) {
+    const nombrePdf = field.getName();
+    const clave = canonicaDe.get(nombrePdf) ?? claveCruda(nombrePdf);
 
     const esTexto = field instanceof PDFTextField;
     const esCasilla = field instanceof PDFCheckBox;
+    // Radios y firmas se quedan fuera a propósito; sólo se avisan si alguien los
+    // mapeó en el diccionario, porque entonces sí se esperaba llenarlos.
     if (!esTexto && !esCasilla) {
-      sinUbicar.push({ clave, nombrePdf, motivo: 'tipo-no-soportado' });
+      if (canonicaDe.has(nombrePdf)) sinUbicar.push({ clave, nombrePdf, motivo: 'tipo-no-soportado' });
       continue;
     }
 

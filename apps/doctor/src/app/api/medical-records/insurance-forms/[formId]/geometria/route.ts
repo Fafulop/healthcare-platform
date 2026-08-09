@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
-import { dictParaRender, formatoDe, leerPdfBase } from '@/lib/informe-medico/formatos';
-import { geometriaDelFormato } from '@/lib/informe-medico/geometria-formato';
+import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
+import { geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { etiquetaCanonica } from '@/lib/informe-medico/canonical';
 
 // GET /api/medical-records/insurance-forms/:formId/geometria
@@ -30,7 +30,8 @@ export async function GET(
     }
 
     const dict = dictParaRender(formato, form.fieldDict);
-    const geo = await geometriaDelFormato(await leerPdfBase(formato), dict);
+    const geo = await geometriaCacheada(formato, dict, form.updatedAt.toISOString());
+    if (!geo) return NextResponse.json({ error: 'No se pudo leer el formato' }, { status: 500 });
 
     return NextResponse.json({
       paginas: geo.paginas,

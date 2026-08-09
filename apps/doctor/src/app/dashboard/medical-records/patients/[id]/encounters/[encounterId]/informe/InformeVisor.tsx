@@ -39,6 +39,21 @@ export interface ValorVisor { value: string; origin: string }
 
 /** Color por PROCEDENCIA, no por "tiene texto": es la señal que 01-FUENTES §4
  * pide para que el doctor lea con cuidado donde hay riesgo. */
+/**
+ * El error de una respuesta que puede NO ser JSON: un 401 devuelve el HTML del
+ * login y un 502 el del proxy, y `.json()` truena — el doctor acabaría leyendo
+ * "Unexpected token '<'" en vez de "se venció la sesión".
+ */
+async function mensajeDeError(r: Response, porDefecto: string): Promise<string> {
+  if (r.status === 401) return 'Se venció la sesión. Vuelve a entrar.';
+  try {
+    if (r.headers.get('content-type')?.includes('application/json')) {
+      return ((await r.json()) as { error?: string }).error ?? porDefecto;
+    }
+  } catch { /* cae al mensaje por defecto */ }
+  return porDefecto;
+}
+
 function estiloDe(origin: string | undefined, hayTexto: boolean): string {
   if (!hayTexto) return 'bg-blue-100/70 border-blue-300 focus:bg-blue-50';
   switch (origin) {
@@ -90,7 +105,7 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar }
           fetch(`/api/medical-records/insurance-forms/${formId}/geometria`),
           fetch(`/api/medical-records/insurance-forms/${formId}/pdf`),
         ]);
-        if (!rg.ok) throw new Error((await rg.json()).error ?? 'No se pudo leer la geometría');
+        if (!rg.ok) throw new Error(await mensajeDeError(rg, 'No se pudo leer la geometría'));
         if (!rp.ok) throw new Error('No se pudo bajar el formato');
         const g: Geometria = await rg.json();
         const bytes = new Uint8Array(await rp.arrayBuffer());
@@ -199,11 +214,6 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar }
     );
   }
 
-  // Las casillas se ubican pero todavía no se dibujan. Se AVISA: si no, la hoja
-  // se vería completa a la que le faltan respuestas — justo lo que `sinUbicar`
-  // existe para evitar.
-  const casillas = geo?.cajas.filter((c) => c.tipo === 'casilla') ?? [];
-
   return (
     <div ref={contenedor}>
       <div className="flex items-center gap-3 mb-3 text-sm">
@@ -218,18 +228,12 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar }
         </span>
       </div>
 
-      {casillas.length > 0 && (
-        <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
-          {casillas.length} casilla(s) del formato todavía no se pueden marcar aquí. Están en la
-          pestaña <strong>Lista de campos</strong>: {casillas.map((c) => c.clave).join(', ')}
-        </div>
-      )}
-
       {geo.sinUbicar.length > 0 && (
         <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
-          {geo.sinUbicar.length} campo(s) del diccionario no se pudieron ubicar en la hoja y no
-          aparecen aquí. Están en la pestaña <strong>Lista de campos</strong>:{' '}
-          {geo.sinUbicar.map((s) => s.clave).join(', ')}
+          {geo.cajas.length === 0
+            ? 'No se pudo ubicar ningún campo sobre esta hoja (puede venir rotada o recortada). '
+            : `${geo.sinUbicar.length} campo(s) no se pudieron ubicar sobre la hoja y no aparecen aquí. `}
+          Se llenan en la pestaña <strong>Lista de campos</strong>, y sí salen en el PDF.
         </div>
       )}
 
@@ -250,6 +254,28 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar }
                 className="absolute inset-0"
                 style={{ width: w, height: h }}
               />
+              {geo.cajas.filter((c) => c.pagina === i && c.tipo === 'casilla').map((c) => {
+                const marcada = (valores[c.clave]?.value ?? '').trim() !== '';
+                return (
+                  <input
+                    key={`${c.clave}-${c.x}-${c.y}`}
+                    type="checkbox"
+                    title={c.etiqueta}
+                    checked={marcada}
+                    disabled={soloLectura}
+                    // Una casilla no tiene borrador local: se guarda al instante
+                    // porque no hay "terminar de escribir" que esperar.
+                    onChange={(e) => guardar(c.clave, e.target.checked ? '1' : '')}
+                    className={`absolute cursor-pointer accent-sky-600 ${marcada ? '' : 'opacity-70'}`}
+                    style={{
+                      left: c.x * escala,
+                      top: (pag.alto - c.y - c.alto) * escala,
+                      width: c.ancho * escala,
+                      height: c.alto * escala,
+                    }}
+                  />
+                );
+              })}
               {geo.cajas.filter((c) => c.pagina === i && c.tipo === 'texto').map((c) => {
                 const v = valores[c.clave];
                 const texto = borradores[c.clave] ?? v?.value ?? '';

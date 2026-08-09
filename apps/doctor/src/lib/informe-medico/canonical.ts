@@ -15,7 +15,13 @@
  * el mismo concepto clínico y afirmar que sí lo son en un documento que firma un
  * médico es el error silencioso que sólo se descubre cuando lo rechazan
  * (04-MAPEO §1). Esos viven sólo en el diccionario de su formato.
+ *
+ * ⚠️ Y lo que no está NI en el canónico NI en el diccionario tampoco se pierde:
+ * es un campo CRUDO (`campo:<nombre en el PDF>`, ver `types.ts`) y el doctor
+ * puede escribir en él. El canónico decide qué se PRE-LLENA, no dónde se puede
+ * teclear.
  */
+import { esClaveCruda, nombrePdfDeClaveCruda } from './types';
 
 /**
  * Los campos canónicos que el pre-llenado determinista sabe producir.
@@ -112,6 +118,12 @@ export function claveMedicamento(indice: number, campo: CampoMedicamento): strin
 
 /** La etiqueta en español de cualquier clave canónica, para la UI y la revisión. */
 export function etiquetaCanonica(clave: string): string {
+  // Un campo CRUDO se etiqueta con su propio nombre en el PDF. En AXA casi
+  // todos son legibles (`Código ICD`, `Estadificación TNM`) porque el generador
+  // tomó el texto de la etiqueta impresa; en GNP serán `P1_7` y ahí hará falta
+  // el motor de vecindad del paso 3.
+  if (esClaveCruda(clave)) return nombrePdfDeClaveCruda(clave);
+
   if (clave in CAMPOS_CANONICOS) return CAMPOS_CANONICOS[clave as CampoCanonico];
 
   const m = /^medicamentos\.(\d+)\.(\w+)$/.exec(clave);

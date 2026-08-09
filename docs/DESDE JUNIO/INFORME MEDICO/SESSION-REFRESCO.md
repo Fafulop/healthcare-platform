@@ -741,10 +741,78 @@ Los otros cuatro:
 - **A 250% × dpr 2 las 6 páginas piden ~290MB de lienzo**; Safari tira el backing store y las
   páginas se ponen blancas — idéntico al síntoma del bloqueador. `escala × dpr` queda acotado.
 
+## ✅ TODA la hoja es editable (2026-08-09)
+
+El usuario abrió el visor y cachó el desajuste: *"in the rendered application I can just edit very
+few inputs. And when I download the draft, I can see a lot of blue ones that in theory should also
+be able to be edited in the live form but currently can't."*
+
+Tenía razón, y los números eran feos:
+
+| | Antes | Ahora |
+|---|---|---|
+| Cajas editables en el visor | 60 | **304** (255 de texto + 49 widgets de casilla) |
+| Azules en el borrador pero NO editables | **195** | 0 |
+| Páginas con cajas | 1, 2, 3, 5 | **las 6** |
+
+Las dos vistas se manejaban con listas distintas: el borrador pinta **todos** los campos del
+AcroForm (`form.getFields()`), y el visor sólo los del **diccionario**. El borrador era el honesto.
+
+### La corrección de fondo: el diccionario no decide dónde se teclea
+
+El diccionario mapea **conceptos canónicos → campos del PDF** para PRE-LLENAR. No tiene por qué
+decidir en qué blancos puede escribir un humano. Lo que no mapea ahora es un **campo CRUDO**:
+`campo:<nombre en el PDF>` (`types.ts`), que se guarda en el mismo `answers` con `origin: 'manual'`.
+Las claves canónicas nunca llevan `:`, así que no pueden chocar.
+
+> 🔴 **Lo que casi se rompe:** `renderFinal` recorría el DICCIONARIO. Con campos crudos, lo que el
+> doctor tecleara se guardaba en el JSON y **jamás llegaba al PDF** — un informe al que le faltan
+> justo los campos que escribió el médico, sin ningún aviso. Ahora se recorren las RESPUESTAS.
+> Verificado leyendo el PDF de vuelta: `J18.9` y `No aplica` salen impresos.
+
+Y hubo que separar los omitidos **benignos** de los problemas: al recorrer respuestas, un informe
+sano reportaba "5 omitidos" porque el pre-llenado produce canónicos que AXA no pide
+(`paciente.sexo`, `nombreCompleto`…). Un contador que nunca da cero enseña a ignorarlo. Ahora
+`problemas` excluye `sin-campo-en-el-formato`: informe sano = **0**, mapeo roto = **1**.
+
+### 🔴 El `/code-review` — mi propia guarda de rotación vaciaba TODO
+
+Seis hallazgos reales. El grave era mío y del review anterior:
+
+**La guarda de página rotada devuelve `cajas: []` SIN lanzar excepción**, así que el `catch` que
+caía al diccionario nunca se ejecutaba: `claves` quedaba vacío y el doctor veía el visor vacío **y**
+la lista vacía con "0 de 0 campos" — con el pre-llenado ya guardado en la BD. Una guarda de
+seguridad que causaba pérdida total de datos en la UI. Ahora las claves son la **unión** de hoja +
+diccionario + respuestas ya guardadas (`campos-del-informe.ts`): el caso rotado ofrece 61 claves.
+
+- **Respuestas sin caja desaparecían de las dos vistas** pero SÍ se escribían en el PDF. Cubierto
+  por la misma unión.
+- **El aviso mandaba a una pestaña que, por construcción, no tenía esos campos.**
+- **Cada `blur` releía el PDF del disco y parseaba los 277 campos**, en una ruta que sirve PHI.
+  Ahora se cachea por formato, con clave que incluye el `updatedAt` de la fila para que editar el
+  `field_dict` en la BD invalide solo.
+- **Una casilla se podía marcar pero NUNCA desmarcar**: el valor vacío se saltaba antes de llegar a
+  la rama de casilla. Sobre un PDF base con una casilla marcada por default, destildarla igual
+  emitía el informe con la casilla puesta — una afirmación falsa en un documento médico-legal.
+  Probado con `Sí acepto` premarcada.
+- **Un 401 devuelve HTML** y `.json()` tronaba: el doctor leía `Unexpected token '<'` en vez de
+  "se venció la sesión".
+
+> 🔎 **Un hallazgo estaba MAL, y los dos reviews se contradecían entre sí:** decía que pnpm 10 no
+> corre `prebuild`, dejando el copiado del worker como código muerto. **Se probó borrando el worker
+> y reconstruyendo dos veces** — con `pnpm --filter` y con `turbo run build`, que es la ruta real de
+> Railway. Las dos lo regeneraron. Un hallazgo de review es una hipótesis, no un veredicto.
+
+⚠️ **49 widgets de casilla contra 22 campos de casilla:** varios campos tienen más de un recuadro
+en la hoja compartiendo un valor. Marcar uno marca sus hermanos. Es como está armado el PDF, no un
+bug, pero sorprende la primera vez.
+
 ## Lo siguiente
 
 **Pasos 0 · 1 · 2 · 4 · 5: ✅** · **Allianz: ✅** · **Borrador: ✅** · **Motor: ✅ EN PROD**
 
+- 🔴 **Ver las CASILLAS renderizadas.** Nadie las ha visto: son 49 widgets nuevos y es lo único de
+  esta tanda que no se puede verificar desde aquí.
 - 🔴 **Abrir el VISOR y ver si las cajas caen en su raya.** La geometría cuadra en números
   (60/60, nada fuera de la hoja), pero que los números cuadren no es que se vea bien al 130% en un
   navegador. Es lo único que no se puede verificar desde aquí.

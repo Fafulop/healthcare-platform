@@ -40,6 +40,47 @@ export type FieldDict = Record<string, string>;
 /** Un campo vacío pero declarado: hay dónde escribir y no hay qué. */
 export const EMPTY_ANSWER: AnswerValue = { value: '', source: null, origin: 'empty' };
 
+/**
+ * Prefijo de un campo **CRUDO**: un blanco del formato que el diccionario no
+ * mapea a ningún concepto canónico, pero en el que el doctor sí puede escribir.
+ *
+ * 🔴 Por qué existe: el diccionario sirve para PRE-LLENAR (concepto canónico →
+ * campo del PDF). No tiene por qué decidir dónde se le permite teclear a un
+ * humano. AXA trae **255 campos de texto** y el diccionario mapea 60; sin esto,
+ * el borrador descargado pinta 266 blancos de azul —"aquí puedes escribir"— y la
+ * app sólo deja escribir en 60. Las dos vistas tienen que decir lo mismo.
+ *
+ * Las claves canónicas nunca llevan `:` (`paciente.edad`, `medicamentos.1.nombre`),
+ * así que el prefijo no puede chocar con ninguna.
+ */
+export const PREFIJO_CRUDO = 'campo:';
+
+/** `Código ICD` → `campo:Código ICD`. */
+export function claveCruda(nombrePdf: string): string {
+  return PREFIJO_CRUDO + nombrePdf;
+}
+
+export function esClaveCruda(clave: string): boolean {
+  return clave.startsWith(PREFIJO_CRUDO);
+}
+
+/** `campo:Código ICD` → `Código ICD`. */
+export function nombrePdfDeClaveCruda(clave: string): string {
+  return clave.slice(PREFIJO_CRUDO.length);
+}
+
+/**
+ * A qué campo del PDF va una respuesta. `null` = a ninguno de ESTE formato.
+ *
+ * Pasa de verdad: un informe guardado con el diccionario de otra aseguradora, o
+ * una versión del formato en la que ese campo ya no existe. Se devuelve `null`
+ * y quien renderiza lo REPORTA, en vez de escribirlo en el campo equivocado.
+ */
+export function nombrePdfDe(clave: string, dict: FieldDict): string | null {
+  if (esClaveCruda(clave)) return nombrePdfDeClaveCruda(clave);
+  return dict[clave] ?? null;
+}
+
 const ORIGENES: ReadonlySet<string> = new Set<AnswerOrigin>([
   'deterministic', 'llm', 'voice', 'manual', 'empty',
 ]);

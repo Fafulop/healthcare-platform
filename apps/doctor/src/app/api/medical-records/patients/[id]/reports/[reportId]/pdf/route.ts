@@ -53,7 +53,7 @@ export async function GET(
     await logAudit({
       patientId, doctorId, userId, userRole: role,
       action: 'EXPORT', resourceType: 'MedicalReport', resourceId: reportId,
-      changes: { tipo, llenados: r.llenados, omitidos: r.omitidos.length }, request,
+      changes: { tipo, llenados: r.llenados, problemas: r.problemas.length }, request,
     });
 
     const nombre = `informe-${report.form.insurer.toLowerCase()}-${tipo}-${reportId.slice(0, 8)}.pdf`;
@@ -65,7 +65,9 @@ export async function GET(
         // para que la UI pueda decir exactamente qué falta (un `β` o un `≥` que
         // WinAnsi no codifica tumbaría el `save()` entero si no se omitiera).
         'X-Informe-Llenados': String(r.llenados),
-        'X-Informe-Omitidos': String(r.omitidos.length),
+        // Sólo los omitidos que son un problema de verdad: un canónico que
+        // esta hoja no pide es normal y contarlo enseñaría a ignorar el número.
+        'X-Informe-Omitidos': String(r.problemas.length),
         // PHI: que no quede en cachés intermedias.
         'Cache-Control': 'private, no-store',
       },

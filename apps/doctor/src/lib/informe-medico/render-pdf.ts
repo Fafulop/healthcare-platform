@@ -24,7 +24,7 @@ import {
   type PDFField,
   type PDFForm,
 } from 'pdf-lib';
-import type { Answers, FieldDict } from './types';
+import { nombrePdfDe, type Answers, type FieldDict } from './types';
 import { caracteresNoImprimibles } from './winansi';
 
 /** Azul: aquí SE PUEDE escribir (campo vacío). */
@@ -36,7 +36,11 @@ const COLOR_LLENO = rgb(0.80, 0.93, 0.79);
 export interface CampoOmitido {
   campoCanonico: string;
   nombrePdf: string;
-  motivo: 'no-existe' | 'no-es-de-texto' | 'caracteres-no-imprimibles';
+  motivo:
+    | 'no-existe'                    // el diccionario nombra un campo que este PDF no tiene
+    | 'sin-campo-en-el-formato'      // NORMAL: el canónico tiene el dato y esta hoja no lo pide
+    | 'no-es-de-texto'
+    | 'caracteres-no-imprimibles';
   /** Sólo para `caracteres-no-imprimibles`: qué hay que quitar. */
   caracteres?: string[];
 }
@@ -44,8 +48,10 @@ export interface CampoOmitido {
 export interface RenderResult {
   pdf: Uint8Array;
   llenados: number;
-  /** Todo lo que el diccionario mandaba escribir y no se pudo. */
+  /** Todo lo que había que escribir y no se pudo — incluido lo benigno. */
   omitidos: CampoOmitido[];
+  /** Los omitidos que de verdad son un PROBLEMA (excluye `sin-campo-en-el-formato`). */
+  problemas: CampoOmitido[];
   /** Widgets cuya página no se pudo resolver: NO se pintaron (sólo borrador). */
   widgetsSinPagina: number;
 }
@@ -58,9 +64,57 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
   const omitidos: CampoOmitido[] = [];
   let llenados = 0;
 
-  for (const [campoCanonico, nombrePdf] of Object.entries(dict)) {
-    const respuesta = answers[campoCanonico];
-    if (!respuesta || respuesta.value.trim() === '') continue;
+  // 🔴 Se recorren las RESPUESTAS, no el diccionario. El diccionario sólo cubre
+  // los campos que el sistema sabe PRE-LLENAR (60 de los 255 de texto de AXA);
+  // recorrerlo dejaba fuera todo lo que el doctor escribiera a mano en un campo
+  // CRUDO: se guardaba en el JSON y NUNCA aparecía en el PDF. Un informe al que
+  // le faltan los campos que el médico tecleó, sin ningún aviso.
+  for (const [campoCanonico, respuesta] of Object.entries(answers)) {
+    if (!respuesta) continue;
+    const vacia = respuesta.value.trim() === '';
+
+    const nombrePdf = nombrePdfDe(campoCanonico, dict);
+    // Un valor vacío no escribe nada... salvo en una CASILLA, que hay que poder
+    // DESMARCAR: si el PDF base la trae marcada por default, saltarse el vacío
+    // dejaría el informe final afirmando algo que el doctor destildó. La casilla
+    // se resuelve abajo; para texto, seguir de largo.
+    if (vacia && !esPosibleCasilla(form, nombrePdf)) continue;
+
+    if (nombrePdf === null) {
+      // ⚠️ Esto es NORMAL, no una falla: el pre-llenado produce ~46 valores
+      // canónicos y AXA no pide todos (`paciente.sexo`, `nombreCompleto`…).
+      // Va con motivo propio para que la UI no grite "5 campos omitidos" en
+      // cada informe sano y acabe enseñándose a ignorar el aviso — que es
+      // cuando deja de servir para los omitidos que SÍ importan.
+      omitidos.push({ campoCanonico, nombrePdf: '', motivo: 'sin-campo-en-el-formato' });
+      continue;
+    }
+
+    let field;
+    try {
+      field = form.getField(nombrePdf);
+    } catch {
+      // Se nombra un campo que ESTE PDF no tiene: casi siempre el diccionario
+      // contra otra versión del formato.
+      omitidos.push({ campoCanonico, nombrePdf, motivo: 'no-existe' });
+      continue;
+    }
+
+    // Una casilla se marca, no se escribe. Cualquier valor no vacío la marca:
+    // el JSON guarda `'1'`, pero un `'x'` o un `'sí'` de un informe viejo
+    // significan lo mismo y no deben perderse.
+    if (field instanceof PDFCheckBox) {
+      if (vacia) field.uncheck();
+      else { field.check(); llenados++; }
+      continue;
+    }
+
+    if (!(field instanceof PDFTextField)) {
+      // Existe, pero es radio o firma. Antes esto caía en el mismo saco que
+      // "no existe" y el diagnóstico salía equivocado.
+      omitidos.push({ campoCanonico, nombrePdf, motivo: 'no-es-de-texto' });
+      continue;
+    }
 
     // 🔴 ANTES de escribir: si el texto trae algo que WinAnsi no codifica, el
     // `save()` de más abajo truena y se cae el informe ENTERO. Se omite ESTE
@@ -71,25 +125,25 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
       continue;
     }
 
-    let field;
-    try {
-      field = form.getField(nombrePdf);
-    } catch {
-      // El diccionario nombra un campo que ESTE PDF no tiene: casi siempre es
-      // el diccionario contra otra versión del formato.
-      omitidos.push({ campoCanonico, nombrePdf, motivo: 'no-existe' });
-      continue;
-    }
-    if (!(field instanceof PDFTextField)) {
-      // Existe, pero es casilla/radio. Antes esto caía en el mismo saco que
-      // "no existe" y el diagnóstico salía equivocado.
-      omitidos.push({ campoCanonico, nombrePdf, motivo: 'no-es-de-texto' });
-      continue;
-    }
     field.setText(respuesta.value);
     llenados++;
   }
   return { omitidos, llenados };
+}
+
+/** ¿Ese nombre corresponde a una casilla de este formato? Barato y sin tirar. */
+function esPosibleCasilla(form: PDFForm, nombrePdf: string | null): boolean {
+  if (nombrePdf === null) return false;
+  try {
+    return form.getField(nombrePdf) instanceof PDFCheckBox;
+  } catch {
+    return false;
+  }
+}
+
+/** Los omitidos que hay que enseñarle a alguien. */
+function soloProblemas(omitidos: CampoOmitido[]): CampoOmitido[] {
+  return omitidos.filter((o) => o.motivo !== 'sin-campo-en-el-formato');
 }
 
 /**
@@ -130,7 +184,7 @@ export async function renderFinal(
   // 🔴 Sin esto el informe llega EDITABLE a la aseguradora.
   form.flatten();
 
-  return { pdf: await pdf.save(), llenados, omitidos, widgetsSinPagina: 0 };
+  return { pdf: await pdf.save(), llenados, omitidos, problemas: soloProblemas(omitidos), widgetsSinPagina: 0 };
 }
 
 /**
@@ -205,5 +259,5 @@ export async function renderBorrador(
   p1.drawRectangle({ x: 448, y: height - 21, width: 16, height: 9, color: COLOR_LLENO });
   p1.drawText('ya tiene contenido', { x: 468, y: height - 19, size: 7.5, font, color: rgb(0.25, 0.25, 0.3) });
 
-  return { pdf: await pdf.save(), llenados, omitidos, widgetsSinPagina };
+  return { pdf: await pdf.save(), llenados, omitidos, problemas: soloProblemas(omitidos), widgetsSinPagina };
 }
