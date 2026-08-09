@@ -109,8 +109,13 @@ function reglasDeOperadores(
     // la página sale corrida. Allianz no lo trae y por eso no mordió.
     if (fn === OPS.paintFormXObjectBegin || fn === OPS.beginGroup) {
       pila.push([...ctm] as Matriz);
-      const matriz = (args as unknown[] | undefined)?.[0];
-      if (Array.isArray(matriz) && matriz.length === 6) ctm = multiplicar(ctm, matriz as Matriz);
+      // ⚠️ pdf.js manda la matriz como **Float32Array**, no como Array:
+      // `Array.isArray()` da false y el transform no se aplicaría nunca —
+      // quedaría arreglada la pila y roto justo lo que se venía a arreglar.
+      const matriz = (args as unknown[] | undefined)?.[0] as ArrayLike<number> | undefined;
+      if (matriz && matriz.length === 6 && typeof matriz[0] === 'number') {
+        ctm = multiplicar(ctm, Array.from(matriz) as Matriz);
+      }
       continue;
     }
     if (fn === OPS.paintFormXObjectEnd || fn === OPS.endGroup) {

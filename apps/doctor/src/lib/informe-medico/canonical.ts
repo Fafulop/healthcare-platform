@@ -73,6 +73,7 @@ export const CAMPOS_CANONICOS = {
 
   // ── El informe ────────────────────────────────────────────────────────────
   'informe.lugar': 'Lugar donde se emite',
+  'informe.fecha': 'Fecha de emisión',
   'informe.lugarYFecha': 'Lugar y fecha',
 } as const;
 

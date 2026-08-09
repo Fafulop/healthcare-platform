@@ -1,0 +1,366 @@
+'use client';
+
+/**
+ * INFORME MÉDICO — la pantalla del doctor (paso 5 de 02-PLAN §6).
+ *
+ * 🔴 El PDF es una SALIDA, nunca la superficie de captura: aquí se teclea contra
+ * el JSON de respuestas y el PDF se genera al final. Por eso el borrador que se
+ * descarga es de SÓLO LECTURA — si el doctor tecleara en el PDF, ese valor
+ * viviría sólo en ese archivo y desaparecería al regenerarlo (02-PLAN §4b).
+ */
+
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { ArrowLeft, Download, FileText, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
+
+interface Formato { id: string; insurer: string; name: string; version: string }
+interface Valor { value: string; source: string | null; origin: string }
+interface Campo { clave: string; etiqueta: string; valor: Valor }
+interface Informe {
+  id: string; status: string; consentGiven: boolean; issuedAt: string | null;
+  form: Formato;
+}
+type Aviso = { tipo: string; [k: string]: unknown };
+
+/** El color dice de dónde salió el valor: el doctor revisa con los ojos donde
+ * hay riesgo, no los 40 campos por igual (01-FUENTES §4). */
+const ESTILO_ORIGEN: Record<string, { chip: string; texto: string }> = {
+  deterministic: { chip: 'bg-green-100 text-green-800', texto: 'del expediente' },
+  manual: { chip: 'bg-blue-100 text-blue-800', texto: 'lo escribiste tú' },
+  llm: { chip: 'bg-amber-100 text-amber-900', texto: 'lo redactó la IA — revísalo' },
+  voice: { chip: 'bg-amber-100 text-amber-900', texto: 'dictado — revísalo' },
+  empty: { chip: 'bg-gray-100 text-gray-600', texto: 'sin dato en el expediente' },
+};
+
+function textoAviso(a: Aviso): string {
+  switch (a.tipo) {
+    case 'apellido-heuristico':
+      return `El apellido se partió a ojo: "${a.paterno}" / "${a.materno}". Corrígelo si está mal — el expediente los guarda juntos.`;
+    case 'apellido-unico':
+      return `"${a.lastName}" es un solo apellido: el materno quedó vacío.`;
+    case 'sexo-desconocido':
+      return `El sexo del paciente ("${a.valor}") no es masculino/femenino/otro, así que se dejó vacío.`;
+    case 'medicamentos-truncados':
+      return `Hay ${a.total} medicamentos recetados y en la hoja caben ${a.escritos}. Los demás hay que anexarlos aparte.`;
+    default:
+      return JSON.stringify(a);
+  }
+}
+
+export default function InformeMedicoPage() {
+  const params = useParams<{ id: string; encounterId: string }>();
+  const patientId = params.id;
+  const encounterId = params.encounterId;
+
+  const [formatos, setFormatos] = useState<Formato[]>([]);
+  const [formatoElegido, setFormatoElegido] = useState('');
+  const [informe, setInforme] = useState<Informe | null>(null);
+  const [campos, setCampos] = useState<Campo[]>([]);
+  const [avisos, setAvisos] = useState<Aviso[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [trabajando, setTrabajando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [guardado, setGuardado] = useState<string | null>(null);
+  /** Lo tecleado que todavía no confirma el servidor. Los inputs son
+   * CONTROLADOS: con `defaultValue`, un refetch no refresca lo que se ve y la
+   * pantalla acaba mostrando algo distinto de lo guardado. */
+  const [borradores, setBorradores] = useState<Record<string, string>>({});
+
+  const base = `/api/medical-records/patients/${patientId}/reports`;
+
+  const abrirInforme = useCallback(async (id: string) => {
+    const r = await fetch(`${base}/${id}`);
+    const d = await r.json();
+    if (!r.ok) { setError(d.error ?? 'No se pudo abrir el informe'); return; }
+    setInforme(d.report);
+    setCampos(d.campos);
+    // Los avisos vienen del servidor recalculados, así que sobreviven a una
+    // recarga. Antes sólo existían en la respuesta del POST.
+    setAvisos(d.avisos ?? []);
+    // Lo tecleado y aún no confirmado por el servidor se descarta: a partir de
+    // aquí manda lo guardado.
+    setBorradores({});
+  }, [base]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [rf, rr] = await Promise.all([
+          fetch('/api/medical-records/insurance-forms'),
+          fetch(`${base}?encounterId=${encounterId}`),
+        ]);
+        const df = await rf.json();
+        const dr = await rr.json();
+        if (rf.ok) { setFormatos(df.forms ?? []); setFormatoElegido(df.forms?.[0]?.id ?? ''); }
+        if (rr.ok && dr.reports?.length) await abrirInforme(dr.reports[0].id);
+      } catch {
+        setError('No se pudo cargar la pantalla.');
+      } finally {
+        setCargando(false);
+      }
+    })();
+  }, [base, encounterId, abrirInforme]);
+
+  async function generar() {
+    setTrabajando(true); setError(null);
+    try {
+      const r = await fetch(base, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ encounterId, formId: formatoElegido }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setError(d.error ?? 'No se pudo generar'); return; }
+      setAvisos(d.avisos ?? []);
+      await abrirInforme(d.report.id);
+    } finally { setTrabajando(false); }
+  }
+
+  async function guardarCampo(clave: string, value: string) {
+    if (!informe) return;
+    setGuardado(null);
+    const r = await fetch(`${base}/${informe.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      // Vaciar un campo NO es escribir "": es volver al estado `empty`, que
+      // significa "aquí no hay dato". Son cosas distintas y se guardan distinto.
+      body: JSON.stringify({ answers: { [clave]: { value, origin: value.trim() === '' ? 'empty' : 'manual' } } }),
+    });
+    if (!r.ok) { const d = await r.json(); setError(d.error ?? 'No se pudo guardar'); return; }
+    // 🔴 Hay que releer, no sólo marcar "guardado". Sin esto `campos` se queda
+    // con el valor viejo y pasan dos cosas: el chip sigue diciendo "del
+    // expediente" sobre algo que tecleó el doctor, y si vuelve al valor original
+    // la comparación del onBlur cree que no cambió nada y NO manda el PATCH,
+    // dejando en el servidor lo intermedio — que es lo que se acabaría emitiendo.
+    await abrirInforme(informe.id);
+    setGuardado(clave);
+  }
+
+  function nuevoInforme() {
+    setInforme(null); setCampos([]); setAvisos([]); setBorradores({}); setError(null);
+  }
+
+  async function cambiarConsentimiento(dado: boolean) {
+    if (!informe) return;
+    const r = await fetch(`${base}/${informe.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ consentGiven: dado }),
+    });
+    const d = await r.json();
+    if (!r.ok) { setError(d.error ?? 'No se pudo registrar el consentimiento'); return; }
+    setInforme({ ...informe, consentGiven: d.report.consentGiven });
+  }
+
+  async function emitir() {
+    if (!informe) return;
+    setTrabajando(true); setError(null);
+    try {
+      const r = await fetch(`${base}/${informe.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'issued' }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setError(d.error ?? 'No se pudo emitir'); return; }
+      setInforme({ ...informe, status: d.report.status, issuedAt: d.report.issuedAt });
+    } finally { setTrabajando(false); }
+  }
+
+  function descargar(tipo: 'borrador' | 'final') {
+    if (!informe) return;
+    window.open(`${base}/${informe.id}/pdf?tipo=${tipo}`, '_blank');
+  }
+
+  if (cargando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  const emitido = informe?.status === 'issued';
+  const llenos = campos.filter((c) => c.valor.value.trim() !== '').length;
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        <Link
+          href={`/dashboard/medical-records/patients/${patientId}/encounters/${encounterId}`}
+          className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" /> Volver a la consulta
+        </Link>
+
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <FileText className="h-6 w-6 text-blue-600" /> Informe para la aseguradora
+        </h1>
+
+        {error && (
+          <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800">{error}</div>
+        )}
+
+        {!informe && (
+          <div className="mt-6 bg-white rounded-lg border p-5">
+            {formatos.length === 0 ? (
+              <p className="text-sm text-gray-600">
+                No hay formatos dados de alta todavía.
+              </p>
+            ) : (
+              <>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Formato</label>
+                <select
+                  value={formatoElegido}
+                  onChange={(e) => setFormatoElegido(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  {formatos.map((f) => (
+                    <option key={f.id} value={f.id}>{f.insurer} — {f.name} ({f.version})</option>
+                  ))}
+                </select>
+                <button
+                  onClick={generar}
+                  disabled={trabajando || !formatoElegido}
+                  className="mt-4 inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                >
+                  {trabajando && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Pre-llenar con el expediente
+                </button>
+                <p className="mt-2 text-xs text-gray-500">
+                  Se copia lo que ya está en la ficha y en esta consulta. Nada se inventa: lo que no
+                  exista se queda vacío y marcado.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {avisos.length > 0 && (
+          <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 p-4">
+            <p className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+              <AlertTriangle className="h-4 w-4" /> Revisa esto antes de emitir
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-amber-900 list-disc pl-5">
+              {avisos.map((a, i) => <li key={i}>{textoAviso(a)}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {informe && (
+          <>
+            <div className="mt-4 bg-white rounded-lg border p-4 flex flex-wrap items-center gap-3 justify-between">
+              <div className="text-sm">
+                <p className="font-medium text-gray-900">
+                  {informe.form.insurer} — {informe.form.name}
+                </p>
+                <p className="text-gray-500 text-xs">
+                  versión {informe.form.version} · {llenos} de {campos.length} campos con contenido
+                  {emitido && ' · EMITIDO'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => descargar('borrador')}
+                  className="inline-flex items-center gap-2 border px-3 py-2 rounded-lg text-sm"
+                >
+                  <Download className="h-4 w-4" /> Borrador
+                </button>
+                <button
+                  onClick={() => descargar('final')}
+                  disabled={!informe.consentGiven}
+                  title={informe.consentGiven ? '' : 'Falta registrar el consentimiento'}
+                  className="inline-flex items-center gap-2 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm disabled:opacity-40"
+                >
+                  <Download className="h-4 w-4" /> Final
+                </button>
+              </div>
+            </div>
+
+            <p className="mt-2 text-xs text-gray-500">
+              El borrador es de <strong>sólo lectura</strong> a propósito: se edita aquí, no en el
+              PDF. Azul = puedes escribir, verde = ya tiene contenido.
+            </p>
+
+            <div className="mt-4 bg-white rounded-lg border p-4">
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={informe.consentGiven}
+                  disabled={emitido}
+                  onChange={(e) => cambiarConsentimiento(e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium text-gray-900 flex items-center gap-1">
+                    <ShieldCheck className="h-4 w-4 text-green-600" />
+                    El paciente autorizó enviar estos datos a su aseguradora
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    Mandar datos clínicos a una aseguradora es una transferencia a un tercero bajo la
+                    LFPDPPP. Sin esto no se genera el informe final.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <div className="mt-4 bg-white rounded-lg border divide-y">
+              {campos.map((c) => {
+                const estilo = ESTILO_ORIGEN[c.valor.origin] ?? ESTILO_ORIGEN.empty;
+                return (
+                  <div key={c.clave} className="p-3 sm:flex sm:items-center sm:gap-4">
+                    <div className="sm:w-1/3">
+                      <p className="text-sm font-medium text-gray-800">{c.etiqueta}</p>
+                      <span className={`inline-block mt-1 text-[11px] px-2 py-0.5 rounded ${estilo.chip}`}>
+                        {estilo.texto}
+                      </span>
+                    </div>
+                    <div className="sm:flex-1 mt-2 sm:mt-0">
+                      <input
+                        value={borradores[c.clave] ?? c.valor.value}
+                        disabled={emitido}
+                        onChange={(e) => setBorradores((b) => ({ ...b, [c.clave]: e.target.value }))}
+                        onBlur={(e) => {
+                          if (e.target.value !== c.valor.value) guardarCampo(c.clave, e.target.value);
+                        }}
+                        className="w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
+                        placeholder="—"
+                      />
+                      {guardado === c.clave && (
+                        <span className="text-[11px] text-green-700">guardado</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {emitido && (
+              <div className="mt-4 rounded-lg bg-gray-100 border p-4 text-sm">
+                <p className="text-gray-800">
+                  Este informe ya fue emitido, así que no se puede editar: la aseguradora ya tiene su
+                  copia y cambiarlo aquí las dejaría diciendo cosas distintas.
+                </p>
+                <button onClick={nuevoInforme} className="mt-3 border bg-white px-3 py-2 rounded-lg text-sm font-medium">
+                  Generar un informe nuevo para esta consulta
+                </button>
+              </div>
+            )}
+
+            {!emitido && (
+              <button
+                onClick={emitir}
+                disabled={trabajando || !informe.consentGiven}
+                className="mt-4 inline-flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                {trabajando && <Loader2 className="h-4 w-4 animate-spin" />}
+                Marcar como emitido
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

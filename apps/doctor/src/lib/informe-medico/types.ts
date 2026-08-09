@@ -39,3 +39,33 @@ export type FieldDict = Record<string, string>;
 
 /** Un campo vacío pero declarado: hay dónde escribir y no hay qué. */
 export const EMPTY_ANSWER: AnswerValue = { value: '', source: null, origin: 'empty' };
+
+const ORIGENES: ReadonlySet<string> = new Set<AnswerOrigin>([
+  'deterministic', 'llm', 'voice', 'manual', 'empty',
+]);
+
+/**
+ * Lee el `answers` que viene de la columna JSONB.
+ *
+ * Prisma lo tipa como "cualquier JSON" y de verdad lo es: la columna acepta un
+ * arreglo, un número o un objeto de la forma que sea. Castearlo a `Answers` a
+ * ciegas haría que un `answers` corrupto reventara adentro del renderer con un
+ * error que no dice nada. Aquí se descarta lo que no tenga la forma esperada, y
+ * lo descartado se puede contar (`Object.keys` antes y después).
+ */
+export function leerAnswers(json: unknown): Answers {
+  if (typeof json !== 'object' || json === null || Array.isArray(json)) return {};
+  const salida: Answers = {};
+  for (const [clave, bruto] of Object.entries(json as Record<string, unknown>)) {
+    if (typeof bruto !== 'object' || bruto === null || Array.isArray(bruto)) continue;
+    const v = bruto as Record<string, unknown>;
+    if (typeof v.value !== 'string') continue;
+    if (typeof v.origin !== 'string' || !ORIGENES.has(v.origin)) continue;
+    salida[clave] = {
+      value: v.value,
+      source: typeof v.source === 'string' ? v.source : null,
+      origin: v.origin as AnswerOrigin,
+    };
+  }
+  return salida;
+}

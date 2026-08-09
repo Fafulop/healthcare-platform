@@ -171,9 +171,13 @@ export async function renderBorrador(
       // hace `flatten()` por dentro, y por eso el FINAL sí funciona en PDFs
       // donde el borrador se quedaba sin pintar NADA (277 widgets, 0 recuadros,
       // reportado sólo como un contador que ninguna UI lee todavía).
-      const widgetRef = pdf.context.getObjectRef(widget.dict);
-      const pageRef = widget.P() ?? (widgetRef ? pdf.findPageForAnnotationRef(widgetRef) : undefined);
-      const page = pages.find((p) => p.ref === pageRef);
+      // ⚠️ `findPageForAnnotationRef` devuelve una **PDFPage**, no una PDFRef.
+      // Mezclarlas compila (la unión se traslapa) y la comparación con `p.ref`
+      // es SIEMPRE falsa: el fallback quedaría de adorno.
+      const pRef = widget.P();
+      const porP = pRef ? pages.find((p) => p.ref === pRef) : undefined;
+      const widgetRef = porP ? undefined : pdf.context.getObjectRef(widget.dict);
+      const page = porP ?? (widgetRef ? pdf.findPageForAnnotationRef(widgetRef) : undefined);
       // Sin página no se pinta: hacerlo en la 1 con las coordenadas de OTRA
       // tira recuadros de color encima del texto impreso, sin ninguna señal.
       if (!page) { widgetsSinPagina++; continue; }

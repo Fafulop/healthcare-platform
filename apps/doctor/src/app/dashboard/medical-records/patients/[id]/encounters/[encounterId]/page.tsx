@@ -91,6 +91,14 @@ export default function EncounterDetailPage() {
               <Settings className="w-3.5 h-3.5" />
             </button>
             <Link
+              href={`/dashboard/medical-records/patients/${patientId}/encounters/${encounterId}/informe`}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5"
+              title="Llenar el formato de una aseguradora con los datos de esta consulta"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Informe
+            </Link>
+            <Link
               href={`/dashboard/medical-records/patients/${patientId}/encounters/${encounterId}/edit`}
               className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5"
             >

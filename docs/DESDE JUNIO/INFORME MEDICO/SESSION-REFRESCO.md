@@ -5,17 +5,18 @@
 
 ## Estado en una línea
 
-**Las tablas están en prod, el motor de PDF está desplegado y el pre-llenado determinista ya
-produce un AXA lleno — pero la funcionalidad sigue sin existir para un doctor:** cero endpoints,
-cero pantallas, cero filas en `insurance_forms`.
+**La funcionalidad ya EXISTE de punta a punta para un doctor — y no se ha clickeado.** Desde una
+consulta se elige el formato, se pre-llena del expediente, se corrige, se descarga borrador o final
+y se marca emitido. Falta abrirla en vivo.
 
 | | |
 |---|---|
 | Tablas + columnas de póliza | ✅ **EN PROD** (`3bad4c32` + 2 deltas del review) |
 | `pdf-lib` + `pdfjs-dist` declaradas | ✅ con `pnpm-lock.yaml` en el mismo commit |
 | `src/lib/informe-medico/` (motor de PDF) | ✅ **EN PROD** (`df14d647`, build verde 2026-08-09) |
-| **Paso 4 — pre-llenado determinista** | ✅ **escrito y verificado**, ⬜ sin commitear |
-| Endpoint · pantalla · filas en `insurance_forms` | ❌ nada |
+| **Paso 4 — pre-llenado determinista** | ✅ **EN PROD** (`10b62279`) |
+| **Paso 5 — endpoints + pantalla** | ✅ escrito y verificado · ⬜ **sin clickear** |
+| Fila de AXA en `insurance_forms` | ✅ **EN PROD** (60 entradas de diccionario) |
 
 ### El push de `df14d647` — build verde (2026-08-09)
 
@@ -548,15 +549,102 @@ sigue en **0 omitidos** con `widgetsSinPagina: 0`.
   existe la pantalla de alta; su lugar definitivo es `field_dict`.
 - **Nada llama a esto.** Sigue sin haber endpoint ni pantalla (paso 5).
 
+## ✅ PASO 5 — endpoint + pantalla (2026-08-09)
+
+**Un doctor ya puede llegar.** Desde una consulta: botón *Informe* → elegir formato → pre-llenado →
+corregir → descargar borrador/final → marcar emitido.
+
+| | |
+|---|---|
+| `GET /api/medical-records/insurance-forms` | el dropdown |
+| `GET·POST /patients/:id/reports` | crear corre el pre-llenado y lo GUARDA |
+| `GET·PATCH /patients/:id/reports/:reportId` | leer · corregir · consentimiento · emitir |
+| `GET …/pdf?tipo=borrador\|final` | render |
+| `…/encounters/[encounterId]/informe` | la pantalla |
+
+Todo cuelga de `/api/medical-records/*`, así que **hereda el permiso `expedientes`** sin tocar el
+mapa de rutas — el `gate:routes` confirma 243/243 rutas cubiertas.
+
+### Las decisiones del paso 5
+
+1. **El PDF base vive en `public/formatos/`** (única carpeta que se despliega con garantía) y se lee
+   con `fs`, nunca por HTTP. Es la hoja EN BLANCO que AXA ya publica: no es PHI.
+2. **La fila de `insurance_forms` manda sobre el diccionario**; el del repo es la semilla y sólo se
+   usa si la fila trae `{}`. Una sola regla: dos diccionarios "prefiriendo el que se vea mejor" es
+   cómo divergen en silencio.
+3. **Vaciar un campo guarda `empty`, no `""`.** "No hay dato" y "lo borré a propósito" siguen siendo
+   cosas distintas de punta a punta.
+4. **El cliente sólo puede escribir `origin: 'manual'` o `'empty'`.** Si pudiera declarar
+   `deterministic`, se borraría la diferencia entre "lo copió el sistema" y "lo tecleó alguien".
+5. **Un informe emitido no se edita** (409); se genera uno nuevo. La aseguradora ya tiene su copia.
+6. **El FINAL no se genera sin consentimiento** registrado (LFPDPPP). El borrador sí: no sale del
+   consultorio.
+7. **Un formato que la BD conoce y este build no sabe generar no se ofrece** y se rechaza con 409.
+
+### ✅ La fila de AXA, EN PROD
+
+Corrida con `prisma db execute` vía `railway run --service pgvector`. El `.sql` está **generado**
+desde `dicts/axa.ts`, no tecleado: 60 entradas y una errata silenciosa deja campos sin llenar en un
+PDF que se ve bien.
+
+Verificado **sin confiar en el "Script executed successfully"**: 1 fila, `is_active`, 60 entradas de
+`field_dict`, acentos intactos (`Información general`, `GMM Informe Médico`), y el diccionario de
+prod **idéntico byte a byte** al del repo (60/60 claves) — que importa porque el render prefiere el
+de la BD.
+
+### 🔴 El `/code-review` del paso 5 — DOS de mis arreglos anteriores eran FALSOS
+
+Nueve hallazgos. Los dos primeros son la lección:
+
+1. **El fallback de `/P` no hacía nada.** `findPageForAnnotationRef` devuelve una **`PDFPage`**, no
+   una `PDFRef`; se asignó a `pageRef` y se comparó contra `p.ref` ⇒ **siempre falso**. TypeScript
+   no lo vio porque la unión se traslapa. El arreglo que se reportó como hecho era decorativo.
+2. **La matriz del Form XObject tampoco se aplicaba.** pdf.js la manda como **`Float32Array`**, así
+   que `Array.isArray()` daba `false`. Se había arreglado el balanceo de la pila y dejado roto justo
+   lo que se venía a arreglar.
+
+> 🔎 **Lección:** *"lo arreglé, type-check y gates en verde"* no dice nada sobre si el arreglo
+> **corre**. Los dos eran no-ops silenciosos. Un arreglo que no se puede observar ejecutándose —
+> aunque sea con un `console.log` o un conteo— no está verificado.
+
+**Y un hallazgo del review estaba MAL:** decía que el helper de pdf-lib devuelve la primera página
+con `/Annots` porque `indexOf` da `-1`. **No:** el `PDFArray.indexOf` de pdf-lib devuelve
+`undefined` cuando no está, así que la comprobación es correcta. Medido sobre los 277 campos de
+AXA: **304/304 widgets a su página correcta.** Se delegó en el helper en vez de reescribirlo.
+
+Los otros siete, todos arreglados:
+
+- **Las recetas en `draft` se declaraban a la aseguradora** como el tratamiento del paciente
+  (`status` viene por default en `draft`). Ahora sólo `issued` + `expired` — la vencida SÍ fue el
+  tratamiento; que hoy esté vencida no la borra de la historia.
+- **La pantalla se quedaba con `campos` viejos tras un PATCH:** el chip seguía diciendo "del
+  expediente" sobre algo tecleado a mano, y teclear `A→B→A` **no mandaba el PATCH** de vuelta,
+  dejando **`B`** en el servidor. Ahora relee y los inputs son controlados.
+- **Callejón sin salida tras emitir:** 409 al editar y ningún camino a generar otro. Ahora lo hay.
+- **Los avisos se perdían al recargar** — ahora se RECALCULAN en el GET.
+- **Una fecha mal formada salía como `"NaN/NaN/NaN"` marcada `deterministic`.** Ahora cae a `empty`.
+- **El campo de la FECHA del encabezado de AXA se llama `Información general`** (el generador le
+  agarró la etiqueta equivocada). Confirmado por geometría: x=307,y=587, junto a `Lugar`
+  (x=35,y=586). Sin esto **todo informe de AXA salía con la fecha del encabezado en blanco**.
+
+Regresión tras los arreglos: AXA **0 omitidos** y `widgetsSinPagina: 0`; Allianz igual que siempre
+(61 reglas → 56 campos, 5 sin etiqueta, 0 no creados).
+
+### ⚠️ Nada del paso 5 se ha CLICKEADO
+
+Type-check, gates, smoke de BD y el diccionario verificado contra el PDF no son "probado". El paso 5
+estrena en vivo dos caminos que hasta hoy eran inalcanzables: **el runtime de `pdfjs-dist`** y el
+**409 de borrar una consulta con informes**.
+
 ## Lo siguiente
 
-**Paso 0: ✅** · **Paso 1 (tablas): ✅ EN PROD** · **Paso 2: ✅** · **Allianz: ✅** · **Borrador: ✅**
-· **Motor: ✅ EN PROD** · **Paso 4 (pre-llenado): ✅ escrito, sin commitear**
+**Pasos 0 · 1 · 2 · 4 · 5: ✅** · **Allianz: ✅** · **Borrador: ✅** · **Motor: ✅ EN PROD**
 
-- **Paso 5** — la pantalla del doctor: dropdown de formato, formulario HTML contra el canónico,
-  procedencia visible, y descargar borrador/final. Es lo que convierte todo lo anterior en algo
-  que un doctor puede usar.
-- **Paso 3** — el diccionario de GNP (`P1_7`, cero semántica) y la fila real en `insurance_forms`.
+- 🔴 **CLICKEARLO.** Es lo único que separa esto de "probablemente funciona". Generar un informe
+  real, corregir un campo, bajar el borrador y el final, y mirar el PDF.
+- **Paso 3** — el diccionario de GNP (`P1_7`, cero semántica). ⚠️ Antes hay que resolver la
+  pregunta abierta #0: **cuál formato de GNP rige**, el de Eleonor (3 pág) o el oficial (2 pág).
+- **Paso 6** (LLM sobre `customData`) y **paso 7** (link con token al paciente).
 
 ⚠️ Sólo se vieron **3** formatos, y son los 3 con los que arranca v1 por decisión del usuario.
 

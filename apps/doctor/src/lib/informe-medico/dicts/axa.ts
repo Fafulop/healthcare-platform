@@ -60,6 +60,12 @@ const ESCALARES: FieldDict = {
 
   // El informe
   'informe.lugar': 'Lugar',
+  // 🔎 El campo de la FECHA del encabezado se llama `Información general` — el
+  // generador del PDF le agarró la etiqueta equivocada. Verificado por su
+  // posición: está en x=307,y=587, justo al lado de `Lugar` (x=35,y=586) y bajo
+  // el texto `Fecha:` (x=309,y=600). Sin esto, todo informe de AXA salía con
+  // `Lugar` lleno y la fecha del encabezado en blanco a su lado.
+  'informe.fecha': 'Información general',
   'informe.lugarYFecha': 'Lugar y fechaRow1',
 };
 

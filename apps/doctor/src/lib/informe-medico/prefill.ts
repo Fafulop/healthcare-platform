@@ -136,11 +136,16 @@ function ddmmaaaa(y: number, m: number, d: number): string {
  * son los componentes **UTC**: leerlas en local en UTC-6 daría el día anterior.
  * Es el mismo cuidado que documenta `lib/edad.ts`.
  */
-function fechaCalendario(d: string | Date): string {
+function fechaCalendario(d: string | Date): string | null {
   if (typeof d === 'string') {
     const [y, m, day] = d.split('T')[0].split('-').map(Number);
+    // Sin guarda esto daría "NaN/NaN/NaN", que `det()` ve como texto y estampa
+    // como `deterministic`: una fecha inventada presentada como "del
+    // expediente". `null` cae al `empty` explícito, que es la regla.
+    if (!y || !m || !day) return null;
     return ddmmaaaa(y, m, day);
   }
+  if (Number.isNaN(d.getTime())) return null;
   return ddmmaaaa(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
 }
 
@@ -154,11 +159,12 @@ function fechaCalendario(d: string | Date): string {
  * consulta la fecha de MAÑANA. En un documento médico-legal que la aseguradora
  * cruza contra la fecha del siniestro, eso es un rechazo.
  */
-function fechaMomento(d: string | Date): string {
+function fechaMomento(d: string | Date): string | null {
   // Un `YYYY-MM-DD` pelón no trae hora ni zona: es un día calendario y ya.
   // (`new Date('2026-08-05')` sería medianoche UTC = el día 4 en local.)
   if (typeof d === 'string' && SOLO_DIA.test(d)) return fechaCalendario(d);
   const f = typeof d === 'string' ? new Date(d) : d;
+  if (Number.isNaN(f.getTime())) return null;
   return ddmmaaaa(f.getFullYear(), f.getMonth() + 1, f.getDate());
 }
 
@@ -295,6 +301,7 @@ export function construirPrefillDeterminista(entrada: EntradaPrefill): Resultado
   // ── El informe ────────────────────────────────────────────────────────────
   const hoy = fechaMomento(new Date());
   answers['informe.lugar'] = det(m.city, 'doctor.city');
+  answers['informe.fecha'] = det(hoy, 'fecha de emisión');
   answers['informe.lugarYFecha'] = det(
     [m.city, hoy].map((x) => (x ?? '').trim()).filter(Boolean).join(', '),
     'doctor.city + fecha de emisión'
