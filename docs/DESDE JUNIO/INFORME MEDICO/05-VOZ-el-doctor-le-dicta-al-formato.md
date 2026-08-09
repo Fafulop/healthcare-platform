@@ -219,7 +219,92 @@ El usuario lo intuyó bien (*"that might create some issues"*). Son tres, y las 
 Corregir funciona natural: *"no, el diagnóstico es neumonía"* pisa el valor anterior; lo que no se
 mencionó se queda como estaba.
 
-## 10. Lo que NO resuelve
+## 9b. Editar por voz — qué se puede y qué no
+
+Se dicta **las veces que haga falta**. Volver a dictar un campo **reemplaza** su valor: eso ES
+editar por voz y funciona. Lo único que la voz no puede hacer es **vaciar**.
+
+| | |
+|---|---|
+| Volver a dictar con otro valor | ✅ pisa el anterior |
+| Agregar campos que no se habían mencionado | ✅ se acumulan |
+| **Dejar un campo en blanco** | ❌ a mano (§9.4) |
+
+## 10. 🔴 HUECOS detectados al revisar el plan (2026-08-09)
+
+Revisión pedida por el usuario. Los dos primeros **los agrava la voz en particular** y hay que
+resolverlos ANTES de construir el dictado.
+
+### 10.1 🔴 WinAnsi: el dictado hace probables los caracteres que NO se imprimen
+
+`render-pdf` **omite el campo entero** si trae un carácter que la fuente del formato no codifica
+(`winansi.ts`, medido): `HCG-β` · `≥ 3 días` · `mejoría → alta` · `T ≈ 38°`.
+
+Tecleando eso es raro. **Dictando no:** decir *"mayor o igual a tres días"* y que el transcriptor
+escriba `≥` es el caso normal, no el borde. Hoy ese campo **no sale en el PDF** y sólo se cuenta en
+`problemas`, que **ninguna UI enseña** ⇒ el doctor emite un informe con un campo faltante y sin
+señal.
+
+⇒ **Dos arreglos, los dos baratos:**
+1. El prompt pide símbolos **en palabras** (`mayor o igual a`, `beta`, `aproximadamente`).
+2. El visor avisa **al escribir**, con `caracteresNoImprimibles()` que ya existe: *"quita el `≥`,
+   este formato no lo puede imprimir"*.
+
+### 10.2 🔴 El texto largo no cabe, y no hay auto-ajuste
+
+`setText()` se llama sin `setFontSize` ni control de largo.
+[`02-PLAN`](02-PLAN-el-formato-y-los-pasos.md) §7 prometía *"auto-ajuste de tamaño, nunca recorte
+silencioso"* y **nunca se implementó**. Tecleando salen entradas cortas; **dictando salen párrafos**,
+y hay campos de 43 pt de ancho (`Edad`). ⇒ Hace falta auto-ajuste o un aviso de "no cabe" — nunca
+un recorte callado.
+
+### 10.3 Carrera: teclear mientras el dictado se procesa
+
+El doctor dicta, y mientras el LLM piensa se pone a teclear en un campo. Cuando llega el merge, le
+pisa lo que escribió. ⇒ Regla: **el resultado del dictado NO pisa campos editados a mano después de
+que empezó la grabación**.
+
+### 10.4 Las casillas: el doctor va a esperar que se marquen
+
+Decir *"el procedimiento es en hospital"* y que la casilla no se mueva es una sorpresa razonable.
+Las casillas quedan fuera del dictado v1 (§11) — pero **la UI tiene que decirlo**, en vez de dejar
+que el doctor lo descubra revisando el PDF.
+
+### 10.5 Informe ya emitido
+
+El micrófono no debe existir si `status === 'issued'`. El PATCH ya contesta 409, pero ofrecer el
+botón es invitar al error.
+
+### 10.6 Tiers y permisos de usuario secundario — sin decidir
+
+Las rutas del informe cuelgan de `/api/medical-records/*`, así que **heredan el permiso
+`expedientes`**: un usuario secundario con ese toggle puede generar informes y dictarlos. ¿Es lo
+que se quiere? ¿Y el dictado está disponible en tier **CORE** o sólo en FULL? Ninguna de las dos
+está resuelta ([`../TIERS`](../TIERS)).
+
+### 10.7 Un fallo del LLM pierde el dictado
+
+Como no se guarda la transcripción (§9.3), un 500 obliga a volver a dictar todo. ⇒ Conservar la
+transcripción **en memoria del cliente** durante la sesión, para poder reintentar sin regrabar.
+(No es persistirla: al recargar se va, que es justo lo que §9.3 pide.)
+
+### 10.8 Costo por doctor
+
+`/api/voice/structure` ya llama a `logTokenUsage`. El dictado del informe **debe reusarlo**, o el
+gasto de esta funcionalidad queda invisible en los reportes de consumo.
+
+### 10.9 `sessionType` nuevo
+
+`/api/voice/structure` despacha por `VoiceSessionType`. El informe necesita su propio tipo; no se
+puede colgar del de consultas porque el esquema de salida es otro.
+
+### ✅ Y un hueco que se resuelve solo
+
+§9.2 dice "conservar el valor determinista original para restaurar", sin decir **dónde**. No hace
+falta guardarlo: **`construirPrefillDeterminista()` es una función PURA**, así que restaurar es
+volver a correrla y tomar ese campo. Cero almacenamiento nuevo.
+
+## 11. Lo que NO resuelve
 
 - **Los campos que nadie puede saber** siguen vacíos si el doctor no los dicta. El LLM no los
   inventa: ése es el punto.
