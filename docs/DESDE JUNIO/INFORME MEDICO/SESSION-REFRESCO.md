@@ -5,9 +5,9 @@
 
 ## Estado en una línea
 
-**La funcionalidad ya EXISTE de punta a punta para un doctor — y no se ha clickeado.** Desde una
-consulta se elige el formato, se pre-llena del expediente, se corrige, se descarga borrador o final
-y se marca emitido. Falta abrirla en vivo.
+**La funcionalidad ya EXISTE de punta a punta y está EN PROD.** Desde una consulta se elige el
+formato, se pre-llena del expediente, se corrige, se descarga borrador o final y se marca emitido.
+El usuario la abrió en vivo y se ve bien; falta generar un informe completo y **mirar el PDF**.
 
 | | |
 |---|---|
@@ -15,7 +15,7 @@ y se marca emitido. Falta abrirla en vivo.
 | `pdf-lib` + `pdfjs-dist` declaradas | ✅ con `pnpm-lock.yaml` en el mismo commit |
 | `src/lib/informe-medico/` (motor de PDF) | ✅ **EN PROD** (`df14d647`, build verde 2026-08-09) |
 | **Paso 4 — pre-llenado determinista** | ✅ **EN PROD** (`10b62279`) |
-| **Paso 5 — endpoints + pantalla** | ✅ escrito y verificado · ⬜ **sin clickear** |
+| **Paso 5 — endpoints + pantalla** | ✅ **EN PROD** (`15764dce`) y abierto en vivo |
 | Fila de AXA en `insurance_forms` | ✅ **EN PROD** (60 entradas de diccionario) |
 
 ### El push de `df14d647` — build verde (2026-08-09)
@@ -630,18 +630,49 @@ Los otros siete, todos arreglados:
 Regresión tras los arreglos: AXA **0 omitidos** y `widgetsSinPagina: 0`; Allianz igual que siempre
 (61 reglas → 56 campos, 5 sin etiqueta, 0 no creados).
 
-### ⚠️ Nada del paso 5 se ha CLICKEADO
+### ✅ Desplegado y CLICKEADO (2026-08-09)
 
-Type-check, gates, smoke de BD y el diccionario verificado contra el PDF no son "probado". El paso 5
-estrena en vivo dos caminos que hasta hoy eran inalcanzables: **el runtime de `pdfjs-dist`** y el
-**409 de borrar una consulta con informes**.
+`15764dce` → **SUCCESS**, y **sólo se movió `@healthcare/doctor`** (los otros tres servicios no
+tocan nada de esto). El usuario lo abrió en vivo: ***"apparently all gud"*.**
+
+Verificado DENTRO del contenedor, que era el riesgo abierto del paso 5 (¿se despliega el PDF base?):
+
+```
+-rw-rw-r-- 330612  /app/apps/doctor/public/formatos/axa-gmm-informe-medico-2022-02.pdf
+pid=29  cwd=/app/apps/doctor  next-server (v16.0.10)
+```
+
+El archivo está completo y `next-server` corre con cwd `/app/apps/doctor`, que es contra lo que
+resuelve el `path.join(process.cwd(), 'public', 'formatos', …)` de `leerPdfBase`.
+
+> ⚠️ **PID 1 es `pnpm` y su cwd es `/app`.** Si se hubiera mirado el proceso de arriba, la ruta
+> habría parecido equivocada. Hay que mirar el proceso de `next-server`, no el de arranque.
+
+🔎 **Corrección a lo que decía este doc:** el PDF en blanco **NO** queda públicamente descargable.
+El middleware redirige `/formatos/*` a `/login` como todo lo demás.
+
+### ⚠️ Lo que el clic NO cubre
+
+*"Apparently all gud"* dice que la pantalla abre y se ve bien. **No** confirma, salvo que se haya
+probado a propósito:
+
+| | |
+|---|---|
+| Descargar el **borrador** y mirarlo | ⬜ por confirmar |
+| Marcar consentimiento → descargar el **FINAL** | ⬜ por confirmar |
+| Que el encabezado de AXA salga con `Lugar` **y** fecha (el arreglo de hoy) | ⬜ por confirmar |
+| Corregir un campo y ver que el chip pase a "lo escribiste tú" | ⬜ por confirmar |
+| El **409 de borrar una consulta con informes** | ⬜ sigue inalcanzable hasta que exista una fila |
+
+⇒ Antes de considerarlo cerrado, generar UN informe completo de punta a punta y abrir el PDF.
 
 ## Lo siguiente
 
 **Pasos 0 · 1 · 2 · 4 · 5: ✅** · **Allianz: ✅** · **Borrador: ✅** · **Motor: ✅ EN PROD**
 
-- 🔴 **CLICKEARLO.** Es lo único que separa esto de "probablemente funciona". Generar un informe
-  real, corregir un campo, bajar el borrador y el final, y mirar el PDF.
+- 🔴 **Un informe COMPLETO de punta a punta**: corregir un campo, bajar el borrador, dar
+  consentimiento, bajar el final y **mirar el PDF** (¿sale el encabezado con `Lugar` y fecha?).
+  La pantalla ya se abrió y se ve bien, pero eso no es lo mismo.
 - **Paso 3** — el diccionario de GNP (`P1_7`, cero semántica). ⚠️ Antes hay que resolver la
   pregunta abierta #0: **cuál formato de GNP rige**, el de Eleonor (3 pág) o el oficial (2 pág).
 - **Paso 6** (LLM sobre `customData`) y **paso 7** (link con token al paciente).
