@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
-import { formatoDe, leerPdfBase } from '@/lib/informe-medico/formatos';
+import { formatoDe, leerPdfBaseParaVisor } from '@/lib/informe-medico/formatos';
 
 // GET /api/medical-records/insurance-forms/:formId/pdf
 //
@@ -27,7 +27,9 @@ export async function GET(
       );
     }
 
-    const base = await leerPdfBase(formato);
+    // Con las casillas apagadas: si no, el lienzo del visor enseña las 9 marcas
+    // de fábrica debajo de casillas HTML vacías.
+    const base = await leerPdfBaseParaVisor(formato);
     return new NextResponse(Buffer.from(base), {
       headers: {
         'Content-Type': 'application/pdf',

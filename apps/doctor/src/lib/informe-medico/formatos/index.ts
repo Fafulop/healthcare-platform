@@ -20,6 +20,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { PDFCheckBox, PDFDocument } from 'pdf-lib';
 import type { FieldDict } from '../types';
 import { DICT_AXA } from '../dicts/axa';
 
@@ -77,6 +78,35 @@ export function formatoDe(fila: { insurer: string; name: string; version: string
 export async function leerPdfBase(formato: FormatoEnRepo): Promise<Uint8Array> {
   const ruta = path.join(process.cwd(), 'public', 'formatos', formato.archivo);
   return new Uint8Array(await readFile(ruta));
+}
+
+/**
+ * La hoja para MOSTRAR en el visor, con las casillas apagadas.
+ *
+ * 🔴 La hoja "en blanco" de AXA trae 9 casillas marcadas de fábrica. pdf.js
+ * dibuja la apariencia guardada de cada widget, así que esas marcas salían
+ * pintadas en el lienzo — debajo de una casilla HTML vacía. El doctor veía una
+ * opción marcada que él no eligió y que la app no podía desmarcar, porque para
+ * la app nunca estuvo marcada.
+ *
+ * Es sólo para el fondo del visor; el llenado real lo normaliza `render-pdf`.
+ */
+export async function leerPdfBaseParaVisor(formato: FormatoEnRepo): Promise<Uint8Array> {
+  const bytes = await leerPdfBase(formato);
+  try {
+    const pdf = await PDFDocument.load(bytes);
+    const form = pdf.getForm();
+    for (const field of form.getFields()) {
+      if (field instanceof PDFCheckBox) {
+        try { field.uncheck(); } catch { /* una casilla terca no debe tumbar el visor */ }
+      }
+    }
+    form.updateFieldAppearances();
+    return await pdf.save();
+  } catch {
+    // Si no se puede normalizar, mejor la hoja tal cual que ninguna hoja.
+    return bytes;
+  }
 }
 
 /**

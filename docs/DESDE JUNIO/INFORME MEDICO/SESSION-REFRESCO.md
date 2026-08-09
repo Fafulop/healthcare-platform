@@ -854,6 +854,46 @@ el visor marcaría: M=·  A=·  E=✔  S=·      ← sólo una
 > el doctor tocó — que al mirar la casilla que uno eligió se lee exactamente como "no se marcó
 > nada". El arreglo cubre las dos lecturas, pero conviene confirmarlo con los ojos.
 
+## 🔴 La hoja "EN BLANCO" de AXA NO viene en blanco (2026-08-09)
+
+El usuario: *"algunas casillas vienen como pre-marcadas de forma borrosa… `Consultorio` tiene esa
+marca y yo no la seleccioné, pero al descargar el PDF sale marcada."*
+
+Medido sobre el AXA **oficial**: **9 de sus 22 casillas traen valor de fábrica.**
+
+```
+Consultorio_2                /V=/1     ← el ejemplo del usuario
+Se ajusta a Tabulador médico /V=/On    ← una declaración de FACTURACIÓN
+Sí_5 /On · No_6 /On · MAM /M · S1 /N · ANP3 /3 · Check Box1 /n · Sí acepto_2 /O
+```
+
+Como el render sólo tocaba los campos CON respuesta, esas marcas sobrevivían al aplanado y **el
+informe afirmaba cosas que el médico nunca eligió**, en un documento que él firma. Es exactamente
+lo que prohíbe la regla de [`01-FUENTES`](01-FUENTES-de-donde-sale-cada-campo.md) §4 — sin fuente,
+vacío — sólo que aplicada a casillas, que es donde no se había pensado.
+
+### Dos arreglos, porque eran dos superficies
+
+1. **Al renderizar** (`normalizarCasillas`): antes de aplicar respuestas se apaga **toda** casilla
+   sin contestar. Lo que el doctor sí marcó se vuelve a encender enseguida.
+2. **En el visor**: pdf.js dibuja la apariencia guardada de cada widget, así que las 9 marcas
+   salían pintadas en el lienzo **debajo** de una casilla HTML vacía — de ahí lo "borroso", y de
+   ahí que no se pudieran desmarcar: para la app nunca estuvieron marcadas. La hoja de fondo se
+   sirve normalizada (`leerPdfBaseParaVisor`).
+
+> ⚠️ Se usa `field.uncheck()` y no se tocan los diccionarios a mano: `uncheck()` marca el campo
+> como sucio y eso hace que `flatten()` le regenere una apariencia `/Off`. Varias casillas de AXA
+> **no traen apariencia `/Off` propia** (`Check Box2`, `Consultorio_2`, `Matutino`: sus widgets sólo
+> tienen `/1 /2 /3 /4`), y aplanar sin regenerarla truena con `Failed to extract appearance ref`.
+
+**Verificado** con el caso exacto del usuario — el doctor elige **Hospital** y nada más:
+
+```
+hoja original       : 9 casillas marcadas de fábrica
+hoja para el VISOR  : 0
+borrador y final    : ["Consultorio_2=/2"]   ← sólo Hospital
+```
+
 ## Lo siguiente
 
 **Pasos 0 · 1 · 2 · 4 · 5: ✅** · **Allianz: ✅** · **Borrador: ✅** · **Motor: ✅ EN PROD**

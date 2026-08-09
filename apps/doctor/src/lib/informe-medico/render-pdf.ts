@@ -65,6 +65,8 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
   const omitidos: CampoOmitido[] = [];
   let llenados = 0;
 
+  normalizarCasillas(form, answers, dict);
+
   // 🔴 Se recorren las RESPUESTAS, no el diccionario. El diccionario sólo cubre
   // los campos que el sistema sabe PRE-LLENAR (60 de los 255 de texto de AXA);
   // recorrerlo dejaba fuera todo lo que el doctor escribiera a mano en un campo
@@ -130,6 +132,42 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
     llenados++;
   }
   return { omitidos, llenados };
+}
+
+/**
+ * 🔴 Apaga TODA casilla que el doctor no haya contestado.
+ *
+ * La hoja "en blanco" de AXA **no viene en blanco**: 9 de sus 22 casillas traen
+ * un valor de fábrica (`Consultorio_2 = /1`, `Se ajusta a Tabulador médico =
+ * /On`, `Sí_5`, `No_6`, `MAM`…). Como el render sólo tocaba los campos con
+ * respuesta, esas marcas sobrevivían al aplanado y el informe **afirmaba cosas
+ * que el médico nunca eligió** — incluida una declaración de facturación. Es
+ * exactamente lo que prohíbe la regla de 01-FUENTES §4: sin fuente, vacío.
+ *
+ * Se apagan ANTES de aplicar las respuestas, así que lo que el doctor sí marcó
+ * se vuelve a encender enseguida.
+ */
+function normalizarCasillas(form: PDFForm, answers: Answers, dict: FieldDict) {
+  // Los campos del PDF que SÍ tienen respuesta del doctor.
+  const contestados = new Set<string>();
+  for (const [clave, r] of Object.entries(answers)) {
+    if (!r || r.value.trim() === '') continue;
+    const nombre = nombrePdfDe(clave, dict);
+    if (nombre) contestados.add(nombre);
+  }
+
+  for (const field of form.getFields()) {
+    if (!(field instanceof PDFCheckBox)) continue;
+    if (contestados.has(field.getName())) continue;
+    // `uncheck()` y no tocar el dict a mano: marca el campo como sucio, y eso
+    // hace que `flatten()` le regenere una apariencia /Off. Varias casillas de
+    // AXA no traen apariencia /Off propia y, sin regenerarla, aplanar truena.
+    try {
+      field.uncheck();
+    } catch {
+      // Una casilla que no se deja apagar no debe tumbar el informe entero.
+    }
+  }
 }
 
 /**
