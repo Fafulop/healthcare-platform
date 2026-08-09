@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Download, FileText, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import InformeVisor, { type ValorVisor } from './InformeVisor';
 
 interface Formato { id: string; insurer: string; name: string; version: string }
 interface Valor { value: string; source: string | null; origin: string }
@@ -66,6 +67,10 @@ export default function InformeMedicoPage() {
    * CONTROLADOS: con `defaultValue`, un refetch no refresca lo que se ve y la
    * pantalla acaba mostrando algo distinto de lo guardado. */
   const [borradores, setBorradores] = useState<Record<string, string>>({});
+  /** El VISOR es la vista principal: es el formato real con las cajas encima.
+   * La lista se queda como red — si el render del PDF falla en algún navegador,
+   * el doctor todavía puede llenar y emitir. */
+  const [vista, setVista] = useState<'visor' | 'lista'>('visor');
 
   const base = `/api/medical-records/patients/${patientId}/reports`;
 
@@ -117,8 +122,11 @@ export default function InformeMedicoPage() {
     } finally { setTrabajando(false); }
   }
 
-  async function guardarCampo(clave: string, value: string) {
-    if (!informe) return;
+  /** `true` si el servidor aceptó el cambio. El visor lo necesita para no tirar
+   * lo tecleado cuando falla: resolver siempre "bien" hacía que la caja se
+   * revirtiera al valor viejo y el doctor perdiera lo escrito. */
+  async function guardarCampo(clave: string, value: string): Promise<boolean> {
+    if (!informe) return false;
     setGuardado(null);
     const r = await fetch(`${base}/${informe.id}`, {
       method: 'PATCH',
@@ -127,7 +135,7 @@ export default function InformeMedicoPage() {
       // significa "aquí no hay dato". Son cosas distintas y se guardan distinto.
       body: JSON.stringify({ answers: { [clave]: { value, origin: value.trim() === '' ? 'empty' : 'manual' } } }),
     });
-    if (!r.ok) { const d = await r.json(); setError(d.error ?? 'No se pudo guardar'); return; }
+    if (!r.ok) { const d = await r.json(); setError(d.error ?? 'No se pudo guardar'); return false; }
     // 🔴 Hay que releer, no sólo marcar "guardado". Sin esto `campos` se queda
     // con el valor viejo y pasan dos cosas: el chip sigue diciendo "del
     // expediente" sobre algo que tecleó el doctor, y si vuelve al valor original
@@ -135,7 +143,13 @@ export default function InformeMedicoPage() {
     // dejando en el servidor lo intermedio — que es lo que se acabaría emitiendo.
     await abrirInforme(informe.id);
     setGuardado(clave);
+    return true;
   }
+
+  /** `clave -> { value, origin }`, que es lo que el visor pinta. */
+  const valoresVisor: Record<string, ValorVisor> = Object.fromEntries(
+    campos.map((c) => [c.clave, { value: c.valor.value, origin: c.valor.origin }])
+  );
 
   function nuevoInforme() {
     setInforme(null); setCampos([]); setAvisos([]); setBorradores({}); setError(null);
@@ -305,6 +319,32 @@ export default function InformeMedicoPage() {
               </label>
             </div>
 
+            <div className="mt-4 flex gap-1 border-b">
+              {([['visor', 'Formato de la aseguradora'], ['lista', 'Lista de campos']] as const).map(([v, t]) => (
+                <button
+                  key={v}
+                  onClick={() => setVista(v)}
+                  className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px ${
+                    vista === v ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {vista === 'visor' && (
+              <div className="mt-4 bg-gray-100 rounded-lg border p-4 overflow-x-auto">
+                <InformeVisor
+                  formId={informe.form.id}
+                  valores={valoresVisor}
+                  soloLectura={emitido}
+                  onGuardar={guardarCampo}
+                />
+              </div>
+            )}
+
+            {vista === 'lista' && (
             <div className="mt-4 bg-white rounded-lg border divide-y">
               {campos.map((c) => {
                 const estilo = ESTILO_ORIGEN[c.valor.origin] ?? ESTILO_ORIGEN.empty;
@@ -335,6 +375,7 @@ export default function InformeMedicoPage() {
                 );
               })}
             </div>
+            )}
 
             {emitido && (
               <div className="mt-4 rounded-lg bg-gray-100 border p-4 text-sm">

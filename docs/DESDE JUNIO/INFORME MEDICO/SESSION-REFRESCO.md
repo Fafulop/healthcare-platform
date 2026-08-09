@@ -666,13 +666,93 @@ probado a propósito:
 
 ⇒ Antes de considerarlo cerrado, generar UN informe completo de punta a punta y abrir el PDF.
 
+## ✅ EL VISOR — el formato de AXA con las cajas encima (2026-08-09)
+
+Pedido del usuario después de ver el paso 5: *"instead of just the fields opening in our format, I
+was hoping the PDF like format from AXA opens with the fields already inputted… and that they were
+have the colors there."*
+
+Tenía razón: la lista de campos carga el mismo dato pero pierde lo que lo hace obvio — **ver la
+hoja llenarse**. Y es justo lo que `02-PLAN` §4b anticipaba al decir *"se edita en la app, ahí el
+color SÍ es vivo"*: la regla de "el borrador es de sólo lectura" era sobre el **archivo
+descargado**, no sobre un editor dentro de la app.
+
+### Cómo funciona
+
+La página del PDF se pinta en un `<canvas>` con pdf.js y encima van `<input>`s absolutos, uno por
+campo del diccionario. **Se teclea en HTML, nunca en el PDF**: el valor va al mismo JSON de
+respuestas, así que el visor y la lista son dos caras del mismo dato. Los colores por fin están
+vivos porque son CSS: escribir en una caja azul la pone azul-cielo al instante.
+
+| | |
+|---|---|
+| 🟦 azul | vacío — puedes escribir |
+| 🟩 verde | vino del expediente |
+| 🟦 azul cielo | lo escribiste tú |
+| 🟧 ámbar | lo redactó la IA (paso 6) |
+
+Piezas nuevas: `GET /insurance-forms/:formId/pdf` (la hoja en blanco), `GET …/geometria` (dónde cae
+cada campo), `InformeVisor.tsx`, y pestañas **Formato** / **Lista de campos** — la lista se queda de
+red por si el render falla en algún navegador.
+
+**El worker de pdf.js se copia a `public/pdfjs/` en `prebuild`** (`scripts/copy-pdf-worker.mjs`) en
+vez de dejárselo al bundler: ese import dinámico es exactamente lo que ya tronó una vez en la ruta
+desplegada. El archivo también va commiteado, por si el `prebuild` no corriera.
+
+### La geometría, verificada antes de dibujar nada
+
+```
+páginas: 6 × 609×794 · cajas ubicadas: 60 · sin ubicar: 0 · fuera de la hoja: 0
+informe.lugar  p1 pdf(35,586)  -> css(left=35,  top=195)
+informe.fecha  p1 pdf(307,587) -> css(left=307, top=193)
+```
+
+Que esos dos queden lado a lado en el encabezado es LA prueba de que el volteo de coordenadas
+(PDF mide desde abajo-izquierda, CSS desde arriba-izquierda) está bien: si estuviera invertido
+caerían hasta abajo de la hoja.
+
+⚠️ Las 60 cajas caen en las páginas 1, 2, 3 y 5. **Las páginas 4 y 6 se ven sin cajas** — es
+correcto (se mapean 60 de los 277 campos de AXA), pero parece vacío.
+
+### 🔴 El `/code-review` del visor — habrías abierto 6 hojas EN BLANCO
+
+Cinco hallazgos, y el primero era un bloqueador garantizado en cada montaje:
+
+**`cargando` tapaba los `<canvas>`.** El return temprano no los montaba, así que cuando corría el
+efecto de render los 6 se saltaban por `if (!canvas) continue`; luego `cargando` pasaba a false, los
+lienzos aparecían — y el efecto ya no volvía a correr. **Seis páginas blancas con las cajas flotando
+encima, y tocar el zoom "arreglaba" la hoja.** Ahora la guarda es `!geo`.
+
+> 🔎 **Tercera vez hoy con la misma forma:** el código correcto en sí mismo, equivocado sobre
+> CUÁNDO corre. Type-check, los 5 gates y un `next build` verde pasaron por encima de los tres.
+
+Los otros cuatro:
+
+- **Un guardado fallido tiraba lo tecleado**: `guardarCampo` resolvía normal con `!r.ok`, así que la
+  caja se revertía al valor viejo con el aviso hasta arriba de una hoja de 6 páginas. Ahora devuelve
+  un booleano y el borrador sobrevive al fallo.
+- **Las casillas se descartaban en silencio** — rompiendo justo la invariante que `sinUbicar`
+  existe para sostener. Hoy es latente (AXA mapea 0), pero se dispara en cuanto se edite un
+  `field_dict` en la BD, que es el camino de "corregir un mapeo sin desplegar" que el diseño ofrece.
+- **El volteo asume MediaBox en el origen y sin rotación**, pero pdf.js arma su viewport con el
+  **CropBox** y aplica `/Rotate`. Un formato rotado pondría TODAS las cajas mal, sin ningún error.
+  Ahora se detecta y no se dibuja nada: mejor mandar a la lista que enseñar cajas convincentes en el
+  renglón equivocado de un documento médico-legal. (AXA y Allianz: rot 0 en todas sus páginas.)
+- **A 250% × dpr 2 las 6 páginas piden ~290MB de lienzo**; Safari tira el backing store y las
+  páginas se ponen blancas — idéntico al síntoma del bloqueador. `escala × dpr` queda acotado.
+
 ## Lo siguiente
 
 **Pasos 0 · 1 · 2 · 4 · 5: ✅** · **Allianz: ✅** · **Borrador: ✅** · **Motor: ✅ EN PROD**
 
+- 🔴 **Abrir el VISOR y ver si las cajas caen en su raya.** La geometría cuadra en números
+  (60/60, nada fuera de la hoja), pero que los números cuadren no es que se vea bien al 130% en un
+  navegador. Es lo único que no se puede verificar desde aquí.
 - 🔴 **Un informe COMPLETO de punta a punta**: corregir un campo, bajar el borrador, dar
   consentimiento, bajar el final y **mirar el PDF** (¿sale el encabezado con `Lugar` y fecha?).
-  La pantalla ya se abrió y se ve bien, pero eso no es lo mismo.
+- **Las casillas** de AXA (45) — hoy el visor las ubica pero no las dibuja.
+- **El chat con el LLM** que pidió el usuario: propone valores, caen en el mismo JSON y se prenden
+  en ÁMBAR sobre la hoja para que el doctor confirme. Es el paso 6, y encaja sin rediseñar nada.
 - **Paso 3** — el diccionario de GNP (`P1_7`, cero semántica). ⚠️ Antes hay que resolver la
   pregunta abierta #0: **cuál formato de GNP rige**, el de Eleonor (3 pág) o el oficial (2 pág).
 - **Paso 6** (LLM sobre `customData`) y **paso 7** (link con token al paciente).
