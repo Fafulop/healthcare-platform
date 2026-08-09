@@ -62,17 +62,29 @@ vive el card**: en la hoja, no en el chat.
 ⚠️ **Y corrige a [`05-VOZ`](05-VOZ-el-doctor-le-dicta-al-formato.md) §4** en el punto que importa:
 ahí el dictado escribía **y persistía** de inmediato. Aquí no se persiste hasta Guardar.
 
-## 4. La decisión de arquitectura: un MÓDULO, no otro agente
+## 4. 🔴 ES UN FLUJO CONTENIDO, NO un módulo del asistente
 
-`08-EMPIEZA-AQUI` §1: *"un solo agente conversacional que crece por módulos de dominio — no son
-varios agentes que se hablan entre sí, esa decisión está tomada y no se re-litiga"*.
+**Corregido por el usuario (2026-08-09).** Mi borrador decía que `informe` sería el sexto módulo
+del asistente. **Está mal, y el error fue mío por confundir dos cosas distintas del app:**
 
-⇒ **`informe` es el sexto módulo** (junto a agenda · expediente · flujo · facturas · fiscal), con
-su entrada en `AGENT_MODULE_REQUIREMENTS`. Requiere `expedientes`, igual que el informe mismo.
+| | Qué es | Ejemplos | Lo gobierna |
+|---|---|---|---|
+| 🟢 **El ASISTENTE** | UN agente conversacional que crece por módulos de dominio | agenda · facturas · fiscal · flujo · expediente | [`AGENTES/`](../AGENTES) y `08-EMPIEZA-AQUI` |
+| 🔵 **Flujos CONTENIDOS** | Funciones de IA que se disparan y viven solas | nueva consulta por voz · notas · el dictado del informe | Nada de lo anterior |
 
-**Pero se abre DENTRO de la pantalla del informe**, con el `reportId` ya sembrado. No es otro
-agente: es el mismo, con contexto. El panel global no sabe qué hoja estás viendo, y ese contexto
-es justamente lo que hace útil la conversación.
+Leí `08-EMPIEZA-AQUI` —que documenta **el asistente**— y apliqué sus reglas a un contexto que no
+gobierna. **El informe es 🔵.**
+
+**Verificado en el código (2026-08-09):** ni `/api/voice/structure` ni el `dictar` del informe
+importan `agenda-agent`. Son independientes. El dictado que ya está en prod **ya era** un flujo
+contenido.
+
+⇒ **Lo que se cae de §8:** no hay módulo nuevo, ni entrada en `AGENT_MODULE_REQUIREMENTS`, ni
+`02-CAPACIDADES`, ni evals del agente, ni prompt que crezca para los turnos de agenda y facturas.
+El costo era bastante menor de lo que estimé.
+
+📌 **Dónde SÍ se documenta:** [`GENERAL AGENTES/06-MAPA-superficie-IA`](../AGENTES/GENERAL%20AGENTES/06-MAPA-superficie-IA.md),
+que lista **todos** los endpoints de LLM del app, no sólo los del asistente.
 
 ## 5. Las tools (borrador)
 
@@ -97,60 +109,38 @@ doctor guarda, contra el endpoint que ya existe.
 5. **Sabe lo que NO se puede llenar.** CIE-10, TNM y póliza no están en el expediente
    ([`04-MAPEO`](04-MAPEO-expediente-a-formato.md) §3): en vez de inventarlos, los PIDE.
 
-## 7. 🔴 EL CONFLICTO QUE HAY QUE RESOLVER: el privacy tier
+## 7. El privacy tier: ERA FALSA ALARMA
 
-`modules/expediente.ts` lleva una decisión explícita y marcada como no re-litigable:
+Mi borrador levantó un conflicto con la regla de `modules/expediente.ts` —*el asistente NUNCA
+devuelve contenido clínico*— y propuso una excepción (opción A, que el usuario aprobó).
 
-> El asistente devuelve **SOLO metadatos** (conteos, fechas, tipos, estatus) y datos
-> administrativos. **El CONTENIDO clínico — SOAP, `chiefComplaint`, `clinicalNotes`, diagnóstico,
-> vitales — NUNCA aparece en ningún select de ese archivo.**
+⚠️ **Esa regla gobierna al asistente 🟢, no a los flujos contenidos 🔵.** Y el precedente ya existe
+y está en producción: **el flujo de nueva consulta por voz estructura `subjective`, `assessment` y
+SOAP completos** desde el dictado (`voice-assistant/prompts.ts`). Un flujo contenido que trabaja con
+contenido clínico no es una excepción: es lo normal en esa categoría.
 
-**El informe médico es contenido clínico de principio a fin.** Un módulo `informe` que lea
-diagnósticos y los proponga rompe esa regla de frente.
+⇒ **No hace falta excepción, ni tocar `02-CAPACIDADES`, ni el comentario de privacy tier de
+`expediente.ts`.** El asistente 🟢 sigue exactamente igual de ciego que hoy.
 
-**No es una contradicción tonta:** la regla nació para que el asistente *general* —al que se le
-pregunta "¿cuántos pacientes activos tengo?"— no acabe recitando diagnósticos en un panel lateral.
-El informe es otro contexto: el doctor **ya está mirando** ese expediente, en una pantalla dedicada,
-para mandarlo a una aseguradora.
+**Lo que SÍ se conserva del razonamiento**, porque son buenos límites por sí solos y no por la
+regla que creí que aplicaba:
 
-⇒ **Hace falta una excepción EXPLÍCITA y AUDITADA**, no una que se cuele:
+1. El flujo lee clínico **sólo del `encounterId` ligado a ESE informe** — el doctor eligió esa
+   consulta al crear el informe; leer otras sería pasarse de lo que pidió.
+2. **Los datos van a un proveedor externo** (`LLM_PROVIDER`, hoy OpenAI). Ya pasa con la consulta
+   por voz, pero el propósito aquí es distinto —transferencia a una aseguradora— y conviene que el
+   aviso de privacidad lo diga ([`05-VOZ`](05-VOZ-el-doctor-le-dicta-al-formato.md) §8).
+3. **Adjuntar consultas es explícito**, elegido por el doctor: minimización de datos.
 
-| Opción | Qué implica |
-|---|---|
-| **A. Excepción acotada al módulo `informe`** | El módulo lee clínico **sólo del `encounterId` ligado a ESE informe**, y sólo cuando hay un informe abierto. El asistente general sigue sin ver nada. Hay que escribirlo en `02-CAPACIDADES` y en el privacy tier |
-| **B. El clínico no pasa por el agente** | El agente sólo conversa y propone; los valores los saca el pre-llenado determinista y el doctor dicta el resto. Respeta la regla pero pierde el punto 3 de §6 |
-| **C. Re-litigar el privacy tier** | El más caro y el que más cosas mueve. **No recomendado** |
-
-### ✅ DECIDIDO: opción A (usuario, 2026-08-09)
-
-El módulo `informe` **sí lee contenido clínico**, con estos límites:
-
-1. **Sólo del `encounterId` ligado a ESE informe.** No es una llave al expediente entero.
-2. **Sólo cuando hay un informe abierto** — el `reportId` es obligatorio en toda tool del módulo.
-3. **El asistente general no cambia.** `modules/expediente.ts` sigue devolviendo sólo metadatos.
-
-🔴 **Obligación que crea esta decisión** (y que no se cumple escribiéndola sólo aquí): cuando el
-módulo se construya, la excepción tiene que quedar escrita **en la carpeta de AGENTES**, no en esta:
-
-- `AGENTES/GENERAL AGENTES/02-CAPACIDADES` — la matriz y §4, con el módulo y sus tools.
-- **El comentario de privacy tier de `modules/expediente.ts`** — ahí es donde alguien va a leer
-  "el contenido clínico NUNCA sale" y necesita ver, en el mismo lugar, que hay UNA excepción
-  acotada y por qué.
-- `AGENTE EXPEDIENTE/SESSION-REFRESCO.md` — el estado vivo del dominio.
-
-⚠️ **Todavía NO se escribe nada de eso:** `02-CAPACIDADES` describe lo que existe HOY, y el módulo
-no existe. Escribirlo antes sería documentar algo falso — el error exacto que
-[`08-EMPIEZA-AQUI`](../AGENTES/GENERAL%20AGENTES/08-EMPIEZA-AQUI.md) §3 previene. Va **junto** con
-el código, no antes.
+> 🔎 **Lección:** leer el doc de gobierno equivocado produce trabajo y preocupación de más. `CLAUDE.md`
+> manda a `AGENTES/` "todo lo relacionado con **el asistente**" — y el informe no es el asistente.
 
 ## 8. El costo, honesto
 
-- **Un módulo nuevo** = tools + entrada en `AGENT_MODULE_REQUIREMENTS` + `02-CAPACIDADES` (matriz y
-  §4) + `00-BLUEPRINT` §1 + el `SESSION-REFRESCO` del dominio ([`07-CONVENCIONES`](../AGENTES/GENERAL%20AGENTES/07-CONVENCIONES-docs.md) §5).
-- **Evals.** La suite tiene 87 casos y un módulo nuevo pide los suyos. Sin evals, el módulo se
-  degrada en silencio en cuanto alguien toque el prompt.
-- **El prompt crece.** Hoy son 5 módulos; el sexto suma tools y descripciones a *cada* turno del
-  asistente, no sólo a los del informe. Hay que medir el efecto en los otros módulos.
+- ~~Un módulo nuevo del asistente~~ **NO APLICA** (§4): es un flujo contenido.
+- **El estado PENDIENTE** (§2) es el cambio de fondo: hoy cada edición persiste al salir del campo.
+- **Un endpoint de conversación** con historial, sobre el que ya existe (`dictar`).
+- **Pruebas propias del flujo** — no las del agente, pero sí algo que verifique que no se degrada.
 - **Los 255 campos no caben en el prompt.** Van por tool, acotados por página, como en
   [`05-VOZ`](05-VOZ-el-doctor-le-dicta-al-formato.md) §5.
 
