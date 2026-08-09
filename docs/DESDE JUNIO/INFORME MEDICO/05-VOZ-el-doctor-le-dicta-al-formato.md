@@ -334,6 +334,46 @@ puede colgar del de consultas porque el esquema de salida es otro.
 falta guardarlo: **`construirPrefillDeterminista()` es una función PURA**, así que restaurar es
 volver a correrla y tomar ese campo. Cero almacenamiento nuevo.
 
+## 10b. ✅ CONSTRUIDO (2026-08-09) — `96ea70ef`
+
+| Pieza | Qué hace |
+|---|---|
+| `lib/voice/transcribir-audio.ts` | Whisper, extraído para poder usarlo fuera de `/api/voice/*` |
+| `lib/informe-medico/prompt-dictado.ts` | El prompt con los campos REALES de la página |
+| `POST …/reports/:id/dictar` | audio → transcripción → LLM → **validación server-side** → merge |
+| `informe/DictadoPagina.tsx` | El micrófono por página |
+
+**Tamaño del prompt, medido:** p1 1,607 · p2 950 · p3 1,659 · toda la hoja 5,040 tokens.
+
+### 🔴 El permiso: `/api/voice/*` es OWNER_ONLY
+
+Al construirlo salió que `route-permissions.ts:152` marca `voice` como **OWNER_ONLY**, mientras que
+`/api/medical-records/*` sólo pide `expedientes`. Un usuario secundario con acceso a expedientes
+—que **sí** puede hacer informes por decisión del usuario (§9)— vería el micrófono, grabaría datos
+del paciente y recibiría un `PERMISSION_BLOCKED`.
+
+⇒ Se extrajo el helper de Whisper y **el audio va directo al endpoint del informe**, que vive bajo
+`/api/medical-records/*` y hereda `expedientes`. **No** se aflojó `/api/voice/*`: eso habría
+cambiado en silencio quién puede dictar en NOTAS y CONSULTAS, que nadie decidió.
+
+### 🔴 El `/code-review` — 9 hallazgos, corrido ANTES de empujar
+
+- **`setError()` con un objeto tumbaba la pantalla.** `/api/voice/transcribe` devuelve
+  `error: {code, message}`, no un string: React reventaba con *"Objects are not valid as a React
+  child"* y se perdía lo no guardado. Un clic de menos de un segundo bastaba.
+- **Escritura con datos viejos.** `answers` se leía ANTES del LLM y se escribía la columna ENTERA
+  después: cualquier campo que el doctor tecleara durante esos segundos se revertía — justo lo que
+  §10.3 prohíbe. Ahora se **relee dentro de una transacción** y se fusiona sólo lo dictado.
+- **Dos dictados a la vez.** El bloqueo sólo cubría "grabando", no "procesando".
+- **"Reintentar sin regrabar" era inalcanzable** justo cuando fallaba el servidor.
+- **El micrófono quedaba ABIERTO** si el visor se desmontaba grabando — en un consultorio donde se
+  están hablando datos del paciente.
+- **Se reportaba el MEJOR recuadro, no el peor**, así que un campo con uno de 43 pt y otro de 300
+  salía ilegible en silencio.
+- **El tope inventado de 200 caracteres** decía que cabían 200 donde caben 14.
+- El botón contaba **recuadros** en vez de claves, y ofrecía micrófono en páginas sin campos.
+- `r.json()` antes del `r.ok` reventaba con respuestas que no son JSON.
+
 ## 11. Lo que NO resuelve
 
 - **Los campos que nadie puede saber** siguen vacíos si el doctor no los dicta. El LLM no los
