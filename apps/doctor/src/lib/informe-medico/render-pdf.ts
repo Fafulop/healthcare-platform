@@ -57,6 +57,16 @@ export interface RenderResult {
   omitidos: CampoOmitido[];
   /** Los omitidos que de verdad son un PROBLEMA (excluye `sin-campo-en-el-formato`). */
   problemas: CampoOmitido[];
+  /**
+   * Campos que SÍ se escribieron pero saldrán en letra ilegible.
+   *
+   * 🔴 Van aparte de `omitidos`/`problemas` a propósito: esos dos significan
+   * "no se pudo escribir", y un campo apretado sí se escribió y sí cuenta en
+   * `llenados`. Mezclarlos hacía que CUALQUIER campo justo marcara el export
+   * entero como problemático — el mismo "enseñar a ignorar el aviso" que este
+   * archivo evita en `sin-campo-en-el-formato`.
+   */
+  ilegibles: CampoOmitido[];
   /** Widgets cuya página no se pudo resolver: NO se pintaron (sólo borrador). */
   widgetsSinPagina: number;
 }
@@ -67,6 +77,7 @@ export interface RenderResult {
  */
 function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
   const omitidos: CampoOmitido[] = [];
+  const ilegibles: CampoOmitido[] = [];
   let llenados = 0;
 
   normalizarCasillas(form, answers, dict);
@@ -138,15 +149,21 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
     // 🔴 `pdf-lib` no recorta: encoge la letra hasta 3 pt y desborda. El valor SÍ
     // se escribe (borrarlo sería perder lo que tecleó el médico), pero se reporta
     // para que la UI diga "esto no se va a poder leer" — nunca en silencio.
-    const r = field.acroField.getWidgets()[0]?.getRectangle();
-    if (r) {
+    // Se mide el widget MÁS GRANDE, no el primero: estos formatos tienen campos
+    // con varios recuadros y el primero puede ser un muñón. Midiendo sólo el [0]
+    // salían falsos "no cabe", y el visor —que mide cada recuadro— contradecía
+    // al render sobre el mismo campo.
+    let peor: { excede: boolean; sobran: number } | null = null;
+    for (const w of field.acroField.getWidgets()) {
+      const r = w.getRectangle();
       const cap = capacidadDeCaja(r.width, r.height, field.isMultiline(), respuesta.value.length);
-      if (cap.excede) {
-        omitidos.push({ campoCanonico, nombrePdf, motivo: 'no-cabe', sobran: cap.sobran });
-      }
+      if (!peor || cap.sobran < peor.sobran) peor = cap; // el recuadro donde MEJOR cabe
+    }
+    if (peor?.excede) {
+      ilegibles.push({ campoCanonico, nombrePdf, motivo: 'no-cabe', sobran: peor.sobran });
     }
   }
-  return { omitidos, llenados };
+  return { omitidos, ilegibles, llenados };
 }
 
 /**
@@ -270,12 +287,12 @@ export async function renderFinal(
 ): Promise<RenderResult> {
   const pdf = await PDFDocument.load(pdfBase);
   const form = pdf.getForm();
-  const { omitidos, llenados } = aplicarRespuestas(form, answers, dict);
+  const { omitidos, ilegibles, llenados } = aplicarRespuestas(form, answers, dict);
 
   // 🔴 Sin esto el informe llega EDITABLE a la aseguradora.
   form.flatten();
 
-  return { pdf: await pdf.save(), llenados, omitidos, problemas: soloProblemas(omitidos), widgetsSinPagina: 0 };
+  return { pdf: await pdf.save(), llenados, omitidos, problemas: soloProblemas(omitidos), ilegibles, widgetsSinPagina: 0 };
 }
 
 /**
@@ -298,7 +315,7 @@ export async function renderBorrador(
 ): Promise<RenderResult> {
   const pdf = await PDFDocument.load(pdfBase);
   const form = pdf.getForm();
-  const { omitidos, llenados } = aplicarRespuestas(form, answers, dict);
+  const { omitidos, ilegibles, llenados } = aplicarRespuestas(form, answers, dict);
 
   const pages = pdf.getPages();
   const font = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -350,5 +367,5 @@ export async function renderBorrador(
   p1.drawRectangle({ x: 448, y: height - 21, width: 16, height: 9, color: COLOR_LLENO });
   p1.drawText('ya tiene contenido', { x: 468, y: height - 19, size: 7.5, font, color: rgb(0.25, 0.25, 0.3) });
 
-  return { pdf: await pdf.save(), llenados, omitidos, problemas: soloProblemas(omitidos), widgetsSinPagina };
+  return { pdf: await pdf.save(), llenados, omitidos, problemas: soloProblemas(omitidos), ilegibles, widgetsSinPagina };
 }

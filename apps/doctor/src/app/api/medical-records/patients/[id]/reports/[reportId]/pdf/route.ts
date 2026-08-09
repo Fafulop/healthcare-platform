@@ -53,7 +53,7 @@ export async function GET(
     await logAudit({
       patientId, doctorId, userId, userRole: role,
       action: 'EXPORT', resourceType: 'MedicalReport', resourceId: reportId,
-      changes: { tipo, llenados: r.llenados, problemas: r.problemas.length }, request,
+      changes: { tipo, llenados: r.llenados, problemas: r.problemas.length, ilegibles: r.ilegibles.length }, request,
     });
 
     const nombre = `informe-${report.form.insurer.toLowerCase()}-${tipo}-${reportId.slice(0, 8)}.pdf`;
@@ -61,18 +61,18 @@ export async function GET(
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${nombre}"`,
-        // ⚠️ Un campo que no se pudo escribir NO se traga: viaja en la cabecera
-        // para que la UI pueda decir exactamente qué falta (un `β` o un `≥` que
-        // WinAnsi no codifica tumbaría el `save()` entero si no se omitiera).
+        // ⚠️ Un campo que no se pudo escribir NO se traga: se cuenta aquí y, sobre
+        // todo, se avisa EN EL VISOR mientras se escribe (marco rojo + motivo).
+        //
+        // 🔴 Son sólo CONTADORES a propósito. El PDF se abre con `window.open`,
+        // así que ningún JS lee estas cabeceras: mandar aquí el detalle
+        // (qué campo, qué carácter) sería inventar una capacidad que no existe.
+        // El detalle vive en la UI, que es donde todavía se puede corregir.
         'X-Informe-Llenados': String(r.llenados),
         // Sólo los omitidos que son un problema de verdad: un canónico que
         // esta hoja no pide es normal y contarlo enseñaría a ignorar el número.
         'X-Informe-Omitidos': String(r.problemas.length),
-        // El detalle, para que la UI pueda decir QUÉ campo y por qué en vez de
-        // un número suelto. Se recorta: es una cabecera, no un cuerpo.
-        'X-Informe-Problemas': encodeURIComponent(
-          JSON.stringify(r.problemas.slice(0, 20).map((p) => ({ c: p.campoCanonico, m: p.motivo })))
-        ).slice(0, 3500),
+        'X-Informe-Ilegibles': String(r.ilegibles.length),
         // PHI: que no quede en cachés intermedias.
         'Cache-Control': 'private, no-store',
       },

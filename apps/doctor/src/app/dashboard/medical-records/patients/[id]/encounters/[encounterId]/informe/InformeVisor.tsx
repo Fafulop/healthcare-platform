@@ -351,7 +351,11 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar }
                         }}
                       />
                       <span
-                        className="absolute z-10 bg-red-600 text-white text-[10px] leading-tight px-1.5 py-0.5 rounded shadow max-w-[260px]"
+                        // 🔴 `pointer-events-none` OBLIGATORIO: con `z-10` este
+                        // cartel se pinta encima de los inputs de la fila de
+                        // abajo (en AXA quedan a ~15-20px al 130%) y se COME sus
+                        // clics — el campo se vuelve imposible de enfocar.
+                        className="absolute z-10 pointer-events-none select-none bg-red-600 text-white text-[10px] leading-tight px-1.5 py-0.5 rounded shadow max-w-[260px]"
                         style={{
                           left: c.x * escala,
                           top: (pag.alto - c.y) * escala + 2,

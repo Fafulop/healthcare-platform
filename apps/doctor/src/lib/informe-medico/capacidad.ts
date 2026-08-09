@@ -33,6 +33,13 @@ const ANCHO_POR_PUNTO = 0.5;
 /** Interlineado que aplica pdf-lib en los campos multilínea. */
 const INTERLINEADO = 1.15;
 
+/**
+ * Caracteres de tolerancia antes de gritar. El cálculo es una aproximación
+ * (0.5 de ancho medio); sin holgura, un texto que renderiza justo en el mínimo
+ * legible se reporta como ilegible y el aviso pierde credibilidad.
+ */
+const HOLGURA = 1;
+
 export interface Capacidad {
   /** Cuántos caracteres caben a `PT_MINIMO_LEGIBLE`. */
   maximo: number;
@@ -56,11 +63,22 @@ export function capacidadDeCaja(
   multilinea: boolean,
   largo: number
 ): Capacidad {
+  // 🔴 Un widget de ancho o alto <= 0 (muñones ocultos, o un `/Rect` con las
+  // esquinas invertidas, que pdf-lib devuelve como ancho negativo) NO se puede
+  // medir. Antes el `Math.max(1, …)` lo dejaba en "cabe 1 carácter" y cualquier
+  // texto de 2+ quedaba marcado como ilegible PARA SIEMPRE, sin que el doctor
+  // pudiera hacer nada. Se declara inmensurable y no se avisa nada.
+  if (!(ancho > 0) || !(alto > 0)) return { maximo: Infinity, excede: false, sobran: 0 };
+
   const porRenglon = Math.max(1, Math.floor(ancho / (PT_MINIMO_LEGIBLE * ANCHO_POR_PUNTO)));
   const renglones = multilinea
     ? Math.max(1, Math.floor(alto / (PT_MINIMO_LEGIBLE * INTERLINEADO)))
     : 1;
   const maximo = porRenglon * renglones;
-  const sobran = Math.max(0, largo - maximo);
+  // 🔴 `>` y no `>=`: el caso calibrado (`cuarenta y seis`, 15 caracteres en la
+  // caja de 43 pt) renderiza a 6 pt EXACTOS — el mínimo legible, no por debajo.
+  // Marcarlo como problema sería avisar de algo que sí se lee, y el aviso que
+  // salta de más es el que enseña a ignorarlo. Se tolera un carácter de holgura.
+  const sobran = Math.max(0, largo - (maximo + HOLGURA));
   return { maximo, excede: sobran > 0, sobran };
 }

@@ -153,7 +153,12 @@ export default function InformeMedicoPage() {
    * lo que no depende del tamaño: los caracteres que el formato no imprime.
    */
   function avisoDeImpresion(c: Campo): string | null {
-    const malos = caracteresNoImprimibles(c.valor.value);
+    // 🔴 Sobre lo que el usuario VE, no sobre lo último confirmado por el
+    // servidor: si no, el aviso llega un guardado tarde (se teclea `β` y no
+    // aparece hasta el blur) y se queda pegado tras corregirlo. Y si el PATCH
+    // falla, la caja conserva el texto malo SIN aviso.
+    const texto = borradores[c.clave] ?? c.valor.value;
+    const malos = caracteresNoImprimibles(texto);
     if (malos.length === 0) return null;
     return `El formato no puede imprimir ${malos.map((m) => `"${m}"`).join(' ')} — saldría vacío.`;
   }
@@ -360,6 +365,7 @@ export default function InformeMedicoPage() {
             <div className="mt-4 bg-white rounded-lg border divide-y">
               {campos.map((c) => {
                 const estilo = ESTILO_ORIGEN[c.valor.origin] ?? ESTILO_ORIGEN.empty;
+                const aviso = avisoDeImpresion(c);
                 return (
                   <div key={c.clave} className="p-3 sm:flex sm:items-center sm:gap-4">
                     <div className="sm:w-1/3">
@@ -382,9 +388,7 @@ export default function InformeMedicoPage() {
                       {guardado === c.clave && (
                         <span className="text-[11px] text-green-700">guardado</span>
                       )}
-                      {avisoDeImpresion(c) && (
-                        <span className="block text-[11px] text-red-700 mt-0.5">{avisoDeImpresion(c)}</span>
-                      )}
+                      {aviso && <span className="block text-[11px] text-red-700 mt-0.5">{aviso}</span>}
                     </div>
                   </div>
                 );

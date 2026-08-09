@@ -250,7 +250,11 @@ señal.
    ⬜ Pendiente, va con el dictado.
 2. ✅ **HECHO:** el visor avisa **al escribir** con `caracteresNoImprimibles()`: marco rojo sobre la
    caja y el texto *"El formato no puede imprimir «≥» — este campo saldría VACÍO"*. La pestaña de
-   lista avisa igual, y el endpoint del PDF manda el detalle en `X-Informe-Problemas`.
+   lista avisa igual.
+   ⚠️ **El detalle NO viaja en cabeceras.** El PDF se abre con `window.open`, así que ningún JS
+   puede leer la respuesta: mandar ahí qué campo y qué carácter sería inventar una capacidad que no
+   existe. Las cabeceras `X-Informe-*` son sólo CONTADORES; el detalle vive en la UI, que es donde
+   todavía se puede corregir.
 
 ### 10.2 ✅ RESUELTO (2026-08-09) — El texto largo no cabe, y no hay auto-ajuste
 
@@ -274,8 +278,15 @@ Una aseguradora que recibe un dato en 3 pt lo lee mal o rechaza la hoja.
 El valor **se sigue escribiendo** —borrarlo sería perder lo que tecleó el médico— pero se reporta
 como `no-cabe` con cuántos caracteres sobran, y el visor lo marca en rojo mientras se escribe.
 
-> 🔎 **La aproximación está calibrada:** el modelo dice 14 caracteres máximo en esa caja a 6 pt, y
-> `pdf-lib` empíricamente eligió 6 pt para 15 caracteres. Coincide.
+🔴 **`ilegibles` va SEPARADO de `omitidos`/`problemas`**: esos dos significan "no se pudo escribir",
+y un campo apretado sí se escribió y sí cuenta en `llenados`. Mezclarlos hacía que cualquier campo
+justo marcara el export entero como problemático — el mismo "enseñar a ignorar el aviso" que ya se
+había corregido para `sin-campo-en-el-formato`.
+
+> 🔎 **Calibración, con la corrección del review:** el modelo da 14 caracteres para esa caja, pero
+> `pdf-lib` renderiza los 15 de `cuarenta y seis` a 6 pt **exactos** — el mínimo, no por debajo. Sin
+> holgura, el único caso calibrado se marcaba como problema. Se tolera **1 carácter** (`HOLGURA`),
+> así que 15 pasa y 17 avisa.
 
 ### 10.3 Carrera: teclear mientras el dictado se procesa
 
