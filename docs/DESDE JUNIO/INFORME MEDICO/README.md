@@ -127,3 +127,4 @@ ajeno puede cambiarle la versión o quitarla.
 
 **Las dos hay que declararlas, y eso obliga a regenerar `pnpm-lock.yaml` en el MISMO commit**, o
 Railway falla el build con frozen lockfile y el push no shipea (`CLAUDE.md`).
+- [`05-VOZ-el-doctor-le-dicta-al-formato.md`](05-VOZ-el-doctor-le-dicta-al-formato.md) — **PLAN**: el doctor dicta contra el formato y el LLM escribe en sus campos. Sustituye el mapeo de `customData` (01-FUENTES §3).

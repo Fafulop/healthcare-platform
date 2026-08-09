@@ -93,6 +93,14 @@ la teclea el doctor. No pedirle al LLM que la deduzca del texto.
 
 ### B3 — `customData` (JSON) — **lo impredecible**
 
+> 🔴 **SUPERSEDED el 2026-08-09 por [`05-VOZ`](05-VOZ-el-doctor-le-dicta-al-formato.md).** Mapear
+> `customData` → campos del formato se abandonó por dos razones: no escala (80% de las consultas de
+> prod usan plantilla propia, 40 plantillas con 11 doctores) y, sobre todo, **la plantilla no
+> contiene lo que la aseguradora pide**. El hueco lo llena el doctor DICTANDO contra el formato.
+> Lo de abajo se conserva porque la resolución clave→etiqueta **sí se reusa**: es como se le
+> entrega al LLM una plantilla adjunta.
+
+
 Cuando el doctor usó una plantilla propia (`EncounterTemplate.isCustom`), los valores caen en
 `ClinicalEncounter.customData` como un objeto con **las claves que ese doctor inventó**.
 
@@ -143,6 +151,12 @@ Para qué sirve:
 > estado "no sé" explícito.
 
 ## 5. Fuente C — voz y LLM
+
+> 📌 **El diseño completo vive en [`05-VOZ`](05-VOZ-el-doctor-le-dicta-al-formato.md)** (2026-08-09).
+> ⚠️ Su §4 **corrige la regla 1 de abajo**: no hay card de confirmación. El LLM escribe directo en
+> el BORRADOR (no en la BD), igual que el flujo de nueva consulta; la seguridad la dan el ámbar, el
+> consentimiento y que emitir sea un acto aparte.
+
 
 El doctor habla; el LLM **propone cambios sobre campos del informe**, no sobre el PDF.
 
