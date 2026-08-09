@@ -83,7 +83,10 @@ function problemaDelTexto(texto: string, c: Caja): string | null {
   return null;
 }
 
-function estiloDe(origin: string | undefined, hayTexto: boolean): string {
+function estiloDe(origin: string | undefined, hayTexto: boolean, pendiente = false): string {
+  // Lo pendiente se ve DISTINTO de lo guardado: es la señal de que todavía no
+  // está en el expediente y de que hace falta apretar Guardar.
+  if (pendiente) return 'bg-amber-100/80 border-amber-500 border-dashed';
   if (!hayTexto) return 'bg-blue-100/70 border-blue-300 focus:bg-blue-50';
   switch (origin) {
     case 'deterministic': return 'bg-green-100/70 border-green-400';
@@ -97,18 +100,21 @@ interface Props {
   formId: string;
   valores: Record<string, ValorVisor>;
   soloLectura: boolean;
-  /** Devuelve `true` si el servidor aceptó el cambio. */
-  onGuardar: (clave: string, valor: string) => Promise<boolean>;
+  /** Anota una edición como pendiente. NO guarda: eso es el botón Guardar (1B). */
+  onEditar: (clave: string, valor: string) => void;
+  /** Descarta un pendiente y devuelve el campo a lo guardado (2B). */
+  onDescartar: (clave: string) => void;
+  /** Qué claves están pendientes de guardar. */
+  pendientes: Set<string>;
   /** Ausente = el dictado no está disponible (informe emitido, p.ej.). */
   onDictar?: (audio: Blob, pagina: number | null) => Promise<{ r: ResultadoDictado | null; mensaje?: string }>;
 }
 
-export default function InformeVisor({ formId, valores, soloLectura, onGuardar, onDictar }: Props) {
+export default function InformeVisor({ formId, valores, soloLectura, onEditar, onDescartar, pendientes, onDictar }: Props) {
   const [geo, setGeo] = useState<Geometria | null>(null);
   const [escala, setEscala] = useState(1.3);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [borradores, setBorradores] = useState<Record<string, string>>({});
   /** Sube cuando el documento queda cargado: dispara el primer render sin
    * meter el objeto de pdf.js (que es un ref, no estado) en las dependencias. */
   const [listo, setListo] = useState(0);
@@ -217,14 +223,6 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar, 
     };
   }, [escala, geo, listo]);
 
-  const guardar = useCallback(async (clave: string, valor: string) => {
-    const ok = await onGuardar(clave, valor);
-    // 🔴 Sólo se suelta lo tecleado si el servidor lo aceptó. Si falla y se
-    // borra igual, la caja se revierte al valor viejo y lo que escribió el
-    // doctor desaparece — con el aviso hasta arriba de una hoja de 6 páginas,
-    // o sea fuera de la pantalla.
-    if (ok) setBorradores((b) => { const n = { ...b }; delete n[clave]; return n; });
-  }, [onGuardar]);
 
   // 🔴 El gate es `!geo`, NO `cargando`. Con `cargando` los `<canvas>` no
   // estaban montados cuando corría el efecto de render: los 6 se saltaban por
@@ -260,6 +258,7 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar, 
           <span className="inline-flex items-center gap-1"><i className="w-3 h-3 rounded-sm bg-blue-100 border border-blue-300 inline-block" /> puedes escribir</span>
           <span className="inline-flex items-center gap-1"><i className="w-3 h-3 rounded-sm bg-green-100 border border-green-400 inline-block" /> del expediente</span>
           <span className="inline-flex items-center gap-1"><i className="w-3 h-3 rounded-sm bg-sky-100 border border-sky-400 inline-block" /> lo escribiste tú</span>
+          <span className="inline-flex items-center gap-1"><i className="w-3 h-3 rounded-sm bg-amber-100 border border-dashed border-amber-500 inline-block" /> sin guardar</span>
         </span>
       </div>
 
@@ -326,10 +325,13 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar, 
                     title={c.etiqueta}
                     checked={marcada}
                     disabled={soloLectura}
-                    // Una casilla no tiene borrador local: se guarda al instante
-                    // porque no hay "terminar de escribir" que esperar.
-                    onChange={(e) => guardar(c.clave, e.target.checked ? (c.onState ?? '1') : '')}
-                    className={`absolute cursor-pointer accent-sky-600 ${marcada ? '' : 'opacity-70'}`}
+                    // También queda PENDIENTE: una sola regla para toda la hoja
+                    // (1B). Que la casilla se guardara sola y el texto no sería
+                    // justo la ambigüedad que se vino a quitar.
+                    onChange={(e) => onEditar(c.clave, e.target.checked ? (c.onState ?? '1') : '')}
+                    className={`absolute cursor-pointer accent-sky-600 ${marcada ? '' : 'opacity-70'} ${
+                      pendientes.has(c.clave) ? 'ring-2 ring-amber-500 rounded-sm' : ''
+                    }`}
                     style={{
                       left: c.x * escala,
                       top: (pag.alto - c.y - c.alto) * escala,
@@ -341,7 +343,8 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar, 
               })}
               {geo.cajas.filter((c) => c.pagina === i && c.tipo === 'texto').map((c) => {
                 const v = valores[c.clave];
-                const texto = borradores[c.clave] ?? v?.value ?? '';
+                const texto = v?.value ?? '';
+                const pendiente = pendientes.has(c.clave);
                 const Comp = c.multilinea ? 'textarea' : 'input';
                 const problema = texto.trim() === '' ? null : problemaDelTexto(texto, c);
                 return (
@@ -351,12 +354,9 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar, 
                     value={texto}
                     disabled={soloLectura}
                     onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-                      setBorradores((b) => ({ ...b, [c.clave]: e.target.value }))
+                      onEditar(c.clave, e.target.value)
                     }
-                    onBlur={(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                      if (e.target.value !== (v?.value ?? '')) guardar(c.clave, e.target.value);
-                    }}
-                    className={`absolute border rounded-[2px] px-1 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-80 ${estiloDe(v?.origin, texto.trim() !== '')}`}
+                    className={`absolute border rounded-[2px] px-1 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-80 ${estiloDe(v?.origin, texto.trim() !== '', pendiente)}`}
                     style={{
                       // 🔴 LA conversión: el PDF mide desde ABAJO-izquierda en
                       // puntos; CSS desde ARRIBA-izquierda en píxeles. De ahí el
@@ -370,6 +370,20 @@ export default function InformeVisor({ formId, valores, soloLectura, onGuardar, 
                       resize: 'none',
                     }}
                   />
+                  {pendiente && !soloLectura && (
+                    <button
+                      onClick={() => onDescartar(c.clave)}
+                      title="Descartar este cambio y volver a lo guardado"
+                      className="absolute z-20 flex items-center justify-center rounded-full bg-amber-500 text-white shadow hover:bg-red-600"
+                      style={{
+                        left: (c.x + c.ancho) * escala - 6,
+                        top: (pag.alto - c.y - c.alto) * escala - 6,
+                        width: 14, height: 14, fontSize: 10, lineHeight: 1,
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
                   {problema && (
                     <>
                       {/* Marco rojo sobre la caja: se ve sin tener que leer nada */}

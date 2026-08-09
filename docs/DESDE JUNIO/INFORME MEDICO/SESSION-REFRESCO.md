@@ -894,6 +894,57 @@ hoja para el VISOR  : 0
 borrador y final    : ["Consultorio_2=/2"]   ← sólo Hospital
 ```
 
+## 🔴 DÓNDE QUEDAMOS — 2026-08-09, fin de sesión
+
+### ⬜ HAY TRABAJO SIN COMMITEAR en el working tree
+
+El **estado PENDIENTE** (decisiones 1B + 2B de [`06-AGENTE`](06-AGENTE-conversar-con-el-formato.md)).
+`type-check` ✅ · `next build` ✅ · `pnpm gates` ✅ · **sin commitear, sin push, sin clic.**
+
+Archivos tocados:
+
+| Archivo | Qué cambió |
+|---|---|
+| `informe/page.tsx` | `pendientes` sustituye a `borradores`; `editarCampo` · `descartarCampo` · `descartarTodo` · `guardarTodo`; barra ámbar pegajosa; aviso `beforeunload` |
+| `informe/InformeVisor.tsx` | Sin guardado propio: `onEditar`/`onDescartar`/`pendientes`; borde ámbar punteado y ✕ por caja; las casillas también quedan pendientes |
+| `dictar/route.ts` | **Ya NO escribe en la BD**: devuelve `valores` para que el cliente los ponga pendientes |
+| `reports/[reportId]/route.ts` | El PATCH acepta `origin` `voice`/`llm` (el cliente es quien guarda); `deterministic` sigue siendo sólo del servidor |
+
+**Qué cambió para el doctor:** teclear, marcar una casilla y dictar ya **no guardan**; todo queda
+pendiente hasta el botón **Guardar**. Cada valor pendiente lleva una ✕ para volver a lo guardado, y
+hay "descartar todo" para una tanda mala.
+
+> ⚠️ **Esto cambia comportamiento que YA estaba en prod y probado** (el guardado al salir del
+> campo). Es lo primero que hay que mirar al volver: ¿se siente bien perder el autoguardado, o pesa
+> más el riesgo de perder trabajo?
+
+### Por dónde seguir
+
+1. **Mirar el estado pendiente** (arriba) y decidir si se queda.
+2. **Commitear** lo que hay (no se commiteó por no tener OK explícito).
+3. **Construir el CHAT** — [`06-AGENTE`](06-AGENTE-conversar-con-el-formato.md) es el plan y ya está
+   completo. Ahora encaja fácil: el agente sólo agrega a la misma pila de pendientes.
+
+### Decisiones tomadas hoy que NO se re-litigan
+
+- El informe es un **flujo CONTENIDO** (botón azul), **no** un módulo del asistente (botón verde).
+  El privacy tier del asistente **no aplica**: el flujo de nueva consulta por voz ya estructura SOAP
+  y diagnósticos en prod.
+- **La HOJA es el card**: el agente pone los valores en el formato, no una lista en el chat.
+- **1B**: nada se guarda hasta Guardar. Se descartó respaldar en `localStorage` (texto clínico).
+- **2B**: se descarta campo por campo.
+- Los informes los puede hacer **cualquiera con el permiso `expedientes`**, no sólo el dueño.
+
+### Lo que sigue sin probarse con los ojos
+
+- El **dictado** (`96ea70ef`) — nunca se le ha hablado.
+- El **estado pendiente** — recién escrito.
+- **Allianz páginas 2 y 3**.
+
+### Bloqueado por el usuario
+
+- **GNP**: ¿cuál formato rige, el de Eleonor (3 págs) o el oficial (2 págs)?
+
 ## Lo siguiente
 
 **Pasos 0 · 1 · 2 · 4 · 5: ✅** · **Allianz: ✅** · **Borrador: ✅** · **Motor: ✅ EN PROD**

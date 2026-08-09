@@ -8,11 +8,19 @@ import { clavesDelInforme, geometriaCacheada } from '@/lib/informe-medico/campos
 import { cargarPrefill } from '@/lib/informe-medico/cargar-prefill';
 import { leerAnswers, type Answers, type AnswerValue } from '@/lib/informe-medico/types';
 
-/** Los `origin` que puede escribir el CLIENTE. `deterministic` no está: eso lo
- * pone el servidor al pre-llenar, y dejar que el cliente lo declare borraría la
- * diferencia entre "lo copió el sistema" y "lo tecleó alguien" en un documento
- * médico-legal. Un campo que el doctor vacía queda en `empty`. */
-const ORIGENES_DEL_CLIENTE = new Set(['manual', 'empty']);
+/**
+ * Los `origin` que puede escribir el CLIENTE.
+ *
+ * `voice` y `llm` entran porque el flujo es **propuesta → la hoja → Guardar**:
+ * el servidor propone, pero **el que escribe es el cliente** cuando el doctor
+ * confirma (06-AGENTE §3). Sin ellos, guardar una tanda dictada devolvería 400.
+ *
+ * 🔴 `deterministic` NO está, y es lo que importa: eso sólo lo pone el servidor
+ * al pre-llenar. Si el cliente pudiera declararlo, se borraría la diferencia
+ * entre "lo copió el sistema del expediente" y "alguien lo escribió" en un
+ * documento médico-legal. Un campo que el doctor vacía queda en `empty`.
+ */
+const ORIGENES_DEL_CLIENTE = new Set(['manual', 'empty', 'voice', 'llm']);
 
 function saneaAnswers(entrada: unknown): Answers | { error: string } {
   if (typeof entrada !== 'object' || entrada === null || Array.isArray(entrada)) {
@@ -28,9 +36,10 @@ function saneaAnswers(entrada: unknown): Answers | { error: string } {
     }
     salida[clave] = {
       value: v.value,
-      // Lo que teclea el doctor no tiene fuente en el expediente, y decir que sí
-      // la tiene es exactamente lo que la procedencia existe para impedir.
-      source: v.origin === 'manual' ? 'doctor' : null,
+      // La fuente la fija el SERVIDOR según el origin, no se le cree al cliente:
+      // decir "del expediente" sobre algo tecleado es justo lo que la
+      // procedencia existe para impedir.
+      source: v.origin === 'empty' ? null : v.origin === 'manual' ? 'doctor' : 'dictado',
       origin: v.origin as AnswerValue['origin'],
     };
   }

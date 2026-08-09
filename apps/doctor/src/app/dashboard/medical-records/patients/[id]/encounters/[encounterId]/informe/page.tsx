@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Download, FileText, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Loader2, AlertTriangle, ShieldCheck, Save, X } from 'lucide-react';
 import InformeVisor, { type ValorVisor } from './InformeVisor';
 import type { ResultadoDictado } from './DictadoPagina';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
@@ -64,11 +64,20 @@ export default function InformeMedicoPage() {
   const [cargando, setCargando] = useState(true);
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [guardado, setGuardado] = useState<string | null>(null);
-  /** Lo tecleado que todavía no confirma el servidor. Los inputs son
-   * CONTROLADOS: con `defaultValue`, un refetch no refresca lo que se ve y la
-   * pantalla acaba mostrando algo distinto de lo guardado. */
-  const [borradores, setBorradores] = useState<Record<string, string>>({});
+  const [guardando, setGuardando] = useState(false);
+  /**
+   * 🔴 LO PENDIENTE: editado y **todavía NO guardado**.
+   *
+   * Decisión 1B (06-AGENTE §10): en esta pantalla **nada se persiste hasta que
+   * el doctor aprieta Guardar**. Antes cada campo hacía `PATCH` al salir; con el
+   * agente proponiendo valores encima, dos cajas idénticas se habrían comportado
+   * distinto —una guardada y otra no— sin forma de saber cuál era cuál.
+   *
+   * El precio: se puede perder trabajo al cerrar la pestaña ⇒ el aviso de abajo.
+   * Se descartó respaldarlo en `localStorage`: no se mete texto clínico del
+   * paciente en el navegador sin decidirlo a propósito.
+   */
+  const [pendientes, setPendientes] = useState<Record<string, ValorVisor>>({});
   /** El VISOR es la vista principal: es el formato real con las cajas encima.
    * La lista se queda como red — si el render del PDF falla en algún navegador,
    * el doctor todavía puede llenar y emitir. */
@@ -96,10 +105,18 @@ export default function InformeMedicoPage() {
     // Los avisos vienen del servidor recalculados, así que sobreviven a una
     // recarga. Antes sólo existían en la respuesta del POST.
     setAvisos(d.avisos ?? []);
-    // Lo tecleado y aún no confirmado por el servidor se descarta: a partir de
-    // aquí manda lo guardado.
-    setBorradores({});
+    // Lo no guardado se descarta: a partir de aquí manda lo del servidor.
+    setPendientes({});
   }, [base]);
+
+  // 🔴 El precio de 1B: si se cierra la pestaña con cambios sin guardar, se
+  // pierden. Al menos hay que avisar.
+  useEffect(() => {
+    if (Object.keys(pendientes).length === 0) return;
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [pendientes]);
 
   useEffect(() => {
     (async () => {
@@ -135,28 +152,48 @@ export default function InformeMedicoPage() {
     } finally { setTrabajando(false); }
   }
 
-  /** `true` si el servidor aceptó el cambio. El visor lo necesita para no tirar
-   * lo tecleado cuando falla: resolver siempre "bien" hacía que la caja se
-   * revirtiera al valor viejo y el doctor perdiera lo escrito. */
-  async function guardarCampo(clave: string, value: string): Promise<boolean> {
-    if (!informe) return false;
-    setGuardado(null);
-    const r = await fetch(`${base}/${informe.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      // Vaciar un campo NO es escribir "": es volver al estado `empty`, que
-      // significa "aquí no hay dato". Son cosas distintas y se guardan distinto.
-      body: JSON.stringify({ answers: { [clave]: { value, origin: value.trim() === '' ? 'empty' : 'manual' } } }),
+  /** Anota una edición como PENDIENTE. No toca el servidor (decisión 1B). */
+  function editarCampo(clave: string, value: string) {
+    const guardadoActual = campos.find((c) => c.clave === clave)?.valor;
+    setPendientes((p) => {
+      const n = { ...p };
+      // Si vuelve a ser igual a lo guardado deja de estar pendiente: el contador
+      // no debe decir "1 sin guardar" de un campo que se devolvió a su valor.
+      if ((guardadoActual?.value ?? '') === value) delete n[clave];
+      else n[clave] = { value, origin: value.trim() === '' ? 'empty' : 'manual' };
+      return n;
     });
-    if (!r.ok) { const d = await r.json(); setError(d.error ?? 'No se pudo guardar'); return false; }
-    // 🔴 Hay que releer, no sólo marcar "guardado". Sin esto `campos` se queda
-    // con el valor viejo y pasan dos cosas: el chip sigue diciendo "del
-    // expediente" sobre algo que tecleó el doctor, y si vuelve al valor original
-    // la comparación del onBlur cree que no cambió nada y NO manda el PATCH,
-    // dejando en el servidor lo intermedio — que es lo que se acabaría emitiendo.
-    await abrirInforme(informe.id);
-    setGuardado(clave);
-    return true;
+  }
+
+  /** Descarta UN pendiente: el campo vuelve a como está guardado (2B). */
+  function descartarCampo(clave: string) {
+    setPendientes((p) => { const n = { ...p }; delete n[clave]; return n; });
+  }
+
+  /** Descarta TODO lo pendiente, para que una tanda mala del agente no haya que
+   * deshacerla campo por campo. */
+  function descartarTodo() {
+    setPendientes({});
+  }
+
+  /** Guarda TODO lo pendiente de una sola vez. Es la ÚNICA escritura. */
+  async function guardarTodo(): Promise<boolean> {
+    if (!informe || Object.keys(pendientes).length === 0) return true;
+    setGuardando(true);
+    setError(null);
+    try {
+      const r = await fetch(`${base}/${informe.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: pendientes }),
+      });
+      if (!r.ok) { setError(await mensajeDeRespuesta(r, 'No se pudo guardar')); return false; }
+      // Sólo si pasó: `abrirInforme` limpia los pendientes.
+      await abrirInforme(informe.id);
+      return true;
+    } finally {
+      setGuardando(false);
+    }
   }
 
   /**
@@ -169,16 +206,18 @@ export default function InformeMedicoPage() {
     // servidor: si no, el aviso llega un guardado tarde (se teclea `β` y no
     // aparece hasta el blur) y se queda pegado tras corregirlo. Y si el PATCH
     // falla, la caja conserva el texto malo SIN aviso.
-    const texto = borradores[c.clave] ?? c.valor.value;
+    const texto = pendientes[c.clave]?.value ?? c.valor.value;
     const malos = caracteresNoImprimibles(texto);
     if (malos.length === 0) return null;
     return `El formato no puede imprimir ${malos.map((m) => `"${m}"`).join(' ')} — saldría vacío.`;
   }
 
-  /** `clave -> { value, origin }`, que es lo que el visor pinta. */
-  const valoresVisor: Record<string, ValorVisor> = Object.fromEntries(
-    campos.map((c) => [c.clave, { value: c.valor.value, origin: c.valor.origin }])
-  );
+  /** Lo que el visor pinta: lo GUARDADO con lo PENDIENTE encima. */
+  const valoresVisor: Record<string, ValorVisor> = {
+    ...Object.fromEntries(campos.map((c) => [c.clave, { value: c.valor.value, origin: c.valor.origin }])),
+    ...pendientes,
+  };
+  const sinGuardar = Object.keys(pendientes).length;
 
   /**
    * El dictado: manda la transcripción y RELEE el informe, porque el servidor
@@ -200,12 +239,17 @@ export default function InformeMedicoPage() {
       return { r: null, mensaje };
     }
     const d = await r.json();
-    await abrirInforme(informe.id);
+    // El dictado PROPONE: los valores entran como PENDIENTES sobre la hoja y no
+    // se guardan hasta que el doctor aprieta Guardar (1B). Nada de releer: el
+    // servidor no escribió nada.
+    if (d.valores && typeof d.valores === 'object') {
+      setPendientes((p) => ({ ...p, ...(d.valores as Record<string, ValorVisor>) }));
+    }
     return { r: d as ResultadoDictado };
   }
 
   function nuevoInforme() {
-    setInforme(null); setCampos([]); setAvisos([]); setBorradores({}); setError(null);
+    setInforme(null); setCampos([]); setAvisos([]); setPendientes({}); setError(null);
   }
 
   async function cambiarConsentimiento(dado: boolean) {
@@ -372,6 +416,28 @@ export default function InformeMedicoPage() {
               </label>
             </div>
 
+            {sinGuardar > 0 && !emitido && (
+              <div className="mt-4 sticky top-2 z-20 flex items-center justify-between gap-3 rounded-lg border-2 border-amber-400 bg-amber-50 px-4 py-2 shadow">
+                <span className="text-sm text-amber-900">
+                  <strong>{sinGuardar}</strong> campo(s) sin guardar. Nada se manda a la aseguradora
+                  hasta que guardes.
+                </span>
+                <span className="flex items-center gap-2 shrink-0">
+                  <button onClick={descartarTodo} disabled={guardando} className="text-xs underline text-gray-600 disabled:opacity-50">
+                    descartar todo
+                  </button>
+                  <button
+                    onClick={guardarTodo}
+                    disabled={guardando}
+                    className="inline-flex items-center gap-1.5 bg-amber-600 text-white px-3 py-1.5 rounded-md text-sm font-medium disabled:opacity-50"
+                  >
+                    {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Guardar
+                  </button>
+                </span>
+              </div>
+            )}
+
             <div className="mt-4 flex gap-1 border-b">
               {([['visor', 'Formato de la aseguradora'], ['lista', 'Lista de campos']] as const).map(([v, t]) => (
                 <button
@@ -392,7 +458,9 @@ export default function InformeMedicoPage() {
                   formId={informe.form.id}
                   valores={valoresVisor}
                   soloLectura={emitido}
-                  onGuardar={guardarCampo}
+                  onEditar={editarCampo}
+                  onDescartar={descartarCampo}
+                  pendientes={new Set(Object.keys(pendientes))}
                   onDictar={dictar}
                 />
               </div>
@@ -412,18 +480,28 @@ export default function InformeMedicoPage() {
                       </span>
                     </div>
                     <div className="sm:flex-1 mt-2 sm:mt-0">
-                      <input
-                        value={borradores[c.clave] ?? c.valor.value}
-                        disabled={emitido}
-                        onChange={(e) => setBorradores((b) => ({ ...b, [c.clave]: e.target.value }))}
-                        onBlur={(e) => {
-                          if (e.target.value !== c.valor.value) guardarCampo(c.clave, e.target.value);
-                        }}
-                        className="w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
-                        placeholder="—"
-                      />
-                      {guardado === c.clave && (
-                        <span className="text-[11px] text-green-700">guardado</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={pendientes[c.clave]?.value ?? c.valor.value}
+                          disabled={emitido}
+                          onChange={(e) => editarCampo(c.clave, e.target.value)}
+                          className={`w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 ${
+                            pendientes[c.clave] ? 'border-amber-400 bg-amber-50' : ''
+                          }`}
+                          placeholder="—"
+                        />
+                        {pendientes[c.clave] && !emitido && (
+                          <button
+                            onClick={() => descartarCampo(c.clave)}
+                            title="Descartar este cambio y volver a lo guardado"
+                            className="text-gray-400 hover:text-red-600 shrink-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      {pendientes[c.clave] && (
+                        <span className="text-[11px] text-amber-700">sin guardar</span>
                       )}
                       {aviso && <span className="block text-[11px] text-red-700 mt-0.5">{aviso}</span>}
                     </div>

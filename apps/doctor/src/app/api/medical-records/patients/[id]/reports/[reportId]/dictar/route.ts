@@ -222,30 +222,20 @@ export async function POST(
       escritos[clave] = { value: valor, source: 'dictado', origin: 'voice' };
     }
 
-    if (Object.keys(escritos).length > 0) {
-      // 🔴 Se RELEE dentro de una transacción antes de escribir. Entre la lectura
-      // de `answers` y esta línea pasaron varios segundos de LLM, y si el doctor
-      // editó un campo a mano en ese rato, escribir el snapshot viejo se lo
-      // borraría — justo lo que 05-VOZ §10.3 prohíbe. Se fusiona SÓLO lo dictado
-      // sobre el estado ACTUAL.
-      await prisma.$transaction(async (tx) => {
-        const fresco = await tx.medicalReport.findUniqueOrThrow({
-          where: { id: reportId },
-          select: { answers: true },
-        });
-        await tx.medicalReport.update({
-          where: { id: reportId },
-          data: { answers: { ...leerAnswers(fresco.answers), ...escritos } as object },
-        });
-      });
-    }
+    // 🔴 NO se escribe en la base. El dictado PROPONE: los valores viajan al
+    // cliente, que los pinta PENDIENTES sobre la hoja, y el `PATCH` sale sólo
+    // cuando el doctor aprieta Guardar (06-AGENTE §2, decisión 1B).
+    //
+    // Antes esto persistía de inmediato, y eso reintroducía justo la ambigüedad
+    // que 1B vino a quitar: lo dictado guardado y lo tecleado no. De paso
+    // desaparece la carrera con las ediciones manuales — no hay nada que pisar.
 
     await logAudit({
       patientId, doctorId, userId, userRole: role,
-      action: 'UPDATE', resourceType: 'MedicalReport', resourceId: reportId,
+      action: 'VIEW', resourceType: 'MedicalReport', resourceId: reportId,
       changes: {
-        via: 'dictado', pagina,
-        escritos: Object.keys(escritos),
+        via: 'dictado-propuesta', pagina,
+        propuestos: Object.keys(escritos),
         descartados: descartados.length,
         adjuntos: adjuntarEncounterIds,   // qué se mandó al modelo (05-VOZ §7.5)
       },
@@ -253,6 +243,9 @@ export async function POST(
     });
 
     return NextResponse.json({
+      // `clave -> {value, source, origin}` para que el cliente los ponga
+      // pendientes tal cual, con su procedencia.
+      valores: escritos,
       escritos: Object.keys(escritos),
       // Se devuelve lo descartado, no se calla: si el doctor dictó algo y no
       // aparece, tiene que saber por qué (un campo de otra página, un símbolo).

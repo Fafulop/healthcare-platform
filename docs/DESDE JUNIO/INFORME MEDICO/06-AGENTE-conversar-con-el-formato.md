@@ -162,5 +162,20 @@ alguna vez se deja el dictado directo como atajo aparte.
 | 2 | ¿El chat vive SÓLO en la pantalla del informe, o también se puede preguntar desde el panel global ("¿qué le falta al informe de Ana?") |
 | 3 | ¿El agente puede proponer sobre campos VERDES (deterministas), o sólo vacíos y ámbar? (05-VOZ §9.2 dijo que sí a todo, con "restaurar del expediente") |
 | ~~4~~ | ~~¿Card por campo o por tanda?~~ **RESUELTO: no hay card en el chat — la hoja es el card** (§2) |
-| 5 | **Con el estado pendiente, ¿qué pasa con el tecleo MANUAL?** ¿Sigue guardando al salir del campo (y conviven dos modelos), o TODO queda pendiente hasta Guardar? Lo segundo es más coherente pero cambia lo que ya está en prod y probado |
-| 6 | ¿Guardar aplica **todo** lo pendiente o se puede descartar campo por campo? |
+| ~~5~~ | ~~¿El tecleo manual sigue guardando al salir del campo?~~ **RESUELTO: NO — TODO queda pendiente hasta Guardar** (opción 1B) |
+| ~~6~~ | ~~¿Guardar aplica todo o se descarta campo por campo?~~ **RESUELTO: se puede descartar CAMPO POR CAMPO** (opción 2B) |
+
+### Las dos decisiones, con lo que cuestan (usuario, 2026-08-09)
+
+**1B — nada se guarda hasta Guardar.** Una sola regla para toda la hoja, sin la ambigüedad de "esta
+caja ya se guardó y esta no". El precio: **se puede perder trabajo** si se cierra la pestaña o
+truena el navegador, cosa que hoy no pasa porque cada edición persiste al salir del campo. ⇒ Hace
+falta aviso de "tienes cambios sin guardar" al salir. **Se descartó 1B+** (respaldo en el navegador):
+no se va a meter texto clínico del paciente en `localStorage` sin decidirlo a propósito.
+
+**2B — descartar campo por campo.** Cada valor pendiente lleva una ✕ que lo devuelve a como estaba.
+El caso que lo justifica: el agente pisa un `Diagnóstico` que **ya estaba bien** — sin la ✕ habría
+que reescribir el original de memoria. Y es el caso normal de uso, porque el agente se va a usar
+sobre todo para **rellenar huecos** de una hoja ya empezada.
+
+Además: un **"descartar toda la tanda"**, para que una propuesta mala no se deshaga ocho veces.
