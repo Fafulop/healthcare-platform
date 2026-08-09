@@ -149,15 +149,22 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
     // 🔴 `pdf-lib` no recorta: encoge la letra hasta 3 pt y desborda. El valor SÍ
     // se escribe (borrarlo sería perder lo que tecleó el médico), pero se reporta
     // para que la UI diga "esto no se va a poder leer" — nunca en silencio.
-    // Se mide el widget MÁS GRANDE, no el primero: estos formatos tienen campos
-    // con varios recuadros y el primero puede ser un muñón. Midiendo sólo el [0]
-    // salían falsos "no cabe", y el visor —que mide cada recuadro— contradecía
-    // al render sobre el mismo campo.
+    // 🔴 Se toma el recuadro donde PEOR cabe, entre los MEDIBLES.
+    //
+    // pdf-lib ajusta el tamaño de letra de cada recuadro por separado: si el
+    // campo tiene uno de 43 pt y otro de 300, el texto sale ilegible en el chico
+    // aunque en el grande se lea. Quedarse con el mejor caso silenciaba
+    // justamente el recuadro que sale mal — y el visor, que mide cada uno, lo
+    // pintaba en rojo: las dos superficies contradiciéndose otra vez.
+    //
+    // Los inmensurables (ancho/alto <= 0, muñones ocultos) se SALTAN: si se
+    // contaran, su `sobran: 0` ganaría y callaría al campo entero.
     let peor: { excede: boolean; sobran: number } | null = null;
     for (const w of field.acroField.getWidgets()) {
       const r = w.getRectangle();
       const cap = capacidadDeCaja(r.width, r.height, field.isMultiline(), respuesta.value.length);
-      if (!peor || cap.sobran < peor.sobran) peor = cap; // el recuadro donde MEJOR cabe
+      if (!Number.isFinite(cap.maximo)) continue;
+      if (!peor || cap.sobran > peor.sobran) peor = cap;
     }
     if (peor?.excede) {
       ilegibles.push({ campoCanonico, nombrePdf, motivo: 'no-cabe', sobran: peor.sobran });

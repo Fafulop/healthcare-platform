@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Download, FileText, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import InformeVisor, { type ValorVisor } from './InformeVisor';
+import type { ResultadoDictado } from './DictadoPagina';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
 
 interface Formato { id: string; insurer: string; name: string; version: string }
@@ -74,6 +75,17 @@ export default function InformeMedicoPage() {
   const [vista, setVista] = useState<'visor' | 'lista'>('visor');
 
   const base = `/api/medical-records/patients/${patientId}/reports`;
+
+  /** El error de una respuesta que puede NO ser JSON (login HTML, proxy 502). */
+  async function mensajeDeRespuesta(r: Response, porDefecto: string): Promise<string> {
+    if (r.status === 401) return 'Se venció la sesión. Vuelve a entrar.';
+    try {
+      if (r.headers.get('content-type')?.includes('application/json')) {
+        return ((await r.json()) as { error?: string }).error ?? porDefecto;
+      }
+    } catch { /* cae al mensaje por defecto */ }
+    return porDefecto;
+  }
 
   const abrirInforme = useCallback(async (id: string) => {
     const r = await fetch(`${base}/${id}`);
@@ -167,6 +179,30 @@ export default function InformeMedicoPage() {
   const valoresVisor: Record<string, ValorVisor> = Object.fromEntries(
     campos.map((c) => [c.clave, { value: c.valor.value, origin: c.valor.origin }])
   );
+
+  /**
+   * El dictado: manda la transcripción y RELEE el informe, porque el servidor
+   * escribió directo en las respuestas (05-VOZ §4). Devuelve el resumen para que
+   * la página pueda decir qué se llenó y qué se descartó.
+   */
+  async function dictar(audio: Blob, pagina: number | null): Promise<{ r: ResultadoDictado | null; mensaje?: string }> {
+    if (!informe) return { r: null, mensaje: 'No hay informe abierto' };
+    setError(null);
+    const fd = new FormData();
+    fd.append('audio', audio, 'dictado.webm');
+    if (pagina !== null) fd.append('pagina', String(pagina));
+    const r = await fetch(`${base}/${informe.id}/dictar`, { method: 'POST', body: fd });
+    if (!r.ok) {
+      // 🔴 `r.json()` ANTES del `r.ok` reventaba con las respuestas que no son
+      // JSON: un 401 devuelve el HTML del login y un 502 el del proxy.
+      const mensaje = await mensajeDeRespuesta(r, 'No se pudo procesar el dictado');
+      setError(mensaje);
+      return { r: null, mensaje };
+    }
+    const d = await r.json();
+    await abrirInforme(informe.id);
+    return { r: d as ResultadoDictado };
+  }
 
   function nuevoInforme() {
     setInforme(null); setCampos([]); setAvisos([]); setBorradores({}); setError(null);
@@ -357,6 +393,7 @@ export default function InformeMedicoPage() {
                   valores={valoresVisor}
                   soloLectura={emitido}
                   onGuardar={guardarCampo}
+                  onDictar={dictar}
                 />
               </div>
             )}
