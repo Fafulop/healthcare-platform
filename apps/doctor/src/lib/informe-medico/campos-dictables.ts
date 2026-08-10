@@ -64,12 +64,19 @@ export function camposDictables(
     const cap = capacidadDeCaja(c.ancho, c.alto, c.multilinea, 0);
     if (!Number.isFinite(cap.maximo)) continue;
 
+    // 🔴 El `maxLength` del propio PDF es un tope DURO, y manda sobre el visual.
+    // Las 7 cajas de fecha de AXA lo declaran en 8 (quieren `ddmmaaaa`) mientras
+    // que por tamaño les caben ~38: anunciar 38 hacía que el modelo escribiera
+    // `03/03/2026`, que `setText` RECHAZA — y con eso se caía la generación del
+    // PDF entero (ni borrador ni final).
+    const maximo = c.maxLength !== undefined ? Math.min(cap.maximo, c.maxLength) : cap.maximo;
+
     const previo = porClave.get(c.clave);
-    if (!previo || cap.maximo > previo.maxCaracteres) {
+    if (!previo || maximo > previo.maxCaracteres) {
       porClave.set(c.clave, {
         clave: c.clave,
         etiqueta: contexto[c.clave] ?? etiquetaCanonica(c.clave),
-        maxCaracteres: cap.maximo,
+        maxCaracteres: maximo,
         pagina: c.pagina + 1,
       });
     }

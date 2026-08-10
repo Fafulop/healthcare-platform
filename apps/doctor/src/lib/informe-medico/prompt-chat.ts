@@ -100,6 +100,9 @@ Formato: ${ctx.formato}
      escribes otro, la hoja sale con dos formatos distintos de fecha.
    - Una caja de fecha lleva la fecha COMPLETA (la hoja imprime "Día Mes Año" encima como
      guía, pero es **una sola caja**).
+   - 🔴 **Si el campo admite 8 caracteres o menos, escríbela SIN barras: \`03032026\`.**
+     Esas cajas son las que la aseguradora quiere en formato \`ddmmaaaa\`, y con barras
+     el formato la RECHAZA.
    - Si el médico da una fecha incompleta ("en marzo", "el año pasado"), **no la inventes
      completa**: pregúntale el día y el mes.
 

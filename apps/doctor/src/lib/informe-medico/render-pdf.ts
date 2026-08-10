@@ -43,11 +43,18 @@ export interface CampoOmitido {
     | 'sin-campo-en-el-formato'      // NORMAL: el canónico tiene el dato y esta hoja no lo pide
     | 'no-es-de-texto'
     | 'caracteres-no-imprimibles'
+    | 'no-cabe-en-el-campo'          // supera el `maxLength` DURO del PDF
+    | 'rechazado-por-el-pdf'         // `setText` lanzó por cualquier otra razón
     | 'no-cabe';                     // SÍ se escribió, pero en letra ilegible
   /** Sólo para `caracteres-no-imprimibles`: qué hay que quitar. */
   caracteres?: string[];
   /** Sólo para `no-cabe`: cuántos caracteres sobran para que se lea. */
   sobran?: number;
+  /** Sólo para `no-cabe-en-el-campo`: el tope del PDF y el largo del valor. */
+  tope?: number;
+  largo?: number;
+  /** Sólo para `rechazado-por-el-pdf`: lo que dijo pdf-lib. */
+  detalle?: string;
 }
 
 export interface RenderResult {
@@ -143,7 +150,40 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
       continue;
     }
 
-    field.setText(respuesta.value);
+    // 🔴 `maxLength` del PROPIO campo: es un tope DURO del PDF, distinto del
+    // visual de `capacidadDeCaja`. Las 7 cajas de fecha de AXA lo declaran en 8
+    // porque quieren `ddmmaaaa` — sin separadores. Escribirles `03/03/2026` (10)
+    // hace que `setText` LANCE, y con eso se cae el informe ENTERO: es la causa
+    // de que no se pudiera bajar ni el borrador ni el final.
+    const tope = field.getMaxLength();
+    let texto = respuesta.value;
+    if (tope !== undefined && texto.length > tope) {
+      // Una fecha `dd/mm/aaaa` cabe en 8 si se le quitan las barras, y eso NO
+      // pierde información: es el formato que la hoja pide.
+      const sinSeparadores = texto.replace(/[/\-.\s]/g, '');
+      if (/^\d{2}\d{2}\d{4}$/.test(sinSeparadores) && sinSeparadores.length <= tope) {
+        texto = sinSeparadores;
+      } else {
+        // NUNCA se recorta a ciegas: media fecha o medio diagnóstico es peor que
+        // un hueco, y en un documento médico-legal es una afirmación falsa.
+        omitidos.push({ campoCanonico, nombrePdf, motivo: 'no-cabe-en-el-campo', tope, largo: texto.length });
+        continue;
+      }
+    }
+
+    // 🔴 Y aun así, un `setText` que lance NO puede tumbar el documento. Es la
+    // misma regla que ya rige para WinAnsi: se omite ESE campo y se reporta.
+    // Sin esto, cualquier restricción del PDF que no hayamos previsto (formato,
+    // comb, validación) vuelve a dejar al doctor sin poder bajar NADA.
+    try {
+      field.setText(texto);
+    } catch (e) {
+      omitidos.push({
+        campoCanonico, nombrePdf, motivo: 'rechazado-por-el-pdf',
+        detalle: e instanceof Error ? e.message : String(e),
+      });
+      continue;
+    }
     llenados++;
 
     // 🔴 `pdf-lib` no recorta: encoge la letra hasta 3 pt y desborda. El valor SÍ

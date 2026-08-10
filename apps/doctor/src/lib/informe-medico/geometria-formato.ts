@@ -29,6 +29,14 @@ export interface CajaCampo {
   /** El campo admite varios renglones: el visor pone un `<textarea>`. */
   multilinea: boolean;
   /**
+   * Tope DURO de caracteres que declara el propio PDF (`/MaxLen`), si lo tiene.
+   *
+   * 🔴 No es lo mismo que la capacidad visual de `capacidadDeCaja`: aquélla dice
+   * "a partir de aquí no se lee", ésta dice "`setText` LANZA". Las 7 cajas de
+   * fecha de AXA lo declaran en 8 (`ddmmaaaa`) aunque midan para ~38.
+   */
+  maxLength?: number;
+  /**
    * Sólo casillas: el estado "encendido" de ESTE recuadro (`M`, `A`, `On`…).
    *
    * 🔴 Las casillas de AXA no son booleanos independientes: son GRUPOS
@@ -180,6 +188,9 @@ export async function geometriaDelFormato(
         alto: r.height,
         tipo: esTexto ? 'texto' : 'casilla',
         multilinea: esTexto ? (field as PDFTextField).isMultiline() : false,
+        ...(esTexto && (field as PDFTextField).getMaxLength() !== undefined
+          ? { maxLength: (field as PDFTextField).getMaxLength() }
+          : {}),
         ...(esCasilla ? { onState: onStateDe(widget) } : {}),
       });
     }

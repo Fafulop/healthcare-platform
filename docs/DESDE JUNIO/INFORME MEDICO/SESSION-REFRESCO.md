@@ -1318,3 +1318,64 @@ falta otra vez, se reescriben en 5 minutos.
   al paciente se le manda un link con token, no un adjunto.
 - **`prisma db push` revierte** cosas que viven en prod ⇒ las tablas nuevas van por SQL manual +
   `prisma db execute`.
+
+## 🔴 NO SE PODÍA BAJAR NINGÚN PDF — y la causa fue mi arreglo de las fechas (2026-08-10)
+
+Reporte del usuario: *"still cannot download the PDFs, none of both"*. Reproducido en 30 segundos
+llamando al renderer con las respuestas que produce el chat:
+
+```
+🔴 TRUENA: Attempted to set text with length=10 for TextField
+           with maxLength=8 and name=Día_4
+```
+
+**Las 7 cajas de fecha de AXA declaran `maxLength = 8`** — porque quieren `ddmmaaaa`, sin
+separadores; el campo se llama literalmente así. La regla que metí ayer ("las fechas SIEMPRE como
+`dd/mm/aaaa`") escribe 10 caracteres, `setText` **lanza**, y con eso se cae la generación del
+documento COMPLETO: ni borrador ni final.
+
+⚠️ **Se rompió justo cuando las fechas empezaron a funcionar.** Ninguna de esas 7 cajas está en el
+diccionario determinista, así que el pre-llenado nunca las tocaba: hasta que el chat acertó una
+fecha, el PDF salía bien.
+
+> 🔎 **Y corrijo lo que dije antes:** diagnostiqué que *"el archivo sí se bajaba y `window.open`
+> sólo dejaba una pestaña en blanco"*. **Falso.** Esa pestaña estaba enseñando el **500**. Cambiar
+> a un ancla `download` no arregló nada — sólo volvió el fallo SILENCIOSO, que es peor. El
+> síntoma que el usuario describía era el error, y lo leí como cosmético.
+
+### Tres arreglos, y el importante es el tercero
+
+1. **`maxLength` entra al catálogo** (`geometria-formato.ts` → `campos-dictables.ts`):
+   `maxCaracteres = min(visual, maxLength)`. Antes se le anunciaban ~38 caracteres a una caja que
+   acepta 8.
+2. **Regla en el prompt:** si el campo admite 8 o menos, la fecha va sin barras (`03032026`).
+3. 🔴 **UN CAMPO NO PUEDE TUMBAR EL DOCUMENTO.** En `render-pdf.ts`:
+   - una fecha `dd/mm/aaaa` que no cabe se normaliza a `ddmmaaaa` (no pierde nada: es lo que la
+     hoja pide);
+   - lo que sigue sin caber se **omite y se reporta** — nunca se recorta a ciegas, porque media
+     fecha en un documento médico-legal es una afirmación falsa;
+   - y `setText` va dentro de un `try/catch` (`rechazado-por-el-pdf`). Es la misma regla que ya
+     regía para WinAnsi, que existía **precisamente** porque un campo malo tiraba el informe
+     entero — y aun así volvió a pasar por otra puerta.
+
+**Verificado leyendo el PDF de vuelta:** se manda `03/03/2026` y el campo queda en **`03032026`**;
+`TE`=/H, `Check Box2`=/2, `Sí_5`=/o; el final aplana a **0 campos vivos**; y un texto que de verdad
+no cabe (18 caracteres en una caja de 8) **deja generar el PDF igual** y sale reportado.
+
+## ❓ ¿Y las plantillas propias del doctor (no SOAP)?
+
+Pregunta del usuario. La respuesta tiene dos partes porque `ClinicalEncounter` es **híbrido**:
+
+| De dónde sale | ¿Llega al informe? | Color |
+|---|---|---|
+| Columnas FIJAS (fecha, motivo, los 7 signos vitales, SOAP) | ✅ pre-llenado automático | 🟩 **verde** (`deterministic`) |
+| `customData` de una plantilla propia | ✅ **sólo por el CHAT** | 🟧 **ámbar** (`llm`) |
+
+- El **pre-llenado determinista NO lee `customData`** (decisión de `04-MAPEO`: no escala y la
+  plantilla no contiene lo que pide la aseguradora). Por eso nada de una plantilla propia sale
+  verde.
+- Pero el **chat SÍ lo recibe**: `contexto-clinico.ts` le pasa la consulta ligada al informe con
+  `customData` **traducido a las etiquetas de su plantilla** (`labelEs`/`label`), así que el
+  modelo lee *"Tipo de Lesión: nevo displásico"*, no *"tipoLesion: nevo"*.
+- ⇒ Con una plantilla propia el doctor **tiene que conversar** para que ese contenido aterrice, y
+  aterriza en ámbar, que es lo correcto: lo interpretó un modelo, no lo copió el sistema.
