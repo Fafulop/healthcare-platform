@@ -6,16 +6,12 @@ import { getChatProvider } from '@/lib/ai';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
 import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
 import { geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
-import { etiquetaCanonica } from '@/lib/informe-medico/canonical';
-import { capacidadDeCaja } from '@/lib/informe-medico/capacidad';
+import { camposDictables } from '@/lib/informe-medico/campos-dictables';
+import { consultasParaModelo, MAX_CONSULTAS } from '@/lib/informe-medico/contexto-clinico';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
 import { leerAnswers, type Answers } from '@/lib/informe-medico/types';
 import { transcribirAudio } from '@/lib/voice/transcribir-audio';
-import {
-  promptSistemaDictado,
-  promptUsuarioDictado,
-  type CampoDictable,
-} from '@/lib/informe-medico/prompt-dictado';
+import { promptSistemaDictado, promptUsuarioDictado } from '@/lib/informe-medico/prompt-dictado';
 
 const MODEL = 'gpt-4o';
 const MAX_TOKENS = 4096;
@@ -31,9 +27,13 @@ interface Descartado {
 // POST /api/medical-records/patients/:id/reports/:reportId/dictar
 //
 // El doctor dicta mirando la hoja; el modelo coloca lo dictado en los campos de
-// ESA página. Escribe DIRECTO en el borrador (05-VOZ §4): no hay card de
-// confirmación porque el valor sale en ÁMBAR, nada se manda sin consentimiento y
-// emitir es un acto aparte.
+// ESA página.
+//
+// 🔴 NO ESCRIBE. Devuelve valores PROPUESTOS y el cliente los pinta pendientes
+// sobre la hoja; el `PATCH` sale al Guardar (06-AGENTE §2, decisión 1B). Esto
+// REVIERTE lo que decía 05-VOZ §4 ("escribe directo en el borrador"): con el
+// chat proponiendo encima, lo dictado guardado y lo tecleado sin guardar era
+// justo la ambigüedad que 1B vino a quitar.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; reportId: string }> }
@@ -49,6 +49,8 @@ export async function POST(
     let transcript = '';
     let pagina: number | null = null;
     let adjuntarEncounterIds: string[] = [];
+    /** Lo que el doctor tiene en pantalla y todavía no guarda (1B). */
+    let pendientes: Record<string, string> = {};
 
     if (request.headers.get('content-type')?.includes('multipart/form-data')) {
       const fd = await request.formData();
@@ -59,8 +61,15 @@ export async function POST(
       if (typeof adj === 'string') {
         try {
           const arr = JSON.parse(adj);
-          if (Array.isArray(arr)) adjuntarEncounterIds = arr.filter((x) => typeof x === 'string').slice(0, 5);
+          if (Array.isArray(arr)) adjuntarEncounterIds = arr.filter((x) => typeof x === 'string').slice(0, MAX_CONSULTAS);
         } catch { /* sin adjuntos */ }
+      }
+      const pend = fd.get('pendientes');
+      if (typeof pend === 'string') {
+        try {
+          const o = JSON.parse(pend);
+          if (o && typeof o === 'object' && !Array.isArray(o)) pendientes = o as Record<string, string>;
+        } catch { /* sin pendientes */ }
       }
       if (!(audio instanceof File)) {
         return NextResponse.json({ error: 'No se recibió el audio' }, { status: 400 });
@@ -73,8 +82,11 @@ export async function POST(
       transcript = typeof body?.transcript === 'string' ? body.transcript.trim() : '';
       pagina = Number.isInteger(body?.pagina) ? body.pagina : null;
       adjuntarEncounterIds = Array.isArray(body?.adjuntarEncounterIds)
-        ? body.adjuntarEncounterIds.filter((x: unknown) => typeof x === 'string').slice(0, 5)
+        ? body.adjuntarEncounterIds.filter((x: unknown) => typeof x === 'string').slice(0, MAX_CONSULTAS)
         : [];
+      if (body?.pendientes && typeof body.pendientes === 'object' && !Array.isArray(body.pendientes)) {
+        pendientes = body.pendientes as Record<string, string>;
+      }
     }
 
     if (transcript === '') {
@@ -103,74 +115,33 @@ export async function POST(
     const geo = await geometriaCacheada(formato, dict, report.form.updatedAt.toISOString());
     if (!geo) return NextResponse.json({ error: 'No se pudo leer el formato' }, { status: 500 });
 
-    // Sólo campos de TEXTO: las casillas no entran en el dictado v1 (05-VOZ §11).
-    const enPagina = geo.cajas.filter(
-      (c) => c.tipo === 'texto' && (pagina === null || c.pagina === pagina - 1)
-    );
-    if (enPagina.length === 0) {
-      return NextResponse.json({ error: 'Esta página no tiene campos que se puedan dictar' }, { status: 400 });
-    }
-
-    // Un campo puede tener varios recuadros: se ofrece UNA vez, con el más grande.
-    // Un campo puede tener varios recuadros: se ofrece UNA vez, con el más
-    // grande de los MEDIBLES. Un recuadro inmensurable (muñón oculto) se ignora:
-    // darle un tope inventado —antes 200— le decía al modelo que cabían 200
-    // caracteres en una caja real de 14, y el PDF salía en 3 pt.
-    const porClave = new Map<string, CampoDictable>();
-    for (const c of enPagina) {
-      const cap = capacidadDeCaja(c.ancho, c.alto, c.multilinea, 0);
-      if (!Number.isFinite(cap.maximo)) continue;
-      const previo = porClave.get(c.clave);
-      if (!previo || cap.maximo > previo.maxCaracteres) {
-        porClave.set(c.clave, { clave: c.clave, etiqueta: etiquetaCanonica(c.clave), maxCaracteres: cap.maximo });
-      }
-    }
-    const campos = [...porClave.values()];
+    // Sólo campos de TEXTO, deduplicados por clave y con su capacidad real: la
+    // MISMA lista que ve el chat (`campos-dictables.ts`), acotada a esta página.
+    const campos = camposDictables(geo, pagina);
     if (campos.length === 0) {
       return NextResponse.json({ error: 'Esta página no tiene campos que se puedan dictar' }, { status: 400 });
     }
     const clavesValidas = new Set(campos.map((c) => c.clave));
 
+    // 🔴 Lo guardado CON lo pendiente encima. Desde 1B nada se persiste hasta
+    // que el doctor aprieta Guardar, así que `answers` a secas está siempre
+    // atrasado: el doctor dicta la página 1, corrige dos campos a mano, vuelve a
+    // dictar, y este bloque salía VACÍO — el modelo re-proponía los mismos
+    // campos y pisaba las correcciones. Es el mismo `pendientes` que manda el
+    // chat.
     const answers = leerAnswers(report.answers);
     const yaLleno = campos
-      .filter((c) => (answers[c.clave]?.value ?? '').trim() !== '')
-      .map((c) => ({ etiqueta: c.etiqueta, valor: answers[c.clave].value }));
+      .map((c) => ({
+        etiqueta: c.etiqueta,
+        valor: typeof pendientes[c.clave] === 'string'
+          ? pendientes[c.clave]
+          : (answers[c.clave]?.value ?? ''),
+      }))
+      .filter((v) => v.valor.trim() !== '');
 
-    // ── Adjuntos: consultas del MISMO paciente, con sus etiquetas ────────────
-    const adjuntos: Array<{ titulo: string; contenido: string }> = [];
-    if (adjuntarEncounterIds.length > 0) {
-      const encs = await prisma.clinicalEncounter.findMany({
-        where: { id: { in: adjuntarEncounterIds }, patientId, doctorId },
-        include: { template: { select: { name: true, customFields: true } } },
-      });
-      for (const e of encs) {
-        const partes: string[] = [];
-        if (e.chiefComplaint) partes.push(`Motivo de consulta: ${e.chiefComplaint}`);
-        for (const [k, v] of [
-          ['Padecimiento actual', e.subjective], ['Exploración física', e.objective],
-          ['Diagnóstico', e.assessment], ['Tratamiento', e.plan], ['Notas', e.clinicalNotes],
-        ] as Array<[string, string | null]>) if (v) partes.push(`${k}: ${v}`);
-
-        // `customData` con las ETIQUETAS de su plantilla, no con las claves crudas:
-        // se le entrega al modelo "Motivo de Consulta: …", no "motivoConsulta: …".
-        const campos = Array.isArray(e.template?.customFields) ? e.template.customFields : [];
-        const etiquetaDe = new Map<string, string>();
-        for (const f of campos as Array<{ name?: string; label?: string; labelEs?: string }>) {
-          if (f?.name) etiquetaDe.set(f.name, f.labelEs || f.label || f.name);
-        }
-        const custom = (e.customData ?? {}) as Record<string, unknown>;
-        for (const [k, v] of Object.entries(custom)) {
-          if (v === null || v === undefined || v === '') continue;
-          partes.push(`${etiquetaDe.get(k) ?? k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`);
-        }
-        if (partes.length > 0) {
-          adjuntos.push({
-            titulo: `Consulta del ${e.encounterDate.toISOString().slice(0, 10)}${e.template?.name ? ` (${e.template.name})` : ''}`,
-            contenido: partes.join('\n'),
-          });
-        }
-      }
-    }
+    // Adjuntos: consultas del MISMO paciente y doctor (lo comprueba el `where`
+    // de `consultasParaModelo`, no se confía en los ids del cliente).
+    const adjuntos = await consultasParaModelo(adjuntarEncounterIds, patientId, doctorId);
 
     const ctx = { formato: `${report.form.insurer} — ${report.form.name}`, pagina, campos, yaLleno, adjuntos };
     const { content, usage } = await getChatProvider().chatCompletion(
@@ -205,6 +176,12 @@ export async function POST(
     const descartados: Descartado[] = [];
     for (const [clave, bruto] of Object.entries(propuesto)) {
       if (bruto === null || bruto === undefined) continue;      // "no sé" — se respeta
+      // Sólo texto: un objeto anidado se volvía el literal "[object Object]" y
+      // llegaba hasta el PDF. Mismo arreglo que en `chat/route.ts`.
+      if (typeof bruto !== 'string' && typeof bruto !== 'number') {
+        descartados.push({ clave, motivo: 'no-es-texto' });
+        continue;
+      }
       const valor = String(bruto).trim();
       if (valor === '') continue;                               // vacío NO borra (05-VOZ §9.4)
 

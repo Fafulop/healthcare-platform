@@ -52,7 +52,22 @@ validación server-side + fold sobre working copy + ⚠️ visible cuando no se 
 | `voice/chat` | C | gpt-4o | conversación del voice assistant | |
 | `bank-statement-parse` | C | gpt-4o | PDF de estado de cuenta → movimientos | |
 | `medical-records/patients/[id]/summary` | C | gpt-4o | resumen del expediente | contenido clínico — ojo con el tier |
+| `medical-records/patients/[id]/reports/[reportId]/dictar` | C | gpt-4o | dictado sobre UNA página del formato de aseguradora | flujo 🔵 CONTENIDO, no el asistente. Transcribe con `lib/voice/transcribir-audio` (NO por `/api/voice/*`, que es OWNER_ONLY) |
+| `medical-records/patients/[id]/reports/[reportId]/chat` | **C+** | gpt-4o | **conversar** con el formato: dice qué falta, pregunta, y coloca lo dictado en la hoja | igual 🔵. Añadido 2026-08-09 · docs en `INFORME MEDICO/06-AGENTE` |
 | (embeddings) | — | openai | `lib/ai` `getEmbeddingProvider` | usado por el RAG de v1 (muere en PR 4) |
+
+> ℹ️ **Los dos endpoints del INFORME son flujos 🔵 CONTENIDOS, no módulos del asistente**
+> (`INFORME MEDICO/06-AGENTE` §4): no tienen entrada en `AGENT_MODULE_REQUIREMENTS`, ni evals
+> del agente, ni tocan el prompt de `agenda-agent`. Heredan el permiso `expedientes` por colgar
+> de `/api/medical-records/*`. El privacy tier de `modules/expediente.ts` **no les aplica** —
+> gobierna al asistente 🟢, y el precedente de un flujo contenido que sí maneja contenido
+> clínico ya está en prod (`voice/structure` estructura SOAP completo).
+>
+> 🔴 **`C+` no es `C`.** El chat del informe corrige la debilidad conocida de C: el envelope es
+> `{mensaje, campos}` y **cada clave se valida contra la hoja real** antes de devolverse
+> (existe · es de texto · imprime en WinAnsi). Lo que no pasa se devuelve en `descartados` y el
+> cliente lo enseña, en vez del "listo" mientras no se aplicó nada. Y **el endpoint no escribe
+> en la BD**: propone, y el `PATCH` lo dispara el cliente cuando el doctor aprieta Guardar.
 
 ## 3. Reglas transversales
 

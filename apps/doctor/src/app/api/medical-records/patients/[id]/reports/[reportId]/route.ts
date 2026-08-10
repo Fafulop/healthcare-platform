@@ -22,6 +22,14 @@ import { leerAnswers, type Answers, type AnswerValue } from '@/lib/informe-medic
  */
 const ORIGENES_DEL_CLIENTE = new Set(['manual', 'empty', 'voice', 'llm']);
 
+/** `origin -> source`. El servidor la fija; el cliente no la manda. */
+const FUENTE_POR_ORIGEN: Partial<Record<AnswerValue['origin'], string | null>> = {
+  manual: 'doctor',
+  voice: 'dictado',
+  llm: 'asistente',
+  empty: null,
+};
+
 function saneaAnswers(entrada: unknown): Answers | { error: string } {
   if (typeof entrada !== 'object' || entrada === null || Array.isArray(entrada)) {
     return { error: 'answers debe ser un objeto' };
@@ -32,14 +40,19 @@ function saneaAnswers(entrada: unknown): Answers | { error: string } {
     const v = bruto as Partial<AnswerValue>;
     if (typeof v.value !== 'string') return { error: `answers.${clave}.value debe ser string` };
     if (typeof v.origin !== 'string' || !ORIGENES_DEL_CLIENTE.has(v.origin)) {
-      return { error: `answers.${clave}.origin debe ser 'manual' o 'empty'` };
+      return {
+        error: `answers.${clave}.origin debe ser uno de: ${[...ORIGENES_DEL_CLIENTE].join(', ')}`,
+      };
     }
     salida[clave] = {
       value: v.value,
       // La fuente la fija el SERVIDOR según el origin, no se le cree al cliente:
       // decir "del expediente" sobre algo tecleado es justo lo que la
-      // procedencia existe para impedir.
-      source: v.origin === 'empty' ? null : v.origin === 'manual' ? 'doctor' : 'dictado',
+      // procedencia existe para impedir. Y `voice` y `llm` NO son lo mismo: lo
+      // dictado lo dijo el médico con su boca; lo del chat lo redactó el modelo
+      // a partir de la conversación. En un documento médico-legal, quién lo
+      // escribió es la mitad del dato.
+      source: FUENTE_POR_ORIGEN[v.origin as AnswerValue['origin']] ?? null,
       origin: v.origin as AnswerValue['origin'],
     };
   }

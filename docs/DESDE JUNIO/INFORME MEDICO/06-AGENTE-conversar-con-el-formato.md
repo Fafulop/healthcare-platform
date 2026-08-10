@@ -1,6 +1,6 @@
 # 06 — AGENTE: el doctor CONVERSA con el formato
 
-> Tipo **PLAN**. Escrito el **2026-08-09**. Nada implementado.
+> Tipo **PLAN**. Escrito el **2026-08-09**. ✅ **CONSTRUIDO el 2026-08-09** — ver §11.
 > Sucede a [`05-VOZ`](05-VOZ-el-doctor-le-dicta-al-formato.md): el dictado de un solo tiro
 > **se probó y no alcanza**. Ver §1.
 > ⚠️ Toca al ASISTENTE ⇒ se rige por [`../AGENTES/GENERAL AGENTES/08-EMPIEZA-AQUI.md`](../AGENTES/GENERAL%20AGENTES/08-EMPIEZA-AQUI.md).
@@ -86,16 +86,46 @@ El costo era bastante menor de lo que estimé.
 📌 **Dónde SÍ se documenta:** [`GENERAL AGENTES/06-MAPA-superficie-IA`](../AGENTES/GENERAL%20AGENTES/06-MAPA-superficie-IA.md),
 que lista **todos** los endpoints de LLM del app, no sólo los del asistente.
 
-## 5. Las tools (borrador)
+## 5. ~~Las tools~~ — 🔴 NO HAY TOOLS, y la razón está MEDIDA
 
-| Tool | Tipo | Qué hace |
+Este era el borrador:
+
+| Tool | Tipo | Qué hacía |
 |---|---|---|
-| `get_campos_informe` | lectura | Los campos del formato: cuáles están llenos, cuáles vacíos, de dónde salió cada valor. Acotable por página. **Es el "enseñar la lista" del punto 3 del usuario.** |
-| `get_contexto_informe` | lectura | Qué consultas y recetas tiene ese paciente, para que el agente ofrezca adjuntarlas |
-| `propose_llenar_informe` | **propuesta** | Devuelve `{campo, etiqueta, valorPropuesto, deDónde}`. El cliente los pinta **PENDIENTES sobre la hoja**; el `PATCH` sale sólo al Guardar |
+| ~~`get_campos_informe`~~ | lectura | los campos, acotables por página |
+| ~~`get_contexto_informe`~~ | lectura | consultas y recetas del paciente |
+| ~~`propose_llenar_informe`~~ | propuesta | los valores propuestos |
+
+**Se cayó entero al medir la premisa de §8** ("los 255 campos no caben en el prompt"):
+
+| | |
+|---|---|
+| Campos de texto de AXA | **255** |
+| El catálogo completo | **15.3 KB · ~3,800 tokens** |
+| El prompt de sistema entero (reglas + catálogo) | **18.8 KB · ~4,700 tokens** |
+
+Caben de sobra. Y servirlos completos **no es un ahorro de trabajo: es el producto**. El agente
+sólo puede decir *qué falta* si ve la hoja ENTERA; acotado por página vuelve a poner al doctor a
+adivinar qué le están preguntando, que es exactamente por lo que el dictado de un tiro no
+alcanzó (§1).
+
+⇒ **Un solo JSON por turno**, con el mismo `getChatProvider()` que ya usa el dictado:
+
+```
+{ "mensaje": "qué falta y qué te pregunto", "campos": { "clave": "valor" } }
+```
 
 🔴 **El servidor del agente jamás muta el informe.** El `PATCH` lo dispara el cliente cuando el
 doctor guarda, contra el endpoint que ya existe.
+
+### Lo que sustituye a la validación que daban los schemas de las tools
+
+Sin tools no hay schema que valide los nombres de campo, así que la validación es explícita y
+server-side (regla 0). Cada clave que devuelve el modelo se comprueba **contra la hoja real**:
+existe · es de texto · imprime en WinAnsi. Lo que no pasa va a `descartados` y **el cliente lo
+enseña** — es el antídoto exacto a la debilidad conocida de la arquitectura C
+([`06-MAPA-superficie-IA`](../AGENTES/GENERAL%20AGENTES/06-MAPA-superficie-IA.md) §1): *el
+modelo inventa nombres, el cliente aplica NADA y el chat dice "listo"*.
 
 ## 6. Lo que hace que SIRVA (y que el dictado no tenía)
 
@@ -141,8 +171,10 @@ regla que creí que aplicaba:
 - **El estado PENDIENTE** (§2) es el cambio de fondo: hoy cada edición persiste al salir del campo.
 - **Un endpoint de conversación** con historial, sobre el que ya existe (`dictar`).
 - **Pruebas propias del flujo** — no las del agente, pero sí algo que verifique que no se degrada.
-- **Los 255 campos no caben en el prompt.** Van por tool, acotados por página, como en
-  [`05-VOZ`](05-VOZ-el-doctor-le-dicta-al-formato.md) §5.
+- ~~**Los 255 campos no caben en el prompt.** Van por tool, acotados por página.~~
+  🔴 **FALSO, medido:** son ~3,800 tokens y caben enteros. Ver §5. La suposición venía de
+  [`05-VOZ`](05-VOZ-el-doctor-le-dicta-al-formato.md) §5, donde acotar por página tenía otro
+  motivo (el doctor dicta MIRANDO una página), no el tamaño.
 
 ## 9. Qué se conserva de 05-VOZ
 
@@ -179,3 +211,70 @@ que reescribir el original de memoria. Y es el caso normal de uso, porque el age
 sobre todo para **rellenar huecos** de una hoja ya empezada.
 
 Además: un **"descartar toda la tanda"**, para que una propuesta mala no se deshaga ocho veces.
+
+---
+
+## 11. ✅ LO CONSTRUIDO (2026-08-09)
+
+### Las piezas
+
+| Archivo | Qué es |
+|---|---|
+| `lib/informe-medico/prompt-chat.ts` | El prompt, partido en **estable** (reglas + catálogo) y **volátil** (lo ya escrito + consultas) |
+| `api/…/reports/[reportId]/chat/route.ts` | El endpoint. Acepta texto (JSON) o **voz** (multipart) |
+| `informe/ChatInforme.tsx` | El panel flotante |
+| `lib/informe-medico/campos-dictables.ts` | 🔧 extraído: la lista de campos que comparten **dictado y chat** |
+| `lib/informe-medico/contexto-clinico.ts` | 🔧 extraído: una consulta del expediente → texto para el modelo |
+
+Las dos extracciones no son limpieza: estaban **en línea dentro de `dictar/route.ts`**, y
+copiarlas al chat es cómo los dos endpoints acaban ofreciendo conjuntos de campos distintos —
+el dictado llena un campo y el chat dice que no existe.
+
+### El orden del prompt es una decisión de COSTO
+
+El catálogo va **primero** y se manda idéntico en cada turno; lo que cambia (lo ya escrito, las
+consultas, el mensaje) va **después**, en un segundo mensaje de sistema. Los proveedores cachean
+el **prefijo común**: mientras el catálogo no se reordene, los ~4,700 tokens se cobran una vez
+por conversación y no una por turno. Por eso `camposDictables()` ordena por (página, clave) en
+vez de dejar el orden del AcroForm.
+
+⚠️ **Es una expectativa, no una medición.** Que la caché pegue depende del proveedor y de que los
+turnos caigan dentro de su ventana. Lo medido es el **tamaño**, no el ahorro.
+
+### 🔴 Lo que el chat NO hace: marcar casillas
+
+Las 22 casillas de AXA **no entran en el catálogo**, ni en el chat ni en el dictado. Sus
+on-states son opacos (`/1`, `/M`, `/CE`): nadie —ni el modelo ni el doctor leyendo el chat—
+puede saber que `/2` significa "Hospital" sin mirar la hoja. Proponer uno sería **afirmarle algo
+a la aseguradora sin saber qué se está afirmando**.
+
+⇒ El prompt le ordena **decirlo con palabras** ("marca la casilla de hospitalización en la
+página 1") y el doctor la marca en el visor, que sí enseña dónde cae cada recuadro. La UI lo
+dice al pie del panel, para que la ausencia no se lea como una falla.
+
+Esto deja §6 punto 2 a medias: el agente **pregunta** "¿fue ambulatoria o con hospitalización?"
+pero no puede colocar la respuesta. Cerrarlo pide etiquetas por recuadro — el mismo motor de
+vecindad del paso 3.
+
+### Lo verificado, y lo que eso NO cubre
+
+Corrido contra el AXA **real** (`scratchpad/verificar-chat.mts`):
+
+| | |
+|---|---|
+| Campos ofrecidos al agente | **255**, páginas 1–6 |
+| Claves ofrecidas que NO llegarían al PDF | **0** ✅ |
+| Dictado (p1) === el subconjunto p1 del chat | ✅ idénticos |
+| Casillas coladas en el catálogo | **0** ✅ |
+| Descarta un campo inventado | ✅ |
+| Descarta `mejoría → alta` por la `→` | ✅ |
+| Respeta `null` ("no sé") y `""` (no borra) | ✅ |
+
+`type-check` ✅ · los **5 gates** ✅ (`gate:routes` cubre la ruta nueva sin tocar el mapa de
+permisos: cuelga de `/api/medical-records/*` y hereda `expedientes`) · `next build` ✅ con
+`/api/medical-records/patients/[id]/reports/[reportId]/chat` en la lista de rutas.
+
+🔴 **Nada de esto es el CLIC.** No se ha mandado un solo mensaje: no hay ninguna respuesta real
+del modelo, ni se ha visto una propuesta caer en ámbar sobre la hoja. Lo verificado es la mitad
+determinista —el catálogo, la validación, el prompt— y por construcción no puede decir si el
+agente **conversa bien**, que es justo lo que el dictado falló.

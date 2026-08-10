@@ -894,12 +894,134 @@ hoja para el VISOR  : 0
 borrador y final    : ["Consultorio_2=/2"]   ← sólo Hospital
 ```
 
+## ✅ EL CHAT — conversar con el formato (2026-08-09)
+
+El paso 6. El agente ya conoce la hoja: **dice qué falta, pregunta, y coloca lo que el doctor le
+cuenta en ÁMBAR sobre el formato** — no en una lista dentro del chat. Plan y detalle en
+[`06-AGENTE`](06-AGENTE-conversar-con-el-formato.md) §11.
+
+### 🔴 Se cayeron las tools, y la razón está MEDIDA
+
+`06-AGENTE` §8 daba por hecho que "los 255 campos no caben en el prompt" y diseñaba **tres
+tools** para servirlos por página. Se midió antes de construir:
+
+| | |
+|---|---|
+| Los 255 campos de texto de AXA | **15.3 KB · ~3,800 tokens** |
+| El prompt de sistema entero | **18.8 KB · ~4,700 tokens** |
+
+Caben de sobra ⇒ **un solo JSON por turno**, sin tool loop. Y no es un atajo: servirlos completos
+**es el producto**, porque el agente sólo puede decir *qué falta* si ve la hoja ENTERA. Acotado
+por página volvería a poner al doctor a adivinar qué le preguntan, que es justo por lo que el
+dictado de un tiro no alcanzó.
+
+⚠️ **Sin tools no hay schema que valide los nombres de campo** ⇒ la validación es explícita y
+server-side: cada clave se comprueba contra la hoja real (existe · es de texto · imprime en
+WinAnsi) y lo que no pasa se DEVUELVE en `descartados` para que el cliente lo enseñe. Es el
+antídoto a la debilidad conocida de la arquitectura C: *el modelo inventa nombres, el cliente no
+aplica nada y el chat dice "listo"*.
+
+### El orden del prompt es una decisión de costo
+
+Catálogo **primero** (idéntico en cada turno) y lo volátil después, en un segundo mensaje de
+sistema: los proveedores cachean el **prefijo común**. Por eso `camposDictables()` ordena por
+(página, clave) y no deja el orden del AcroForm. ⚠️ Lo medido es el **tamaño**, no el ahorro.
+
+### 🔴 El chat NO marca casillas, a propósito
+
+Las 22 casillas de AXA quedan fuera del catálogo. Sus on-states son opacos (`/1`, `/M`, `/CE`):
+nadie puede saber que `/2` es "Hospital" sin mirar la hoja, y proponer uno sería **afirmarle algo
+a la aseguradora sin saber qué**. El agente lo DICE con palabras y el doctor la marca en el
+visor. La UI lo advierte al pie, para que la ausencia no se lea como una falla.
+
+### Dos extracciones que no son limpieza
+
+`campos-dictables.ts` (la lista de campos) y `contexto-clinico.ts` (una consulta → texto) vivían
+**en línea dentro de `dictar/route.ts`**. Copiarlas al chat es cómo los dos endpoints acaban
+ofreciendo conjuntos distintos — el dictado llena un campo y el chat dice que no existe.
+Verificado: el subconjunto de la página 1 del chat es **idéntico** al del dictado.
+
+### Y de paso, dos cosas que estaban mal
+
+- **`toISOString()` en la fecha de las consultas que se le mandan al modelo.** El servidor corre
+  en UTC: una consulta de las 6 de la tarde en CDMX se le presentaba al modelo fechada **al día
+  siguiente**. Ahora va con `timeZone: 'America/Mexico_City'` explícito, que es la convención del
+  repo (`agenda-agent/dates.ts`, facturas, fiscal). **Es el mismo bug del paso 4, tercera vez.**
+- **`origin: 'llm'` se guardaba con `source: 'dictado'`.** El PATCH mapeaba todo lo que no fuera
+  `manual`/`empty` a "dictado", así que lo que redactó el modelo iba a quedar declarado como algo
+  que el médico dijo con su boca. En un documento médico-legal, quién lo escribió es la mitad del
+  dato. Ahora hay una tabla `origin → source` y `llm` es **`asistente`**.
+
+### Lo verificado — y lo que NO cubre
+
+Contra el AXA real: **255** campos ofrecidos (páginas 1–6) · **0** claves que no llegarían al
+PDF · dictado p1 === chat p1 · **0** casillas coladas · descarta el campo inventado y la `→`.
+`type-check` ✅ · los 5 gates ✅ · `next build` ✅ con la ruta nueva en la lista.
+
+🔴 **Nada de eso es el CLIC.** No se ha mandado un solo mensaje: no hay ninguna respuesta real
+del modelo ni se ha visto una propuesta caer en ámbar sobre la hoja. Lo verificado es la mitad
+determinista, y por construcción no dice si el agente **conversa bien** — que es exactamente lo
+que el dictado falló.
+
+### 🔴 El `/code-review` — 12 hallazgos, y los DOS peores no eran del chat
+
+Son del **estado PENDIENTE** (`a6aa9841`), y los dos son la misma lección: **1B rompió la
+invariante de que lo que se ve es lo que está guardado**, y tres superficies seguían leyendo
+de la base como si nada hubiera cambiado.
+
+**1. 🔴 Emitir con pendientes = PÉRDIDA TOTAL, en silencio.** `emitir()` mandaba
+`{status:'issued'}` sin guardar nada. El doctor conversa, ve 12 valores en ámbar sobre la hoja,
+aprieta *Marcar como emitido* → se emite con las respuestas **viejas**; `emitido` esconde la
+barra ámbar y pone el visor en sólo lectura; los 12 valores desaparecen **sin un solo mensaje**,
+y el informe ya no se puede editar (409). La aseguradora recibe la hoja sin ellos.
+
+**2. 🔴 El PDF se genera de lo GUARDADO.** `/pdf` lee `report.answers` de la base. Descargar el
+**borrador** —que ES la superficie de revisión— devolvía una hoja a la que le faltan justo los
+campos recién puestos, y se ve completa. Igual el **final**, que es el que se manda.
+
+⇒ Los dos se arreglan con la misma regla, ahora **visible**: con pendientes, los botones de
+descargar y de emitir se **deshabilitan** y dicen por qué. El PDF siempre refleja lo guardado.
+
+> 🔎 **La lección:** cambiar *cuándo* se persiste no es un cambio de UI. `type-check`, los 5
+> gates y `next build` pasaron por encima de los dos, porque no hay nada mal tipado: hay una
+> invariante que dejó de valer y tres lectores que no se enteraron. **Al mover el momento del
+> guardado hay que ir a buscar a TODOS los que leen de la base.**
+
+Los otros diez, todos arreglados:
+
+- **Guardar tiraba lo tecleado mientras el PATCH viajaba** — `abrirInforme` hacía
+  `setPendientes({})` a ciegas. Ahora sólo se limpia lo que se mandó **y no ha vuelto a cambiar**.
+- **Una caída de red al Guardar era muda**: sin `catch`, la ruedita paraba y ya — mismo aspecto
+  que antes de apretar. (Y en este repo los "no puedo entrar" suelen ser DNS del cliente.)
+- **El DICTADO seguía leyendo `answers` para saber qué está lleno** — que desde 1B está siempre
+  vacío. Dictabas la página 1, corregías dos campos a mano, volvías a dictar y el modelo
+  **re-proponía encima de tus correcciones**. Ahora recibe los mismos `pendientes` que el chat.
+- **El micrófono del chat se quedaba ABIERTO al emitir**: `if (deshabilitado) return null` no
+  desmonta, y la limpieza que cierra el `MediaRecorder` corre al desmontar. Ahora el panel se
+  monta sólo si el informe se puede editar (que es como `DictadoPagina` ya lo hacía).
+- **Un campo recién VACIADO se le reportaba al agente como lleno** — el cliente filtraba los
+  vacíos, así que el modelo lo veía con su valor guardado, no lo contaba como faltante y
+  preguntaba sobre un dato que el doctor acababa de quitar.
+- **`String(bruto)` convertía un objeto anidado en `"[object Object]"`** y lo dejaba caer en
+  ámbar sobre la hoja, listo para guardarse en un documento médico-legal. Pasaba en el chat y
+  **ya pasaba en el dictado**; arreglados los dos.
+- **El chip de procedencia enseñaba el origen GUARDADO** junto a un valor pendiente: una
+  propuesta de la IA salía marcada *"sin dato en el expediente"*. El chip es la señal de
+  `01-FUENTES` §4 para saber dónde leer con cuidado, y apuntaba al revés.
+- **El aviso de "cambios sin guardar" no salía en Safari** — falta `e.returnValue = ''`.
+- El 400 del PATCH seguía diciendo que los orígenes válidos eran dos, y son cuatro.
+- Y este mapa de IA tenía el blockquote **partiendo la tabla** de endpoints.
+
+⚠️ **Lo que el review NO puede cubrir:** el harness verifica el catálogo y la validación
+determinista, pero **ningún arreglo de la UI se ha visto correr**. Los dos graves son
+precisamente de interacción.
+
 ## 🔴 DÓNDE QUEDAMOS — 2026-08-09, fin de sesión
 
-### ⬜ HAY TRABAJO SIN COMMITEAR en el working tree
+### ✅ El estado PENDIENTE — COMMITEADO (`a6aa9841`)
 
-El **estado PENDIENTE** (decisiones 1B + 2B de [`06-AGENTE`](06-AGENTE-conversar-con-el-formato.md)).
-`type-check` ✅ · `next build` ✅ · `pnpm gates` ✅ · **sin commitear, sin push, sin clic.**
+Decisiones 1B + 2B de [`06-AGENTE`](06-AGENTE-conversar-con-el-formato.md).
+`type-check` ✅ · `next build` ✅ · `pnpm gates` ✅ · **sin push y sin clic.**
 
 Archivos tocados:
 
@@ -920,10 +1042,13 @@ hay "descartar todo" para una tanda mala.
 
 ### Por dónde seguir
 
-1. **Mirar el estado pendiente** (arriba) y decidir si se queda.
-2. **Commitear** lo que hay (no se commiteó por no tener OK explícito).
-3. **Construir el CHAT** — [`06-AGENTE`](06-AGENTE-conversar-con-el-formato.md) es el plan y ya está
-   completo. Ahora encaja fácil: el agente sólo agrega a la misma pila de pendientes.
+1. 🔴 **HABLARLE AL CHAT.** Es lo único que importa ahora: abrir un informe, contarle un caso y
+   ver si las propuestas caen en ámbar **en la casilla correcta**. Todo lo verificado hasta aquí
+   es determinista y no dice nada sobre si conversa bien.
+2. **Decidir si el estado pendiente se queda** — cambia comportamiento que ya estaba en prod
+   (el autoguardado al salir del campo).
+3. **PUSH** — nada de esto se ha desplegado. `a6aa9841` y el chat están **sólo en local**.
+4. Luego: las **casillas** en el chat (piden etiquetas por recuadro, motor de vecindad del paso 3).
 
 ### Decisiones tomadas hoy que NO se re-litigan
 
@@ -937,9 +1062,21 @@ hay "descartar todo" para una tanda mala.
 
 ### Lo que sigue sin probarse con los ojos
 
+- 🔴 **El CHAT** — recién escrito, nunca se le ha mandado un mensaje.
 - El **dictado** (`96ea70ef`) — nunca se le ha hablado.
 - El **estado pendiente** — recién escrito.
 - **Allianz páginas 2 y 3**.
+
+### ⚠️ Una sospecha que quedó ABIERTA (no se tocó)
+
+`prefill.ts` `fechaMomento()` lee componentes **locales** (`getFullYear`…) para los timestamps.
+Eso es correcto en esta máquina (UTC-6) y es lo que se midió en el paso 4 — pero **el servidor de
+Railway corre en UTC**, donde "local" es UTC y el arreglo no arregla nada: `consulta.fecha` de una
+consulta de las 18:30 volvería a salir **al día siguiente** en prod.
+
+El resto del repo lo resuelve con `timeZone: 'America/Mexico_City'` explícito. **No se cambió**
+—está fuera del alcance de esta sesión y toca un campo que la aseguradora cruza contra la fecha
+del siniestro— pero hay que **verificar el `TZ` del contenedor** antes de emitir un informe real.
 
 ### Bloqueado por el usuario
 

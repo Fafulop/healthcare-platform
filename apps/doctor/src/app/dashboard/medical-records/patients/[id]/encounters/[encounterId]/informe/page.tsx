@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Download, FileText, Loader2, AlertTriangle, ShieldCheck, Save, X } from 'lucide-react';
 import InformeVisor, { type ValorVisor } from './InformeVisor';
+import ChatInforme, { type PropuestaChat } from './ChatInforme';
 import type { ResultadoDictado } from './DictadoPagina';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
 
@@ -96,7 +97,15 @@ export default function InformeMedicoPage() {
     return porDefecto;
   }
 
-  const abrirInforme = useCallback(async (id: string) => {
+  /**
+   * @param aplicados si viene, sólo se limpian ESTOS pendientes (los que el
+   *   servidor acaba de aceptar) y **se conserva lo que se editó mientras el
+   *   PATCH viajaba**. Sin esto, teclear durante el guardado —o un turno del
+   *   chat que aterrice en esa ventana— se perdía en silencio: el `setPendientes({})`
+   *   ciego borraba también lo que nunca se mandó, y la caja volvía al valor del
+   *   servidor sin ningún error.
+   */
+  const abrirInforme = useCallback(async (id: string, aplicados?: Record<string, ValorVisor>) => {
     const r = await fetch(`${base}/${id}`);
     const d = await r.json();
     if (!r.ok) { setError(d.error ?? 'No se pudo abrir el informe'); return; }
@@ -105,15 +114,26 @@ export default function InformeMedicoPage() {
     // Los avisos vienen del servidor recalculados, así que sobreviven a una
     // recarga. Antes sólo existían en la respuesta del POST.
     setAvisos(d.avisos ?? []);
-    // Lo no guardado se descarta: a partir de aquí manda lo del servidor.
-    setPendientes({});
+    setPendientes((p) => {
+      if (!aplicados) return {};
+      const n = { ...p };
+      // Sólo deja de estar pendiente lo que se guardó Y no ha vuelto a cambiar.
+      for (const [clave, v] of Object.entries(aplicados)) {
+        if (n[clave]?.value === v.value) delete n[clave];
+      }
+      return n;
+    });
   }, [base]);
 
   // 🔴 El precio de 1B: si se cierra la pestaña con cambios sin guardar, se
   // pierden. Al menos hay que avisar.
   useEffect(() => {
     if (Object.keys(pendientes).length === 0) return;
-    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    // `returnValue` sigue siendo OBLIGATORIO en Safari: con sólo
+    // `preventDefault()` (que basta en Chrome ≥119 y Firefox) el diálogo no sale
+    // y el doctor de iPad cierra la pestaña con texto clínico sin guardar —
+    // justo la pérdida que 1B introdujo y que este efecto existe para evitar.
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
     window.addEventListener('beforeunload', avisar);
     return () => window.removeEventListener('beforeunload', avisar);
   }, [pendientes]);
@@ -165,6 +185,24 @@ export default function InformeMedicoPage() {
     });
   }
 
+  /**
+   * Lo que propone el CHAT o el DICTADO entra por aquí: **pendiente**, nunca
+   * guardado (06-AGENTE §3). El servidor propone, el doctor revisa sobre la
+   * hoja, y el que escribe es el cliente al apretar Guardar.
+   *
+   * `useCallback` porque va a un `useCallback` del panel del chat: una función
+   * nueva en cada render lo haría reconstruirse a cada tecla.
+   */
+  const aplicarPropuesta = useCallback((valores: Record<string, PropuestaChat>) => {
+    setPendientes((p) => {
+      const n = { ...p };
+      for (const [clave, v] of Object.entries(valores)) {
+        n[clave] = { value: v.value, origin: v.origin };
+      }
+      return n;
+    });
+  }, []);
+
   /** Descarta UN pendiente: el campo vuelve a como está guardado (2B). */
   function descartarCampo(clave: string) {
     setPendientes((p) => { const n = { ...p }; delete n[clave]; return n; });
@@ -181,16 +219,24 @@ export default function InformeMedicoPage() {
     if (!informe || Object.keys(pendientes).length === 0) return true;
     setGuardando(true);
     setError(null);
+    // Se congela lo que se manda: entre el `fetch` y su respuesta el doctor
+    // puede seguir tecleando y el chat puede proponer.
+    const enviados = pendientes;
     try {
       const r = await fetch(`${base}/${informe.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: pendientes }),
+        body: JSON.stringify({ answers: enviados }),
       });
       if (!r.ok) { setError(await mensajeDeRespuesta(r, 'No se pudo guardar')); return false; }
-      // Sólo si pasó: `abrirInforme` limpia los pendientes.
-      await abrirInforme(informe.id);
+      await abrirInforme(informe.id, enviados);
       return true;
+    } catch {
+      // 🔴 Sin `catch` una caída de red dejaba de girar la ruedita y ya: ni
+      // error ni confirmación, y lo pendiente se queda en ámbar — exactamente
+      // el mismo aspecto que antes de apretar Guardar.
+      setError('No se pudo guardar: revisa tu conexión. Lo que escribiste sigue aquí.');
+      return false;
     } finally {
       setGuardando(false);
     }
@@ -218,6 +264,24 @@ export default function InformeMedicoPage() {
     ...pendientes,
   };
   const sinGuardar = Object.keys(pendientes).length;
+  /**
+   * Lo que el agente y el dictado tienen que ver: la hoja tal como está AHORA,
+   * pendientes incluidos. Sin ellos el modelo vuelve a proponer lo que el doctor
+   * aceptó hace dos turnos y todavía no guarda.
+   *
+   * Se mandan los campos con contenido **y los que estén pendientes aunque
+   * vayan vacíos**: un campo que el doctor acaba de borrar tiene que llegar
+   * VACÍO, o el modelo lo ve con su valor guardado, no lo cuenta como faltante y
+   * construye su siguiente pregunta sobre un dato que él ya quitó.
+   *
+   * Los 255 vacíos NO se mandan: no le dicen nada al modelo y engordan el
+   * payload de cada turno.
+   */
+  const estadoHoja: Record<string, string> = Object.fromEntries(
+    Object.entries(valoresVisor)
+      .filter(([k, v]) => v.value.trim() !== '' || k in pendientes)
+      .map(([k, v]) => [k, v.value])
+  );
 
   /**
    * El dictado: manda la transcripción y RELEE el informe, porque el servidor
@@ -230,6 +294,10 @@ export default function InformeMedicoPage() {
     const fd = new FormData();
     fd.append('audio', audio, 'dictado.webm');
     if (pagina !== null) fd.append('pagina', String(pagina));
+    // Lo que hay EN PANTALLA, no lo guardado: desde 1B el servidor no ha visto
+    // nada de lo que el doctor lleva escrito en esta sesión, y sin esto el
+    // modelo re-propone lo que él ya corrigió a mano.
+    fd.append('pendientes', JSON.stringify(estadoHoja));
     const r = await fetch(`${base}/${informe.id}/dictar`, { method: 'POST', body: fd });
     if (!r.ok) {
       // 🔴 `r.json()` ANTES del `r.ok` reventaba con las respuestas que no son
@@ -243,7 +311,7 @@ export default function InformeMedicoPage() {
     // se guardan hasta que el doctor aprieta Guardar (1B). Nada de releer: el
     // servidor no escribió nada.
     if (d.valores && typeof d.valores === 'object') {
-      setPendientes((p) => ({ ...p, ...(d.valores as Record<string, ValorVisor>) }));
+      aplicarPropuesta(d.valores as Record<string, PropuestaChat>);
     }
     return { r: d as ResultadoDictado };
   }
@@ -266,6 +334,14 @@ export default function InformeMedicoPage() {
 
   async function emitir() {
     if (!informe) return;
+    // 🔴 Emitir con pendientes es PÉRDIDA TOTAL: se emite con las respuestas
+    // viejas, `emitido` esconde la barra ámbar y pone el visor en sólo lectura,
+    // y el informe ya no se puede editar (409). Los valores desaparecen sin un
+    // solo mensaje y la aseguradora recibe la hoja sin ellos.
+    if (sinGuardar > 0) {
+      setError(`Tienes ${sinGuardar} campo(s) sin guardar. Guárdalos o descártalos antes de emitir: un informe emitido ya no se puede editar.`);
+      return;
+    }
     setTrabajando(true); setError(null);
     try {
       const r = await fetch(`${base}/${informe.id}`, {
@@ -279,8 +355,17 @@ export default function InformeMedicoPage() {
     } finally { setTrabajando(false); }
   }
 
+  /**
+   * 🔴 El PDF se genera de lo GUARDADO, no de lo que hay en pantalla: la ruta
+   * `/pdf` lee `report.answers` de la base. Con 1B eso dejó de coincidir por
+   * primera vez, así que descargar con pendientes daba una hoja **a la que le
+   * faltan justo los campos que el doctor acaba de poner** — y se ve completa.
+   * Por eso los botones se bloquean con pendientes en vez de bajar un PDF que
+   * miente. Lo mismo vale para EMITIR (abajo).
+   */
   function descargar(tipo: 'borrador' | 'final') {
     if (!informe) return;
+    if (sinGuardar > 0) { setError('Guarda los cambios antes de descargar: el PDF se genera de lo guardado.'); return; }
     window.open(`${base}/${informe.id}/pdf?tipo=${tipo}`, '_blank');
   }
 
@@ -374,14 +459,19 @@ export default function InformeMedicoPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => descargar('borrador')}
-                  className="inline-flex items-center gap-2 border px-3 py-2 rounded-lg text-sm"
+                  disabled={sinGuardar > 0}
+                  title={sinGuardar > 0 ? 'Guarda primero: el PDF se genera de lo guardado' : ''}
+                  className="inline-flex items-center gap-2 border px-3 py-2 rounded-lg text-sm disabled:opacity-40"
                 >
                   <Download className="h-4 w-4" /> Borrador
                 </button>
                 <button
                   onClick={() => descargar('final')}
-                  disabled={!informe.consentGiven}
-                  title={informe.consentGiven ? '' : 'Falta registrar el consentimiento'}
+                  disabled={!informe.consentGiven || sinGuardar > 0}
+                  title={
+                    sinGuardar > 0 ? 'Guarda primero: el PDF se genera de lo guardado'
+                      : informe.consentGiven ? '' : 'Falta registrar el consentimiento'
+                  }
                   className="inline-flex items-center gap-2 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm disabled:opacity-40"
                 >
                   <Download className="h-4 w-4" /> Final
@@ -469,7 +559,14 @@ export default function InformeMedicoPage() {
             {vista === 'lista' && (
             <div className="mt-4 bg-white rounded-lg border divide-y">
               {campos.map((c) => {
-                const estilo = ESTILO_ORIGEN[c.valor.origin] ?? ESTILO_ORIGEN.empty;
+                // 🔴 El chip lo manda lo PENDIENTE si lo hay. Con el origen
+                // guardado, una propuesta de la IA sobre un campo vacío se
+                // enseñaba con el chip "sin dato en el expediente" al lado de
+                // prosa que redactó el modelo: el chip es justo la señal de
+                // 01-FUENTES §4 para saber dónde leer con cuidado, y apuntaba
+                // al revés. "sin guardar" no dice QUIÉN lo escribió.
+                const origenVisible = pendientes[c.clave]?.origin ?? c.valor.origin;
+                const estilo = ESTILO_ORIGEN[origenVisible] ?? ESTILO_ORIGEN.empty;
                 const aviso = avisoDeImpresion(c);
                 return (
                   <div key={c.clave} className="p-3 sm:flex sm:items-center sm:gap-4">
@@ -526,7 +623,8 @@ export default function InformeMedicoPage() {
             {!emitido && (
               <button
                 onClick={emitir}
-                disabled={trabajando || !informe.consentGiven}
+                disabled={trabajando || !informe.consentGiven || sinGuardar > 0}
+                title={sinGuardar > 0 ? 'Guarda o descarta los cambios antes de emitir' : ''}
                 className="mt-4 inline-flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
               >
                 {trabajando && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -536,6 +634,22 @@ export default function InformeMedicoPage() {
           </>
         )}
       </div>
+
+      {/* 🔴 FLOTA sobre la hoja a propósito: la superficie de revisión es el
+          formato que tiene detrás — la HOJA es el card (06-AGENTE §2), no una
+          lista de propuestas dentro del chat. */}
+      {/* 🔴 `!emitido` va AQUÍ y no dentro del panel: un `return null` no
+          desmonta, y la limpieza que cierra el MICRÓFONO corre al desmontar.
+          Emitir mientras el chat graba dejaba el micrófono abierto en un
+          consultorio donde se están hablando datos del paciente. */}
+      {informe && !emitido && (
+        <ChatInforme
+          base={base}
+          reportId={informe.id}
+          estadoHoja={estadoHoja}
+          onPropuesta={aplicarPropuesta}
+        />
+      )}
     </div>
   );
 }

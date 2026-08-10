@@ -9,14 +9,12 @@
  * de consultas (`custom-template-prompts.ts`) y agrega las propias del informe.
  */
 
-export interface CampoDictable {
-  /** Clave canónica o cruda: es la que el modelo debe devolver. */
-  clave: string;
-  /** Lo que el campo dice en la hoja. */
-  etiqueta: string;
-  /** Aproximado, a 6 pt. Le dice al modelo cuánto texto cabe de verdad. */
-  maxCaracteres: number;
-}
+// 🔴 `CampoDictable` vive en `campos-dictables.ts`, junto a la función que arma
+// la lista. Se re-exporta para no romper a quien la importaba de aquí, pero el
+// dictado y el chat tienen que ofrecer EL MISMO conjunto de campos: dos listas
+// distintas hacen que el dictado llene un campo que el chat dice que no existe.
+export type { CampoDictable } from './campos-dictables';
+import type { CampoDictable } from './campos-dictables';
 
 export interface ContextoDictado {
   /** Nombre de la aseguradora y del formato, para orientar al modelo. */
