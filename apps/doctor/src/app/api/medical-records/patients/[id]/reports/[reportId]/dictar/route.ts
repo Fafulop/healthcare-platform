@@ -10,7 +10,7 @@ import { camposDictables } from '@/lib/informe-medico/campos-dictables';
 import { etiquetasCacheadas } from '@/lib/informe-medico/etiquetas-de-la-hoja';
 import { consultasParaModelo, MAX_CONSULTAS } from '@/lib/informe-medico/contexto-clinico';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
-import { leerAnswers, type Answers } from '@/lib/informe-medico/types';
+import { leerAnswers, resolverClave, type Answers } from '@/lib/informe-medico/types';
 import { transcribirAudio } from '@/lib/voice/transcribir-audio';
 import { promptSistemaDictado, promptUsuarioDictado } from '@/lib/informe-medico/prompt-dictado';
 
@@ -182,7 +182,13 @@ export async function POST(
     // No se le cree al modelo que un campo existe: se comprueba contra la hoja.
     const escritos: Answers = {};
     const descartados: Descartado[] = [];
-    for (const [clave, bruto] of Object.entries(propuesto)) {
+    for (const [devuelta, bruto] of Object.entries(propuesto)) {
+      // 🔴 El modelo se come el prefijo `campo:` — devuelve `Día_4` donde el
+      // catálogo dice `campo:Día_4`. Medido contra gpt-4o (2026-08-10). Con la
+      // comprobación a secas se descartaba TODO lo que no fuera una clave
+      // canónica, que es la mayor parte de la hoja: es la explicación más
+      // probable del viejo "el dictado sólo sirve en las páginas simples".
+      const clave = resolverClave(devuelta, clavesValidas) ?? devuelta;
       if (bruto === null || bruto === undefined) continue;      // "no sé" — se respeta
       // Sólo texto: un objeto anidado se volvía el literal "[object Object]" y
       // llegaba hasta el PDF. Mismo arreglo que en `chat/route.ts`.

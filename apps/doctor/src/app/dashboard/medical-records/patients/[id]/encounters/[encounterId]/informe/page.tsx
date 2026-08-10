@@ -15,7 +15,6 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Bot, Download, FileText, Loader2, AlertTriangle, ShieldCheck, Save, X } from 'lucide-react';
 import InformeVisor, { type ValorVisor } from './InformeVisor';
 import ChatInforme, { type PropuestaChat } from './ChatInforme';
-import type { ResultadoDictado } from './DictadoPagina';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
 
 interface Formato { id: string; insurer: string; name: string; version: string }
@@ -285,39 +284,6 @@ export default function InformeMedicoPage() {
       .map(([k, v]) => [k, v.value])
   );
 
-  /**
-   * El dictado: manda la transcripción y RELEE el informe, porque el servidor
-   * escribió directo en las respuestas (05-VOZ §4). Devuelve el resumen para que
-   * la página pueda decir qué se llenó y qué se descartó.
-   */
-  async function dictar(audio: Blob, pagina: number | null): Promise<{ r: ResultadoDictado | null; mensaje?: string }> {
-    if (!informe) return { r: null, mensaje: 'No hay informe abierto' };
-    setError(null);
-    const fd = new FormData();
-    fd.append('audio', audio, 'dictado.webm');
-    if (pagina !== null) fd.append('pagina', String(pagina));
-    // Lo que hay EN PANTALLA, no lo guardado: desde 1B el servidor no ha visto
-    // nada de lo que el doctor lleva escrito en esta sesión, y sin esto el
-    // modelo re-propone lo que él ya corrigió a mano.
-    fd.append('pendientes', JSON.stringify(estadoHoja));
-    const r = await fetch(`${base}/${informe.id}/dictar`, { method: 'POST', body: fd });
-    if (!r.ok) {
-      // 🔴 `r.json()` ANTES del `r.ok` reventaba con las respuestas que no son
-      // JSON: un 401 devuelve el HTML del login y un 502 el del proxy.
-      const mensaje = await mensajeDeRespuesta(r, 'No se pudo procesar el dictado');
-      setError(mensaje);
-      return { r: null, mensaje };
-    }
-    const d = await r.json();
-    // El dictado PROPONE: los valores entran como PENDIENTES sobre la hoja y no
-    // se guardan hasta que el doctor aprieta Guardar (1B). Nada de releer: el
-    // servidor no escribió nada.
-    if (d.valores && typeof d.valores === 'object') {
-      aplicarPropuesta(d.valores as Record<string, PropuestaChat>);
-    }
-    return { r: d as ResultadoDictado };
-  }
-
   function nuevoInforme() {
     setInforme(null); setCampos([]); setAvisos([]); setPendientes({}); setError(null);
   }
@@ -368,7 +334,16 @@ export default function InformeMedicoPage() {
   function descargar(tipo: 'borrador' | 'final') {
     if (!informe) return;
     if (sinGuardar > 0) { setError('Guarda los cambios antes de descargar: el PDF se genera de lo guardado.'); return; }
-    window.open(`${base}/${informe.id}/pdf?tipo=${tipo}`, '_blank');
+    // 🔴 NO `window.open`. La ruta responde con `Content-Disposition: attachment`,
+    // así que el navegador se baja el archivo y deja la pestaña nueva EN BLANCO
+    // enseñando la URL de la API — parecía que el botón te mandaba a una página
+    // rara. Con un ancla `download` la descarga ocurre sin abrir nada.
+    const a = document.createElement('a');
+    a.href = `${base}/${informe.id}/pdf?tipo=${tipo}`;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   if (cargando) {
@@ -563,7 +538,6 @@ export default function InformeMedicoPage() {
                   onEditar={editarCampo}
                   onDescartar={descartarCampo}
                   pendientes={new Set(Object.keys(pendientes))}
-                  onDictar={dictar}
                 />
               </div>
             )}

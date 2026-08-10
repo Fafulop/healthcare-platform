@@ -10,7 +10,7 @@ import { camposDictables } from '@/lib/informe-medico/campos-dictables';
 import { casillasParaElAgente, etiquetasCacheadas } from '@/lib/informe-medico/etiquetas-de-la-hoja';
 import { consultasParaModelo, MAX_CONSULTAS } from '@/lib/informe-medico/contexto-clinico';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
-import { leerAnswers, type Answers } from '@/lib/informe-medico/types';
+import { leerAnswers, resolverClave, type Answers } from '@/lib/informe-medico/types';
 import { transcribirAudio } from '@/lib/voice/transcribir-audio';
 import { promptsSistemaChat } from '@/lib/informe-medico/prompt-chat';
 
@@ -265,13 +265,23 @@ export async function POST(
     // cuando una casilla bajo `campos`. Se resuelve como casilla en vez de
     // decirle al doctor "no existe en esta hoja" de un grupo que SÍ existe.
     const porClave = new Map(casillas.map((g) => [g.clave, g]));
+    const clavesDeCasillas = new Set(porClave.keys());
 
-    for (const [clave, bruto] of Object.entries(propuestos)) {
+    for (const [devuelta, bruto] of Object.entries(propuestos)) {
+      // 🔴 ANTES de juzgar nada: el modelo se come el prefijo `campo:` (medido
+      // contra gpt-4o). Sin esto, todo lo que no sea una clave canónica se
+      // descartaba en silencio, que es la mayor parte de la hoja.
+      const clave = resolverClave(devuelta, clavesValidas)
+        ?? resolverClave(devuelta, clavesDeCasillas)
+        ?? devuelta;
+
+      // Una casilla que llegó bajo `campos` (pasa, van los dos catálogos en el
+      // mismo prompt) se manda a la rama de casillas en vez de mentir con
+      // "no existe en esta hoja".
       if (porClave.has(clave)) {
         propuestasCasillas[clave] ??= bruto;
         continue;
       }
-      if (porClave.has(clave)) continue;                     // se trata abajo
       if (bruto === null || bruto === undefined) continue;   // "no sé" — se respeta
       // 🔴 Sólo texto. `String(bruto)` convertía un objeto anidado —que el
       // modelo produce de vez en cuando bajo jsonMode, p.ej.
@@ -309,8 +319,11 @@ export async function POST(
     // ⚠️ `casillas` YA viene filtrado (`casillasParaElAgente`): un grupo de
     // consentimiento no está aquí, así que cae en `campo-inexistente` — que es
     // el resultado correcto, no un hueco.
-    for (const [clave, bruto] of Object.entries(propuestasCasillas)) {
+    for (const [devuelta, bruto] of Object.entries(propuestasCasillas)) {
       if (typeof bruto !== 'string' || bruto.trim() === '') continue;
+      // Mismo problema del prefijo: el modelo devuelve `TE`, el catálogo dice
+      // `campo:TE`. Medido: así se perdían LAS SEIS casillas de un turno bueno.
+      const clave = resolverClave(devuelta, clavesDeCasillas) ?? devuelta;
       const grupo = porClave.get(clave);
       if (!grupo) {
         descartados.push({ clave, motivo: 'campo-inexistente' });

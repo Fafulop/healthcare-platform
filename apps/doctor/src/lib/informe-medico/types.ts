@@ -64,6 +64,39 @@ export function esClaveCruda(clave: string): boolean {
   return clave.startsWith(PREFIJO_CRUDO);
 }
 
+/**
+ * 🔴 La clave que DE VERDAD quiso decir un modelo.
+ *
+ * Medido con una llamada real a gpt-4o (2026-08-10): el modelo **se come el
+ * prefijo `campo:`**. Le dimos el catálogo con `campo:TE` y devolvió `"TE"`;
+ * `campo:Día_4` volvió como `"Día_4"`. Se lo come porque `campo:` se lee como
+ * una anotación de espacio de nombres, no como parte del nombre.
+ *
+ * Y como la validación era `clavesValidas.has(clave)`, **TODO eso se
+ * descartaba en silencio**: en ese turno el modelo acertó las 6 casillas y la
+ * fecha de cirugía, y no aterrizó ni una. Sobrevivían sólo las claves canónicas
+ * (`clinico.diagnostico`), que no llevan prefijo — de ahí que "a veces sí y casi
+ * siempre no", y probablemente también el viejo "el dictado sólo sirve en las
+ * páginas simples".
+ *
+ * Se resuelve con tolerancia en vez de con fe en el prompt: primero exacta,
+ * luego probando el prefijo. No hay ambigüedad posible porque las claves
+ * canónicas nunca llevan `:`.
+ */
+export function resolverClave(devuelta: string, validas: ReadonlySet<string>): string | null {
+  const limpia = devuelta.trim();
+  if (validas.has(limpia)) return limpia;
+  const conPrefijo = PREFIJO_CRUDO + limpia;
+  if (validas.has(conPrefijo)) return conPrefijo;
+  // El caso contrario, por si algún día un modelo se inventa el prefijo sobre
+  // una clave canónica.
+  if (esClaveCruda(limpia)) {
+    const sinPrefijo = nombrePdfDeClaveCruda(limpia);
+    if (validas.has(sinPrefijo)) return sinPrefijo;
+  }
+  return null;
+}
+
 /** `campo:Código ICD` → `Código ICD`. */
 export function nombrePdfDeClaveCruda(clave: string): string {
   return clave.slice(PREFIJO_CRUDO.length);

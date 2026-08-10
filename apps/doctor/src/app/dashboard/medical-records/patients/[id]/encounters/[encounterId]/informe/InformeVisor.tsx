@@ -19,7 +19,6 @@ import { Loader2, AlertTriangle } from 'lucide-react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
 import { capacidadDeCaja } from '@/lib/informe-medico/capacidad';
-import DictadoPagina, { type ResultadoDictado } from './DictadoPagina';
 
 export interface Caja {
   clave: string;
@@ -106,11 +105,9 @@ interface Props {
   onDescartar: (clave: string) => void;
   /** Qué claves están pendientes de guardar. */
   pendientes: Set<string>;
-  /** Ausente = el dictado no está disponible (informe emitido, p.ej.). */
-  onDictar?: (audio: Blob, pagina: number | null) => Promise<{ r: ResultadoDictado | null; mensaje?: string }>;
 }
 
-export default function InformeVisor({ formId, valores, soloLectura, onEditar, onDescartar, pendientes, onDictar }: Props) {
+export default function InformeVisor({ formId, valores, soloLectura, onEditar, onDescartar, pendientes }: Props) {
   const [geo, setGeo] = useState<Geometria | null>(null);
   const [escala, setEscala] = useState(1.3);
   const [error, setError] = useState<string | null>(null);
@@ -118,10 +115,6 @@ export default function InformeVisor({ formId, valores, soloLectura, onEditar, o
   /** Sube cuando el documento queda cargado: dispara el primer render sin
    * meter el objeto de pdf.js (que es un ref, no estado) en las dependencias. */
   const [listo, setListo] = useState(0);
-  /** Qué página está OCUPADA (grabando o procesando): se resalta para que el
-   * alcance se vea, y bloquea las demás. Antes sólo cubría "grabando", así que
-   * al soltar el botón se re-habilitaban todas y dos dictados podían pisarse. */
-  const [dictando, setDictando] = useState<number | null>(null);
   const contenedor = useRef<HTMLDivElement>(null);
   const lienzos = useRef<Array<HTMLCanvasElement | null>>([]);
   const doc = useRef<PDFDocumentProxy | null>(null);
@@ -286,26 +279,20 @@ export default function InformeVisor({ formId, valores, soloLectura, onEditar, o
           const camposDePagina = new Set(
             geo.cajas.filter((c) => c.pagina === i && c.tipo === 'texto').map((c) => c.clave)
           ).size;
-          const enfocada = dictando === i + 1;
-          const otraGrabando = dictando !== null && !enfocada;
           return (
             <div key={i} className="mx-auto" style={{ width: w }}>
-              {onDictar && !soloLectura && camposDePagina > 0 && (
-                <div className="flex items-center justify-between mb-1 px-0.5">
-                  <span className="text-xs text-gray-500">Página {i + 1}</span>
-                  <DictadoPagina
-                    pagina={i + 1}
-                    campos={camposDePagina}
-                    deshabilitado={otraGrabando}
-                    onDictado={onDictar}
-                    onEstado={(g) => setDictando(g ? i + 1 : null)}
-                  />
-                </div>
-              )}
+              {/* 🔴 Se quitó el dictado POR PÁGINA ("Dictar página 1 · 64 campos").
+                  Lo sustituye el CHAT, que ya trae micrófono y además ve la hoja
+                  entera: dictar apuntando a una sola página es justo lo que
+                  05-VOZ probó y no alcanzó (le pide al doctor que sepa de
+                  antemano qué necesita el formato). Dejarlo al lado del chat
+                  ofrecía dos caminos para lo mismo, y el peor de los dos. */}
+              <div className="flex items-center justify-between mb-1 px-0.5">
+                <span className="text-xs text-gray-500">Página {i + 1}</span>
+                <span className="text-xs text-gray-400">{camposDePagina} campos</span>
+              </div>
             <div
-              className={`relative shadow border bg-white transition-opacity ${
-                enfocada ? 'ring-4 ring-red-500' : otraGrabando ? 'opacity-40' : ''
-              }`}
+              className="relative shadow border bg-white"
               style={{ width: w, height: h }}
             >
               <canvas

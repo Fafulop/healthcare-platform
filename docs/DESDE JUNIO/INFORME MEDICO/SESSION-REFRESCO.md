@@ -1143,6 +1143,57 @@ permitidas son exactamente las clínicas.
 
 ⚠️ **Sigue sin ser el clic:** nadie ha vuelto a hablarle al chat con esto puesto.
 
+## 🔴🔴 EL BUG QUE LO EXPLICA CASI TODO: el modelo se come `campo:` (2026-08-10)
+
+Segunda prueba del usuario: *"las fechas ya funcionan, las casillas siguen sin funcionar, el chat
+se ve mucho mejor… aunque todavía no extrae muy bien"*.
+
+**Por fin se hizo lo que no se había hecho nunca: UNA LLAMADA REAL al modelo** (hay
+`OPENAI_API_KEY` en `apps/doctor/.env.local`, así que se puede sin desplegar). El modelo acertó
+TODO y nosotros lo tirábamos:
+
+```
+"casillas": { "S1": "Masculino", "TE": "Hospitalización",
+              "Check Box2": "Adquirido", "Sí_3": "Sí", "Sí_4": "Sí", "Sí_5": "No" }
+"campos":   { "Día_4": "03/03/2026", … }
+```
+
+Las 6 casillas bien y la fecha de cirugía bien. Pero el catálogo dice **`campo:TE`** y el modelo
+devuelve **`TE`**: se come el prefijo porque `campo:` se lee como una anotación de espacio de
+nombres, no como parte del nombre. Y la validación era `clavesValidas.has(clave)` ⇒
+**todo descartado en silencio.**
+
+⚠️ **Sobrevivían sólo las claves CANÓNICAS** (`clinico.diagnostico`), que no llevan prefijo. De
+ahí el patrón que se veía desde fuera: *algunas cosas sí y la mayoría no*. Y es la explicación
+más probable del viejo veredicto del dictado, *"works in very simple pages"* — las páginas
+"simples" son las de campos canónicos; los ~195 campos crudos de AXA nunca aterrizaron.
+
+**Dos arreglos, no uno:**
+1. `resolverClave()` en `types.ts` — tolerancia: exacta → con prefijo → sin prefijo. Se aplica en
+   el chat (campos y casillas) **y en el dictado**, que tenía el mismo bug desde que shipeó.
+2. Regla dura en el prompt: *copia la clave TAL CUAL, incluido `campo:`*.
+
+**Verificado con OTRA llamada real:** el modelo ya devuelve `campo:TE`, y las 6 casillas + los 2
+campos resuelven (`TE → /H`, `Check Box2 → /2`, `Sí_5 "No" → /o`, `Día_4 → 03/03/2026`).
+
+> 🔎 **La lección:** todo lo determinista estaba verde —catálogo, geometría, validación, 49/49
+> etiquetas— y la función seguía sin servir, porque **nadie había mirado lo que el modelo
+> devuelve**. Un contrato con un LLM no se verifica leyendo el prompt: se verifica llamándolo.
+> Y se podía llamar desde el primer día.
+
+### Y las otras dos cosas que reportó
+
+- **"Descargar borrador me manda a esta página …/pdf?tipo=borrador"** — la ruta responde con
+  `Content-Disposition: attachment`, así que el archivo SÍ se bajaba, pero `window.open` dejaba
+  una pestaña nueva en blanco enseñando la URL de la API. Ahora es un ancla `download`: baja sin
+  abrir nada.
+- **"Las páginas siguen con el dictado viejo (Dictar página 1 · 64 campos)"** — quitado. Lo
+  sustituye el chat, que ya trae micrófono y además ve la hoja ENTERA; dictar apuntando a una
+  sola página es exactamente lo que 05-VOZ probó y no alcanzó. Se borró `DictadoPagina.tsx` y su
+  cableado.
+  ⚠️ **El endpoint `/dictar` queda SIN UI que lo llame.** No se borró (sigue documentado en el
+  mapa de superficie IA y acaba de recibir el arreglo del prefijo); decidir si se retira.
+
 ## 🔴 DÓNDE QUEDAMOS — 2026-08-09, fin de sesión
 
 ### ✅ El estado PENDIENTE — COMMITEADO (`a6aa9841`)

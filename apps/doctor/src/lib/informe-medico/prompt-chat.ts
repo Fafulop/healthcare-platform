@@ -87,9 +87,12 @@ Formato: ${ctx.formato}
    - Cada campo dice cuántos caracteres caben. Pasarse imprime el texto tan chico que no
      se lee. Sé conciso.
 
-7. **SÓLO ESTOS CAMPOS**
+7. **SÓLO ESTOS CAMPOS, Y LA CLAVE TAL CUAL**
    - Devuelve únicamente claves del catálogo. Cualquier otra se descarta y el médico verá
      que su información no aterrizó.
+   - 🔴 **Copia la clave EXACTAMENTE como aparece, incluido el prefijo \`campo:\`.**
+     \`campo:TE\` va como \`"campo:TE"\`, NO como \`"TE"\`. El prefijo es parte del nombre,
+     no una anotación.
 
 8. 🔴 **LAS FECHAS SIEMPRE COMO \`dd/mm/aaaa\`**
    - \`09/08/2026\`. NUNCA "9 de agosto de 2026", ni \`2026-08-09\`, ni "agosto 2026".
