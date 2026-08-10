@@ -1016,6 +1016,133 @@ Los otros diez, todos arreglados:
 determinista, pero **ningún arreglo de la UI se ha visto correr**. Los dos graves son
 precisamente de interacción.
 
+## ✅ EL CHAT, PROBADO EN VIVO — los 3 arreglos (2026-08-10)
+
+Veredicto del usuario: *"it's getting better, but still a long way to go"*. Tres cosas concretas:
+**las fechas no aterrizaban**, **ninguna casilla se marcaba**, y **el chat tapaba la hoja**.
+
+### 🔴 Las fechas y las casillas eran EL MISMO bug
+
+Al modelo se le estaban dando los **nombres internos del AcroForm**, que en AXA muchas veces no
+significan nada:
+
+| Lo que veía el modelo | Lo que es de verdad |
+|---|---|
+| `campo:Día_4` | **Fecha de cirugía** |
+| `campo:Día_6` | **Fecha de alta** |
+| `campo:Consultorio_2` | el grupo Consultorio · Hospital · Gabinete · Otro |
+| `campo:Sí_3` | el Sí/No de **"¿Es cáncer?"** |
+
+Nadie puede elegir un campo cuyo nombre no dice qué es. Lo que sí lo dice es **el texto impreso
+alrededor**, y eso ya se sabía leer: es el mismo motor de vecindad que le puso campos al Allianz
+plano (`add-fields.ts`). Nuevo `etiquetas-de-la-hoja.ts`.
+
+**Casillas — resuelven las 49 de 49.** La etiqueta es el texto **a la derecha** del recuadro; la
+pregunta del grupo, el texto a la **izquierda del primero**:
+
+```
+TE            → Urgencia · Hospitalización · Corta estancia/ambulatoria · Consultorio
+Consultorio_2 → Consultorio · Hospital · Gabinete · Otro
+Sí_3          → «¿Es cáncer?»  Sí · No
+```
+
+🔴 **El modelo devuelve la ETIQUETA, nunca el on-state.** `/H` lo resuelve el servidor contra el
+PDF. Si el modelo pudiera mandar el on-state, un `/2` inventado marcaría una opción que nadie
+eligió en un documento que el médico firma. Y si la etiqueta no empata con ninguna del grupo **se
+descarta** — no se aproxima "la más parecida", porque en un grupo excluyente eso es afirmar algo
+falso. Verificado: elegir `Consultorio` marca **`/C`, el 4º recuadro**, no el 1º.
+
+> ⚠️ **Corrijo lo que yo mismo escribí ayer.** El commit anterior decía que las casillas quedaban
+> fuera "a propósito, porque los on-states son opacos y haría falta el motor del paso 3". El motor
+> ya existía y una sola medición bastó. La decisión estaba bien razonada y era **falsa**.
+
+### 🔴 Y la trampa de las fechas: `Día_4` NO es una caja de día
+
+Es **una caja ancha para la fecha entera** (x=63..179) con las tres guías impresas ENCIMA
+(`Día` en x=63, `Mes` en x=96, `Año` en x=142) y la pregunta un renglón más arriba. La primera
+versión del extractor tomaba la guía como etiqueta y daba:
+
+```
+Día_4 -> "Mes"     Día_5 -> "Mes"     Día_6 -> "Mes"
+```
+
+Las tres con el mismo nombre y ninguna con el suyo — y no sólo inútil: **le dice al modelo que
+escriba un mes donde va la fecha de alta.** Ahora se saltan las guías (`GUIA_DE_FECHA`) y se sube
+un renglón. Las 7 cajas de fecha quedan con su pregunta real.
+
+**Y faltaba lo más simple:** el prompt **nunca decía en qué formato va una fecha**. El pre-llenado
+determinista escribe `dd/mm/aaaa`; el modelo escribía prosa. Ahora es regla dura, con el caso de
+la fecha incompleta ("en marzo") resuelto: se **pregunta**, no se completa.
+
+### La pantalla: mismo patrón que el asistente verde
+
+El chat era un panel flotante que tapaba la hoja. Ahora usa las clases de `AgendaAgentPanel`: en
+`lg` es **`static`**, o sea un HERMANO FLEX — la hoja se encoge en vez de quedar tapada — y por
+debajo cae a barra lateral fija y a hoja inferior en móvil. Se abre con la **pestaña del borde
+derecho**, igual que el asistente. El `abierto` vive en la PÁGINA porque la hoja tiene que saberlo
+para soltar el `max-w-4xl`.
+
+### Verificado (harness contra el AXA real)
+
+7/7 cajas de fecha con su pregunta · 49/49 recuadros etiquetados · 22 grupos, 0 con etiquetas u
+on-states repetidos · ninguna "pregunta" es una opción de su propio grupo · la etiqueta empata sin
+acentos ni mayúsculas · una opción inventada se descarta · el grupo inexistente se descarta.
+Prompt: ~5,300 tokens. `type-check` ✅ · 5 gates ✅ · `next build` ✅.
+
+### 🔴🔴 El `/code-review` — el agente podía FIRMAR EL CONSENTIMIENTO DEL PACIENTE
+
+8 hallazgos. El primero es el peor bug que ha tenido esta función, y lo metí yo al derivar las
+casillas: **entraron TODAS al catálogo del modelo**, incluidas
+
+```
+p6  Autorizo el tratamiento y transferencia de mis datos personales…
+p6  Sí acepto  /  Sí acepto_2          ← «Para ser llenado por el Asegurado afectado»
+p5  Se ajusta a Tabulador médico       ← declaración de FACTURACIÓN del médico
+```
+
+La página 6 de AXA es del **paciente** y está junto a *"Firma del Asegurado"*. El camino
+completo: el doctor dice *"el paciente ya autorizó mandar sus datos"* → el modelo devuelve
+`{"casillas":{"campo:Sí acepto":"Sí acepto"}}` → el servidor lo acepta (la etiqueta empata) → cae
+en ámbar en la p6 → el doctor da **un solo Guardar** para toda la tanda → **el PDF final aplanado
+afirma una autorización que el paciente nunca firmó.** Es justo lo que el consentimiento propio
+del app existe para no hacer, y `render-pdf.ts` ya señalaba `Se ajusta a Tabulador médico` como
+la razón de apagar casillas de fábrica.
+
+⇒ **`casillasParaElAgente()`**: de 22 grupos, el agente ve **13**. Se excluyen tres familias:
+
+| | Por qué |
+|---|---|
+| consentimientos y facturación (`autoriz`, `acepto`, `tabulador`, `firma`…) | no son del médico, y son las que tienen consecuencia legal |
+| grupos de **una sola opción** (`ANP`=`¿Fuma?`, `ANP1`…) | el modelo SÓLO puede marcarla: el doctor dice "no fuma" y la única cadena emitible **marca** la casilla — la hoja afirma lo contrario |
+| sin pregunta **y** con opciones genéricas (`Sí_2` = `Sí\|No`) | indistinguible de `Sí_3` («¿Es cáncer?»); el servidor aceptaría el grupo equivocado porque la etiqueta empata |
+
+**Nada desaparece de la hoja:** el visor dibuja desde la geometría, así que el doctor las sigue
+marcando a mano. Lo que se quita es que las proponga un modelo.
+
+Los otros siete, todos arreglados:
+
+- **El modelo era CIEGO a las casillas ya marcadas**: `yaLleno` se armaba sólo con los campos de
+  texto, así que el prompt decía *"la hoja está vacía"* con casillas puestas — y el agente
+  re-proponía "Hospitalización" cada turno. Es el bucle que los `pendientes` existen para evitar.
+- **En `lg` el panel se estiraba al alto de la HOJA** (6 páginas, miles de px) porque la fila era
+  `min-h-screen`: su `overflow-y-auto` no tenía nada que desbordar y **la caja de escribir
+  quedaba al final del documento**. `AgendaAgentPanel` no lo sufre porque su padre es el
+  `flex h-screen` de `DashboardLayout`. Ahora la fila es `lg:h-screen` y **scrollea la columna
+  izquierda**.
+- Una casilla que el modelo mandaba bajo `campos` se reportaba como *"no existe en esta hoja"* —
+  falso, el grupo existe. Ahora se resuelve como casilla.
+- Las **opciones reales** ya se enseñan cuando se descarta una que no existe (se calculaban y no
+  se pintaban).
+- `leerPdfBase` corría en **cada** turno aunque la caché fuera a acertar (~1 MB de disco por
+  mensaje): ahora la lectura va dentro del camino de fallo, como en `geometriaCacheada`.
+- El docblock de `campos-dictables.ts` seguía diciendo que las casillas quedaban fuera "a
+  propósito" — el archivo que un lector abre primero.
+
+**Verificado:** 22 grupos → 13 ofrecidos · las 9 peligrosas **bloqueadas** una por una · las 13
+permitidas son exactamente las clínicas.
+
+⚠️ **Sigue sin ser el clic:** nadie ha vuelto a hablarle al chat con esto puesto.
+
 ## 🔴 DÓNDE QUEDAMOS — 2026-08-09, fin de sesión
 
 ### ✅ El estado PENDIENTE — COMMITEADO (`a6aa9841`)

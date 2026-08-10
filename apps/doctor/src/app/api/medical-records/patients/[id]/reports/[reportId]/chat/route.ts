@@ -4,9 +4,10 @@ import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { getChatProvider, type ChatMessage } from '@/lib/ai';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
-import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
+import { dictParaRender, formatoDe, leerPdfBase } from '@/lib/informe-medico/formatos';
 import { geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { camposDictables } from '@/lib/informe-medico/campos-dictables';
+import { casillasParaElAgente, etiquetasCacheadas } from '@/lib/informe-medico/etiquetas-de-la-hoja';
 import { consultasParaModelo, MAX_CONSULTAS } from '@/lib/informe-medico/contexto-clinico';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
 import { leerAnswers, type Answers } from '@/lib/informe-medico/types';
@@ -25,8 +26,16 @@ const MAX_CARACTERES_MENSAJE = 6000;
 /** Lo que el modelo propuso y NO se pudo colocar, para decirlo en vez de tragárselo. */
 interface Descartado {
   clave: string;
-  motivo: 'campo-inexistente' | 'caracteres-no-imprimibles' | 'no-es-texto';
+  motivo: 'campo-inexistente' | 'caracteres-no-imprimibles' | 'no-es-texto' | 'opcion-inexistente';
   caracteres?: string[];
+  /** Sólo `opcion-inexistente`: qué se podía elegir de verdad. */
+  opciones?: string[];
+}
+
+/** Para comparar la etiqueta que devuelve el modelo con la de la hoja sin que
+ * un acento, una mayúscula o un espacio de más tire la propuesta. */
+function normalizar(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 interface MensajeCliente { role: 'user' | 'assistant'; content: string }
@@ -135,9 +144,24 @@ export async function POST(
     const geo = await geometriaCacheada(formato, dict, report.form.updatedAt.toISOString());
     if (!geo) return NextResponse.json({ error: 'No se pudo leer el formato' }, { status: 500 });
 
+    // 🔴 Lo que la HOJA dice alrededor de cada campo. Sin esto el modelo recibía
+    // `campo:Día_4` (que es la fecha de cirugía) y `Consultorio_2` (que es el
+    // grupo Consultorio/Hospital/Gabinete/Otro): no podía elegir ninguno de los
+    // dos, y por eso ni las fechas aterrizaban ni se marcaba una casilla.
+    const { contexto, casillas: todasLasCasillas } = await etiquetasCacheadas(
+      `${formato.insurer}|${formato.name}|${formato.version}|${report.form.updatedAt.toISOString()}`,
+      dict,
+      () => leerPdfBase(formato)
+    );
+    // 🔴 NO todas las casillas: quedan fuera los consentimientos del paciente,
+    // las declaraciones de facturación y los grupos que no se pueden nombrar.
+    // Esta MISMA lista alimenta el prompt y la validación, así que el modelo no
+    // puede marcar algo que no se le ofreció.
+    const casillas = casillasParaElAgente(todasLasCasillas);
+
     // La hoja ENTERA, no una página: el agente sólo puede decir "qué falta" si la
     // ve completa. Medido: los 255 campos de AXA son ~3,800 tokens (prompt-chat).
-    const campos = camposDictables(geo, null);
+    const campos = camposDictables(geo, null, contexto);
     if (campos.length === 0) {
       return NextResponse.json({ error: 'Este formato no tiene campos que se puedan llenar' }, { status: 400 });
     }
@@ -158,6 +182,25 @@ export async function POST(
       .filter((c) => estado.has(c.clave))
       .map((c) => ({ clave: c.clave, etiqueta: c.etiqueta, valor: estado.get(c.clave)! }));
 
+    // 🔴 Las CASILLAS ya marcadas también cuentan como "ya está escrito". Sin
+    // esto el modelo era CIEGO a ellas: el doctor marcaba "Hospitalización",
+    // preguntaba qué falta, y el agente la listaba como faltante y la volvía a
+    // proponer cada turno — el bucle de re-propuesta que los `pendientes`
+    // existen para evitar. Se reporta la ETIQUETA, no el on-state: `/H` no
+    // significa nada para el modelo.
+    for (const g of casillas) {
+      const crudo = typeof pendientes[g.clave] === 'string'
+        ? pendientes[g.clave]
+        : (guardadas[g.clave]?.value ?? '');
+      if (crudo.trim() === '') continue;
+      const opcion = g.opciones.find((o) => o.onState === crudo);
+      yaLleno.push({
+        clave: g.clave,
+        etiqueta: g.pregunta ?? g.clave,
+        valor: opcion ? opcion.etiqueta : crudo,
+      });
+    }
+
     // 🔴 El alcance clínico (06-AGENTE §7.1): la consulta LIGADA a este informe
     // entra sola —el doctor la eligió al crearlo y el pre-llenado ya la leyó— y
     // cualquier otra tiene que pedirla él. `consultasParaModelo` comprueba
@@ -171,6 +214,7 @@ export async function POST(
     const ctx = {
       formato: `${report.form.insurer} — ${report.form.name}`,
       campos,
+      casillas,
       yaLleno,
       consultas,
     };
@@ -195,7 +239,7 @@ export async function POST(
       usage,
     });
 
-    let respuesta: { mensaje?: unknown; campos?: unknown };
+    let respuesta: { mensaje?: unknown; campos?: unknown; casillas?: unknown };
     try {
       respuesta = JSON.parse(content.replace(/^```(?:json)?\s*|\s*```$/g, '').trim());
     } catch {
@@ -213,7 +257,21 @@ export async function POST(
       ? respuesta.campos as Record<string, unknown>
       : {};
 
+    const propuestasCasillas = (typeof respuesta.casillas === 'object' && respuesta.casillas !== null && !Array.isArray(respuesta.casillas))
+      ? respuesta.casillas as Record<string, unknown>
+      : {};
+
+    // Los dos catálogos van en el mismo prompt, así que el modelo mete de vez en
+    // cuando una casilla bajo `campos`. Se resuelve como casilla en vez de
+    // decirle al doctor "no existe en esta hoja" de un grupo que SÍ existe.
+    const porClave = new Map(casillas.map((g) => [g.clave, g]));
+
     for (const [clave, bruto] of Object.entries(propuestos)) {
+      if (porClave.has(clave)) {
+        propuestasCasillas[clave] ??= bruto;
+        continue;
+      }
+      if (porClave.has(clave)) continue;                     // se trata abajo
       if (bruto === null || bruto === undefined) continue;   // "no sé" — se respeta
       // 🔴 Sólo texto. `String(bruto)` convertía un objeto anidado —que el
       // modelo produce de vez en cuando bajo jsonMode, p.ej.
@@ -239,6 +297,34 @@ export async function POST(
         continue;
       }
       valores[clave] = { value: valor, source: 'asistente', origin: 'llm' };
+    }
+
+    // ── Las CASILLAS: la etiqueta que devuelve el modelo → el on-state ──────
+    //
+    // 🔴 El modelo devuelve LO QUE DICE LA HOJA ("Hospitalización"), nunca un
+    // on-state. El on-state (`/H`) lo resuelve el servidor contra el PDF: si el
+    // modelo pudiera mandarlo, un `/2` inventado marcaría una opción que nadie
+    // eligió en un documento que el médico firma.
+    //
+    // ⚠️ `casillas` YA viene filtrado (`casillasParaElAgente`): un grupo de
+    // consentimiento no está aquí, así que cae en `campo-inexistente` — que es
+    // el resultado correcto, no un hueco.
+    for (const [clave, bruto] of Object.entries(propuestasCasillas)) {
+      if (typeof bruto !== 'string' || bruto.trim() === '') continue;
+      const grupo = porClave.get(clave);
+      if (!grupo) {
+        descartados.push({ clave, motivo: 'campo-inexistente' });
+        continue;
+      }
+      const pedida = normalizar(bruto);
+      const opcion = grupo.opciones.find((o) => normalizar(o.etiqueta) === pedida);
+      if (!opcion) {
+        // No se aproxima "la más parecida": marcar la opción equivocada de un
+        // grupo excluyente es afirmarle algo falso a la aseguradora.
+        descartados.push({ clave, motivo: 'opcion-inexistente', opciones: grupo.opciones.map((o) => o.etiqueta) });
+        continue;
+      }
+      valores[clave] = { value: opcion.onState, source: 'asistente', origin: 'llm' };
     }
 
     const texto = typeof respuesta.mensaje === 'string' ? respuesta.mensaje.trim() : '';

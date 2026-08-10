@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Download, FileText, Loader2, AlertTriangle, ShieldCheck, Save, X } from 'lucide-react';
+import { ArrowLeft, Bot, Download, FileText, Loader2, AlertTriangle, ShieldCheck, Save, X } from 'lucide-react';
 import InformeVisor, { type ValorVisor } from './InformeVisor';
 import ChatInforme, { type PropuestaChat } from './ChatInforme';
 import type { ResultadoDictado } from './DictadoPagina';
@@ -83,6 +83,8 @@ export default function InformeMedicoPage() {
    * La lista se queda como red — si el render del PDF falla en algún navegador,
    * el doctor todavía puede llenar y emitir. */
   const [vista, setVista] = useState<'visor' | 'lista'>('visor');
+  /** El chat abierto ⇒ la hoja usa el ancho que queda en vez de `max-w-4xl`. */
+  const [chatAbierto, setChatAbierto] = useState(false);
 
   const base = `/api/medical-records/patients/${patientId}/reports`;
 
@@ -381,8 +383,18 @@ export default function InformeMedicoPage() {
   const llenos = campos.filter((c) => c.valor.value.trim() !== '').length;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
+    // Fila flex: la hoja a la izquierda y el chat como HERMANO, no encima.
+    //
+    // 🔴 En `lg` la fila se ACOTA A LA PANTALLA y quien hace scroll es la
+    // columna de la izquierda. Sin esto, el alto de la fila es el de la hoja
+    // renderizada (6 páginas, miles de px): el panel se estira hasta ahí, su
+    // `overflow-y-auto` no tiene nada que desbordar, y la caja de escribir queda
+    // al final del documento — habría que recorrer el informe entero para poder
+    // teclear un mensaje. `AgendaAgentPanel` no lo sufre porque su padre es el
+    // `flex h-screen` de `DashboardLayout`.
+    <div className="flex min-h-screen lg:h-screen lg:min-h-0 bg-gray-50">
+      <div className="flex-1 min-w-0 overflow-x-hidden p-6 lg:overflow-y-auto">
+      <div className={chatAbierto ? 'max-w-none' : 'max-w-4xl mx-auto'}>
         <Link
           href={`/dashboard/medical-records/patients/${patientId}/encounters/${encounterId}`}
           className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
@@ -634,10 +646,8 @@ export default function InformeMedicoPage() {
           </>
         )}
       </div>
+      </div>
 
-      {/* 🔴 FLOTA sobre la hoja a propósito: la superficie de revisión es el
-          formato que tiene detrás — la HOJA es el card (06-AGENTE §2), no una
-          lista de propuestas dentro del chat. */}
       {/* 🔴 `!emitido` va AQUÍ y no dentro del panel: un `return null` no
           desmonta, y la limpieza que cierra el MICRÓFONO corre al desmontar.
           Emitir mientras el chat graba dejaba el micrófono abierto en un
@@ -648,7 +658,22 @@ export default function InformeMedicoPage() {
           reportId={informe.id}
           estadoHoja={estadoHoja}
           onPropuesta={aplicarPropuesta}
+          abierto={chatAbierto}
+          onCerrar={() => setChatAbierto(false)}
         />
+      )}
+
+      {/* La pestaña del borde derecho para abrirlo, igual que la del asistente. */}
+      {informe && !emitido && !chatAbierto && (
+        <button
+          onClick={() => setChatAbierto(true)}
+          title="Conversar con el formato"
+          className="fixed bottom-64 right-0 z-[51] flex items-center justify-center
+            w-5 h-12 rounded-l-lg border border-r-0 border-blue-600 bg-blue-600 text-white shadow-md
+            hover:bg-blue-700 transition-colors"
+        >
+          <Bot className="w-3 h-3" />
+        </button>
       )}
     </div>
   );

@@ -34,15 +34,27 @@ export interface CampoDictable {
 /**
  * Los campos de TEXTO que un modelo puede llenar.
  *
- * ⚠️ Las **casillas quedan fuera a propósito**, en el dictado y en el chat. Sus
- * on-states son opacos (`/1`, `/M`, `/CE`): ni el modelo ni el doctor pueden
- * saber que `/2` significa "Hospital" sin mirar la hoja. Proponer uno sería
- * afirmar algo a la aseguradora sin saber qué se está afirmando. Se marcan a
- * mano en el visor, que sí enseña dónde cae cada recuadro.
+ * ⚠️ Aquí sólo hay **texto**. Las casillas van por su propio camino
+ * (`etiquetas-de-la-hoja.ts`): son grupos EXCLUYENTES y el modelo las elige por
+ * la etiqueta impresa, no por el on-state. Antes esta nota decía que quedaban
+ * fuera del todo — el chat sí las propone desde 2026-08-10, salvo las que
+ * `casillasParaElAgente()` excluye (consentimientos del paciente, facturación,
+ * grupos que no se pueden nombrar).
  *
  * @param pagina 1-based; `null` = toda la hoja.
  */
-export function camposDictables(geo: GeometriaFormato, pagina: number | null): CampoDictable[] {
+export function camposDictables(
+  geo: GeometriaFormato,
+  pagina: number | null,
+  /**
+   * `clave -> lo que dice la hoja`, de `etiquetas-de-la-hoja.ts`. Sólo trae los
+   * campos cuyo NOMBRE no significa nada (`Día_4`, `undefined_7`).
+   *
+   * 🔴 Sin esto el modelo recibía `campo:Día_4` y no podía elegirlo: por eso las
+   * fechas no aterrizaban. Con esto recibe "Fecha de cirugía:".
+   */
+  contexto: Record<string, string> = {}
+): CampoDictable[] {
   const porClave = new Map<string, CampoDictable>();
 
   for (const c of geo.cajas) {
@@ -56,7 +68,7 @@ export function camposDictables(geo: GeometriaFormato, pagina: number | null): C
     if (!previo || cap.maximo > previo.maxCaracteres) {
       porClave.set(c.clave, {
         clave: c.clave,
-        etiqueta: etiquetaCanonica(c.clave),
+        etiqueta: contexto[c.clave] ?? etiquetaCanonica(c.clave),
         maxCaracteres: cap.maximo,
         pagina: c.pagina + 1,
       });

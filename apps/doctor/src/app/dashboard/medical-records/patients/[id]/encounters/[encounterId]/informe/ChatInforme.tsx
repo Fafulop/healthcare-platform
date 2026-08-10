@@ -28,7 +28,7 @@ interface Mensaje {
   /** Cuántos campos aterrizaron en la hoja con este turno. */
   colocados?: number;
   /** Lo que el modelo propuso y no se pudo colocar. */
-  descartados?: Array<{ clave: string; motivo: string; caracteres?: string[] }>;
+  descartados?: Array<{ clave: string; motivo: string; caracteres?: string[]; opciones?: string[] }>;
 }
 
 interface Props {
@@ -39,6 +39,11 @@ interface Props {
   estadoHoja: Record<string, string>;
   /** Las propuestas del agente entran como PENDIENTES sobre la hoja. */
   onPropuesta: (valores: Record<string, PropuestaChat>) => void;
+  /** 🔴 El abierto/cerrado vive en la PÁGINA: cuando el chat está abierto la
+   * hoja deja de ir centrada en `max-w-4xl` y usa el ancho que queda. Si el
+   * estado viviera aquí, la hoja no se enteraría. */
+  abierto: boolean;
+  onCerrar: () => void;
 }
 
 const SALUDO =
@@ -59,8 +64,7 @@ async function mensajeDeError(r: Response, porDefecto: string): Promise<string> 
 // se apaga con un `return null` desde dentro: eso no desmonta, y la limpieza que
 // cierra el micrófono corre al desmontar — emitir mientras grababa dejaba el
 // micrófono abierto.
-export default function ChatInforme({ base, reportId, estadoHoja, onPropuesta }: Props) {
-  const [abierto, setAbierto] = useState(false);
+export default function ChatInforme({ base, reportId, estadoHoja, onPropuesta, abierto, onCerrar }: Props) {
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState('');
   const [pensando, setPensando] = useState(false);
@@ -181,25 +185,24 @@ export default function ChatInforme({ base, reportId, estadoHoja, onPropuesta }:
     }
   }
 
-  if (!abierto) {
-    return (
-      <button
-        onClick={() => setAbierto(true)}
-        className="fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-full bg-blue-600 text-white px-4 py-3 shadow-lg hover:bg-blue-700"
-      >
-        <Bot className="h-5 w-5" />
-        <span className="text-sm font-medium">Conversar con el formato</span>
-      </button>
-    );
-  }
+  if (!abierto) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-30 flex flex-col w-[min(380px,calc(100vw-2rem))] h-[min(560px,calc(100vh-2rem))] rounded-xl border bg-white shadow-2xl">
-      <div className="flex items-center justify-between border-b px-3 py-2">
+    // 🔴 Mismo patrón que el panel del asistente (`AgendaAgentPanel`): en `lg`
+    // deja de ser un overlay y pasa a ser un HERMANO FLEX (`lg:static`), así que
+    // la hoja se encoge en vez de quedar tapada — que era la queja. Debajo de
+    // `lg` cae a barra lateral fija, y en móvil a hoja inferior.
+    <div
+      className="flex flex-col shrink-0 bg-white border-gray-200 shadow-xl
+        fixed z-[55] inset-x-0 bottom-0 h-[60vh] rounded-t-2xl border-t
+        sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:h-auto sm:w-96 sm:rounded-none sm:border-t-0 sm:border-l
+        lg:static lg:shadow-none lg:border-l lg:h-full lg:min-h-0"
+    >
+      <div className="flex items-center justify-between border-b px-3 py-2 bg-blue-50">
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
           <Bot className="h-4 w-4 text-blue-600" /> Conversar con el formato
         </span>
-        <button onClick={() => setAbierto(false)} className="text-gray-400 hover:text-gray-700" title="Cerrar">
+        <button onClick={onCerrar} className="text-gray-400 hover:text-gray-700" title="Cerrar">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -222,12 +225,25 @@ export default function ChatInforme({ base, reportId, estadoHoja, onPropuesta }:
               </p>
             )}
             {m.descartados && m.descartados.length > 0 && (
-              <p className="mt-1 text-[11px] text-red-700">
-                {m.descartados.length} no se pudieron colocar
-                {m.descartados.some((d) => d.motivo === 'caracteres-no-imprimibles')
-                  ? ' (símbolos que el formato no imprime)'
-                  : ' (no existen en esta hoja)'}.
-              </p>
+              <div className="mt-1 text-[11px] text-red-700">
+                <p>{m.descartados.length} no se pudieron colocar:</p>
+                <ul className="list-disc pl-4">
+                  {m.descartados.map((d, j) => (
+                    <li key={j}>
+                      {d.motivo === 'caracteres-no-imprimibles'
+                        ? `símbolos que el formato no imprime (${(d.caracteres ?? []).join(' ')})`
+                        : d.motivo === 'no-es-texto'
+                        ? 'el modelo no devolvió texto'
+                        : d.motivo === 'opcion-inexistente'
+                        // 🔴 Se dicen las opciones REALES. Antes sólo se decía
+                        // "no existe", que no le sirve de nada al doctor para
+                        // volver a preguntar.
+                        ? `esa opción no existe; hay: ${(d.opciones ?? []).join(' · ')}`
+                        : 'ese campo no está en esta hoja'}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         ))}
@@ -276,8 +292,7 @@ export default function ChatInforme({ base, reportId, estadoHoja, onPropuesta }:
           </button>
         </div>
         <p className="mt-1 text-[11px] text-gray-500">
-          Lo que proponga queda <strong>sin guardar</strong> hasta que aprietes Guardar. No marca
-          casillas: ésas se marcan a mano en la hoja.
+          Lo que proponga queda <strong>sin guardar</strong> hasta que aprietes Guardar.
         </p>
       </div>
     </div>

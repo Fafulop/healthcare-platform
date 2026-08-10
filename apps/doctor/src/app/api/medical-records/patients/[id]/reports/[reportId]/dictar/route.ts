@@ -4,9 +4,10 @@ import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { getChatProvider } from '@/lib/ai';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
-import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
+import { dictParaRender, formatoDe, leerPdfBase } from '@/lib/informe-medico/formatos';
 import { geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { camposDictables } from '@/lib/informe-medico/campos-dictables';
+import { etiquetasCacheadas } from '@/lib/informe-medico/etiquetas-de-la-hoja';
 import { consultasParaModelo, MAX_CONSULTAS } from '@/lib/informe-medico/contexto-clinico';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
 import { leerAnswers, type Answers } from '@/lib/informe-medico/types';
@@ -117,7 +118,14 @@ export async function POST(
 
     // Sólo campos de TEXTO, deduplicados por clave y con su capacidad real: la
     // MISMA lista que ve el chat (`campos-dictables.ts`), acotada a esta página.
-    const campos = camposDictables(geo, pagina);
+    // Y con las etiquetas que dice la HOJA, para que `Día_4` se le presente al
+    // modelo como "Fecha de cirugía:" igual que en el chat.
+    const { contexto } = await etiquetasCacheadas(
+      `${formato.insurer}|${formato.name}|${formato.version}|${report.form.updatedAt.toISOString()}`,
+      dict,
+      () => leerPdfBase(formato)
+    );
+    const campos = camposDictables(geo, pagina, contexto);
     if (campos.length === 0) {
       return NextResponse.json({ error: 'Esta página no tiene campos que se puedan dictar' }, { status: 400 });
     }

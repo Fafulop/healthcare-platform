@@ -21,12 +21,15 @@
  */
 import type { CampoDictable } from './campos-dictables';
 import type { ConsultaParaModelo } from './contexto-clinico';
+import type { GrupoCasillas } from './etiquetas-de-la-hoja';
 
 export interface ContextoChat {
   /** Aseguradora y nombre del formato. */
   formato: string;
   /** TODOS los campos de texto de la hoja, en orden estable. */
   campos: CampoDictable[];
+  /** Los grupos de casillas con sus opciones legibles. */
+  casillas: GrupoCasillas[];
   /** Lo que la hoja ya trae escrito (guardado + lo pendiente en pantalla). */
   yaLleno: Array<{ clave: string; etiqueta: string; valor: string }>;
   /** La consulta del informe y las que el doctor haya adjuntado. */
@@ -88,19 +91,34 @@ Formato: ${ctx.formato}
    - Devuelve únicamente claves del catálogo. Cualquier otra se descarta y el médico verá
      que su información no aterrizó.
 
-8. **LAS CASILLAS NO LAS LLENAS TÚ**
-   - La hoja tiene casillas (tipo de consulta, ambulatorio/hospitalizado, sexo…) que NO
-     están en tu catálogo. No las puedes marcar. Si hace falta una, DILO en tu mensaje:
-     "marca la casilla de hospitalización en la página 1". El médico la marca a mano.
+8. 🔴 **LAS FECHAS SIEMPRE COMO \`dd/mm/aaaa\`**
+   - \`09/08/2026\`. NUNCA "9 de agosto de 2026", ni \`2026-08-09\`, ni "agosto 2026".
+   - Es el mismo formato con el que ya está escrito lo que salió del expediente: si tú
+     escribes otro, la hoja sale con dos formatos distintos de fecha.
+   - Una caja de fecha lleva la fecha COMPLETA (la hoja imprime "Día Mes Año" encima como
+     guía, pero es **una sola caja**).
+   - Si el médico da una fecha incompleta ("en marzo", "el año pasado"), **no la inventes
+     completa**: pregúntale el día y el mes.
 
 9. **NO ANUNCIES QUE GUARDASTE**
    - Tú no guardas nada. Lo que propones queda **pendiente** sobre la hoja hasta que el
      médico aprieta **Guardar**. Di "lo puse en la hoja para que lo revises", nunca "ya
      quedó guardado".
 
-## CATÁLOGO DE CAMPOS (página | clave | etiqueta en la hoja | máx. caracteres)
+## CATÁLOGO DE CAMPOS DE TEXTO (página | clave | etiqueta en la hoja | máx. caracteres)
 
 ${ctx.campos.map((c) => `p${c.pagina} | ${c.clave} | ${c.etiqueta} | ${c.maxCaracteres}`).join('\n')}
+
+## CASILLAS (grupos de opciones EXCLUYENTES: sólo una por grupo)
+
+Para marcar una, devuelve la **etiqueta EXACTA** de la opción, tal como aparece abajo.
+Nunca inventes una opción que no esté en la lista de ese grupo.
+
+${ctx.casillas.length === 0
+  ? '(este formato no tiene casillas)'
+  : ctx.casillas.map((g) =>
+      `p${g.pagina} | ${g.clave}${g.pregunta ? ` | ${g.pregunta}` : ''}\n    opciones: ${g.opciones.map((o) => o.etiqueta).join(' | ')}`
+    ).join('\n')}
 
 ## FORMATO DE RESPUESTA
 
@@ -108,12 +126,13 @@ Devuelve SÓLO un objeto JSON válido, sin markdown ni explicación alrededor:
 
 {
   "mensaje": "lo que le dices al médico: qué falta y qué le preguntas",
-  "campos": { "clave.del.campo": "valor", "otra.clave": "valor" }
+  "campos": { "clave.del.campo": "valor", "otra.clave": "valor" },
+  "casillas": { "clave.del.grupo": "Etiqueta exacta de la opción" }
 }
 
 \`mensaje\` es obligatorio y va SIEMPRE en español.
-\`campos\` puede ir vacío ({}): un turno en el que sólo preguntas es un turno bueno.
-Omite por completo los campos para los que no tengas información explícita.`;
+\`campos\` y \`casillas\` pueden ir vacíos ({}): un turno en el que sólo preguntas es un
+turno bueno. Omite por completo aquello para lo que no tengas información explícita.`;
 }
 
 /**

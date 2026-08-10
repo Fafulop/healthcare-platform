@@ -1,6 +1,6 @@
 # 06 — AGENTE: el doctor CONVERSA con el formato
 
-> Tipo **PLAN**. Escrito el **2026-08-09**. ✅ **CONSTRUIDO el 2026-08-09** — ver §11.
+> Tipo **PLAN**. Escrito el **2026-08-09**. ✅ **CONSTRUIDO el 2026-08-09** (§11) · **probado en vivo y corregido el 2026-08-10** (§12).
 > Sucede a [`05-VOZ`](05-VOZ-el-doctor-le-dicta-al-formato.md): el dictado de un solo tiro
 > **se probó y no alcanza**. Ver §1.
 > ⚠️ Toca al ASISTENTE ⇒ se rige por [`../AGENTES/GENERAL AGENTES/08-EMPIEZA-AQUI.md`](../AGENTES/GENERAL%20AGENTES/08-EMPIEZA-AQUI.md).
@@ -241,20 +241,15 @@ vez de dejar el orden del AcroForm.
 ⚠️ **Es una expectativa, no una medición.** Que la caché pegue depende del proveedor y de que los
 turnos caigan dentro de su ventana. Lo medido es el **tamaño**, no el ahorro.
 
-### 🔴 Lo que el chat NO hace: marcar casillas
+### ~~Lo que el chat NO hace: marcar casillas~~ → **YA LAS MARCA** (2026-08-10)
 
-Las 22 casillas de AXA **no entran en el catálogo**, ni en el chat ni en el dictado. Sus
-on-states son opacos (`/1`, `/M`, `/CE`): nadie —ni el modelo ni el doctor leyendo el chat—
-puede saber que `/2` significa "Hospital" sin mirar la hoja. Proponer uno sería **afirmarle algo
-a la aseguradora sin saber qué se está afirmando**.
+> ⚠️ **Esto decía que las casillas quedaban fuera "a propósito" porque los on-states son opacos
+> (`/1`, `/M`, `/CE`) y cerrarlo pediría el motor de vecindad del paso 3. El motor YA EXISTÍA
+> (`add-fields.ts`) y una sola medición bastó. La decisión estaba bien razonada y era falsa.**
 
-⇒ El prompt le ordena **decirlo con palabras** ("marca la casilla de hospitalización en la
-página 1") y el doctor la marca en el visor, que sí enseña dónde cae cada recuadro. La UI lo
-dice al pie del panel, para que la ausencia no se lea como una falla.
-
-Esto deja §6 punto 2 a medias: el agente **pregunta** "¿fue ambulatoria o con hospitalización?"
-pero no puede colocar la respuesta. Cerrarlo pide etiquetas por recuadro — el mismo motor de
-vecindad del paso 3.
+El nombre no dice nada, pero **el texto impreso al lado sí**: la etiqueta de cada recuadro es lo
+que está a su **derecha**, y la pregunta del grupo lo que está a la **izquierda del primero**.
+Resuelven **49 de 49**. Ver `etiquetas-de-la-hoja.ts` y §12.
 
 ### Lo verificado, y lo que eso NO cubre
 
@@ -278,3 +273,85 @@ permisos: cuelga de `/api/medical-records/*` y hereda `expedientes`) · `next bu
 del modelo, ni se ha visto una propuesta caer en ámbar sobre la hoja. Lo verificado es la mitad
 determinista —el catálogo, la validación, el prompt— y por construcción no puede decir si el
 agente **conversa bien**, que es justo lo que el dictado falló.
+
+---
+
+## 12. 🔴 LO QUE FALLÓ AL PROBARLO, Y POR QUÉ (2026-08-10)
+
+Veredicto del usuario tras usarlo: *"it's getting better, but still a long way to go"* — las
+fechas no aterrizaban, ninguna casilla se marcaba, y el chat tapaba la hoja.
+
+### Las fechas y las casillas eran EL MISMO bug
+
+Al modelo se le daban los **nombres internos del AcroForm**. En AXA muchos no significan nada:
+
+| Lo que veía el modelo | Lo que es |
+|---|---|
+| `campo:Día_4` | Fecha de **cirugía** |
+| `campo:Día_6` | Fecha de **alta** |
+| `campo:Consultorio_2` | Consultorio · Hospital · Gabinete · Otro |
+| `campo:Sí_3` | el Sí/No de «¿Es cáncer?» |
+
+Nadie elige un campo cuyo nombre no dice qué es. Lo que sí lo dice es el **texto impreso
+alrededor** ⇒ `etiquetas-de-la-hoja.ts`, sobre el motor de vecindad que ya existía.
+
+- **Casillas:** etiqueta = texto a la **derecha**; pregunta del grupo = texto a la **izquierda
+  del primer recuadro**. 49/49.
+- 🔴 **El modelo devuelve la ETIQUETA, jamás el on-state.** `/H` lo resuelve el servidor contra
+  el PDF. Y si no empata con ninguna opción **se descarta**: no se aproxima "la más parecida",
+  porque en un grupo excluyente eso es afirmarle algo falso a la aseguradora.
+- 🔴 **La pregunta del grupo sale del recuadro más a la izquierda, no del primero que devuelve
+  `getWidgets()`** — ese orden no es visual. En `MAM` el primer widget es "Maternidad" y a su
+  izquierda está "Accidente", otra opción del mismo grupo.
+
+### La trampa de la fecha: `Día_4` no es una caja de día
+
+Es **una caja ancha para la fecha entera**, con las guías `Día`/`Mes`/`Año` impresas encima y la
+pregunta un renglón más arriba. Tomar la guía como etiqueta daba `Día_4 → "Mes"`,
+`Día_5 → "Mes"`, `Día_6 → "Mes"`: las tres iguales y ninguna correcta — y peor que inútil,
+porque le dice al modelo que escriba un mes donde va la fecha de alta. Se saltan las guías
+(`GUIA_DE_FECHA`) y se sube un renglón.
+
+Y faltaba lo más simple: **el prompt nunca decía en qué formato va una fecha.** El pre-llenado
+escribe `dd/mm/aaaa` y el modelo escribía prosa, así que la hoja salía con dos formatos. Ahora es
+regla dura, y una fecha incompleta ("en marzo") se **pregunta** en vez de completarse.
+
+### La pantalla
+
+Mismas clases que `AgendaAgentPanel`: en `lg` el chat es `static` —un hermano flex, la hoja se
+encoge— y por debajo cae a barra lateral y a hoja inferior. Se abre con la pestaña del borde
+derecho. El `abierto` vive en la PÁGINA: la hoja necesita saberlo para soltar su `max-w-4xl`.
+
+### Lo que sigue abierto
+
+- Los grupos de una sola casilla (`ANP`, `ANP1`…) tienen como "opción" la pregunta misma
+  (`¿Fuma?`): marcarla significa "sí". Funciona, pero se lee raro en el prompt.
+- La pregunta de `S1` (Masculino/Femenino) sale como «nacimiento:», arrastrada del campo de al
+  lado. Las opciones se explican solas, así que no cambia nada — pero es ruido.
+- **Nadie le ha vuelto a hablar al chat con esto puesto.**
+
+### 🔴🔴 Qué casillas NO puede tocar el agente (hallazgo del review, 2026-08-10)
+
+Al derivar las 49 casillas **entraron todas** al catálogo del modelo — incluidos los
+consentimientos LFPDPPP del **paciente** (`Sí acepto`, `Autorizo el tratamiento y transferencia
+de mis datos personales…`, p6, la página que dice *"Para ser llenado por el Asegurado afectado"*)
+y la declaración de **facturación** del médico (`Se ajusta a Tabulador médico`, p5).
+
+El doctor dice *"el paciente ya autorizó"*, el modelo lo marca, el doctor da **un solo Guardar**
+para la tanda, y el PDF aplanado **afirma una autorización que el paciente nunca firmó**.
+
+⇒ `casillasParaElAgente()` — de 22 grupos el agente ve **13**:
+
+1. **Consentimientos y facturación** (`autoriz`, `acepto`, `tabulador`, `firma`, `datos
+   personales`…): no son del médico y tienen consecuencia legal.
+2. **Grupos de una sola opción** (`ANP` = `¿Fuma?`): el modelo sólo puede MARCAR, nunca negar. El
+   doctor dice "no fuma" y la única cadena que puede emitir marca la casilla.
+3. **Sin pregunta y con opciones genéricas** (`Sí_2` = `Sí | No`): indistinguible de `Sí_3`
+   («¿Es cáncer?»), y el servidor aceptaría el grupo equivocado porque la etiqueta empata.
+
+**La hoja no cambia:** el visor las dibuja desde la geometría y el doctor las marca a mano. Lo
+que se quita es que las proponga un modelo.
+
+> 🔎 **Lección:** derivar el catálogo *de la hoja* lo hizo COMPLETO, y completo incluía cosas que
+> ningún agente debe firmar. Al automatizar "qué campos existen" hay que decidir aparte **qué
+> campos son suyos** — no son la misma pregunta.
