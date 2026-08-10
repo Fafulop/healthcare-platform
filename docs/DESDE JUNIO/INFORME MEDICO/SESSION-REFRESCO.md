@@ -1218,15 +1218,7 @@ hay "descartar todo" para una tanda mala.
 > campo). Es lo primero que hay que mirar al volver: ¿se siente bien perder el autoguardado, o pesa
 > más el riesgo de perder trabajo?
 
-### Por dónde seguir
-
-1. 🔴 **HABLARLE AL CHAT.** Es lo único que importa ahora: abrir un informe, contarle un caso y
-   ver si las propuestas caen en ámbar **en la casilla correcta**. Todo lo verificado hasta aquí
-   es determinista y no dice nada sobre si conversa bien.
-2. **Decidir si el estado pendiente se queda** — cambia comportamiento que ya estaba en prod
-   (el autoguardado al salir del campo).
-3. **PUSH** — nada de esto se ha desplegado. `a6aa9841` y el chat están **sólo en local**.
-4. Luego: las **casillas** en el chat (piden etiquetas por recuadro, motor de vecindad del paso 3).
+### ~~Por dónde seguir~~ (esa lista ya se hizo — ver abajo el estado del 2026-08-10)
 
 ### Decisiones tomadas hoy que NO se re-litigan
 
@@ -1379,3 +1371,75 @@ Pregunta del usuario. La respuesta tiene dos partes porque `ClinicalEncounter` e
   modelo lee *"Tipo de Lesión: nevo displásico"*, no *"tipoLesion: nevo"*.
 - ⇒ Con una plantilla propia el doctor **tiene que conversar** para que ese contenido aterrice, y
   aterriza en ámbar, que es lo correcto: lo interpretó un modelo, no lo copió el sistema.
+
+---
+
+# 🔴 DÓNDE QUEDAMOS DE VERDAD — 2026-08-10, fin de sesión
+
+> **Empieza por aquí.** Lo de arriba es el historial; esto es el estado.
+
+## Todo está EN PROD y desplegado
+
+| Commit | Qué |
+|---|---|
+| `a6aa9841` | estado PENDIENTE (1B + 2B) |
+| `df7abc5b` | el CHAT + 12 hallazgos de review |
+| `42ee7182` | fechas + casillas + layout, y 8 hallazgos más |
+| `574c4ba4` | el modelo se come `campo:` — se descartaba casi todo |
+| `697d6ce6` | un campo no puede tumbar el PDF (no se bajaba ninguno) |
+
+Deploy `697d6ce6` **SUCCESS**. Sólo se mueve `@healthcare/doctor`; los otros 3 salen `SKIPPED`.
+
+## Lo que el usuario probó y dijo
+
+| | |
+|---|---|
+| Las **fechas** | ✅ "now work" |
+| Las **casillas** | ⏳ seguían sin marcarse **hasta `574c4ba4`** — no confirmadas después |
+| El **chat / layout** | ✅ "works way better" |
+| **Bajar el PDF** | ⏳ roto hasta `697d6ce6` — **no confirmado después** |
+| La **extracción** | 🟡 "still not extracting the data very well" — lo iba a seguir probando |
+
+🔴 **Los dos ⏳ son lo primero que hay que confirmar con los ojos**: marcar una casilla que NO sea
+la primera de su grupo, y bajar borrador + final.
+
+## El bug de método que hay que recordar
+
+Durante DOS sesiones todo lo determinista estaba en verde —catálogo, geometría, validación, 49/49
+etiquetas, `type-check`, 5 gates, `next build`— y la función no servía. La causa: **nadie había
+mirado lo que el modelo DEVUELVE**. Se come el prefijo `campo:`, y con eso se descartaba en
+silencio todo lo que no fuera una clave canónica.
+
+⇒ **Hay `OPENAI_API_KEY` en `apps/doctor/.env.local`: se puede llamar al modelo de verdad desde un
+script, sin desplegar.** Es lo que destapó el bug, y se podía hacer desde el primer día.
+Script de referencia (scratchpad, se reescribe en 5 min): arma el prompt real con
+`promptsSistemaChat`, manda un mensaje de doctor, imprime la respuesta cruda y corre la validación.
+
+## Lo siguiente que estaba acordado
+
+**[`07-PLAN-informe-a-nivel-paciente.md`](07-PLAN-informe-a-nivel-paciente.md) — escrito y con las
+4 preguntas CERRADAS por el usuario. Nada implementado.**
+
+El informe pasa a crearse a **nivel paciente**, anclado a una **consulta OG** (que da el
+pre-llenado 🟩 verde), y el doctor **elige** otras fuentes —consultas, notas, recetas— que se le
+inyectan al chat en orden cronológico y caen en 🟧 ámbar.
+
+Secuencia propuesta (no empezada):
+1. Columna `sources` JSONB — SQL manual + `prisma db execute`, **nunca `db push`**; smoke read-only
+   contra prod ANTES.
+2. `contexto-clinico.ts` con los 3 tipos de fuente y orden cronológico.
+3. `GET …/patients/:id/fuentes`.
+4. Pantalla a nivel paciente + selector de ancla + panel de fuentes.
+
+## Abierto, y NO es deuda menor
+
+- ⚠️ **`prefill.ts` `fechaMomento()` lee componentes LOCALES y Railway corre en UTC.** El arreglo
+  del paso 4 podría no arreglar nada en prod: una consulta de las 18:30 saldría fechada al día
+  siguiente, en el campo que la aseguradora cruza contra el siniestro. **Verificar el `TZ` del
+  contenedor.** El resto del repo usa `timeZone: 'America/Mexico_City'` explícito.
+- **`/api/…/dictar` quedó SIN UI** que lo llame (se quitó el dictado por página). Endpoint LLM vivo
+  y sin superficie: decidir si se retira.
+- **El autoguardado al salir del campo YA NO EXISTE en prod** (1B) y el usuario nunca llegó a
+  decidir si lo quiere así.
+- **GNP**: ¿rige el formato de Eleonor (3 págs) o el oficial (2 págs)?
+- **Allianz páginas 2 y 3** nunca se miraron.
