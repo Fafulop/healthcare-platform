@@ -50,7 +50,17 @@ export default function NewEncounterPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+    // Fila flex: el formulario a la izquierda y el chat como HERMANO, no encima.
+    //
+    // 🔴 En `lg` la fila se ACOTA A LA PANTALLA y quien hace scroll es la
+    // columna izquierda. Sin esto el alto de la fila es el del formulario
+    // entero, el panel se estira hasta ahí, su `overflow-y-auto` no tiene nada
+    // que desbordar y la caja de escribir queda hasta el final — habría que
+    // recorrer toda la consulta para teclear un mensaje. Es exactamente la
+    // trampa documentada en `PantallaInforme`.
+    <div className="flex min-h-screen lg:h-screen lg:min-h-0">
+      <div className="flex-1 min-w-0 overflow-x-hidden p-4 sm:p-6 lg:overflow-y-auto">
+        <div className={chatPanelOpen ? 'max-w-none' : 'max-w-4xl mx-auto'}>
       {/* Header */}
       <div className="mb-6">
         <Link
@@ -122,6 +132,20 @@ export default function NewEncounterPage() {
         chatFieldUpdates={chatFieldUpdates}
         chatCustomFieldUpdates={chatCustomFieldUpdates}
       />
+        </div>
+      </div>
+
+      {/* AI Chat Panel — HERMANO de la columna del formulario, no hijo: es lo
+          que hace que el formulario se encoja en vez de quedar tapado. */}
+      {chatPanelOpen && currentFormData && (
+        <EncounterChatPanel
+          onClose={() => setChatPanelOpen(false)}
+          currentFormData={currentFormData}
+          onUpdateForm={handleChatUpdateForm}
+          templateInfo={chatTemplateInfo}
+          onUpdateCustomFields={handleChatUpdateCustomFields}
+        />
+      )}
 
       {/* Voice Recording Modal */}
       {session?.user?.doctorId && (
@@ -136,17 +160,6 @@ export default function NewEncounterPage() {
           }}
           templateId={selectedTemplate?.id}
           onComplete={handleModalComplete}
-        />
-      )}
-
-      {/* AI Chat Panel */}
-      {chatPanelOpen && currentFormData && (
-        <EncounterChatPanel
-          onClose={() => setChatPanelOpen(false)}
-          currentFormData={currentFormData}
-          onUpdateForm={handleChatUpdateForm}
-          templateInfo={chatTemplateInfo}
-          onUpdateCustomFields={handleChatUpdateCustomFields}
         />
       )}
 

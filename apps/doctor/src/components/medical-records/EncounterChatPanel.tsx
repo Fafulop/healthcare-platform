@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
-import { Sparkles, X, Bot, User, Loader2, Send, Minus, ChevronUp } from 'lucide-react';
+import { Sparkles, X, Bot, User, Loader2, Send, Trash2 } from 'lucide-react';
 import { VoiceRecordButton } from '@/components/voice-assistant/chat/VoiceRecordButton';
 import { useEncounterChat, type EncounterChatMessage, type TemplateInfo } from '@/hooks/useEncounterChat';
 import type { EncounterFormData } from './EncounterForm';
@@ -57,14 +57,18 @@ const SUGGESTIONS = [
 // Single message
 // -----------------------------------------------------------------------------
 
+// 🔴 La misma burbuja que el asistente de agenda y el del informe: avatar
+// redondo de 6, doctor en azul a la derecha, asistente en el color de acento del
+// panel (índigo aquí) a la izquierda. Lo único propio de este chat es el
+// `renderContent` con negritas y listas, y la etiqueta de campos aplicados.
 function MessageBubble({ message }: { message: EncounterChatMessage }) {
   const isUser = message.role === 'user';
 
   return (
-    <div className={`flex gap-2 ${isUser ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       <div
-        className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-          isUser ? 'bg-blue-600 text-white' : 'bg-indigo-100 text-indigo-600'
+        className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+          isUser ? 'bg-blue-600 text-white' : 'bg-indigo-600 text-white'
         }`}
       >
         {isUser ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
@@ -121,48 +125,14 @@ export function EncounterChatPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const [collapsed, setCollapsed] = useState(false);
-
-  // Draggable panel height (mobile only)
-  const [panelHeight, setPanelHeight] = useState(60); // vh
-  const isDragging = useRef(false);
-  const dragStartY = useRef(0);
-  const dragStartHeight = useRef(60);
-
-  const onDragStart = (clientY: number) => {
-    isDragging.current = true;
-    dragStartY.current = clientY;
-    dragStartHeight.current = panelHeight;
-  };
-
-  const onDragMove = (clientY: number) => {
-    if (!isDragging.current) return;
-    const deltaVh = ((dragStartY.current - clientY) / window.innerHeight) * 100;
-    const newHeight = Math.min(90, Math.max(25, dragStartHeight.current + deltaVh));
-    setPanelHeight(newHeight);
-  };
-
-  const onDragEnd = () => {
-    isDragging.current = false;
-  };
-
-  // Touch handlers for the drag handle
-  const handleTouchStart = (e: React.TouchEvent) => onDragStart(e.touches[0].clientY);
-  const handleTouchMove = (e: React.TouchEvent) => onDragMove(e.touches[0].clientY);
-  const handleTouchEnd = () => onDragEnd();
-
-  // Mouse handlers (for desktop testing)
-  const handleMouseDown = (e: React.MouseEvent) => {
-    onDragStart(e.clientY);
-    const onMouseMove = (ev: MouseEvent) => onDragMove(ev.clientY);
-    const onMouseUp = () => {
-      onDragEnd();
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-  };
+  /**
+   * 🔴 Enfocar al mandar NO alcanza: la caja se pone `disabled` mientras el
+   * turno corre, el navegador desenfoca lo deshabilitado y no lo devuelve al
+   * re-habilitarlo — había que volver a hacer clic para escribir el segundo
+   * mensaje. Mismo arreglo (y mismas guardas) que en `ChatInforme` y
+   * `AgendaAgentPanel`.
+   */
+  const devolverFoco = useRef(false);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -176,6 +146,7 @@ export function EncounterChatPanel({
     if (trimmed && !isLoading) {
       sendMessage(trimmed);
       setText('');
+      devolverFoco.current = true;
       inputRef.current?.focus();
     }
   };
@@ -194,164 +165,127 @@ export function EncounterChatPanel({
   const canSend = text.trim().length > 0 && !isLoading;
   const isBusy = isLoading || isTranscribing;
 
-  return (
-    <div
-      className={`fixed z-[60] flex flex-col shadow-xl transition-all duration-300 ease-in-out ${
-        collapsed
-          ? 'inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:bottom-0 sm:top-auto sm:w-96 h-auto'
-          : 'inset-x-0 bottom-0 sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:!h-auto sm:w-96 rounded-t-2xl sm:rounded-none'
-      } bg-white border-t sm:border-t-0 sm:border-l border-gray-200`}
-      style={collapsed ? undefined : { height: `${panelHeight}vh` }}
-    >
-      {/* Drag handle (mobile, only when expanded) */}
-      {!collapsed && (
-        <div
-          className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing sm:hidden"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onMouseDown={handleMouseDown}
-        >
-          <div className="w-10 h-1 rounded-full bg-gray-300" />
-        </div>
-      )}
+  // Ver `devolverFoco`. Sólo se devuelve el cursor si nadie más lo tiene: lo
+  // normal en esta pantalla es seguir llenando el formulario mientras el
+  // asistente contesta, y robarle el foco al doctor a media palabra (o abrirle
+  // el teclado en móvil) es peor que el bug que esto arregla. Al deshabilitarse
+  // el input, el navegador deja el foco en el `body`: ése es el caso a reparar.
+  useEffect(() => {
+    if (isBusy) return;
+    if (!devolverFoco.current) return;
+    devolverFoco.current = false;
+    const dondeEstaElFoco = document.activeElement;
+    if (dondeEstaElFoco !== null && dondeEstaElFoco !== document.body) return;
+    inputRef.current?.focus();
+  }, [isBusy]);
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 sm:py-3 border-b border-gray-200 bg-indigo-50 sm:rounded-none">
-        <button
-          type="button"
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-        >
+  return (
+    // 🔴 Mismo armazón que `ChatInforme` y `AgendaAgentPanel`: en `lg` deja de
+    // flotar y pasa a ser un HERMANO FLEX (`lg:static`), así que el formulario
+    // se encoge en vez de quedar tapado. Debajo de `lg` cae a barra lateral
+    // fija de altura completa, y en móvil a hoja inferior.
+    <div
+      className="flex flex-col shrink-0 bg-white border-gray-200 shadow-xl
+        fixed z-[60] inset-x-0 bottom-0 h-[60vh] rounded-t-2xl border-t
+        sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:h-auto sm:w-96 sm:rounded-none sm:border-t-0 sm:border-l
+        lg:static lg:shadow-none lg:border-l lg:h-full lg:min-h-0"
+    >
+      {/* Header — mismas medidas que los otros dos chats; lo único distinto
+          entre los tres es el color de acento (índigo aquí). */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-indigo-50">
+        <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-indigo-600" />
-          <span className="text-sm font-semibold text-indigo-900">Chat IA</span>
-          {collapsed && messages.length > 0 && (
-            <span className="ml-1 w-5 h-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center">
-              {messages.length}
-            </span>
-          )}
-        </button>
+          <span className="text-sm font-semibold text-gray-800">Chat IA</span>
+        </div>
         <div className="flex items-center gap-1">
-          {messages.length > 0 && !collapsed && (
+          {messages.length > 0 && (
             <button
               type="button"
               onClick={clearChat}
-              className="text-xs text-indigo-500 hover:text-indigo-700 px-2 py-1 rounded hover:bg-indigo-100 transition-colors"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              title="Limpiar conversación"
             >
-              Limpiar
+              <Trash2 className="w-4 h-4" />
             </button>
           )}
           <button
             type="button"
-            onClick={() => setCollapsed(!collapsed)}
-            className="p-1 rounded hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors"
-            title={collapsed ? 'Expandir' : 'Minimizar'}
-          >
-            {collapsed ? <ChevronUp className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
-          </button>
-          <button
-            type="button"
             onClick={onClose}
-            className="p-1 rounded hover:bg-indigo-100 text-indigo-500 hover:text-indigo-700 transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            title="Cerrar"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Messages & Input — hidden when collapsed */}
-      {!collapsed && (
-        <>
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
-            {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-3">
-                  <Sparkles className="w-6 h-6 text-indigo-500" />
-                </div>
-                <p className="text-sm font-medium text-gray-700 mb-1">
-                  Asistente de consulta
-                </p>
-                <p className="text-xs text-gray-500 mb-4">
-                  Describe los datos del paciente y se llenaran automaticamente en el formulario.
-                </p>
-                <div className="flex flex-col gap-2 w-full">
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => handleSuggestion(s)}
-                      className="text-xs text-left px-3 py-2 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-colors"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <>
-                {messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} />
-                ))}
-                {(isLoading || isTranscribing) && (
-                  <div className="flex gap-2">
-                    <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-3.5 h-3.5 text-indigo-600" />
-                    </div>
-                    <div className="px-3 py-2 rounded-2xl rounded-bl-md bg-gray-100 text-gray-500 text-sm flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {isTranscribing ? 'Transcribiendo...' : 'Pensando...'}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Input with voice */}
-          <div className="border-t border-gray-200 p-2 sm:p-3 bg-white">
-            <div className="flex items-center gap-2">
-              <VoiceRecordButton
-                isRecording={voice.isRecording}
-                isProcessing={voice.isProcessing}
-                duration={voice.duration}
-                disabled={isBusy}
-                onStartRecording={voice.startRecording}
-                onStopRecording={voice.stopRecording}
-                onCancel={voice.cancelRecording}
-              />
-              <input
-                ref={inputRef}
-                type="text"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Describe los datos del paciente..."
-                disabled={isBusy}
-                className={`
-                  flex-1 px-3 sm:px-4 py-2.5 sm:py-2 rounded-full border border-gray-200
-                  focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400
-                  text-sm placeholder:text-gray-400
-                  ${isBusy ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}
-                `}
-              />
-              <button
-                onClick={handleSend}
-                disabled={!canSend}
-                className={`
-                  w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0
-                  ${canSend
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
-                    : 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                  }
-                `}
-                title="Enviar mensaje"
-              >
-                <Send className="w-4 h-4" />
-              </button>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {messages.length === 0 ? (
+          <div className="text-center pt-8 space-y-4">
+            <Bot className="w-10 h-10 text-indigo-200 mx-auto" />
+            <p className="text-sm text-gray-500">
+              Describe los datos del paciente y se llenaran automaticamente en el formulario.
+            </p>
+            <div className="flex flex-col items-center gap-2">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => handleSuggestion(s)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                >
+                  {s}
+                </button>
+              ))}
             </div>
           </div>
-        </>
-      )}
+        ) : (
+          <>
+            {messages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} />
+            ))}
+            {isBusy && (
+              <div className="flex items-center gap-2 text-gray-400 text-sm px-8">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {isTranscribing ? 'Transcribiendo...' : 'Pensando...'}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Input with voice */}
+      <div className="border-t border-gray-200 p-3">
+        <div className="flex items-center gap-2">
+          <VoiceRecordButton
+            isRecording={voice.isRecording}
+            isProcessing={voice.isProcessing}
+            duration={voice.duration}
+            disabled={isBusy}
+            onStartRecording={voice.startRecording}
+            onStopRecording={voice.stopRecording}
+            onCancel={voice.cancelRecording}
+          />
+          <input
+            ref={inputRef}
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Describe los datos del paciente..."
+            disabled={isBusy}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!canSend}
+            className="shrink-0 p-2 rounded-xl bg-indigo-600 text-white disabled:opacity-40 hover:bg-indigo-700"
+            title="Enviar mensaje"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -267,10 +267,17 @@ export default function ChatInforme({
   // devolvemos en cuanto el turno termina (haya salido bien o con error).
   useEffect(() => {
     if (pensando || grabando) return;
+    // 🔴 `turnoEncolado` se consume ANTES de mirar `devolverFoco`, si no se
+    // queda pegado: apretar autollenado sin haber tecleado nunca lo deja en
+    // `true` (este efecto se salía en la guarda de abajo), y el PRIMER mensaje
+    // que el doctor escribiera después se comía el arreglo — el cursor no
+    // volvía, que es justo el bug original.
+    const eraTurnoEncolado = turnoEncolado.current;
+    turnoEncolado.current = false;
     if (!devolverFoco.current) return;
     // Un turno encolado (autollenado) arranca en este mismo commit: no es el
-    // final de nada. Se deja la bandera puesta para el turno de verdad.
-    if (turnoEncolado.current) { turnoEncolado.current = false; return; }
+    // final de nada. Se deja `devolverFoco` puesto para el turno de verdad.
+    if (eraTurnoEncolado) return;
     // 🔴 El foco se devuelve SÓLO si no hay nadie más usándolo. Mientras el
     // asistente piensa, lo NORMAL en esta pantalla es que el doctor esté
     // corrigiendo una casilla de la hoja; robarle el cursor a media palabra
@@ -325,7 +332,7 @@ export default function ChatInforme({
     // `lg` cae a barra lateral fija, y en móvil a hoja inferior.
     <div
       className="flex flex-col shrink-0 bg-white border-gray-200 shadow-xl
-        fixed z-[55] inset-x-0 bottom-0 h-[60vh] rounded-t-2xl border-t
+        fixed z-[60] inset-x-0 bottom-0 h-[60vh] rounded-t-2xl border-t
         sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:h-auto sm:w-96 sm:rounded-none sm:border-t-0 sm:border-l
         lg:static lg:shadow-none lg:border-l lg:h-full lg:min-h-0"
     >
