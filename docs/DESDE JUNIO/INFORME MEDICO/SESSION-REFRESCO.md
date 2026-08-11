@@ -1378,11 +1378,41 @@ Pregunta del usuario. La respuesta tiene dos partes porque `ClinicalEncounter` e
 
 > **Empieza por aquí.** Lo de abajo (sección del 2026-08-10) es el historial; esto es el estado.
 
+## 🔴 LO QUE APRENDIMOS MIRANDO LA PANTALLA (lo más útil del día)
+
+El usuario abrió el informe y reportó tres cosas. Las tres eran ciertas y ninguna era
+lo que parecía:
+
+| Lo que dijo | Lo que era |
+|---|---|
+| *"usé la consulta del 20 de agosto y el formato dice 10 de agosto"* | **No hubo cambio de fecha.** La caja `Fecha:` de la p1 de AXA es la fecha DEL DOCUMENTO (va junto a `Lugar:`). Y **la fecha de la consulta NO TIENE CAJA en AXA**: `consulta.fecha` no está en el diccionario, así que se calcula, se guarda, se enseña en "Lista de campos" y se descarta al generar bajo `sin-campo-en-el-formato`. AXA pide fecha de padecimiento / diagnóstico / cirugía, nunca "de la consulta" |
+| *"marqué todas las casillas y no pasó nada en el formato"* | **Correcto, y era el diseño**: marcar sólo se lo da al asistente; lo que aterriza llega al CONVERSAR, en ámbar. Pero **eso no estaba escrito por ningún lado**, así que era indistinguible de estar roto |
+| *"no es claro si se está usando o no"* | No había forma de saberlo. Suya fue la idea del arreglo: **que el chat diga lo que está leyendo** |
+
+Arreglado en `d685b8ce`: el chat declara su lectura (encabezado FIJO, fuera del scroll),
+el informe abierto enseña su ancla, y el panel dice de entrada que marcar no llena la hoja.
+
+🔎 **Lección de método:** una funcionalidad que no dice lo que hace se reporta como rota,
+y con razón. Cuatro hallazgos del review de ese commit fueron TODOS "la UI afirma algo
+que no siempre es cierto" — huérfanas listadas como leídas, un ancla vacía anunciada
+como leída, el recuadro que se iba con el scroll, y un "el asistente la lee" cuando no
+había asistente. Escribir el mensaje tranquilizador es la parte fácil; comprobar que es
+verdad **en todos los estados** es el trabajo.
+
 ## El paso 07 está EN PROD y NADIE lo ha tocado con el dedo
 
-`64dad1a0` — deploy de `@healthcare/doctor` **SUCCESS**. La columna `sources` se aplicó a prod
-**antes** del push (sin ella, `findFirst` sobre `medical_reports` da 42703 y tumba TODO el
-informe, no sólo lo nuevo). Rutas comprobadas vivas: `/fuentes`, `/reports` y la pantalla nueva
+Los CUATRO commits del día, todos con deploy **SUCCESS**:
+
+| commit | qué |
+|---|---|
+| `64dad1a0` | el informe a nivel PACIENTE con fuentes elegidas (plan 07) |
+| `b2bc3a68` | recetas vencidas etiquetadas + el bug de un día en lo que lee el ASISTENTE |
+| `f5af288a` | el bug de un día en lo que se IMPRIME en el PDF (`informe.fecha` estampaba MAÑANA cada tarde) |
+| `d685b8ce` | el flujo dice lo que hace (ver la sección de arriba) |
+
+La columna `sources` se aplicó a prod **antes** del push (sin ella, `findFirst` sobre
+`medical_reports` da 42703 y tumba TODO el informe, no sólo lo nuevo). Rutas comprobadas vivas:
+`/fuentes`, `/reports` y la pantalla nueva
 `/dashboard/medical-records/patients/[id]/informe` contestan 307, no 404.
 
 🔴 **Lo primero que hay que hacer es ABRIRLO:** paciente → Informe → elegir ancla → marcar una
