@@ -265,13 +265,36 @@ export function AgendaAgentPanel() {
     }
   }, [messages, loading]);
 
+  /**
+   * 🔴 Enfocar AQUÍ no alcanza: la caja se pone `disabled` mientras el turno
+   * corre, y el navegador desenfoca lo deshabilitado (y no lo devuelve al
+   * re-habilitarlo). El `focus()` de esta línea se pierde en el re-render
+   * siguiente; quien de verdad devuelve el cursor es el efecto de abajo.
+   */
+  const devolverFoco = useRef(false);
+
   const handleSend = (value?: string) => {
     const trimmed = (value ?? text).trim();
     if (!trimmed || busy) return;
     sendMessage(trimmed);
     setText('');
+    devolverFoco.current = true;
     inputRef.current?.focus();
   };
+
+  useEffect(() => {
+    if (busy) return;
+    if (!devolverFoco.current) return;
+    devolverFoco.current = false;
+    // 🔴 Sólo si nadie más tiene el cursor. Este panel flota sobre el
+    // dashboard: preguntar algo y ponerse a llenar un formulario de atrás
+    // mientras contesta es lo normal, y devolver el foco a ciegas se lo
+    // arrebata a media palabra. Al deshabilitarse el input, el navegador deja
+    // el foco en el `body` — ése es el caso que hay que reparar.
+    const dondeEstaElFoco = document.activeElement;
+    if (dondeEstaElFoco !== null && dondeEstaElFoco !== document.body) return;
+    inputRef.current?.focus();
+  }, [busy]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

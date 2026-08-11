@@ -833,8 +833,12 @@ export default function PatientProfilePage() {
       {/* Main Content — 3/5 · 2/5 instead of the old 2/3 · 1/3: the right column
           now carries Datos Fiscales + Citas e Ingresos and needed the room. */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left Column */}
-        <div className="lg:col-span-3 space-y-6 order-2 lg:order-1">
+        {/* Left Column — también va PRIMERA en móvil. El `order-1` de la
+            derecha tenía sentido cuando esa columna era "Información Rápida"
+            (una tarjeta corta de resumen); ahora carga Resumen + Datos
+            Fiscales + Citas e Ingresos, y en un teléfono eso dejaba el
+            expediente clínico debajo de todo el ledger de cobros. */}
+        <div className="lg:col-span-3 space-y-6">
           {/* Contact Information */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
@@ -1028,7 +1032,7 @@ export default function PatientProfilePage() {
         </div>
 
         {/* Right Column */}
-        <div className="lg:col-span-2 space-y-6 order-1 lg:order-2">
+        <div className="lg:col-span-2 space-y-6">
           {/* Resumen Paciente — first card of the column on purpose: it's the
               one the doctor reads before anything else, and buried at the
               bottom nobody found the "Generar Resumen" button. */}

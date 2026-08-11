@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bot, Loader2, Mic, Send, Square, X } from 'lucide-react';
+import { Bot, Loader2, Mic, Send, Sparkles, Square, User, X } from 'lucide-react';
 // La zona de cada fecha depende del TIPO de fuente (día de calendario vs
 // instante). Una sola tabla de verdad: `fechas-de-fuente.ts`.
 import { fechaDeFuente, type TipoFuente } from '@/lib/informe-medico/fechas-de-fuente';
@@ -126,6 +126,21 @@ export default function ChatInforme({
   const fin = useRef<HTMLDivElement>(null);
   const rec = useRef<MediaRecorder | null>(null);
   const trozos = useRef<Blob[]>([]);
+  const cajaTexto = useRef<HTMLTextAreaElement>(null);
+  /**
+   * 🔴 El cursor se perdía después de cada mensaje y había que volver a hacer
+   * clic para escribir el segundo.
+   *
+   * No basta con enfocar al mandar: la caja se pone `disabled` mientras el
+   * asistente piensa, y el navegador DESENFOCA un elemento deshabilitado (y no
+   * lo devuelve al re-habilitarlo). Hay que volver a enfocar cuando el turno
+   * termina. Sólo si el doctor estaba escribiendo aquí — si mandó por micrófono
+   * o el turno lo disparó el botón de autollenado, robarle el foco lo sacaría de
+   * donde esté.
+   */
+  const devolverFoco = useRef(false);
+  /** Un turno de autollenado que sale en el mismo commit en que termina el anterior. */
+  const turnoEncolado = useRef(false);
 
   /**
    * 🔴 El estado de la hoja se lee de un ref, no de la clausura.
@@ -236,16 +251,46 @@ export default function ChatInforme({
     // disparo se descarta y el doctor decide.
     if (error !== null) { ultimoDisparo.current = disparoAutollenado; return; }
     ultimoDisparo.current = disparoAutollenado;
+    // 🔴 Este efecto corre ANTES que el del foco en el mismo commit, y el
+    // `setPensando(true)` de `enviar` todavía no se ve desde allá: sin esta
+    // señal, el efecto del foco cree que el turno terminó, enfoca una caja que
+    // el turno nuevo va a deshabilitar y GASTA `devolverFoco` — el cursor no
+    // volvía nunca después de un autollenado encolado.
+    turnoEncolado.current = true;
     enviarRef.current(MENSAJE_AUTOLLENADO);
   }, [disparoAutollenado, pensando, grabando, error]);
 
   // El panel de fuentes necesita saberlo para deshabilitar su botón.
   useEffect(() => { onOcupadoChange(pensando || grabando); }, [pensando, grabando, onOcupadoChange]);
 
+  // Ver `devolverFoco`: la caja vuelve de `disabled` sin foco, así que se lo
+  // devolvemos en cuanto el turno termina (haya salido bien o con error).
+  useEffect(() => {
+    if (pensando || grabando) return;
+    if (!devolverFoco.current) return;
+    // Un turno encolado (autollenado) arranca en este mismo commit: no es el
+    // final de nada. Se deja la bandera puesta para el turno de verdad.
+    if (turnoEncolado.current) { turnoEncolado.current = false; return; }
+    // 🔴 El foco se devuelve SÓLO si no hay nadie más usándolo. Mientras el
+    // asistente piensa, lo NORMAL en esta pantalla es que el doctor esté
+    // corrigiendo una casilla de la hoja; robarle el cursor a media palabra
+    // (y en móvil, abrirle el teclado encima de la hoja) es peor que el bug
+    // que esto vino a arreglar. Al deshabilitarse la caja, el navegador manda
+    // el foco al `body`: ése es el único caso que hay que reparar.
+    const dondeEstaElFoco = document.activeElement;
+    if (dondeEstaElFoco !== null && dondeEstaElFoco !== document.body) {
+      devolverFoco.current = false;
+      return;
+    }
+    devolverFoco.current = false;
+    cajaTexto.current?.focus();
+  }, [pensando, grabando]);
+
   function mandarTexto() {
     const t = texto.trim();
     if (t === '' || pensando) return;
     setTexto('');
+    devolverFoco.current = true;
     enviar(t);
   }
 
@@ -284,12 +329,22 @@ export default function ChatInforme({
         sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:h-auto sm:w-96 sm:rounded-none sm:border-t-0 sm:border-l
         lg:static lg:shadow-none lg:border-l lg:h-full lg:min-h-0"
     >
-      <div className="flex items-center justify-between border-b px-3 py-2 bg-blue-50">
-        <span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <Bot className="h-4 w-4 text-blue-600" /> Conversar con el formato
-        </span>
-        <button onClick={onCerrar} className="text-gray-400 hover:text-gray-700" title="Cerrar">
-          <X className="h-4 w-4" />
+      {/* 🔴 Mismas medidas que el encabezado del asistente de agenda
+          (`AgendaAgentPanel`): px-4 py-3, ícono de 4, título text-sm
+          font-semibold text-gray-800, botón de cerrar p-1.5. Lo ÚNICO que
+          cambia entre los dos chats es el color de acento — azul aquí,
+          esmeralda allá — para que se distingan sin parecer otro producto. */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-blue-50">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-blue-600" />
+          <span className="text-sm font-semibold text-gray-800">Conversar con el formato</span>
+        </div>
+        <button
+          onClick={onCerrar}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+          title="Cerrar"
+        >
+          <X className="w-4 h-4" />
         </button>
       </div>
 
@@ -327,56 +382,77 @@ export default function ChatInforme({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 text-sm">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm">
         <p className="rounded-lg bg-blue-50 text-blue-900 px-3 py-2">{SALUDO}</p>
 
-        {mensajes.map((m, i) => (
-          <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
-            <p className={`inline-block rounded-lg px-3 py-2 whitespace-pre-wrap text-left ${
-              m.role === 'user' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'
-            }`}>
-              {m.content}
-            </p>
-            {/* 🔴 Se dice CUÁNTOS aterrizaron y que están SIN GUARDAR. Sin esto
-                el doctor lee la respuesta, no mira la hoja y cree que ya quedó. */}
-            {m.colocados !== undefined && m.colocados > 0 && (
-              <p className="mt-1 text-[11px] text-amber-700">
-                {m.colocados} campo(s) puestos en la hoja en ámbar — revísalos y aprieta Guardar.
-              </p>
-            )}
-            {m.fuentesFaltantes && m.fuentesFaltantes.length > 0 && (
-              <p className="mt-1 text-[11px] text-red-700">
-                {m.fuentesFaltantes.length} fuente(s) que elegiste ya no se pudieron leer
-                ({m.fuentesFaltantes.map((f) => {
-                  const d = fechaDeFuente(f.fecha, f.tipo);
-                  return d ? `${f.tipo} del ${d}` : f.tipo;
-                }).join(' · ')}):
-                este turno se contestó sin ellas. Quítalas en “Fuentes del expediente”.
-              </p>
-            )}
-            {m.descartados && m.descartados.length > 0 && (
-              <div className="mt-1 text-[11px] text-red-700">
-                <p>{m.descartados.length} no se pudieron colocar:</p>
-                <ul className="list-disc pl-4">
-                  {m.descartados.map((d, j) => (
-                    <li key={j}>
-                      {d.motivo === 'caracteres-no-imprimibles'
-                        ? `símbolos que el formato no imprime (${(d.caracteres ?? []).join(' ')})`
-                        : d.motivo === 'no-es-texto'
-                        ? 'el modelo no devolvió texto'
-                        : d.motivo === 'opcion-inexistente'
-                        // 🔴 Se dicen las opciones REALES. Antes sólo se decía
-                        // "no existe", que no le sirve de nada al doctor para
-                        // volver a preguntar.
-                        ? `esa opción no existe; hay: ${(d.opciones ?? []).join(' · ')}`
-                        : 'ese campo no está en esta hoja'}
-                    </li>
-                  ))}
-                </ul>
+        {/* 🔴 Misma burbuja que el asistente de agenda (`AgendaAgentPanel`):
+            avatar redondo de 6, `rounded-2xl` con la esquina de la cola
+            recortada, doctor en azul a la derecha, asistente en gris a la
+            izquierda. Las anotaciones de este chat (campos colocados, fuentes
+            que no se pudieron leer, descartes) cuelgan DEBAJO de la burbuja,
+            alineadas con ella. */}
+        {mensajes.map((m, i) => {
+          const esDoctor = m.role === 'user';
+          return (
+            <div key={i} className={`flex gap-2 ${esDoctor ? 'flex-row-reverse' : 'flex-row'}`}>
+              {/* Los dos avatares van en el color de acento del panel — azul
+                  aquí, esmeralda en agenda. Se distinguen por el ícono y por el
+                  lado, igual que en el asistente de agenda. */}
+              <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-1 bg-blue-600 text-white">
+                {esDoctor ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
               </div>
-            )}
-          </div>
-        ))}
+              <div className={`max-w-[85%] flex flex-col ${esDoctor ? 'items-end' : 'items-start'}`}>
+                <div
+                  className={`px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                    esDoctor
+                      ? 'bg-blue-600 text-white rounded-br-md'
+                      : 'bg-gray-100 text-gray-800 rounded-bl-md'
+                  }`}
+                >
+                  {m.content}
+                </div>
+                {/* 🔴 Se dice CUÁNTOS aterrizaron y que están SIN GUARDAR. Sin esto
+                    el doctor lee la respuesta, no mira la hoja y cree que ya quedó. */}
+                {m.colocados !== undefined && m.colocados > 0 && (
+                  <p className="mt-1 px-1 text-[11px] text-amber-700">
+                    {m.colocados} campo(s) puestos en la hoja en ámbar — revísalos y aprieta Guardar.
+                  </p>
+                )}
+                {m.fuentesFaltantes && m.fuentesFaltantes.length > 0 && (
+                  <p className="mt-1 px-1 text-[11px] text-red-700">
+                    {m.fuentesFaltantes.length} fuente(s) que elegiste ya no se pudieron leer
+                    ({m.fuentesFaltantes.map((f) => {
+                      const d = fechaDeFuente(f.fecha, f.tipo);
+                      return d ? `${f.tipo} del ${d}` : f.tipo;
+                    }).join(' · ')}):
+                    este turno se contestó sin ellas. Quítalas en “Fuentes del expediente”.
+                  </p>
+                )}
+                {m.descartados && m.descartados.length > 0 && (
+                  <div className="mt-1 px-1 text-[11px] text-red-700">
+                    <p>{m.descartados.length} no se pudieron colocar:</p>
+                    <ul className="list-disc pl-4">
+                      {m.descartados.map((d, j) => (
+                        <li key={j}>
+                          {d.motivo === 'caracteres-no-imprimibles'
+                            ? `símbolos que el formato no imprime (${(d.caracteres ?? []).join(' ')})`
+                            : d.motivo === 'no-es-texto'
+                            ? 'el modelo no devolvió texto'
+                            : d.motivo === 'opcion-inexistente'
+                            // 🔴 Se dicen las opciones REALES. Antes sólo se decía
+                            // "no existe", que no le sirve de nada al doctor para
+                            // volver a preguntar.
+                            ? `esa opción no existe; hay: ${(d.opciones ?? []).join(' · ')}`
+                            : 'ese campo no está en esta hoja'}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
 
         {pensando && (
           <p className="inline-flex items-center gap-2 text-gray-500">
@@ -387,9 +463,10 @@ export default function ChatInforme({
         <div ref={fin} />
       </div>
 
-      <div className="border-t p-2">
+      <div className="border-t border-gray-200 p-3">
         <div className="flex items-end gap-2">
           <textarea
+            ref={cajaTexto}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => {
@@ -400,14 +477,16 @@ export default function ChatInforme({
             rows={2}
             disabled={pensando || grabando}
             placeholder={grabando ? 'Grabando…' : 'Cuéntame el caso, o pregunta qué falta'}
-            className="flex-1 resize-none border rounded-lg px-2 py-1.5 text-sm disabled:bg-gray-50"
+            className="flex-1 resize-none px-3 py-2 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
           />
           <button
             onClick={alternarMicrofono}
             disabled={pensando}
             title={grabando ? 'Detener y mandar' : 'Hablar en vez de teclear'}
-            className={`shrink-0 rounded-lg border p-2 disabled:opacity-40 ${
-              grabando ? 'bg-red-600 text-white border-red-600 animate-pulse' : 'hover:bg-gray-50'
+            className={`shrink-0 rounded-xl border p-2 disabled:opacity-40 ${
+              grabando
+                ? 'bg-red-600 text-white border-red-600 animate-pulse'
+                : 'border-gray-300 hover:bg-gray-50'
             }`}
           >
             {grabando ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
@@ -415,7 +494,7 @@ export default function ChatInforme({
           <button
             onClick={mandarTexto}
             disabled={pensando || grabando || texto.trim() === ''}
-            className="shrink-0 rounded-lg bg-blue-600 text-white p-2 disabled:opacity-40"
+            className="shrink-0 rounded-xl bg-blue-600 text-white p-2 disabled:opacity-40 hover:bg-blue-700"
             title="Mandar"
           >
             <Send className="h-4 w-4" />
