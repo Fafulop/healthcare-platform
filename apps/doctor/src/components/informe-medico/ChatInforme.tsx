@@ -15,6 +15,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, Loader2, Mic, Send, Square, X } from 'lucide-react';
+// La zona de cada fecha depende del TIPO de fuente (día de calendario vs
+// instante). Una sola tabla de verdad: `fechas-de-fuente.ts`.
+import { fechaDeFuente, type TipoFuente } from '@/lib/informe-medico/fechas-de-fuente';
 
 export interface PropuestaChat {
   value: string;
@@ -32,7 +35,7 @@ interface Mensaje {
   /** 🔴 Fuentes que el doctor eligió y que el servidor ya no pudo leer (se borró
    * la nota, la receta volvió a borrador). Se dice: si no, este turno se contestó
    * sin ellas y se ve idéntico a uno completo. */
-  fuentesFaltantes?: Array<{ tipo: string; fecha: string }>;
+  fuentesFaltantes?: Array<{ tipo: TipoFuente; fecha: string }>;
 }
 
 interface Props {
@@ -53,15 +56,6 @@ interface Props {
 const SALUDO =
   'Conozco este formato y tú no te lo sabes de memoria. Cuéntame el caso como se lo contarías ' +
   'a un colega y yo lo voy colocando en la hoja, o pregúntame qué le falta.';
-
-/** `2026-03-12T…` → ` del 12/03/2026`. Vacío si la fuente se guardó sin fecha
- * (informes de antes de que la columna existiera). */
-function fechaCorta(iso: string): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return ` del ${d.toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}`;
-}
 
 async function mensajeDeError(r: Response, porDefecto: string): Promise<string> {
   if (r.status === 401) return 'Se venció la sesión. Vuelve a entrar.';
@@ -241,7 +235,10 @@ export default function ChatInforme({ base, reportId, estadoHoja, onPropuesta, a
             {m.fuentesFaltantes && m.fuentesFaltantes.length > 0 && (
               <p className="mt-1 text-[11px] text-red-700">
                 {m.fuentesFaltantes.length} fuente(s) que elegiste ya no se pudieron leer
-                ({m.fuentesFaltantes.map((f) => `${f.tipo}${fechaCorta(f.fecha)}`).join(' · ')}):
+                ({m.fuentesFaltantes.map((f) => {
+                  const d = fechaDeFuente(f.fecha, f.tipo);
+                  return d ? `${f.tipo} del ${d}` : f.tipo;
+                }).join(' · ')}):
                 este turno se contestó sin ellas. Quítalas en “Fuentes del expediente”.
               </p>
             )}

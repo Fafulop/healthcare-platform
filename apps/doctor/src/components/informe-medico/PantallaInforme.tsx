@@ -78,6 +78,12 @@ function textoAviso(a: Aviso): string {
   }
 }
 
+/**
+ * ✅ México a propósito y no es la misma decisión que la de las FUENTES:
+ * `MedicalReport.createdAt` es `now()`, un instante de verdad, y esos sí se leen
+ * en la zona del negocio. Las fechas de las fuentes son días de calendario
+ * (medianoche UTC) y van por `fechas-de-fuente.ts` — mezclarlas corre un día.
+ */
 const FECHA_MX: Intl.DateTimeFormatOptions = {
   timeZone: 'America/Mexico_City', day: '2-digit', month: '2-digit', year: 'numeric',
 };

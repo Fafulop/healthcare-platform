@@ -19,14 +19,10 @@
 
 import { useMemo } from 'react';
 import { AlertTriangle, FileText, Loader2, NotebookPen, Pill } from 'lucide-react';
-
-/** `2026-03-12T…` → ` del 12/03/2026`. Vacío si se guardó sin fecha. */
-function fechaCorta(iso: string | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return ` del ${d.toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}`;
-}
+// 🔴 La zona depende de la CLASE de fecha de cada tipo de fuente, y esa decisión
+// vive en un solo módulo. Formatear aquí a mano en hora de México corría un día
+// las consultas y las recetas — que son días de calendario, no instantes.
+import { fechaDeFuente } from '@/lib/informe-medico/fechas-de-fuente';
 
 export interface FuenteDisponible {
   tipo: 'consulta' | 'nota' | 'receta';
@@ -36,6 +32,8 @@ export interface FuenteDisponible {
   titulo: string;
   resumen: string;
   tokensAprox: number;
+  /** Lo que hay que saber ANTES de elegirla (hoy: "vencida el …"). */
+  aviso?: string;
 }
 
 export interface FuenteElegida {
@@ -193,6 +191,13 @@ export default function PanelFuentes({
                                 <Loader2 className="inline h-3 w-3 ml-1 animate-spin text-gray-400" />
                               )}
                             </span>
+                            {/* 🔴 Sin esto el doctor cuenta 3 recetas aquí y 2 en
+                                el ledger, y no hay forma de saber por qué. */}
+                            {f.aviso && (
+                              <span className="inline-block my-0.5 text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">
+                                {f.aviso}
+                              </span>
+                            )}
                             <span className="block text-xs text-gray-500 truncate">{f.resumen}</span>
                           </span>
                         </label>
@@ -225,7 +230,8 @@ export default function PanelFuentes({
                         />
                         <span className="min-w-0 flex-1">
                           <span className="block font-medium text-gray-800">
-                            {SINGULAR[f.tipo]}{fechaCorta(f.fecha)}
+                            {SINGULAR[f.tipo]}
+                            {fechaDeFuente(f.fecha, f.tipo) && ` del ${fechaDeFuente(f.fecha, f.tipo)}`}
                             {guardando === llave && (
                               <Loader2 className="inline h-3 w-3 ml-1 animate-spin text-gray-400" />
                             )}

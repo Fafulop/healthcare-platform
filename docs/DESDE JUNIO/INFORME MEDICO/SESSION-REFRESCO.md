@@ -1374,9 +1374,69 @@ Pregunta del usuario. La respuesta tiene dos partes porque `ClinicalEncounter` e
 
 ---
 
-# 🔴 DÓNDE QUEDAMOS DE VERDAD — 2026-08-10, fin de sesión
+# 🔴 DÓNDE QUEDAMOS DE VERDAD — 2026-08-11, fin de sesión
 
-> **Empieza por aquí.** Lo de arriba es el historial; esto es el estado.
+> **Empieza por aquí.** Lo de abajo (sección del 2026-08-10) es el historial; esto es el estado.
+
+## El paso 07 está EN PROD y NADIE lo ha tocado con el dedo
+
+`64dad1a0` — deploy de `@healthcare/doctor` **SUCCESS**. La columna `sources` se aplicó a prod
+**antes** del push (sin ella, `findFirst` sobre `medical_reports` da 42703 y tumba TODO el
+informe, no sólo lo nuevo). Rutas comprobadas vivas: `/fuentes`, `/reports` y la pantalla nueva
+`/dashboard/medical-records/patients/[id]/informe` contestan 307, no 404.
+
+🔴 **Lo primero que hay que hacer es ABRIRLO:** paciente → Informe → elegir ancla → marcar una
+nota → conversar. Nunca ha renderizado en un navegador.
+
+Y siguen pendientes los **DOS ⏳ de la sesión anterior**, que ahora también se alcanzan desde la
+puerta nueva: **marcar una casilla que NO sea la primera de su grupo** y **bajar borrador + final**.
+
+## Lo que se midió (y lo que NO)
+
+Llamada real a gpt-4o con el prompt real: sin fuentes coloca **2** campos, con fuentes **6**,
+ninguno perdido, 0 descartados, +224 tokens. `cached_tokens: 6528` ⇒ el prefijo estable se cachea
+de verdad. **Una sola corrida por condición**: es dirección, no medición.
+
+⚠️ El modelo **dedujo** la fecha de diagnóstico de la fecha de la consulta, que el expediente no
+decía. Ámbar lo cubre, pero las fuentes lo vuelven más dispuesto a rellenar fechas.
+
+## El bug más caro que encontró el review (7 hallazgos)
+
+Una fuente que desaparece del expediente después de elegirla —nota borrada, receta de vuelta a
+borrador— **dejaba el informe atorado para siempre**: el id fantasma seguía en `sources`, viajaba
+en cada `PATCH`, el servidor lo rechazaba con 409, y el panel no tenía casilla que desmarcar. No
+se podía ni quitar OTRA fuente. Arreglado (se descarta + se reporta + huérfanas en rojo) y
+**probado ejecutándose contra datos reales de prod**, no leyendo el código.
+
+## Sigue abierto (heredado, NO se tocó hoy)
+
+- ⚠️ **`prefill.ts` `fechaMomento()` — MEDIDO el 2026-08-11, y la conclusión es más fina que el
+  susto que traía este doc.** Usa componentes **locales del servidor** (`getFullYear/Month/Date`).
+  En el servicio `@healthcare/doctor` **`TZ` no está seteada**, así que en prod "local" = **UTC**.
+  Y las columnas de fecha clínica se escriben con `new Date("YYYY-MM-DD")` ⇒ **medianoche UTC**
+  (medido: `encounter_date` 193/199, `prescription_date` 41/41, `expires_at` 8/8).
+  - ⇒ **`consulta.fecha` sale BIEN en prod hoy** (UTC de una medianoche UTC = el día correcto).
+    Pero es **frágil**: basta con que alguien ponga `TZ=America/Mexico_City` para que TODAS las
+    fechas del informe corran un día. Y **en local (máquina en México) YA sale mal**, así que dev
+    y prod no coinciden.
+  - 🔴 **`hoy` (línea ~302, la fecha de emisión) SÍ está mal**: es un instante real, y con el
+    contenedor en UTC, entre las **18:00 y las 24:00 hora de México** estampa **MAÑANA**.
+  - La regla correcta ya existe: **`lib/informe-medico/fechas-de-fuente.ts`**, un módulo PURO
+    (sin Prisma) que importan el servidor y los componentes de cliente. Decide la zona por la
+    **clase de la columna Y por el valor**: una fecha a medianoche UTC exacta es un día de
+    calendario y se lee en **UTC**; cualquier otra es un instante y se lee en **México**. Lo
+    segundo hace falta porque **6 de las 199 `encounter_date` traen hora de verdad** y leerlas en
+    UTC las corría un día HACIA ADELANTE.
+  - ⚠️ **`prefill.ts` NO se migró a ese módulo** — escribe los valores 🟩 verdes de un documento
+    médico-legal y merece su propia pasada, no ir de aventón en este cambio.
+- **`/api/…/dictar` sigue SIN UI** que lo llame. Endpoint LLM vivo y sin superficie.
+- **El autoguardado al salir del campo YA NO EXISTE** (1B) y nadie decidió si se quiere así.
+- **GNP**: ¿el formato de Eleonor (3 págs) o el oficial (2 págs)?
+- **Allianz páginas 2 y 3** nunca se miraron.
+
+---
+
+# DÓNDE QUEDAMOS — 2026-08-10 (histórico)
 
 ## Todo está EN PROD y desplegado
 

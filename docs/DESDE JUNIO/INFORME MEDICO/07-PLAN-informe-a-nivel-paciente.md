@@ -1,8 +1,12 @@
 # 07 — PLAN: el informe se hace a nivel PACIENTE, con fuentes elegidas
 
-> Tipo **PLAN**. Escrito el **2026-08-10**. Nada implementado.
+> Tipo **PLAN**. Escrito el **2026-08-10**.
+> 🟢 **IMPLEMENTADO Y EN PROD el 2026-08-11** (`64dad1a0`, deploy SUCCESS). Ver §12.
 > Sucede a [`06-AGENTE`](06-AGENTE-conversar-con-el-formato.md), que ya funciona: el chat
 > coloca valores sobre la hoja. Esto amplía **de dónde saca la información**.
+>
+> 🔴 **Nadie lo ha probado a mano todavía.** Type-check, gates, una llamada real al modelo
+> y verificación read-only contra prod no son un clic.
 
 ## 1. De dónde sale la idea
 
@@ -71,6 +75,27 @@ Las tres viven en `medical_records` y **todas se filtran por `patientId` + `doct
 paciente, y declararla a la aseguradora es afirmar algo falso. Ya es la regla del pre-llenado
 (hallazgo del review del paso 5) y se hereda tal cual. La vencida sí cuenta: fue tratamiento, que
 hoy esté vencida no la borra de la historia.
+
+> ⚠️ **CORRECCIÓN (2026-08-11), y no es menor.** `status = 'expired'` **no lo escribe nadie**:
+> comprobado contra prod, hay 36 `issued`, 3 `cancelled`, 2 `draft` y **cero** `expired`. La
+> vigencia vive en la columna **`expires_at`**, no en el status. Esta regla filtra bien lo que NO
+> debe entrar (borradores y canceladas) pero **no dice nada sobre la vigencia**, que era la mitad
+> de su intención.
+>
+> Lo destapó el usuario mirando la pantalla: *"me ofrece 3 recetas y en el ledger veo 2"*
+> (Carmen Ruiz Ortega). El **ledger** las esconde por defecto cuando `expiresAt` ya pasó
+> (`includeExpired`); el panel de fuentes las ofrecía. Las dos pantallas daban números distintos
+> sin explicación.
+>
+> **Cómo quedó:** la vencida **se sigue ofreciendo** —§4 sigue en pie— pero **se dice que lo
+> está**, en los dos lados: chip ámbar *"vencida el dd/mm/aaaa — el ledger de recetas no la
+> enseña"* en el panel, y una primera línea `Vigencia: VENCIDA el dd/mm/aaaa (fue tratamiento, no
+> es el actual)` en el texto que lee el modelo, para que no la presente como el tratamiento
+> vigente. La comprobación vive en `recetaVencida()`, una sola función para las dos superficies.
+>
+> 🔎 **Lección:** una regla escrita con el vocabulario equivocado se implementa fielmente y aun
+> así no hace lo que dice. Los 5 gates, el type-check y una llamada real al modelo estaban en
+> verde; lo encontró alguien contando filas en dos pantallas.
 
 ## 5. Procedencia: una FK no alcanza para N fuentes
 
@@ -184,3 +209,46 @@ aquí. Citarlo como si aplicara sería justificar una decisión con un hecho fal
 > 🔎 **Lección de método:** "el payload es grande" no es un diagnóstico. Grande **¿comparado con
 > qué?** Contra el límite técnico no es nada; contra el costo es barato; contra la atención del
 > modelo puede ser mucho — y es lo único de los tres que no sabemos.
+
+## 12. 🟢 Cómo quedó (2026-08-11, `64dad1a0`)
+
+| Pieza | Dónde |
+|---|---|
+| Columna `sources` JSONB | `migrations/add-informe-medico-sources.sql` — **aplicada a prod ANTES del push** |
+| Los 3 tipos de fuente + presupuesto | `lib/informe-medico/contexto-clinico.ts` |
+| Catálogo de lo elegible | `GET /api/medical-records/patients/:id/fuentes` |
+| Pantalla compartida por las dos puertas | `components/informe-medico/PantallaInforme.tsx` |
+| El panel de casillas | `components/informe-medico/PanelFuentes.tsx` |
+| Entrada a nivel paciente | `/dashboard/medical-records/patients/[id]/informe` |
+
+### Lo que se MIDIÓ con una llamada real a gpt-4o
+
+Mismo mensaje, datos inventados, temperatura 0, **una corrida por condición**:
+
+| | campos colocados | descartados | tokens de entrada |
+|---|---|---|---|
+| Sin fuentes | 2 | 0 | 6,737 |
+| Con fuentes | **6** | 0 | 6,961 |
+
+- El modelo **sí lee** el bloque de fuentes: los 4 campos de más salieron todos de ahí.
+- **No se perdió ninguno.** La dilución de atención que temía §11 no se observó a este tamaño
+  (+224 tokens). ⚠️ Una corrida no distingue una regresión del ruido: es evidencia direccional,
+  no una medición.
+- `cached_tokens: 6528` en la segunda llamada ⇒ **el prefijo estable SÍ se cachea**. Es la
+  primera vez que se comprueba lo que `prompt-chat.ts` afirma en su encabezado.
+- 🔴 El modelo **dedujo** la fecha de diagnóstico de la fecha de la consulta. El expediente no
+  la decía. Cae en ámbar —el guardarraíl funciona— pero las fuentes lo vuelven más útil **y**
+  más dispuesto a rellenar una fecha que nadie escribió.
+
+### Decisiones que cambiaron durante la implementación
+
+1. **Una fuente ilegible NO tumba el guardado.** Rechazar el `PATCH` entero dejaba el informe
+   atorado para siempre: el id fantasma seguía en la columna, viajaba en cada guardado, y el
+   panel —que se pintaba del catálogo vivo— no tenía casilla que desmarcar. Ahora se descarta,
+   se REPORTA, y las huérfanas se pintan en rojo con su casilla para quitarlas.
+2. **Un solo camino de resolución.** `resolverFuentesElegidas` usa `fuentesParaModelo`, el mismo
+   que el chat. Antes releía el expediente ENTERO del paciente en cada clic de una casilla, y
+   eran dos copias de "qué cuenta como fuente válida" que podían divergir.
+3. **Las fuentes se guardan al marcarlas**, en contra de la regla 1B del resto de la pantalla:
+   el chat las lee de la BASE, así que una marcada-y-no-guardada sería una que el doctor cree
+   que el asistente lee y no.

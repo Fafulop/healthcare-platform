@@ -14,6 +14,12 @@
  * modelo saque de ahí cae en 🟧 ámbar.
  */
 import { prisma } from '@healthcare/database';
+// 🔴 La clase de cada fecha (calendario vs instante) vive en UN solo módulo, y
+// es PURO para que lo importen también los componentes de cliente que pintan
+// estas mismas fechas. Tenerla replicada ya salió mal una vez.
+import { fechaDeFuente, recetaVencidaEl, type TipoFuente } from './fechas-de-fuente';
+
+export type { TipoFuente };
 
 export interface ConsultaParaModelo {
   titulo: string;
@@ -23,13 +29,10 @@ export interface ConsultaParaModelo {
 /** Tope duro de consultas por llamada del DICTADO: el prompt no crece sin límite. */
 export const MAX_CONSULTAS = 5;
 
-/** La zona del negocio. El servidor corre en UTC; "hoy" nunca es UTC aquí. */
-const MX_TZ = 'America/Mexico_City';
-
-/** Los tres tipos de fuente (07-PLAN §4). `PatientMedia` y `PatientSummary` NO
- * son fuente: de un estudio no se puede leer el contenido, y resumir un resumen
- * de IA con otra IA deja la procedencia sin significado (07-PLAN §10). */
-export type TipoFuente = 'consulta' | 'nota' | 'receta';
+/** Los tres tipos de fuente (07-PLAN §4) se declaran en `fechas-de-fuente` junto
+ * con la clase de fecha de cada uno. `PatientMedia` y `PatientSummary` NO son
+ * fuente: de un estudio no se puede leer el contenido, y resumir un resumen de IA
+ * con otra IA deja la procedencia sin significado (07-PLAN §10). */
 
 /** Lo que se guarda en `medical_reports.sources`: una INSTANTÁNEA, no una FK. */
 export interface FuenteElegida {
@@ -103,18 +106,24 @@ function lineasDeCustomData(customData: unknown, customFields: unknown): string[
   return lineas;
 }
 
-/**
- * 🔴 La fecha SIEMPRE con la zona explícita, que es la convención del repo
- * (`agenda-agent/dates.ts`, facturas, fiscal). Estos son timestamps con hora —no
- * `@db.Date`— y el servidor corre en UTC: con `toISOString()` una consulta de las
- * 6 de la tarde en CDMX se le presenta al modelo fechada al DÍA SIGUIENTE, que es
- * el campo que la aseguradora cruza contra la fecha del siniestro.
- */
-function fechaMx(d: Date): string {
-  return d.toLocaleDateString('es-MX', { timeZone: MX_TZ });
-}
-
 // ── Las tres fuentes → texto ────────────────────────────────────────────────
+//
+// 🔴 Toda fecha sale por `fechaDeFuente(valor, tipo)`, que decide la zona por la
+// CLASE de la columna Y por el valor. No formatear ninguna aquí a mano:
+// confundir un día de calendario con un instante ES el bug de un día.
+
+/** Lo que produce cada constructor de texto. */
+interface TextoDeFuente {
+  titulo: string;
+  /** Lo que lee el MODELO. */
+  contenido: string;
+  /**
+   * Lo que se recorta para el panel, si difiere de `contenido`. Existe porque un
+   * metadato que el modelo necesita al principio (la vigencia de una receta) se
+   * come la mitad del resumen que sirve para reconocerla de un vistazo.
+   */
+  paraResumen?: string;
+}
 
 type ConsultaConPlantilla = {
   id: string; encounterDate: Date; chiefComplaint: string | null;
@@ -151,7 +160,7 @@ function textoDeConsulta(e: ConsultaConPlantilla): { titulo: string; contenido: 
   partes.push(...lineasDeCustomData(e.customData, e.template?.customFields));
 
   return {
-    titulo: `Consulta del ${fechaMx(e.encounterDate)}${e.template?.name ? ` (${e.template.name})` : ''}`,
+    titulo: `Consulta del ${fechaDeFuente(e.encounterDate, 'consulta')}${e.template?.name ? ` (${e.template.name})` : ''}`,
     contenido: partes.join('\n'),
   };
 }
@@ -160,14 +169,14 @@ type NotaDelPaciente = { id: string; content: string; createdAt: Date; updatedAt
 
 function textoDeNota(n: NotaDelPaciente): { titulo: string; contenido: string } {
   return {
-    titulo: `Nota del ${fechaMx(n.createdAt)}`,
+    titulo: `Nota del ${fechaDeFuente(n.createdAt, 'nota')}`,
     contenido: n.content.trim(),
   };
 }
 
 type RecetaConMedicamentos = {
   id: string; prescriptionDate: Date; diagnosis: string | null;
-  clinicalNotes: string | null; customData: unknown;
+  clinicalNotes: string | null; customData: unknown; expiresAt: Date | null;
   template: { name: string; customFields: unknown } | null;
   medications: Array<{
     drugName: string; presentation: string | null; dosage: string;
@@ -175,7 +184,25 @@ type RecetaConMedicamentos = {
   }>;
 };
 
-function textoDeReceta(r: RecetaConMedicamentos): { titulo: string; contenido: string } {
+/**
+ * 🔴 Una receta VENCIDA por fecha (`expiresAt` en el pasado).
+ *
+ * ⚠️ NO es lo mismo que `status = 'expired'`. Comprobado contra prod (2026-08-11):
+ * **ese status no lo escribe nadie** — hay 36 `issued`, 3 `cancelled`, 2 `draft` y
+ * **cero** `expired`. La vigencia en este esquema vive en la columna `expires_at`,
+ * no en el status. 07-PLAN §4 se escribió sobre un valor que el sistema nunca
+ * pone, así que "sólo issued y expired" filtra bien lo que NO debe entrar
+ * (borradores y canceladas) pero no dice nada de la vigencia.
+ *
+ * El ledger de recetas (`prescriptions/route.ts`) las ESCONDE por defecto
+ * (`includeExpired`). Aquí sí entran —decisión de 07-PLAN §4: fue tratamiento, y
+ * que hoy esté vencida no la borra de la historia— pero **se dice que lo están**,
+ * en el panel y en el texto que lee el modelo. Si no, el doctor cuenta 3 fuentes
+ * y 2 recetas en el ledger y no hay forma de saber por qué.
+ */
+export const recetaVencida = recetaVencidaEl;
+
+function textoDeReceta(r: RecetaConMedicamentos): TextoDeFuente {
   const partes: string[] = [];
   if (r.diagnosis) partes.push(`Diagnóstico: ${r.diagnosis}`);
   if (r.clinicalNotes) partes.push(`Notas: ${r.clinicalNotes}`);
@@ -186,10 +213,40 @@ function textoDeReceta(r: RecetaConMedicamentos): { titulo: string; contenido: s
     partes.push(`Medicamento: ${m.drugName}${detalle ? ` — ${detalle}` : ''}`);
   }
   partes.push(...lineasDeCustomData(r.customData, r.template?.customFields));
+
+  // 🔴 El CONTENIDO CLÍNICO se arma primero y se mide solo.
+  //
+  // La vigencia es un metadato, no información clínica: si se metiera en
+  // `partes`, una receta SIN nada que contar (sin medicamentos, sin diagnóstico)
+  // dejaría de estar vacía sólo por llevar la línea de vigencia. Y "vacía" es
+  // load-bearing: `catalogoDeFuentes` no la ofrece y `agregar()` la manda a
+  // `faltantes` para REPORTARLA. Con la vigencia dentro, el doctor podría elegir
+  // una fuente cuyo contenido entero es "esta receta venció" y el sistema le
+  // diría que el asistente la leyó.
+  const clinico = partes.join('\n');
+  if (clinico.trim() === '') {
+    return { titulo: tituloDeReceta(r), contenido: '', paraResumen: '' };
+  }
+
+  // Va PRIMERO en lo que lee el MODELO, a propósito: tiene que saber que esto no
+  // es el tratamiento vigente antes de leer el medicamento, no después.
+  const vigencia = recetaVencida(r.expiresAt)
+    ? `Vigencia: VENCIDA el ${fechaDeFuente(r.expiresAt, 'receta')} (fue tratamiento, no es el actual)\n`
+    : '';
+
   return {
-    titulo: `Receta del ${fechaMx(r.prescriptionDate)}${r.template?.name ? ` (${r.template.name})` : ''}`,
-    contenido: partes.join('\n'),
+    titulo: tituloDeReceta(r),
+    contenido: `${vigencia}${clinico}`,
+    // 🔴 El resumen del panel NO lleva la vigencia: son ~66 de los 140 caracteres
+    // que existen "para reconocerla de un vistazo", repitiendo lo que el chip
+    // ámbar ya dice dos líneas arriba y empujando el diagnóstico fuera de vista.
+    paraResumen: clinico,
   };
+}
+
+function tituloDeReceta(r: RecetaConMedicamentos): string {
+  return `Receta del ${fechaDeFuente(r.prescriptionDate, 'receta')}`
+    + `${r.template?.name ? ` (${r.template.name})` : ''}`;
 }
 
 // ── El catálogo: qué puede elegir el doctor ─────────────────────────────────
@@ -207,6 +264,12 @@ export interface FuenteDisponible {
   resumen: string;
   /** Lo que ocupa en el prompt, para que el panel enseñe el presupuesto. */
   tokensAprox: number;
+  /**
+   * Algo que el doctor tiene que saber ANTES de elegirla. Hoy sólo lo usa la
+   * receta vencida — que el ledger esconde y esta lista sí ofrece, y sin decirlo
+   * las dos pantallas dan números distintos sin explicación.
+   */
+  aviso?: string;
 }
 
 function resumirse(contenido: string): string {
@@ -273,14 +336,20 @@ export async function catalogoDeFuentes(
     });
   }
   for (const r of recetas) {
-    const { titulo, contenido } = textoDeReceta(r);
+    const { titulo, contenido, paraResumen } = textoDeReceta(r);
+    // Vacía = SIN contenido clínico. La línea de vigencia no la vuelve llena:
+    // una receta cuyo texto entero fuera "esta receta venció" no es una fuente.
     if (contenido.trim() === '') continue;
     salida.push({
       tipo: 'receta', id: r.id,
       fecha: r.prescriptionDate.toISOString(),
       actualizadoEn: r.updatedAt.toISOString(),
-      titulo, resumen: resumirse(contenido),
+      titulo, resumen: resumirse(paraResumen ?? contenido),
       tokensAprox: estimarTokens(`${titulo}\n${contenido}`),
+      // El ledger la esconde; aquí se ofrece y se DICE por qué no coincide.
+      ...(recetaVencida(r.expiresAt)
+        ? { aviso: `vencida el ${fechaDeFuente(r.expiresAt, 'receta')} — el ledger de recetas no la enseña` }
+        : {}),
     });
   }
 
