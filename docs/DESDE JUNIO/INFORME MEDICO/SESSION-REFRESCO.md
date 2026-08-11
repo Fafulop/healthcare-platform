@@ -1378,6 +1378,32 @@ Pregunta del usuario. La respuesta tiene dos partes porque `ClinicalEncounter` e
 
 > **Empieza por aquí.** Lo de abajo (sección del 2026-08-10) es el historial; esto es el estado.
 
+## ⏱️ LO PRIMERO, EN 30 SEGUNDOS
+
+**Todo lo del 2026-08-11 está EN PROD y desplegado** (8 commits, último `0f17a76b`, deploy
+SUCCESS). **No hay trabajo a medias ni nada sin commitear.**
+
+**Lo único que falta es MIRARLO.** Nadie ha usado esta funcionalidad con el dedo. En orden:
+
+1. 🔴 **Paciente → Informe → elegir ancla → marcar una receta → botón "Llenar la hoja con lo
+   que marqué".** Es la primera prueba real del botón y del arreglo del prompt juntos.
+   - Si **pregunta en vez de llenar** ⇒ el arreglo del prompt no aguanta con el payload real
+     (medido 4→13 campos con llamadas reales, pero **una corrida por condición**).
+   - Si **el botón no hace nada** ⇒ el disparo. Ya se le arreglaron 2 bugs LEYENDO, ninguno
+     clicando.
+   - Si **aparece una fecha que nadie escribió** ⇒ la regla anti-invención. Su sesgo por
+     defecto es poner la fecha de la CONSULTA como fecha de diagnóstico.
+2. 🔴 **Los DOS ⏳ que vienen del 2026-08-10 y siguen sin confirmar**: marcar una casilla que
+   **NO** sea la primera de su grupo, y **bajar borrador + final**. Son de antes de todo lo de
+   hoy (`697d6ce6`).
+3. **Bloqueado en el usuario: GNP** — ¿el formato de Eleonor (3 págs) o el oficial (2 págs)?
+   Nada avanza en esa aseguradora sin esa respuesta.
+
+⚠️ **Los dos bugs REALES de hoy los encontró el usuario mirando la pantalla**, no los gates ni
+tres rondas de code review: contar 3 recetas contra 2 en el ledger, y pegar un chat donde el
+agente pedía lo que ya tenía. Lo que él vea mañana vale más que lo que se pueda verificar desde
+aquí.
+
 ## 🔴 LO QUE APRENDIMOS MIRANDO LA PANTALLA (lo más útil del día)
 
 El usuario abrió el informe y reportó tres cosas. Las tres eran ciertas y ninguna era
@@ -1441,6 +1467,8 @@ Los CUATRO commits del día, todos con deploy **SUCCESS**:
 | `f5af288a` | el bug de un día en lo que se IMPRIME en el PDF (`informe.fecha` estampaba MAÑANA cada tarde) |
 | `d685b8ce` | el flujo dice lo que hace (ver la sección de arriba) |
 | `84a49f79` | **el BOTÓN que dispara el llenado + el prompt que se negaba a usar las fuentes** |
+| `71a1ef4e` | docs: estas notas y las dos lecciones del prompt |
+| `0f17a76b` | plegables: fuentes por tipo, e informes del paciente a los 2 más recientes |
 
 La columna `sources` se aplicó a prod **antes** del push (sin ella, `findFirst` sobre
 `medical_reports` da 42703 y tumba TODO el informe, no sólo lo nuevo). Rutas comprobadas vivas:
