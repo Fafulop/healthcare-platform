@@ -1399,6 +1399,37 @@ como leída, el recuadro que se iba con el scroll, y un "el asistente la lee" cu
 había asistente. Escribir el mensaje tranquilizador es la parte fácil; comprobar que es
 verdad **en todos los estados** es el trabajo.
 
+## 🔴 Y el segundo reporte del usuario: "le pedí llenar y me hizo preguntas"
+
+Pegó la conversación: el chat mostraba *"Estoy leyendo: 📗 Consulta del 20/8/2024 · 📎
+Receta · 📎 Receta"*, él escribió **"llena el formulario"**, y el asistente le preguntó
+por el CIE-10 del LES **teniendo el diagnóstico en las recetas marcadas**.
+
+**El modelo obedecía.** La lista de tareas del prompt decía, en ese orden: *1) di qué
+falta · 2) PREGUNTA · 3) coloca lo que haya **en su mensaje***. Colocar estaba acotado al
+MENSAJE; el expediente iba como lectura de fondo, sin ninguna instrucción de extraer de
+él. Con un mensaje sin contenido clínico, hizo exactamente lo pedido.
+
+Arreglado en `84a49f79`: extraer va PRIMERO, el mensaje después, preguntar al final.
+**Medido con llamadas reales: 4 campos → 13**, mismo mensaje y mismas fuentes.
+
+Y un **BOTÓN** — *"Llenar la hoja con lo que marqué"* — junto a las casillas: marcar no
+llena nada, y el único disparador era escribirle un mensaje (había que adivinar que hacía
+falta, y qué escribir).
+
+⚠️ **Dos trampas que dejó ese arreglo, las dos ya cerradas y las dos vale la pena recordar:**
+1. La primera versión decía *"devolver `campos: {}` es un turno FALLIDO"* — y eso
+   **contradecía** la regla de formato de más abajo y, con la hoja ya llena por el
+   pre-llenado, dejaba al modelo entre *vacío = fallo* y *repetir = prohibido*. La única
+   salida es INVENTAR.
+2. Probándolo salió exactamente eso: escribió `Fecha de diagnóstico = 20082024`, **la
+   fecha de la consulta**, cuando el expediente dice "diagnosticado en 2019". Regla nueva:
+   la fecha de un documento NO es la fecha de lo que cuenta.
+
+🔎 **Lección:** entregarle contexto a un modelo no es pedirle que lo use — y cuando lo
+empujas a llenar, el empujón mismo se vuelve presión para inventar. Las dos cosas sólo se
+ven **llamando al modelo de verdad**; ningún gate las alcanza.
+
 ## El paso 07 está EN PROD y NADIE lo ha tocado con el dedo
 
 Los CUATRO commits del día, todos con deploy **SUCCESS**:
@@ -1409,6 +1440,7 @@ Los CUATRO commits del día, todos con deploy **SUCCESS**:
 | `b2bc3a68` | recetas vencidas etiquetadas + el bug de un día en lo que lee el ASISTENTE |
 | `f5af288a` | el bug de un día en lo que se IMPRIME en el PDF (`informe.fecha` estampaba MAÑANA cada tarde) |
 | `d685b8ce` | el flujo dice lo que hace (ver la sección de arriba) |
+| `84a49f79` | **el BOTÓN que dispara el llenado + el prompt que se negaba a usar las fuentes** |
 
 La columna `sources` se aplicó a prod **antes** del push (sin ella, `findFirst` sobre
 `medical_reports` da 42703 y tumba TODO el informe, no sólo lo nuevo). Rutas comprobadas vivas:

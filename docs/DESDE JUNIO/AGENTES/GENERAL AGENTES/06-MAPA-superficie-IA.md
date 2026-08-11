@@ -53,7 +53,7 @@ validación server-side + fold sobre working copy + ⚠️ visible cuando no se 
 | `bank-statement-parse` | C | gpt-4o | PDF de estado de cuenta → movimientos | |
 | `medical-records/patients/[id]/summary` | C | gpt-4o | resumen del expediente | contenido clínico — ojo con el tier |
 | `medical-records/patients/[id]/reports/[reportId]/dictar` | C | gpt-4o | dictado sobre UNA página del formato de aseguradora | flujo 🔵 CONTENIDO, no el asistente. Transcribe con `lib/voice/transcribir-audio` (NO por `/api/voice/*`, que es OWNER_ONLY) |
-| `medical-records/patients/[id]/reports/[reportId]/chat` | **C+** | gpt-4o | **conversar** con el formato: dice qué falta, pregunta, y coloca lo dictado en la hoja | igual 🔵. Añadido 2026-08-09 · docs en `INFORME MEDICO/06-AGENTE` |
+| `medical-records/patients/[id]/reports/[reportId]/chat` | **C+** | gpt-4o | **conversar** con el formato: EXTRAE del expediente elegido, coloca en la hoja, y luego dice qué falta y pregunta | igual 🔵. Añadido 2026-08-09 · fuentes a nivel paciente 2026-08-11 · docs en `INFORME MEDICO/06-AGENTE` y `07-PLAN` |
 | (embeddings) | — | openai | `lib/ai` `getEmbeddingProvider` | usado por el RAG de v1 (muere en PR 4) |
 
 > ℹ️ **Los dos endpoints del INFORME son flujos 🔵 CONTENIDOS, no módulos del asistente**
@@ -68,6 +68,20 @@ validación server-side + fold sobre working copy + ⚠️ visible cuando no se 
 > (existe · es de texto · imprime en WinAnsi). Lo que no pasa se devuelve en `descartados` y el
 > cliente lo enseña, en vez del "listo" mientras no se aplicó nada. Y **el endpoint no escribe
 > en la BD**: propone, y el `PATCH` lo dispara el cliente cuando el doctor aprieta Guardar.
+>
+> 🔴 **El chat recibe expediente ELEGIDO por el doctor (2026-08-11).** Además de la consulta
+> ancla, lee las consultas · notas · recetas que él marcó (`medical_reports.sources`, columna
+> JSONB). Los ids salen de la COLUMNA, nunca del navegador, y aun así se re-acotan por paciente
+> y doctor en el `where`. Tope explícito de **6,000 tokens** para ese bloque: **si no cabe NO se
+> recorta solo** — se le pide al doctor que deseleccione, porque un recorte callado es
+> indistinguible de "el modelo lo ignoró".
+>
+> ⚠️ **Lección del prompt, cara y transferible:** durante dos días el orden del prompt era
+> *1) di qué falta · 2) pregunta · 3) coloca lo que haya **en su mensaje***. Con el expediente
+> entregado como lectura de fondo y ninguna instrucción de extraer de él, el modelo hacía
+> exactamente lo que se le pedía: preguntaba por datos que tenía delante. **Medido con llamadas
+> reales: 4 campos con ese orden, 13 al invertirlo.** Si un prompt entrega contexto pero no
+> ordena USARLO, no se usa.
 
 ## 3. Reglas transversales
 

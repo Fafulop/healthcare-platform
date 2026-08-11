@@ -238,8 +238,56 @@ el **prefijo común**: mientras el catálogo no se reordene, los ~4,700 tokens s
 por conversación y no una por turno. Por eso `camposDictables()` ordena por (página, clave) en
 vez de dejar el orden del AcroForm.
 
-⚠️ **Es una expectativa, no una medición.** Que la caché pegue depende del proveedor y de que los
-turnos caigan dentro de su ventana. Lo medido es el **tamaño**, no el ahorro.
+⚠️ ~~**Es una expectativa, no una medición.**~~ → **MEDIDO el 2026-08-11**: una llamada real
+devolvió `cached_tokens: 6528` en el segundo turno. El prefijo estable SÍ se cachea; era lo
+único que este apartado afirmaba sin comprobar.
+
+### 🔴 El ORDEN DE LAS TAREAS también decide si sirve (2026-08-11)
+
+Distinto del orden de los bloques (que es costo): el orden de la LISTA DE TAREAS dentro del
+prompt decide **si el modelo usa el expediente o lo ignora**.
+
+Durante dos días la lista decía, en este orden:
+
+> 1. Di qué falta · 2. **PREGUNTA** · 3. Coloca lo que haya **en su mensaje**
+
+Colocar estaba acotado **al mensaje del médico**, y el expediente se entregaba como lectura de
+fondo sin ninguna instrucción de extraer de él. Resultado con un mensaje corto ("llena el
+formulario"): el asistente **preguntaba por el diagnóstico que tenía delante en una receta que el
+doctor le había marcado**. No era el modelo fallando — era obediencia.
+
+Invertido: **extraer del expediente primero**, el mensaje después, y preguntar al final (y sólo
+por lo que NO esté en las fuentes).
+
+| | campos colocados |
+|---|---|
+| Orden viejo, mensaje "llena el formulario" | **4** |
+| Orden nuevo, mismo mensaje | **13** |
+
+🔎 **La lección, transferible a cualquier prompt:** entregarle contexto a un modelo **no** es
+pedirle que lo use. Si la lista de tareas no dice "extrae de ahí", el contexto es decoración.
+
+### ⚠️ Y el arreglo trajo su propio riesgo (hallazgo del review, mismo día)
+
+La primera versión decía *"devolver `campos: {}` es un turno FALLIDO"*. Eso **contradecía** la
+regla de formato 90 líneas más abajo (*"`campos` puede ir vacío: un turno en el que sólo
+preguntas es un turno bueno"*) y, peor, dejaba al modelo entre dos órdenes imposibles cuando el
+pre-llenado ya había copiado todo lo extraíble: *vacío = fallo* y *repetir lo ya escrito =
+prohibido*. La única salida es **inventar**, en una hoja con CIE-10, TNM y fechas.
+
+Y probándolo salió justo eso: con la hoja llena, el modelo escribió
+`Fecha de diagnóstico = 20082024` — **la fecha de la consulta** — cuando el expediente dice
+"diagnosticado en 2019". De ahí la regla nueva: **la fecha de un documento no es la fecha de lo
+que cuenta**; sólo se escribe una fecha que el texto diga con todas sus letras, y si sólo hay año,
+se pregunta el día y el mes. Verificado: ahora pone `2019` y pregunta.
+
+### El disparador: un BOTÓN, no adivinar qué escribir
+
+Marcar una fuente **no llena la hoja** — sólo se la entrega al chat — y el único disparador era
+escribirle un mensaje. El doctor marcaba cinco casillas, no veía cambiar nada, y concluía que
+estaba roto (y tenía razón: nada lo decía). Ahora hay un botón **"Llenar la hoja con lo que
+marqué"** junto a las casillas, que abre el chat y manda el turno por él — visible, no por
+detrás. El invariante no se toca: cae en ámbar y no se guarda hasta apretar Guardar.
 
 ### ~~Lo que el chat NO hace: marcar casillas~~ → **YA LAS MARCA** (2026-08-10)
 

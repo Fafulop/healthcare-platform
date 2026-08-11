@@ -218,8 +218,9 @@ aquí. Citarlo como si aplicara sería justificar una decisión con un hecho fal
 | Los 3 tipos de fuente + presupuesto | `lib/informe-medico/contexto-clinico.ts` |
 | Catálogo de lo elegible | `GET /api/medical-records/patients/:id/fuentes` |
 | Pantalla compartida por las dos puertas | `components/informe-medico/PantallaInforme.tsx` |
-| El panel de casillas | `components/informe-medico/PanelFuentes.tsx` |
+| El panel de casillas + **el botón que dispara el llenado** | `components/informe-medico/PanelFuentes.tsx` |
 | Entrada a nivel paciente | `/dashboard/medical-records/patients/[id]/informe` |
+| La clase de cada fecha (calendario vs instante) | `lib/informe-medico/fechas-de-fuente.ts` |
 
 ### Lo que se MIDIÓ con una llamada real a gpt-4o
 
@@ -239,6 +240,29 @@ Mismo mensaje, datos inventados, temperatura 0, **una corrida por condición**:
 - 🔴 El modelo **dedujo** la fecha de diagnóstico de la fecha de la consulta. El expediente no
   la decía. Cae en ámbar —el guardarraíl funciona— pero las fuentes lo vuelven más útil **y**
   más dispuesto a rellenar una fecha que nadie escribió.
+
+### ⚠️ Esa medición era con un mensaje RICO. Con uno pobre, no servía (2026-08-11)
+
+Lo de arriba se midió con un mensaje que ya traía el caso contado. **El usuario escribió
+"llena el formulario" y el asistente le hizo preguntas** en vez de usar las recetas que él
+había marcado. La causa no era el bloque de fuentes: era el **orden de las tareas** del prompt
+—*di qué falta · pregunta · coloca lo que haya en su mensaje*— que acotaba el colocar al
+MENSAJE y no ordenaba extraer del expediente.
+
+| mensaje "llena el formulario" | campos colocados |
+|---|---|
+| orden viejo | **4** |
+| orden nuevo (extraer primero) | **13** |
+
+Y un **botón** *"Llenar la hoja con lo que marqué"*, porque marcar casillas no dispara nada y
+el único disparador era escribirle un mensaje al asistente — había que adivinarlo.
+
+🔴 **El arreglo trajo su propio riesgo, y hay que no repetirlo:** decir *"devolver `campos: {}`
+es un turno FALLIDO"* contradecía la regla de formato y, con la hoja ya llena por el
+pre-llenado, empujaba al modelo a INVENTAR (vacío = fallo, repetir = prohibido). Salió a la
+primera prueba: escribió la fecha de la consulta como fecha de diagnóstico. Ahora: extrae a
+campos **vacíos**, `{}` es correcto si ya está todo, y una fecha sólo se escribe si el texto la
+dice con todas sus letras. Ver `06-AGENTE` §11.
 
 ### Decisiones que cambiaron durante la implementación
 
