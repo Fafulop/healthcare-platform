@@ -45,6 +45,12 @@ export interface Booking {
   createdAt: string;
   serviceId?: string | null;
   serviceName?: string | null;
+  /** Consultorio donde ocurre la cita. Se elige al agendar.
+   *  ⚠️ `null` = NO REGISTRADO, no "el de siempre": ninguna cita anterior al
+   *  2026-08-06 lo guardó. La UI lo dice explícitamente en vez de suponer el
+   *  predeterminado — media agenda nombraría el hospital equivocado. */
+  locationId?: string | null;
+  location?: { id: string; name: string } | null;
   isFirstTime?: boolean | null;
   appointmentMode?: string | null;
   slot: { date: string; startTime: string; endTime: string; duration: number } | null;

@@ -29,6 +29,7 @@ import {
   Filter,
   ChevronDown,
   AlertTriangle,
+  MoreHorizontal,
 } from "lucide-react";
 import { SectionAccordion } from "./SectionAccordion";
 import { WorkflowStep } from "./WorkflowStep";
@@ -670,20 +671,24 @@ export function CitasGuide({ view = 'status' }: { view?: 'status' | 'acciones' }
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             {
-              btn: <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Crear Horarios</Btn>,
-              desc: "Abre el modal para crear nuevos horarios disponibles (uno o varios días).",
-            },
-            {
               btn: <Btn color="bg-green-600 text-white"><CalendarPlus className="w-3 h-3" />Agendar Cita</Btn>,
               desc: "Abre el asistente para reservar una cita directamente desde el consultorio.",
             },
             {
-              btn: <Btn color="bg-gray-700 text-white"><Ban className="w-3 h-3" />Bloquear Periodo</Btn>,
-              desc: "Cierra o reabre horarios en un rango de fechas (vacaciones, días libres).",
+              btn: <Btn color="bg-white border border-gray-300 text-gray-700"><MoreHorizontal className="w-3 h-3" />Más</Btn>,
+              desc: "Guarda lo que casi no se usa: Crear Rango, Bloquear horario, Eliminar Rangos y Enlace Reseña. Desde que se puede agendar sin rango, los rangos dejaron de ser del día a día.",
+            },
+            {
+              btn: <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Crear Rango</Btn>,
+              desc: "Dentro de «Más». Abre el modal para crear nuevos horarios disponibles (uno o varios días).",
+            },
+            {
+              btn: <Btn color="bg-gray-700 text-white"><Ban className="w-3 h-3" />Bloquear horario</Btn>,
+              desc: "Dentro de «Más». Cierra o reabre horarios en un rango de fechas (vacaciones, días libres).",
             },
             {
               btn: <Btn color="bg-yellow-500 text-white"><Star className="w-3 h-3" />Enlace Reseña</Btn>,
-              desc: "Genera un link único para que el paciente deje una reseña en tu perfil público.",
+              desc: "Dentro de «Más». Genera un link único para que el paciente deje una reseña en tu perfil público.",
             },
           ].map((item, i) => (
             <div key={i} className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
@@ -706,12 +711,12 @@ export function CitasGuide({ view = 'status' }: { view?: 'status' | 'acciones' }
         {/* Crear horarios */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Crear Horarios</Btn>
+            <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Crear Rango</Btn>
             <AppBadge variant="doctor" />
           </div>
           <div className="space-y-0">
             <WorkflowStep number={1} title="Abrir el modal">
-              Clic en el botón azul <strong>Crear Horarios</strong> en la esquina superior derecha.
+              Botón <strong>Más</strong> en la barra principal → <strong>Crear Rango</strong>.
             </WorkflowStep>
             <WorkflowStep number={2} title="Elegir tipo de horario" icon={CalendarDays}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
@@ -749,7 +754,7 @@ export function CitasGuide({ view = 'status' }: { view?: 'status' | 'acciones' }
           </div>
           <div className="space-y-0">
             <WorkflowStep number={1} title="Abrir el modal">
-              Clic en el botón gris oscuro <strong>Bloquear Periodo</strong>.
+              Botón <strong>Más</strong> en la barra principal → <strong>Bloquear horario</strong>.
             </WorkflowStep>
             <WorkflowStep number={2} title="Elegir acción">
               <strong>Bloquear</strong> (cerrar horarios) o <strong>Desbloquear</strong> (reabrir horarios ya cerrados).
@@ -1083,12 +1088,12 @@ export function CitasGuide({ view = 'status' }: { view?: 'status' | 'acciones' }
       >
         <div className="flex items-center gap-2 mb-3">
           <Btn color="bg-yellow-500 text-white"><Star className="w-3 h-3" />Enlace Reseña</Btn>
-          <p className="text-xs text-gray-500">Disponible desde el botón amarillo en la barra principal — no requiere seleccionar una cita específica.</p>
+          <p className="text-xs text-gray-500">Disponible desde el menú <strong>Más</strong> de la barra principal — no requiere seleccionar una cita específica.</p>
         </div>
 
         <div className="space-y-0">
           <WorkflowStep number={1} title="Abrir el modal" icon={Star}>
-            Clic en el botón amarillo <strong>Enlace Reseña</strong>.
+            Botón <strong>Más</strong> en la barra principal → <strong>Enlace Reseña</strong>.
           </WorkflowStep>
           <WorkflowStep number={2} title="Nombre del paciente (opcional)">
             Escribe el nombre para personalizar la página de reseña. Puedes dejarlo vacío.

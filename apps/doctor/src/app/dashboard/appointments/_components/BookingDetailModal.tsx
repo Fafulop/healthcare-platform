@@ -24,7 +24,7 @@
  * móvil, y ahí sí llegó a ocurrir.
  */
 
-import { X } from "lucide-react";
+import { X, MapPin } from "lucide-react";
 import { formatLocalDate } from "@/lib/dates";
 import { resolverContacto } from "@/lib/booking-contact";
 import { resolveBookingTime } from "../_lib/event-model";
@@ -115,6 +115,16 @@ export function BookingDetailModal({
             <div className="flex flex-wrap items-center gap-1.5 mt-1">
               {booking.serviceName && (
                 <span className="text-xs text-blue-600 font-medium">{booking.serviceName}</span>
+              )}
+              {/* El consultorio, SÓLO cuando se sabe — mismo criterio que la tarjeta.
+                  `null` = no registrado, NO "el de siempre" (ver `Booking.locationId`
+                  en el schema: adivinar el default manda al paciente al hospital
+                  equivocado en las sedes múltiples). */}
+              {booking.location && (
+                <span className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+                  <MapPin className="w-3 h-3 shrink-0" />
+                  {booking.location.name}
+                </span>
               )}
               {booking.appointmentMode === "TELEMEDICINA" && (
                 <span className="text-xs text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">Telemedicina</span>

@@ -10,6 +10,7 @@ import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken, calcEndTime } from '@/lib/appointments-utils';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
+import { validateRequestedLocation } from '@/lib/booking-location';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
 import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
@@ -100,8 +101,24 @@ export async function POST(request: Request) {
     const normalizedStartTime = startTime.length > 5 ? startTime.slice(0, 5) : startTime;
     const endTime = calcEndTime(normalizedStartTime, durationNum);
 
+    // 🔴 El consultorio EXPLÍCITO se valida como el de las rutas por rangos: sin esto,
+    // cualquiera con sesión podía colgarle a su cita el consultorio de OTRO doctor —
+    // la FK apunta a `clinic_locations`, no a "los de este doctor". Antes sólo se
+    // escribía en el slot; ahora también queda en la cita, así que la pertenencia
+    // deja de ser opcional. Fuera de la transacción, igual que `patientId`.
+    const consultorioPedido = await validateRequestedLocation(prisma, {
+      doctorId,
+      requestedLocationId: locationId,
+    });
+    if (!consultorioPedido.ok) {
+      return NextResponse.json(
+        { success: false, error: consultorioPedido.error },
+        { status: 400 }
+      );
+    }
+
     // Resolve locationId — if not provided, default to doctor's first ClinicLocation
-    let resolvedLocationId: string | null = locationId || null;
+    let resolvedLocationId: string | null = consultorioPedido.locationId;
     if (!resolvedLocationId) {
       const defaultLoc = await prisma.clinicLocation.findFirst({
         where: { doctorId },
@@ -213,6 +230,19 @@ export async function POST(request: Request) {
             isRescheduled: isRescheduled === true,
             patientId: patientId || null,
             confirmedAt: new Date(),
+            // 🔴 El consultorio se guardaba en el SLOT y se tiraba en la CITA — el
+            // mismo descuido que `range-bookings` tenía con el rango. El doctor lo
+            // elige en el modal y la cita quedaba en NULL, así que la tabla y el
+            // calendario decían "sin consultorio" de una cita que sí tenía uno.
+            //
+            // ⚠️ Se guarda `locationId` (lo que el cliente DIJO), no
+            // `resolvedLocationId` (que cae al consultorio por defecto cuando nadie
+            // dice nada). En el SLOT ese default está bien —ahí null ya significa
+            // "el de siempre"—, pero en la CITA null significa NO REGISTRADO y
+            // escribir el default sería inventar: `useAppointmentsChat` agenda por
+            // aquí SIN mandar consultorio, y 3 de los 11 doctores tienen más de una
+            // sede. Ver el comentario de `Booking.locationId` en el schema.
+            locationId: consultorioPedido.locationId,
           },
         });
 

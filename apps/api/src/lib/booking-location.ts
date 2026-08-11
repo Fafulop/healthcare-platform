@@ -19,12 +19,20 @@
 // de `dra-adriana-michelle` que caen en CHRISTUS Muguerza y no en su default. Dos citas es poco
 // y es justo el daño que esta feature existe para evitar.
 //
-// ⚠️ Qué comparte cada endpoint, con precisión — la versión anterior de este comentario decía
-// que los dos usaban este archivo, y no es verdad:
+// ⚠️ Qué comparte cada endpoint, con precisión — este bloque ya fue falso una vez (decía que
+// las dos rutas de rangos usaban el archivo), así que se actualiza CADA vez que alguien lo
+// importa. Hoy son CUATRO las rutas que guardan `Booking.locationId`:
 //   · `range-bookings/instant` usa las DOS funciones (acepta `locationId` del cliente).
 //   · `range-bookings` NO importa nada de aquí: no acepta `locationId`, y para heredar reutiliza
 //     el `matchingRange` que YA consultó para el check de `NO_RANGE` — pedir el mismo rango otra
 //     vez sólo para leerle una columna sería una query de más en el camino público.
+//   · `bookings/instant` usa `validateRequestedLocation` y NADA más: no hereda. Guarda en la
+//     cita SÓLO lo explícito, porque su `resolvedLocationId` (el que le pone al slot) cae al
+//     default cuando nadie dice nada, y `useAppointmentsChat` agenda por ahí sin mandarlo.
+//   · `bookings` (reservar un slot existente) no usa este archivo: hereda `slot.locationId`
+//     directo. Ese valor puede venir del default que `slots/route.ts` resuelve al crear el
+//     slot, así que NO equivale a "el doctor lo eligió" — equivale a la dirección que
+//     `send-confirmation-email` ya le mandó al paciente. Ver el comentario de esa ruta.
 // Las dos rutas coinciden en el resultado porque el API prohíbe que dos rangos se solapen: a lo
 // sumo UN rango contiene la ventana, así que "el rango contenedor con consultorio" y "el rango
 // contenedor" son el mismo. Si algún día se permiten rangos solapados, esa equivalencia se

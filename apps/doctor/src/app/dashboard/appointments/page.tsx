@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Loader2, Plus, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Trash2, Ban, Star, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList, Sparkles } from "lucide-react";
+import { Loader2, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
@@ -23,6 +23,7 @@ import { PreAppointmentFormModal } from "./_components/PreAppointmentFormModal";
 import { GenerateReviewLinkModal } from "./_components/GenerateReviewLinkModal";
 import { StandaloneFormularioModal } from "./_components/StandaloneFormularioModal";
 import { BookingFieldSettingsModal } from "./_components/BookingFieldSettingsModal";
+import { MenuMasAcciones } from "./_components/MenuMasAcciones";
 import { useAgentActions } from "@/contexts/AgentContext";
 import { usePermissions } from "@/lib/permissions-client";
 import type { Booking } from "./_hooks/useBookings";
@@ -281,14 +282,6 @@ export default function AppointmentsPage() {
             second line instead of forcing the page wider than the viewport */}
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
           <button
-            onClick={() => setReviewLinkModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
-          >
-            <Star className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Enlace Reseña</span>
-            <span className="sm:hidden">Reseña</span>
-          </button>
-          <button
             onClick={() => setStandaloneFormModalOpen(true)}
             className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
           >
@@ -303,28 +296,6 @@ export default function AppointmentsPage() {
             <CalendarPlus className="w-4 h-4 flex-shrink-0" />
             <span className="hidden sm:inline">Agendar Cita</span>
             <span className="sm:hidden">Agendar</span>
-          </button>
-          <button
-            onClick={() => setShowDeleteRangesModal(true)}
-            className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
-          >
-            <Trash2 className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Eliminar Rangos</span>
-            <span className="sm:hidden">Eliminar</span>
-          </button>
-          <button
-            onClick={() => setShowBlockTimeModal(true)}
-            className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
-          >
-            <Ban className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline">Bloquear</span>
-          </button>
-          <button
-            onClick={() => setShowCreateRangeModal(true)}
-            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"
-          >
-            <Plus className="w-4 h-4 flex-shrink-0" />
-            Crear Rango
           </button>
           <button
             onClick={() => setBookingFieldSettingsOpen(true)}
@@ -344,6 +315,13 @@ export default function AppointmentsPage() {
               <span className="sm:hidden">IA</span>
             </button>
           )}
+          {/* Lo que casi no se aprieta vive aquí — ver `MenuMasAcciones`. */}
+          <MenuMasAcciones
+            onCrearRango={() => setShowCreateRangeModal(true)}
+            onBloquear={() => setShowBlockTimeModal(true)}
+            onEliminarRangos={() => setShowDeleteRangesModal(true)}
+            onEnlaceResena={() => setReviewLinkModalOpen(true)}
+          />
           <Link
             href="/dashboard/ayuda?tab=citas"
             title="Ver guía de Citas"

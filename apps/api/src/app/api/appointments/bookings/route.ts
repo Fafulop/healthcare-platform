@@ -288,6 +288,27 @@ export async function POST(request: Request) {
             status: bookingStatus,
             isRescheduled: isRescheduled === true,
             patientId: patientId || null,
+            // 🔴 El consultorio se HEREDA del slot que se está reservando. `freshSlot`
+            // ya viene completo del `findUnique` de arriba, así que el dato estaba en
+            // la mano y se tiraba — igual que pasaba con el rango en `range-bookings`.
+            //
+            // ⚠️ Con PRECISIÓN, porque aquí sí hay un matiz: `slot.locationId` NO
+            // siempre es una elección del doctor. `slots/route.ts` resuelve el slot
+            // sin consultorio AL DEFAULT antes de crearlo, y el `create_slots` del
+            // agente nunca manda uno — o sea que un doctor de dos sedes que crea
+            // horarios por voz termina con slots que dicen su sede default sin que
+            // él lo haya dicho.
+            //
+            // Aun así se hereda, y a propósito: `send-confirmation-email.ts` YA le
+            // mandó al paciente la dirección de `slot.location`. O sea que esto no es
+            // "donde el doctor eligió", es **la dirección que se le dio al paciente**,
+            // que es justo lo que el doctor necesita ver para cacharla si está mal.
+            // Guardar NULL aquí escondería el problema en vez de evitarlo.
+            //
+            // La ruta de al lado (`bookings/instant`) hace lo CONTRARIO —sólo guarda
+            // lo explícito— porque ahí el slot se crea en la misma llamada y nadie le
+            // ha dicho nada al paciente todavía.
+            locationId: freshSlot.locationId,
             ...(autoConfirm && { confirmedAt: new Date() }),
           },
         });
@@ -531,6 +552,12 @@ export async function GET(request: Request) {
       where,
       include: {
         slot: true,
+        // El consultorio de la cita. ⚠️ `location` en null NO significa "el
+        // consultorio por defecto": significa NO REGISTRADO (ver el comentario de
+        // `Booking.locationId` en el schema). Las citas anteriores al 2026-08-06
+        // no lo guardaron por ningún camino, así que la UI tiene que decir
+        // "sin registrar" en vez de adivinar.
+        location: { select: { id: true, name: true } },
         doctor: {
           select: {
             doctorFullName: true,

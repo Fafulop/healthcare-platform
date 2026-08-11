@@ -1,4 +1,4 @@
-import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown } from "lucide-react";
+import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, MapPin } from "lucide-react";
 import { useState, Fragment } from "react";
 import { formatLocalDate } from "@/lib/dates";
 import { resolverContacto } from "@/lib/booking-contact";
@@ -297,10 +297,21 @@ export function BookingsSection({
                         </StopClick>
                       )}
 
-                      {/* Row 3: service + badges */}
+                      {/* Row 3: service + consultorio + badges */}
                       <div className="flex flex-wrap items-center gap-1 mb-2">
                         {booking.serviceName && (
                           <span className="text-xs text-blue-600 font-medium">{booking.serviceName}</span>
+                        )}
+                        {/* El consultorio, SÓLO cuando se sabe. `null` = no registrado
+                            (ninguna cita anterior al 2026-08-06 lo guardó: 412 de 425
+                            medidas en prod), y NO significa "el de siempre" — hay 3
+                            doctores con más de una sede. Repetir "sin consultorio" en
+                            el 97% de las tarjetas no informaría nada. */}
+                        {booking.location && (
+                          <span className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+                            <MapPin className="w-3 h-3 shrink-0" />
+                            {booking.location.name}
+                          </span>
                         )}
                         {booking.appointmentMode === "TELEMEDICINA" && (
                           <span className="text-xs text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">Telemedicina</span>
