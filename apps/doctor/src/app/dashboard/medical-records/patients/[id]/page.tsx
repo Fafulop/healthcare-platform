@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { PatientSummaryModal } from '@/components/medical-records/PatientSummaryModal';
+import { formatSex } from '@/components/medical-records/patient-display';
 import { usePatientProfile } from '../_components/usePatientProfile';
 import { PaymentLinkButton } from '@/components/payments/PaymentLinkButton';
 import { authFetch } from '@/lib/auth-fetch';
@@ -231,7 +232,9 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
 
       {editing ? (
         <div className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* lg:grid-cols-1 — the card lives in the NARROW right column from lg up;
+              below lg the page is one stacked column and two fields fit fine. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">RFC</label>
               <input
@@ -309,7 +312,7 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
           <div>
             <label className="text-sm font-medium text-gray-500">RFC</label>
             <p className="text-gray-900 font-mono">{patient.rfc}</p>
@@ -632,7 +635,6 @@ export default function PatientProfilePage() {
     error,
     isArchiving,
     calculateAge,
-    formatDate,
     handleArchive,
     refreshPatient,
   } = usePatientProfile();
@@ -747,23 +749,12 @@ export default function PatientProfilePage() {
               </div>
             )}
 
-            {/* Basic Info */}
+            {/* Basic Info — just the name and the tags. "Editar" lives in the
+                Información de Contacto card now. */}
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
-                  {patient.firstName} {patient.lastName}
-                </h1>
-                <Link
-                  href={`/dashboard/medical-records/patients/${patient.id}/edit`}
-                  className="px-2 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 text-gray-600 flex-shrink-0"
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                  Editar
-                </Link>
-              </div>
-              <p className="text-gray-600 mt-1">
-                ID: {patient.internalId} • {calculateAge(patient.dateOfBirth)} años • {patient.sex}
-              </p>
+              <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
+                {patient.firstName} {patient.lastName}
+              </h1>
               {patient.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {patient.tags.map(tag => (
@@ -776,8 +767,34 @@ export default function PatientProfilePage() {
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Actions — three tiers: the three the doctor actually uses (Nueva
+              Consulta · Recetas · Informe), then the rest, then Archivar. */}
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/dashboard/medical-records/patients/${patient.id}/encounters/new`}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1.5 text-sm font-semibold transition-colors"
+            >
+              <Plus className="w-4 h-4 flex-shrink-0" />
+              <span>Nueva Consulta</span>
+            </Link>
+            <Link
+              href={`/dashboard/medical-records/patients/${patient.id}/prescriptions`}
+              className="px-3 py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 flex items-center gap-1.5 text-sm font-medium transition-colors"
+            >
+              <Pill className="w-4 h-4 flex-shrink-0" />
+              <span>Recetas</span>
+            </Link>
+            <Link
+              href={`/dashboard/medical-records/patients/${patient.id}/informe`}
+              className="px-3 py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 flex items-center gap-1.5 text-sm font-medium transition-colors"
+              title="Llenar el formato de una aseguradora con el expediente de este paciente"
+            >
+              <FileText className="w-4 h-4 flex-shrink-0" />
+              <span>Informe</span>
+            </Link>
+
+            <div className="w-px h-6 bg-gray-200 hidden sm:block" />
+
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/timeline`}
               className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 text-sm transition-colors"
@@ -793,34 +810,13 @@ export default function PatientProfilePage() {
               <span>Docs y Galería</span>
             </Link>
             <Link
-              href={`/dashboard/medical-records/patients/${patient.id}/prescriptions`}
-              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 text-sm transition-colors"
-            >
-              <Pill className="w-4 h-4 flex-shrink-0" />
-              <span>Prescripciones</span>
-            </Link>
-            <Link
               href={`/dashboard/medical-records/patients/${patient.id}/notas`}
               className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 text-sm transition-colors"
             >
               <NotebookPen className="w-4 h-4 flex-shrink-0" />
               <span>Notas</span>
             </Link>
-            <Link
-              href={`/dashboard/medical-records/patients/${patient.id}/informe`}
-              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 text-sm transition-colors"
-              title="Llenar el formato de una aseguradora con el expediente de este paciente"
-            >
-              <FileText className="w-4 h-4 flex-shrink-0" />
-              <span>Informe</span>
-            </Link>
-            <Link
-              href={`/dashboard/medical-records/patients/${patient.id}/encounters/new`}
-              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1.5 text-sm font-semibold transition-colors"
-            >
-              <Plus className="w-4 h-4 flex-shrink-0" />
-              <span>Nueva Consulta</span>
-            </Link>
+
             <div className="w-px h-6 bg-gray-200 hidden sm:block" />
             <button
               onClick={handleArchive}
@@ -834,13 +830,32 @@ export default function PatientProfilePage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Content — 3/5 · 2/5 instead of the old 2/3 · 1/3: the right column
+          now carries Datos Fiscales + Citas e Ingresos and needed the room. */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left Column */}
-        <div className="lg:col-span-2 space-y-6 order-2 lg:order-1">
+        <div className="lg:col-span-3 space-y-6 order-2 lg:order-1">
           {/* Contact Information */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Información de Contacto</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Información de Contacto</h2>
+              <Link
+                href={`/dashboard/medical-records/patients/${patient.id}/edit`}
+                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                Editar
+              </Link>
+            </div>
+            {/* Folio · Edad · Sexo — vivían en la línea gris bajo el nombre; se
+                quitó de ahí y este es el único lugar donde se ven ya. */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-500 mb-4 pb-4 border-b border-gray-100">
+              <span>ID: <span className="text-gray-900 font-medium">{patient.internalId}</span></span>
+              <span className="text-gray-300">•</span>
+              <span><span className="text-gray-900 font-medium">{calculateAge(patient.dateOfBirth)}</span> años</span>
+              <span className="text-gray-300">•</span>
+              <span className="text-gray-900 font-medium">{formatSex(patient.sex)}</span>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-500">Teléfono</label>
@@ -868,11 +883,6 @@ export default function PatientProfilePage() {
             </div>
           </div>
 
-          {/* Fiscal Data — ALWAYS rendered (F2c follow-up #1): the old gate
-              (requiereFactura && rfc) hid the card exactly for the patients
-              that NEED fiscal capture — chicken-and-egg the user hit live. */}
-          <DatosFiscalesCard patient={patient} patientId={patient.id} onUpdate={refreshPatient} />
-
           {/* Emergency Contact */}
           {patient.emergencyContactName && (
             <div className="bg-white rounded-lg shadow p-6">
@@ -893,61 +903,6 @@ export default function PatientProfilePage() {
               </div>
             </div>
           )}
-
-          {/* General Notes */}
-          {patient.generalNotes && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Notas Generales</h2>
-              <p className="text-gray-900 whitespace-pre-wrap">{patient.generalNotes}</p>
-            </div>
-          )}
-
-          {/* Recent Notes */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <NotebookPen className="w-5 h-5" />
-                Notas Recientes
-              </h2>
-              <Link
-                href={`/dashboard/medical-records/patients/${patient.id}/notas`}
-                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                Ver todas
-              </Link>
-            </div>
-            {recentNotes.length > 0 ? (
-              <div className="space-y-2">
-                {recentNotes.map((note) => (
-                  <Link
-                    key={note.id}
-                    href={`/dashboard/medical-records/patients/${patient.id}/notas`}
-                    className="block px-3 py-2.5 rounded-md border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors"
-                  >
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {parseNoteTitle(note.content)}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {new Date(note.updatedAt).toLocaleDateString('es-MX', {
-                        day: 'numeric', month: 'short', year: 'numeric'
-                      })}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6 text-gray-500">
-                <NotebookPen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm">No hay notas</p>
-                <Link
-                  href={`/dashboard/medical-records/patients/${patient.id}/notas`}
-                  className="text-blue-600 hover:text-blue-800 text-sm mt-1 inline-block"
-                >
-                  Crear primera nota
-                </Link>
-              </div>
-            )}
-          </div>
 
           {/* Encounters List */}
           <div className="bg-white rounded-lg shadow p-6">
@@ -1016,58 +971,67 @@ export default function PatientProfilePage() {
             )}
           </div>
 
-          {/* Citas e Ingresos */}
-          <CitasIngresosSection
-            bookings={patientBookings}
-            patient={patient}
-          />
+          {/* General Notes */}
+          {patient.generalNotes && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Notas Generales</h2>
+              <p className="text-gray-900 whitespace-pre-wrap">{patient.generalNotes}</p>
+            </div>
+          )}
+
+          {/* Recent Notes */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <NotebookPen className="w-5 h-5" />
+                Notas Recientes
+              </h2>
+              <Link
+                href={`/dashboard/medical-records/patients/${patient.id}/notas`}
+                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                Ver todas
+              </Link>
+            </div>
+            {recentNotes.length > 0 ? (
+              <div className="space-y-2">
+                {recentNotes.map((note) => (
+                  <Link
+                    key={note.id}
+                    href={`/dashboard/medical-records/patients/${patient.id}/notas`}
+                    className="block px-3 py-2.5 rounded-md border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {parseNoteTitle(note.content)}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(note.updatedAt).toLocaleDateString('es-MX', {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-gray-500">
+                <NotebookPen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm">No hay notas</p>
+                <Link
+                  href={`/dashboard/medical-records/patients/${patient.id}/notas`}
+                  className="text-blue-600 hover:text-blue-800 text-sm mt-1 inline-block"
+                >
+                  Crear primera nota
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Summary Modal */}
-        {summary && (
-          <PatientSummaryModal
-            isOpen={showSummaryModal}
-            onClose={() => setShowSummaryModal(false)}
-            summary={summary}
-            patientName={`${patient.firstName} ${patient.lastName}`}
-            onRegenerate={handleGenerateSummary}
-            isRegenerating={generatingSummary}
-          />
-        )}
-
-        {/* Right Column - Quick Info */}
-        <div className="space-y-6 order-1 lg:order-2">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Información Rápida</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Nacimiento</span>
-                <span className="font-medium">{formatDate(patient.dateOfBirth)}</span>
-              </div>
-              {patient.firstVisitDate && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Primera Visita</span>
-                  <span className="font-medium">{formatDate(patient.firstVisitDate)}</span>
-                </div>
-              )}
-              {patient.lastVisitDate && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Última Visita</span>
-                  <span className="font-medium">{formatDate(patient.lastVisitDate)}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Estado</span>
-                <span className={`px-2 py-1 text-xs rounded ${
-                  patient.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {patient.status === 'active' ? 'Activo' : patient.status}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Resumen Paciente */}
+        {/* Right Column */}
+        <div className="lg:col-span-2 space-y-6 order-1 lg:order-2">
+          {/* Resumen Paciente — first card of the column on purpose: it's the
+              one the doctor reads before anything else, and buried at the
+              bottom nobody found the "Generar Resumen" button. */}
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
               <Sparkles className="w-5 h-5 text-purple-500" />
@@ -1129,8 +1093,33 @@ export default function PatientProfilePage() {
               </div>
             )}
           </div>
+
+          {/* Fiscal Data — ALWAYS rendered (F2c follow-up #1): the old gate
+              (requiereFactura && rfc) hid the card exactly for the patients
+              that NEED fiscal capture — chicken-and-egg the user hit live. */}
+          <DatosFiscalesCard patient={patient} patientId={patient.id} onUpdate={refreshPatient} />
+
+          {/* Citas e Ingresos — moved here from the bottom of the left column so
+              it sits with the fiscal data it feeds (emitir factura reads the RFC). */}
+          <CitasIngresosSection
+            bookings={patientBookings}
+            patient={patient}
+          />
         </div>
       </div>
+
+      {/* Summary Modal — outside the grid: it used to be a grid child, so with
+          the 5-column split an open modal pushed the right column to a new row. */}
+      {summary && (
+        <PatientSummaryModal
+          isOpen={showSummaryModal}
+          onClose={() => setShowSummaryModal(false)}
+          summary={summary}
+          patientName={`${patient.firstName} ${patient.lastName}`}
+          onRegenerate={handleGenerateSummary}
+          isRegenerating={generatingSummary}
+        />
+      )}
     </div>
   );
 }

@@ -472,12 +472,13 @@ export function ExpedientesGuide() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           {[
             { btn: <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Nueva Consulta</Btn>, desc: "Crea una nueva consulta clínica para este paciente." },
-            { btn: <Btn color="bg-gray-100 text-gray-700"><Edit className="w-3 h-3" />Editar</Btn>, desc: "Modifica los datos demográficos y de contacto del paciente." },
+            { btn: <Btn color="bg-blue-50 text-blue-700"><Pill className="w-3 h-3" />Recetas</Btn>, desc: "Lista de prescripciones del paciente (borradores y emitidas)." },
+            { btn: <Btn color="bg-blue-50 text-blue-700"><FileText className="w-3 h-3" />Informe</Btn>, desc: "Llena el formato de una aseguradora con el expediente del paciente. Hoy el catálogo trae el de AXA (GMM Informe Médico)." },
             { btn: <Btn color="bg-gray-100 text-gray-700"><Clock className="w-3 h-3" />Línea de Tiempo</Btn>, desc: "Vista cronológica de todas las consultas, prescripciones, documentos y notas." },
             { btn: <Btn color="bg-gray-100 text-gray-700"><Image className="w-3 h-3" />Docs y Galería</Btn>, desc: "Sube y visualiza imágenes, videos, audios y documentos clínicos." },
-            { btn: <Btn color="bg-gray-100 text-gray-700"><Pill className="w-3 h-3" />Prescripciones</Btn>, desc: "Lista de prescripciones del paciente (borradores y emitidas)." },
             { btn: <Btn color="bg-gray-100 text-gray-700"><NotebookPen className="w-3 h-3" />Notas</Btn>, desc: "Notas clínicas libres, no estructuradas, asociadas al paciente." },
             { btn: <Btn color="bg-red-50 text-red-600"><Trash2 className="w-3 h-3" />Archivar</Btn>, desc: "Mueve al paciente a Archivados. No elimina el expediente." },
+            { btn: <Btn color="bg-gray-100 text-gray-700"><Edit className="w-3 h-3" />Editar</Btn>, desc: "Ya no está en el encabezado: vive dentro de la card Información de Contacto. Modifica los datos demográficos y de contacto." },
           ].map((item, i) => (
             <div key={i} className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
               <div>{item.btn}</div>
@@ -489,12 +490,15 @@ export function ExpedientesGuide() {
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Secciones del perfil</p>
           <ul className="space-y-1.5 text-xs text-gray-600">
             {[
-              "Información Rápida (sidebar): edad, primera y última visita, estado.",
-              "Información de Contacto: teléfono, email, dirección.",
+              "Información de Contacto: folio, edad, sexo, teléfono, email, dirección.",
               "Contacto de Emergencia (si fue registrado).",
+              "Historial de Consultas: todas las consultas en tarjetas expandibles.",
+              "Formularios: los formularios pre-cita que contestó el paciente.",
               "Notas Generales: texto libre del perfil.",
               "Notas Recientes: últimas 3 notas con link directo.",
-              "Historial de Consultas: todas las consultas en tarjetas expandibles.",
+              "Resumen Paciente (columna derecha): el resumen generado con IA.",
+              "Datos Fiscales (columna derecha): RFC y régimen para facturar.",
+              "Citas e Ingresos (columna derecha): citas, cobros y CFDIs del paciente.",
             ].map((item) => (
               <li key={item} className="flex items-start gap-2">
                 <ArrowRight className="w-3 h-3 text-gray-300 mt-0.5 flex-shrink-0" />
