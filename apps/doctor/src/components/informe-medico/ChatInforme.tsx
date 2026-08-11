@@ -67,7 +67,34 @@ interface Props {
     /** Cuántas se eligieron y ya no se pueden leer. NO se cuentan como leídas. */
     noLegibles: number;
   };
+  /**
+   * 🔴 El disparo desde el panel de fuentes: un contador que sube cada vez que el
+   * doctor aprieta "Llenar la hoja con lo que marqué".
+   *
+   * Es un CONTADOR y no un booleano a propósito: apretar el botón dos veces tiene
+   * que mandar dos turnos, y con un booleano el segundo no cambiaría el prop.
+   */
+  disparoAutollenado: number;
+  /**
+   * Avisa cuando el chat está ocupado (pensando o grabando), para que el botón
+   * del panel de fuentes se pueda deshabilitar. Sin esto, el botón se ve activo,
+   * no pasa nada al apretarlo, y volvemos a "hago clic y no ocurre nada".
+   */
+  onOcupadoChange: (ocupado: boolean) => void;
 }
+
+/**
+ * El mensaje que manda el botón. Va explícito al historial a propósito: el doctor
+ * tiene que poder ver QUÉ se pidió en su nombre.
+ *
+ * 🔴 Corto y sin órdenes de más. Este mensaje **se queda en el historial** y viaja
+ * en los 16 turnos siguientes, así que un "no me preguntes todavía" seguiría
+ * dirigiendo turnos en los que el médico pregunta otra cosa. Lo que tiene que
+ * hacer el modelo ya está en el prompt de sistema; aquí sólo se le pide que lo
+ * haga ahora.
+ */
+const MENSAJE_AUTOLLENADO =
+  'Llena la hoja con lo que haya en la consulta y en las fuentes del expediente.';
 
 const SALUDO =
   'Conozco este formato y tú no te lo sabes de memoria. Cuéntame el caso como se lo contarías ' +
@@ -88,7 +115,8 @@ async function mensajeDeError(r: Response, porDefecto: string): Promise<string> 
 // cierra el micrófono corre al desmontar — emitir mientras grababa dejaba el
 // micrófono abierto.
 export default function ChatInforme({
-  base, reportId, estadoHoja, onPropuesta, abierto, onCerrar, lectura,
+  base, reportId, estadoHoja, onPropuesta, abierto, onCerrar, lectura, disparoAutollenado,
+  onOcupadoChange,
 }: Props) {
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState('');
@@ -181,6 +209,38 @@ export default function ChatInforme({
       setPensando(false);
     }
   }, [base, reportId, mensajes, onPropuesta]);
+
+  /**
+   * El botón del panel de fuentes manda su turno por aquí.
+   *
+   * 🔴 `enviar` se recrea en cada render (depende de `mensajes`), así que NO puede
+   * ir en las dependencias: el efecto correría en cada turno y mandaría el mensaje
+   * en bucle. Lo que dispara es el contador, y sólo él; el `enviar` de ese momento
+   * se lee de un ref.
+   */
+  const enviarRef = useRef(enviar);
+  enviarRef.current = enviar;
+  const ultimoDisparo = useRef(disparoAutollenado);
+  useEffect(() => {
+    if (disparoAutollenado === ultimoDisparo.current) return;
+    // 🔴 El contador se consume SÓLO cuando de verdad se manda. Consumirlo antes
+    // de esta guarda hacía que apretar el botón mientras el asistente pensaba se
+    // tragara el disparo en silencio: el botón no hacía NADA, que es exactamente
+    // la queja que este botón vino a arreglar. Así queda pendiente y sale solo
+    // en cuanto termina el turno anterior (`pensando` está en las dependencias).
+    if (pensando || grabando) return;
+    // 🔴 Y NO se reanuda encima de un error. `pensando` también se apaga cuando el
+    // turno anterior FALLA, y `enviar` arranca con `setError(null)`: el disparo en
+    // cola borraba "Se venció la sesión" en el mismo frame en que aparecía, y
+    // mandaba otro turno que iba a fallar igual. Con un error en pantalla, el
+    // disparo se descarta y el doctor decide.
+    if (error !== null) { ultimoDisparo.current = disparoAutollenado; return; }
+    ultimoDisparo.current = disparoAutollenado;
+    enviarRef.current(MENSAJE_AUTOLLENADO);
+  }, [disparoAutollenado, pensando, grabando, error]);
+
+  // El panel de fuentes necesita saberlo para deshabilitar su botón.
+  useEffect(() => { onOcupadoChange(pensando || grabando); }, [pensando, grabando, onOcupadoChange]);
 
   function mandarTexto() {
     const t = texto.trim();

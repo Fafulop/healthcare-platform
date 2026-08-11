@@ -18,7 +18,7 @@
  */
 
 import { useMemo } from 'react';
-import { AlertTriangle, FileText, Loader2, NotebookPen, Pill } from 'lucide-react';
+import { AlertTriangle, FileText, Loader2, NotebookPen, Pill, Sparkles } from 'lucide-react';
 // 🔴 La zona depende de la CLASE de fecha de cada tipo de fuente, y esa decisión
 // vive en un solo módulo. Formatear aquí a mano en hora de México corría un día
 // las consultas y las recetas — que son días de calendario, no instantes.
@@ -61,6 +61,14 @@ interface Props {
    * estados decir "el asistente la lee" es afirmar algo falso.
    */
   hayAsistente: boolean;
+  /**
+   * 🔴 EL DISPARADOR. Marcar una casilla no llena nada; lo que llena es un turno
+   * del chat, y el doctor no tiene por qué adivinar que hay que escribirle un
+   * mensaje —ni cuál—. Este botón manda ese turno por él.
+   */
+  onLlenarConLasFuentes: () => void;
+  /** El chat está pensando o grabando: el botón no puede dispararse ahora. */
+  chatOcupado: boolean;
   onAlternar: (f: FuenteElegida, marcar: boolean) => void;
 }
 
@@ -85,7 +93,7 @@ const SINGULAR = {
 
 export default function PanelFuentes({
   disponibles, seleccion, anclaId, presupuestoTokens, guardando, soloLectura,
-  hayAsistente, onAlternar,
+  hayAsistente, onAlternar, onLlenarConLasFuentes, chatOcupado,
 }: Props) {
   const elegidas = useMemo(
     () => new Set(seleccion.map((f) => `${f.tipo}:${f.id}`)),
@@ -132,12 +140,43 @@ export default function PanelFuentes({
           marcar una casilla NO llena la hoja. El doctor marcó las cinco, no vio
           cambiar nada en el formato, y concluyó —con toda la razón— que estaba
           roto. Lo único que hace marcar es dárselo al asistente. */}
+      {/* 🔴 El texto depende del estado, porque el botón no siempre existe: antes
+          de generar el informe y en uno emitido NO hay asistente, y decir "aprieta
+          el botón de abajo" señalaba a un botón que no está. */}
       <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded p-2">
-        <strong>Marcar aquí NO llena la hoja.</strong> Lo único que hace es dejar que el
-        asistente lea eso. Para que aterrice en el formato tienes que{' '}
-        <strong>conversar con él</strong> — y lo que ponga sale en ámbar, para que lo revises:
-        lo interpretó un modelo, no lo copió el sistema.
+        <strong>Marcar aquí no llena la hoja todavía.</strong>{' '}
+        {hayAsistente ? (
+          <>
+            Marca lo que quieras que el asistente lea y luego aprieta el botón de abajo.
+          </>
+        ) : (
+          <>
+            Se guarda con el informe, y el asistente podrá usarlo en cuanto lo generes.
+          </>
+        )}{' '}
+        Lo que ponga sale en <strong>ámbar</strong> para que lo revises, porque lo interpretó
+        un modelo y no lo copió el sistema. Nada se guarda hasta que aprietes Guardar.
       </p>
+
+      {/* 🔴 EL DISPARADOR, junto a las casillas y no escondido en el chat: aquí
+          es donde el doctor marca y se queda esperando a que pase algo. Sin él,
+          el único disparador era escribirle un mensaje al asistente — y había que
+          adivinar que hacía falta, y qué escribir.
+          Sólo se ofrece si hay ALGO que leer: con el expediente vacío mandaría un
+          turno que le pide al modelo usar unas fuentes que no existen. */}
+      {hayAsistente && (lista.length > 0 || anclaId !== null) && (
+        <button
+          onClick={onLlenarConLasFuentes}
+          disabled={guardando !== null || chatOcupado}
+          title={chatOcupado ? 'El asistente está trabajando; espera a que termine' : ''}
+          className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600
+            px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {chatOcupado
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> El asistente está trabajando…</>
+            : <><Sparkles className="h-4 w-4" /> Llenar la hoja con lo que marqué</>}
+        </button>
+      )}
       <p className="mt-1 text-xs text-gray-500">
         La consulta de la que sale este informe la lee siempre, aunque no aparezca en esta lista.
       </p>

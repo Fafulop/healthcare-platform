@@ -145,6 +145,13 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
   const [vista, setVista] = useState<'visor' | 'lista'>('visor');
   /** El chat abierto ⇒ la hoja usa el ancho que queda en vez de `max-w-4xl`. */
   const [chatAbierto, setChatAbierto] = useState(false);
+  /** Sube cada vez que el doctor aprieta "Llenar la hoja con lo que marqué". */
+  const [disparoAutollenado, setDisparoAutollenado] = useState(0);
+  /** El chat está pensando o grabando ⇒ el botón de autollenado se deshabilita. */
+  const [chatOcupado, setChatOcupado] = useState(false);
+  // `useCallback` porque va a un `useEffect` del chat: una función nueva en cada
+  // render lo haría dispararse en bucle.
+  const alCambiarOcupado = useCallback((o: boolean) => setChatOcupado(o), []);
 
   const base = `/api/medical-records/patients/${patientId}/reports`;
 
@@ -650,6 +657,13 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
               // Sólo hay asistente cuando el informe existe y se puede editar:
               // es exactamente la condición con la que se monta `ChatInforme`.
               hayAsistente={Boolean(informe) && !emitido}
+              // Abre el chat Y manda el turno: el doctor tiene que VER lo que se
+              // pidió y lo que contestó, no que la hoja se llene sola por detrás.
+              onLlenarConLasFuentes={() => {
+                setChatAbierto(true);
+                setDisparoAutollenado((n) => n + 1);
+              }}
+              chatOcupado={chatOcupado}
               onAlternar={alternarFuente}
             />
           </div>
@@ -909,6 +923,8 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
               (s) => !catalogo.some((c) => c.tipo === s.tipo && c.id === s.id)
             ).length,
           }}
+          disparoAutollenado={disparoAutollenado}
+          onOcupadoChange={alCambiarOcupado}
         />
       )}
 
