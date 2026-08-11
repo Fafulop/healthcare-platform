@@ -1378,7 +1378,35 @@ Pregunta del usuario. La respuesta tiene dos partes porque `ClinicalEncounter` e
 
 > **Empieza por aquí.** Lo de abajo (sección del 2026-08-10) es el historial; esto es el estado.
 
-## ⏱️ LO PRIMERO, EN 30 SEGUNDOS
+## ✅ CERRADO MÁS TARDE ESE MISMO DÍA (2026-08-11, tarde)
+
+**El usuario probó los puntos 1 y 2 de la lista de abajo y dijo que los DOS están bien.** O sea:
+el botón de autollenado con fuentes marcadas ✅, y los dos ⏳ que venían del 2026-08-10 (marcar una
+casilla que no es la primera de su grupo · bajar borrador y final) ✅. Lo de abajo se conserva como
+bitácora; ya no es la lista de pendientes.
+
+🔴 **Sigue bloqueado en el usuario: GNP** — ¿el formato de Eleonor (3 págs) o el oficial (2 págs)?
+
+### Y el chat del informe cambió de aspecto (`9670b7ea`, `1d6b3a42`)
+
+`ChatInforme.tsx` entró en una unificación de los CUATRO chats del producto: el panel de agenda
+quedó de plantilla y éste se alineó (encabezado, burbujas con avatar, caja de texto). Conserva el
+azul como acento. Detalle en [`../SESION-2026-08-11-UI.md`](../SESION-2026-08-11-UI.md) §2.
+
+Dos arreglos que le tocan directo, **ninguno visto en un navegador**:
+
+- 🔴 **El cursor no volvía a la caja** después de mandar (lo reportó el usuario aquí; estaba en los
+  cuatro chats). El arreglo tiene dos guardas, y la segunda existe porque **el primer intento
+  reintrodujo el bug**: `turnoEncolado` se quedaba pegado si apretabas autollenado sin haber
+  tecleado nunca, y entonces el siguiente mensaje escrito se comía el arreglo. Lo cazó el code
+  review. La otra guarda evita robarte el cursor si estabas **corrigiendo una casilla de la hoja**
+  mientras el asistente pensaba.
+- **`z-[60]`**: con `z-[55]`, `GoogleCalendarBanner` tapaba el encabezado del panel entre `sm` y
+  `lg` — la X y Limpiar no se podían apretar. **Ese defecto ya estaba en prod aquí.**
+
+---
+
+## ⏱️ LO PRIMERO, EN 30 SEGUNDOS *(escrito en la mañana del 2026-08-11 — ver el bloque de arriba)*
 
 **Todo lo del 2026-08-11 está EN PROD y desplegado** (8 commits, último `0f17a76b`, deploy
 SUCCESS). **No hay trabajo a medias ni nada sin commitear.**

@@ -24,6 +24,11 @@ Detalle en **§10**.
 
 ✅ **Lo del AGENTE (§9) se cerró el 2026-08-05** en la carpeta del agente.
 
+🆕 **2026-08-11 (`81403e00`, deploy SUCCESS en los DOS servicios):** el **consultorio** ya se ve en
+la tarjeta y en el modal del calendario — y al hacerlo se descubrió que **dos de los cuatro caminos
+que crean citas se lo estaban comiendo**. Además la barra pasó de **9 botones a 5** con un menú
+"Más". Todo en **§11**. 🔴 **Nada de eso se ha visto en un navegador.**
+
 ---
 
 ## 1. Qué está en prod
@@ -513,3 +518,83 @@ build. Hoy es seguro porque el modal no se rinde hasta abrirlo, y está dicho en
 **De paso, la duda que trajo el reporte y su respuesta medida:** el `16:30` de `15:45 – 16:30`
 no lo inventa el cliente — `endTime = startTime + serviceDurationMinutes`, calculado en el
 servidor (`availability.ts:210`). Son 45 min porque el servicio dura 45.
+
+---
+
+## 11. ✅ El consultorio en la tarjeta y en el modal · la barra baja a 5 botones (2026-08-11, `81403e00`)
+
+Deploy **SUCCESS en los DOS servicios** (`@healthcare/api` y `@healthcare/doctor`), verificado por
+`commitHash` en cada deployment. Narrativa completa de la sesión (incluye expediente y chats):
+[`../SESION-2026-08-11-UI.md`](../SESION-2026-08-11-UI.md).
+
+### 11.1 El consultorio ya se ve — pero el bug estaba en el WRITE
+
+Lo pedido era enseñarlo en las tarjetas de "Todas las Citas" y en el modal que abre el calendario
+(el mismo `BookingDetailModal` para los dos). Se pinta como etiqueta con pin junto al servicio.
+
+🔴 **Enseñarlo no bastaba: DOS de los cuatro caminos que crean citas se comían el consultorio.** El
+doctor lo elegía en el modal y la cita quedaba en `NULL`. Es el MISMO descuido que
+`range-bookings` ya tenía documentado con el rango ("lo tenía en la mano y lo tiraba"), vivo
+todavía en los caminos por slot:
+
+| Camino | Antes | Ahora |
+|---|---|---|
+| `range-bookings` (público) | ✅ heredaba del rango | sin cambios |
+| `range-bookings/instant` | ✅ valida + hereda | sin cambios |
+| `bookings/instant` | ❌ lo guardaba en el SLOT y no en la CITA | guarda **sólo lo explícito** |
+| `bookings` (slot existente) | ❌ nunca lo guardaba | hereda `slot.locationId` |
+
+**Por qué las dos rutas nuevas hacen cosas DISTINTAS** (si esto se "arregla" para que coincidan, se
+rompe una de las dos):
+
+- **`bookings/instant` guarda sólo lo explícito**, NO su `resolvedLocationId`. Ese cae al
+  consultorio **por defecto** cuando nadie dice nada, y `useAppointmentsChat` agenda por ahí **sin
+  mandarlo**: escribiría una suposición como si fuera un hecho. En el SLOT ese default está bien
+  —ahí `null` ya significa "el de siempre"—, en la CITA `null` significa **NO REGISTRADO**.
+- **`bookings` hereda `slot.locationId`** aunque ese valor **tampoco** sea siempre una elección del
+  doctor (`slots/route.ts` resuelve al default al crear el slot, y el `create_slots` del agente no
+  manda consultorio). Se hereda **a propósito**: `send-confirmation-email` YA le mandó al paciente
+  la dirección de `slot.location`, así que esto no es "donde el doctor eligió" sino **la dirección
+  que se le dio al paciente** — justo lo que el doctor necesita ver para cacharla si está mal.
+  Guardar `NULL` escondería el problema.
+
+**Y se valida la pertenencia.** `bookings/instant` ahora usa `validateRequestedLocation` (el helper
+compartido): la FK apunta a `clinic_locations`, no a "los de este doctor". ⚠️ Es una **400 nueva en
+un endpoint vivo**; los dos clientes que lo llaman mandan un id propio o no mandan nada.
+
+### 11.2 Qué se pinta cuando no se sabe
+
+**Sólo se muestra cuando se sabe.** Medido en prod el 2026-08-11 (smoke test read-only del nuevo
+`include`, método canónico de TOOLING):
+
+| | |
+|---|---|
+| Citas totales | **425** |
+| Con consultorio | **13** |
+| Sin consultorio **pero su slot sí lo trae** | **104** |
+| Doctores con MÁS de una sede | **3 de 11** |
+
+Repetir "sin consultorio" en el 97% de las tarjetas no informa nada, y `null` **no** se pinta como
+el consultorio por defecto. Las 104 recuperables siguen sobre la mesa como una **escritura aparte y
+explícita** — a diferencia del backfill de 269 que el usuario descartó, ésta no adivina: copia lo
+que el slot ya declara.
+
+### 11.3 La barra: de 9 botones a 5
+
+Crear Rango · Bloquear · Eliminar Rangos · Enlace Reseña casi no se aprietan —**los rangos
+perdieron el día a día cuando se pudo agendar sin rango**— y se fueron a un menú **"Más"**
+(`_components/MenuMasAcciones.tsx`) con una sección de Disponibilidad. Reusa el patrón de dropdown
+de `TemplateCard` en vez de inventar un tercero.
+
+⚠️ En el teléfono el panel se ancla a la **IZQUIERDA**: la barra es `grid-cols-2`, "Más" cae en la
+columna izquierda y un panel de 224px anclado a la derecha **se salía de la pantalla** (en 375px
+arrancaba en x≈−41).
+
+### 11.4 Lo que NO se ha visto
+
+🔴 **Nada de §11 se ha probado en un navegador.** La prueba que importa es **agendar una cita nueva
+y ver si sale el consultorio**: el arreglo del write path sólo lo ha visto un type-check.
+
+`CitasGuide` quedó al día. Tenía deriva **previa** (decía "Crear Horarios" y "Bloquear Periodo"
+para botones llamados "Crear Rango" y "Bloquear") y tres instrucciones que mandaban a apretar
+botones **por su color** — "el botón azul", "el amarillo", "el gris oscuro" — que ya no existen.

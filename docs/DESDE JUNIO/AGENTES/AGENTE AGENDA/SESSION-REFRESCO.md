@@ -1,5 +1,27 @@
 # 🔄 Refresco de sesión — AGENTE AGENDA — LÉEME PRIMERO
 
+> ## 🆕 2026-08-11 — sólo la UI del panel, cero cambios de comportamiento
+>
+> `AgendaAgentPanel.tsx` se tocó en una sesión de UI transversal (`9670b7ea`, `1d6b3a42`). **No
+> cambió el prompt, ni las tools, ni un veredicto: el panel de agenda quedó de PLANTILLA** y los
+> otros tres chats del producto (informe · Nueva Consulta · constructor de plantillas) se
+> alinearon con él. Encabezado, burbujas y caja de texto iguales; sólo cambia el color de acento.
+>
+> Dos arreglos que sí le tocan a este panel:
+>
+> - 🔴 **El cursor no volvía a la caja después de mandar** (había que hacer clic otra vez). Estaba
+>   en LOS CUATRO chats. Enfocar al mandar no sirve: la caja se pone `disabled` mientras corre el
+>   turno y el navegador **no** devuelve el foco al re-habilitarla. Ahora se devuelve al terminar,
+>   y **sólo si nadie más tiene el cursor** (`document.activeElement`) — preguntarle algo al
+>   asistente y ponerse a llenar un formulario de atrás es lo normal, y robar el foco a media
+>   palabra es peor que el bug.
+> - **`z-[60]`** en los cuatro paneles: `GoogleCalendarBanner` (`fixed top-0 z-[60]`, pintado una
+>   línea antes que `DashboardLayout`) tapaba el encabezado del panel entre `sm` y `lg`.
+>
+> 🔴 **Sin ver en un navegador.** La prueba es escribir **dos mensajes seguidos**: un arreglo de
+> foco que nunca dispara compila idéntico a uno que sí. Narrativa completa:
+> [`../../SESION-2026-08-11-UI.md`](../../SESION-2026-08-11-UI.md) §2.
+
 > # 🤝 HANDOFF 2026-08-06 (fin de sesión) — EMPIEZA POR AQUÍ
 >
 > ## En una frase
