@@ -17,15 +17,17 @@
  * nunca recibe — lo que se ve tiene que ser lo que se manda.
  */
 
-import { useMemo } from 'react';
-import { AlertTriangle, FileText, Loader2, NotebookPen, Pill, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  AlertTriangle, ChevronRight, FileText, Loader2, NotebookPen, Pill, Sparkles,
+} from 'lucide-react';
 // 🔴 La zona depende de la CLASE de fecha de cada tipo de fuente, y esa decisión
 // vive en un solo módulo. Formatear aquí a mano en hora de México corría un día
 // las consultas y las recetas — que son días de calendario, no instantes.
-import { fechaDeFuente } from '@/lib/informe-medico/fechas-de-fuente';
+import { fechaDeFuente, type TipoFuente } from '@/lib/informe-medico/fechas-de-fuente';
 
 export interface FuenteDisponible {
-  tipo: 'consulta' | 'nota' | 'receta';
+  tipo: TipoFuente;
   id: string;
   fecha: string;
   actualizadoEn: string;
@@ -37,7 +39,7 @@ export interface FuenteDisponible {
 }
 
 export interface FuenteElegida {
-  tipo: 'consulta' | 'nota' | 'receta';
+  tipo: TipoFuente;
   id: string;
   /** La fecha con la que se GUARDÓ. Es lo único que queda para nombrar una
    * fuente que ya no está en el expediente. */
@@ -133,6 +135,19 @@ export default function PanelFuentes({
     .map((tipo) => [tipo, lista.filter((f) => f.tipo === tipo)] as const)
     .filter(([, fs]) => fs.length > 0);
 
+  /**
+   * Qué grupos están abiertos.
+   *
+   * 🔴 Por defecto se abre el grupo que TIENE algo marcado, pero en cuanto el
+   * doctor abre o cierra uno a mano, manda su decisión (`alternados`). Sin esa
+   * distinción, la selección llega del servidor un instante después de montar y
+   * volvería a abrir un grupo que él acababa de cerrar.
+   */
+  const [alternados, setAlternados] = useState<Partial<Record<TipoFuente, boolean>>>({});
+  const tieneMarcadas = (tipo: TipoFuente) =>
+    lista.some((f) => f.tipo === tipo && elegidas.has(`${f.tipo}:${f.id}`));
+  const estaAbierto = (tipo: TipoFuente) => alternados[tipo] ?? tieneMarcadas(tipo);
+
   return (
     <div className="bg-white rounded-lg border p-4">
       <p className="text-sm font-semibold text-gray-900">Fuentes del expediente</p>
@@ -212,12 +227,34 @@ export default function PanelFuentes({
           <div className="mt-3 space-y-4 max-h-96 overflow-y-auto">
             {porTipo.map(([tipo, fs]) => {
               const Icono = ICONO[tipo];
+              const abierto = estaAbierto(tipo);
+              const marcadasAqui = fs.filter((f) => elegidas.has(`${f.tipo}:${f.id}`)).length;
               return (
                 <div key={tipo}>
-                  <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                    <Icono className="h-3.5 w-3.5" /> {NOMBRE[tipo]}
-                  </p>
-                  <div className="mt-1 divide-y border rounded-lg">
+                  {/* 🔴 El encabezado dice CUÁNTAS hay y cuántas están marcadas
+                      aunque el grupo esté cerrado: si hubiera que abrirlo para
+                      saberlo, plegarlo dejaría de ser un resumen y sería esconder
+                      información. */}
+                  <button
+                    type="button"
+                    onClick={() => setAlternados((a) => ({ ...a, [tipo]: !abierto }))}
+                    aria-expanded={abierto}
+                    className="flex w-full items-center gap-1.5 rounded px-1 py-1 text-xs font-semibold
+                      text-gray-700 hover:bg-gray-50"
+                  >
+                    <ChevronRight
+                      className={`h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform ${abierto ? 'rotate-90' : ''}`}
+                    />
+                    <Icono className="h-3.5 w-3.5 shrink-0" />
+                    <span>{NOMBRE[tipo]}</span>
+                    <span className="font-normal text-gray-400">({fs.length})</span>
+                    {marcadasAqui > 0 && (
+                      <span className="ml-auto rounded bg-green-100 px-1.5 py-0.5 text-[11px] font-medium text-green-800">
+                        {marcadasAqui} marcada{marcadasAqui > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </button>
+                  <div className={`mt-1 divide-y border rounded-lg ${abierto ? '' : 'hidden'}`}>
                     {fs.map((f) => {
                       const llave = `${f.tipo}:${f.id}`;
                       const marcada = elegidas.has(llave);
@@ -237,7 +274,14 @@ export default function PanelFuentes({
                             className="mt-1"
                             checked={marcada}
                             disabled={soloLectura || noCabe || guardando !== null}
-                            onChange={(e) => onAlternar({ tipo: f.tipo, id: f.id }, e.target.checked)}
+                            onChange={(e) => {
+                              // 🔴 Tocar una casilla FIJA el grupo abierto. Sin esto,
+                              // desmarcar la última de un grupo lo hacía cerrarse solo
+                              // debajo del cursor: el default "abierto si tiene
+                              // marcadas" dejaba de cumplirse justo al desmarcar.
+                              setAlternados((a) => ({ ...a, [f.tipo]: true }));
+                              onAlternar({ tipo: f.tipo, id: f.id }, e.target.checked);
+                            }}
                           />
                           <span className="min-w-0 flex-1">
                             <span className="block font-medium text-gray-800">

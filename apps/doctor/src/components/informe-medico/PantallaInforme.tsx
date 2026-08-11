@@ -20,7 +20,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bot, Download, FileText, Loader2, AlertTriangle, ShieldCheck, Save, X } from 'lucide-react';
+import {
+  ArrowLeft, Bot, ChevronRight, Download, FileText, Loader2, AlertTriangle, ShieldCheck, Save, X,
+} from 'lucide-react';
 import InformeVisor, { type ValorVisor } from './InformeVisor';
 import ChatInforme, { type PropuestaChat } from './ChatInforme';
 import PanelFuentes, { type FuenteDisponible, type FuenteElegida } from './PanelFuentes';
@@ -121,6 +123,8 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
   /** Los informes que este paciente ya tiene, para volver a abrirlos. Sólo se
    * usa a nivel paciente: desde una consulta se abre el suyo directo. */
   const [existentes, setExistentes] = useState<ResumenInforme[]>([]);
+  /** La lista arranca plegada a los 2 más recientes; el resto se despliega. */
+  const [verTodosLosInformes, setVerTodosLosInformes] = useState(false);
 
   /**
    * 🔴 LO PENDIENTE: editado y **todavía NO guardado**.
@@ -539,9 +543,18 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
 
         {!informe && existentes.length > 0 && (
           <div className="mt-6 bg-white rounded-lg border p-5">
-            <p className="text-sm font-semibold text-gray-900">Informes de este paciente</p>
+            <p className="text-sm font-semibold text-gray-900">
+              Informes de este paciente{' '}
+              <span className="font-normal text-gray-400">({existentes.length})</span>
+            </p>
+            {/* 🔴 Sólo los 2 más recientes. Vienen ordenados por `createdAt desc`
+                del servidor, así que los de arriba son los que el doctor está
+                buscando; el resto es historia y empuja fuera de pantalla el
+                formulario de "generar uno nuevo", que es a lo que casi siempre
+                viene. El total va en el encabezado para que plegarlos no esconda
+                que existen. */}
             <ul className="mt-2 divide-y">
-              {existentes.map((r) => (
+              {(verTodosLosInformes ? existentes : existentes.slice(0, 2)).map((r) => (
                 <li key={r.id} className="py-2 flex items-center justify-between gap-3">
                   <span className="text-sm text-gray-800">
                     {r.form.insurer} — {r.form.name}
@@ -559,6 +572,20 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
                 </li>
               ))}
             </ul>
+            {existentes.length > 2 && (
+              <button
+                onClick={() => setVerTodosLosInformes((v) => !v)}
+                aria-expanded={verTodosLosInformes}
+                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-900"
+              >
+                <ChevronRight
+                  className={`h-3.5 w-3.5 transition-transform ${verTodosLosInformes ? 'rotate-90' : ''}`}
+                />
+                {verTodosLosInformes
+                  ? 'Ver sólo los 2 más recientes'
+                  : `Ver los otros ${existentes.length - 2}`}
+              </button>
+            )}
           </div>
         )}
 
