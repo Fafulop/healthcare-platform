@@ -249,6 +249,45 @@ function tituloDeReceta(r: RecetaConMedicamentos): string {
     + `${r.template?.name ? ` (${r.template.name})` : ''}`;
 }
 
+/**
+ * El título de la consulta ANCLA, para poder ENSEÑARLA en el informe abierto.
+ *
+ * 🔴 Va por su propia consulta a la base y no se saca del catálogo: el catálogo
+ * deja fuera las consultas sin contenido, así que un informe anclado a una
+ * consulta vacía se quedaba sin poder decir de dónde salió — justo el caso en el
+ * que el doctor más necesita saberlo.
+ */
+export interface AnclaDelInforme {
+  titulo: string;
+  /**
+   * 🔴 Si el MODELO la recibe o no, que NO es lo mismo que si existe.
+   *
+   * `consultasParaModelo` descarta las consultas sin contenido, así que una
+   * consulta vacía sostiene el informe —el pre-llenado sí la lee: de ahí salen la
+   * fecha y los datos del paciente— pero al chat no le llega NADA de ella.
+   * Anunciarle al doctor "estoy leyendo esta consulta" en ese caso es afirmarle
+   * algo falso sobre lo que el asistente tiene delante.
+   */
+  laLeeElModelo: boolean;
+}
+
+export async function tituloDeAncla(
+  encounterId: string,
+  patientId: string,
+  doctorId: string
+): Promise<AnclaDelInforme | null> {
+  const e = await prisma.clinicalEncounter.findFirst({
+    where: { id: encounterId, patientId, doctorId },
+    include: { template: { select: { name: true, customFields: true } } },
+  });
+  if (!e) return null;
+  // El MISMO `textoDeConsulta` que arma lo que se le manda al modelo: si aquí
+  // sale vacío, allá también. Comprobarlo con otra regla sería volver a tener dos
+  // opiniones sobre el mismo hecho.
+  const { titulo, contenido } = textoDeConsulta(e);
+  return { titulo, laLeeElModelo: contenido.trim() !== '' };
+}
+
 // ── El catálogo: qué puede elegir el doctor ─────────────────────────────────
 
 /** Una fuente disponible, para el panel. Sin contenido clínico: el panel sólo

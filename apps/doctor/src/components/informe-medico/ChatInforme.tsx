@@ -51,6 +51,22 @@ interface Props {
    * estado viviera aquí, la hoja no se enteraría. */
   abierto: boolean;
   onCerrar: () => void;
+  /**
+   * 🔴 Qué expediente tiene delante el asistente ahora mismo.
+   *
+   * Marcar una fuente **no llena la hoja**: lo único que hace es dársela a este
+   * chat, y eso no se ve por ningún lado. El doctor marcaba cinco casillas, no
+   * pasaba nada en el formato, y la conclusión razonable era "no sirven". Aquí se
+   * dice con nombres para que se pueda COMPROBAR.
+   */
+  lectura: {
+    /** La consulta ancla, SÓLO si el modelo la recibe de verdad. */
+    ancla: string | null;
+    /** Las fuentes que el asistente sí tiene. */
+    fuentes: string[];
+    /** Cuántas se eligieron y ya no se pueden leer. NO se cuentan como leídas. */
+    noLegibles: number;
+  };
 }
 
 const SALUDO =
@@ -71,7 +87,9 @@ async function mensajeDeError(r: Response, porDefecto: string): Promise<string> 
 // se apaga con un `return null` desde dentro: eso no desmonta, y la limpieza que
 // cierra el micrófono corre al desmontar — emitir mientras grababa dejaba el
 // micrófono abierto.
-export default function ChatInforme({ base, reportId, estadoHoja, onPropuesta, abierto, onCerrar }: Props) {
+export default function ChatInforme({
+  base, reportId, estadoHoja, onPropuesta, abierto, onCerrar, lectura,
+}: Props) {
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState('');
   const [pensando, setPensando] = useState(false);
@@ -213,6 +231,40 @@ export default function ChatInforme({ base, reportId, estadoHoja, onPropuesta, a
         <button onClick={onCerrar} className="text-gray-400 hover:text-gray-700" title="Cerrar">
           <X className="h-4 w-4" />
         </button>
+      </div>
+
+      {/* 🔴 LO QUE ESTOY LEYENDO — FUERA del contenedor con scroll, a propósito.
+          Adentro se iba hacia arriba con cada turno (el panel hace `scrollIntoView`
+          al final), y desaparecía justo cuando el doctor está conversando, que es
+          el único momento en que quiere comprobarlo. Es la única superficie donde
+          se ve que marcar una fuente sirvió de algo: en la hoja no pasa nada hasta
+          que se conversa. */}
+      <div className="shrink-0 border-b bg-gray-50 px-3 py-2 text-[12px] text-gray-700 max-h-32 overflow-y-auto">
+        <p className="font-semibold text-gray-900">Estoy leyendo</p>
+        <ul className="mt-1 space-y-0.5">
+          {lectura.ancla && (
+            <li>
+              📗 {lectura.ancla}{' '}
+              <span className="text-gray-500">— de aquí salió el pre-llenado</span>
+            </li>
+          )}
+          {lectura.fuentes.map((f, i) => <li key={i}>📎 {f}</li>)}
+        </ul>
+        {lectura.ancla === null && lectura.fuentes.length === 0 && (
+          <p className="mt-1 text-gray-500">
+            Nada del expediente todavía. Márcame consultas, notas o recetas en{' '}
+            <strong>Fuentes del expediente</strong> y vuelve a preguntarme.
+          </p>
+        )}
+        {/* Lo elegido que NO se puede leer se dice aparte y NO cuenta como leído:
+            el panel de fuentes ya lo declara ilegible y las dos cosas tienen que
+            decir lo mismo. */}
+        {lectura.noLegibles > 0 && (
+          <p className="mt-1 text-red-700">
+            ⚠️ {lectura.noLegibles} fuente(s) que elegiste ya no se pueden leer, así que{' '}
+            <strong>no las recibo</strong>. Quítalas en Fuentes del expediente.
+          </p>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 text-sm">

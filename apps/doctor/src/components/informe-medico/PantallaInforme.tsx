@@ -32,6 +32,8 @@ interface Campo { clave: string; etiqueta: string; valor: Valor }
 interface Informe {
   id: string; status: string; consentGiven: boolean; issuedAt: string | null;
   encounterId: string | null;
+  /** De qué consulta salió y si el MODELO la recibe. Lo arma el servidor. */
+  ancla?: { titulo: string; laLeeElModelo: boolean } | null;
   sources?: FuenteElegida[];
   form: Formato;
 }
@@ -645,6 +647,9 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
               presupuestoTokens={presupuestoTokens}
               guardando={guardandoFuente}
               soloLectura={Boolean(emitido)}
+              // Sólo hay asistente cuando el informe existe y se puede editar:
+              // es exactamente la condición con la que se monta `ChatInforme`.
+              hayAsistente={Boolean(informe) && !emitido}
               onAlternar={alternarFuente}
             />
           </div>
@@ -672,6 +677,18 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
                   versión {informe.form.version} · {llenos} de {campos.length} campos con contenido
                   {emitido && ' · EMITIDO'}
                 </p>
+                {/* 🔴 DE DÓNDE SALIÓ. Sin esto, una vez abierto el informe no hay
+                    forma de saber qué consulta lo originó: la única fecha visible
+                    en la hoja es la de HOY —la del documento— y se lee como si el
+                    sistema hubiera cambiado la fecha de la consulta. */}
+                {/* Aquí SÍ se nombra aunque esté vacía: el pre-llenado la leyó
+                    de verdad —de ahí salieron la fecha y la ficha del paciente—
+                    y es la respuesta a "¿de dónde salió este informe?". */}
+                {informe.ancla && (
+                  <p className="mt-1 text-xs text-green-800 bg-green-50 border border-green-200 rounded px-2 py-1 inline-block">
+                    Sale de: <strong>{informe.ancla.titulo}</strong> — de ahí se copió todo lo verde
+                  </p>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
@@ -869,6 +886,29 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
           onPropuesta={aplicarPropuesta}
           abierto={chatAbierto}
           onCerrar={() => setChatAbierto(false)}
+          // 🔴 Lo que el asistente TIENE DELANTE, dicho con nombres. Marcar una
+          // fuente no cambia la hoja —sólo el chat la lee— así que sin esto el
+          // doctor marca cinco casillas, no ve pasar nada y concluye que no
+          // sirven. Ahora se puede comprobar en vez de creer.
+          lectura={{
+            // 🔴 El ancla se anuncia SÓLO si el modelo de verdad la recibe. Una
+            // consulta vacía sostiene el informe pero `consultasParaModelo` la
+            // descarta, así que decir "estoy leyendo" sería falso.
+            ancla: informe.ancla?.laLeeElModelo ? informe.ancla.titulo : null,
+            // Y las fuentes se parten en dos: lo que el asistente SÍ tiene, y lo
+            // que se eligió y ya no se puede leer. Meter las huérfanas en la
+            // misma lista hacía que el chat dijera "estoy leyendo" de algo que el
+            // panel, dos dedos más abajo, declara ilegible.
+            fuentes: seleccion.flatMap(
+              (s) => {
+                const t = catalogo.find((c) => c.tipo === s.tipo && c.id === s.id)?.titulo;
+                return t ? [t] : [];
+              }
+            ),
+            noLegibles: seleccion.filter(
+              (s) => !catalogo.some((c) => c.tipo === s.tipo && c.id === s.id)
+            ).length,
+          }}
         />
       )}
 

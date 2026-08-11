@@ -6,7 +6,9 @@ import { etiquetaCanonica } from '@/lib/informe-medico/canonical';
 import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
 import { clavesDelInforme, geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { cargarPrefill } from '@/lib/informe-medico/cargar-prefill';
-import { leerFuentes, leerFuentesPedidas, resolverFuentesElegidas } from '@/lib/informe-medico/contexto-clinico';
+import {
+  leerFuentes, leerFuentesPedidas, resolverFuentesElegidas, tituloDeAncla,
+} from '@/lib/informe-medico/contexto-clinico';
 import { leerAnswers, type Answers, type AnswerValue } from '@/lib/informe-medico/types';
 
 /**
@@ -118,6 +120,15 @@ export async function GET(
         issuedAt: report.issuedAt,
         // Las fuentes elegidas, para que el panel abra marcado lo que ya se eligió.
         sources: leerFuentes(report.sources),
+        // 🔴 De qué consulta salió, EN PALABRAS. Con sólo el `encounterId` la
+        // pantalla no podía decirle al doctor cuál eligió, y una vez abierto el
+        // informe no había forma de confirmarlo: se ve una hoja con la fecha de
+        // HOY (que es la del documento) y ninguna señal de la consulta origen.
+        // Trae además si el MODELO la recibe: el pre-llenado lee una consulta
+        // vacía, el chat no.
+        ancla: report.encounterId
+          ? await tituloDeAncla(report.encounterId, patientId, doctorId)
+          : null,
         form: { id: report.form.id, insurer: report.form.insurer, name: report.form.name, version: report.form.version },
       },
       // 🔴 La lista muestra los MISMOS campos que el visor: todos los blancos

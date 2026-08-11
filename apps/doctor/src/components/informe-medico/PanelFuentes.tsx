@@ -53,6 +53,14 @@ interface Props {
   /** `null` = ninguna en vuelo. Si no, la llave `tipo:id` que se está guardando. */
   guardando: string | null;
   soloLectura: boolean;
+  /**
+   * 🔴 ¿Hay un asistente vivo que pueda leer esto AHORA?
+   *
+   * `false` antes de generar el informe (lo marcado viaja en el POST y aún no se
+   * guarda) y en un informe EMITIDO (el chat ni siquiera se monta). En esos dos
+   * estados decir "el asistente la lee" es afirmar algo falso.
+   */
+  hayAsistente: boolean;
   onAlternar: (f: FuenteElegida, marcar: boolean) => void;
 }
 
@@ -76,7 +84,8 @@ const SINGULAR = {
 } as const;
 
 export default function PanelFuentes({
-  disponibles, seleccion, anclaId, presupuestoTokens, guardando, soloLectura, onAlternar,
+  disponibles, seleccion, anclaId, presupuestoTokens, guardando, soloLectura,
+  hayAsistente, onAlternar,
 }: Props) {
   const elegidas = useMemo(
     () => new Set(seleccion.map((f) => `${f.tipo}:${f.id}`)),
@@ -119,11 +128,18 @@ export default function PanelFuentes({
   return (
     <div className="bg-white rounded-lg border p-4">
       <p className="text-sm font-semibold text-gray-900">Fuentes del expediente</p>
+      {/* 🔴 Lo primero que hay que decir, porque es lo que se malentiende:
+          marcar una casilla NO llena la hoja. El doctor marcó las cinco, no vio
+          cambiar nada en el formato, y concluyó —con toda la razón— que estaba
+          roto. Lo único que hace marcar es dárselo al asistente. */}
+      <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded p-2">
+        <strong>Marcar aquí NO llena la hoja.</strong> Lo único que hace es dejar que el
+        asistente lea eso. Para que aterrice en el formato tienes que{' '}
+        <strong>conversar con él</strong> — y lo que ponga sale en ámbar, para que lo revises:
+        lo interpretó un modelo, no lo copió el sistema.
+      </p>
       <p className="mt-1 text-xs text-gray-500">
-        El asistente lee la consulta de este informe siempre. Marca aquí lo demás que quieras
-        que lea —otras consultas, notas, recetas— y te lo va a poder colocar en la hoja.{' '}
-        <strong>Lo que salga de aquí queda en ámbar</strong>: lo interpretó el asistente, no
-        lo copió el sistema.
+        La consulta de la que sale este informe la lee siempre, aunque no aparezca en esta lista.
       </p>
 
       {lista.length === 0 && huerfanas.length === 0 ? (
@@ -189,6 +205,18 @@ export default function PanelFuentes({
                               {f.titulo}
                               {guardando === llave && (
                                 <Loader2 className="inline h-3 w-3 ml-1 animate-spin text-gray-400" />
+                              )}
+                              {/* Se guarda al marcarla, pero el spinner dura un
+                                  parpadeo: sin esta marca no queda ninguna señal
+                                  de que la selección quedó registrada.
+                                  🔴 "la lee" SÓLO si hay un asistente que pueda
+                                  leerla: antes de generar el informe esto todavía
+                                  no está guardado, y en uno emitido el chat ni
+                                  existe. Si no, dice sólo que quedó elegida. */}
+                              {marcada && guardando !== llave && (
+                                <span className="ml-1.5 text-[11px] font-normal text-green-700">
+                                  {hayAsistente ? '✓ el asistente la lee' : '✓ elegida'}
+                                </span>
                               )}
                             </span>
                             {/* 🔴 Sin esto el doctor cuenta 3 recetas aquí y 2 en
