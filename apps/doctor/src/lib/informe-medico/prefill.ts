@@ -15,6 +15,10 @@
  */
 import { calcularEdad } from '@/lib/edad';
 import { claveMedicamento, MAX_MEDICAMENTOS, type CampoMedicamento } from './canonical';
+// 🔴 La ZONA de cada fecha se decide en un solo módulo, compartido con el texto
+// que lee el modelo y con las etiquetas del panel. El FORMATO (`dd/mm/aaaa` con
+// ceros) se queda aquí. Este import no rompe la pureza: el módulo no toca Prisma.
+import { partesDelDiaDeFuente, partesDelDiaEnMexico } from './fechas-de-fuente';
 import type { Answers, AnswerValue } from './types';
 
 /** Lo que Prisma devuelve para una columna `Decimal` (o un número ya convertido). */
@@ -150,22 +154,42 @@ function fechaCalendario(d: string | Date): string | null {
 }
 
 /**
- * dd/mm/aaaa de un **timestamp** (`encounterDate`, o el "hoy" de la emisión),
- * en la zona horaria **local**.
+ * dd/mm/aaaa de la fecha de la CONSULTA (`encounterDate`).
  *
- * 🔴 `encounterDate` NO es `@db.Date`: es un `DateTime` con hora. Leerlo con
- * `toISOString()` toma el día **UTC**, y una consulta de las 18:00 en CDMX
- * (UTC-6) ya cayó en el día siguiente en UTC ⇒ el informe le pondría a la
- * consulta la fecha de MAÑANA. En un documento médico-legal que la aseguradora
- * cruza contra la fecha del siniestro, eso es un rechazo.
+ * 🔴 Esto usaba los componentes **locales del servidor**, y eso no es una zona:
+ * es "la que tenga la máquina". En Railway (`TZ` sin poner ⇒ UTC) acertaba por
+ * accidente con las 193/199 filas que están a medianoche UTC, y **fallaba en
+ * local** —una máquina en México daba el día anterior— así que dev y prod no
+ * coincidían. Y con las 6 filas que sí traen hora de verdad fallaba en los dos.
+ *
+ * La regla —medianoche UTC exacta ⇒ día de calendario, si no ⇒ instante en hora
+ * de México— vive en `fechas-de-fuente.ts` y la comparten el pre-llenado, el
+ * texto que lee el modelo y las etiquetas del panel. Antes estaba replicada, y
+ * las copias no decían lo mismo.
  */
-function fechaMomento(d: string | Date): string | null {
+function fechaDeConsulta(d: string | Date): string | null {
   // Un `YYYY-MM-DD` pelón no trae hora ni zona: es un día calendario y ya.
   // (`new Date('2026-08-05')` sería medianoche UTC = el día 4 en local.)
   if (typeof d === 'string' && SOLO_DIA.test(d)) return fechaCalendario(d);
   const f = typeof d === 'string' ? new Date(d) : d;
-  if (Number.isNaN(f.getTime())) return null;
-  return ddmmaaaa(f.getFullYear(), f.getMonth() + 1, f.getDate());
+  const p = partesDelDiaDeFuente(f, 'consulta');
+  // `null` cae al `empty` explícito. Nunca un "undefined/undefined/NaN" firmado
+  // como si viniera del expediente.
+  return p === null ? null : ddmmaaaa(p.anio, p.mes, p.dia);
+}
+
+/**
+ * dd/mm/aaaa de HOY, en hora de **México**.
+ *
+ * 🔴 Esto SÍ estaba roto en producción, todos los días. `hoy` es un instante de
+ * verdad y se leía con componentes locales; con el contenedor en UTC, entre las
+ * **18:00 y las 24:00 hora de México** el informe se emitía fechado **MAÑANA** —
+ * en `informe.fecha` y `informe.lugarYFecha`, que es la fecha de emisión de un
+ * documento que la aseguradora cruza contra el siniestro.
+ */
+function fechaDeHoy(ahora = new Date()): string | null {
+  const p = partesDelDiaEnMexico(ahora);
+  return p === null ? null : ddmmaaaa(p.anio, p.mes, p.dia);
 }
 
 /**
@@ -262,7 +286,7 @@ export function construirPrefillDeterminista(entrada: EntradaPrefill): Resultado
   answers['paciente.tipoSangre'] = det(p.bloodType, 'patient.bloodType');
 
   // ── La consulta ───────────────────────────────────────────────────────────
-  answers['consulta.fecha'] = det(fechaMomento(c.encounterDate), 'encounter.encounterDate');
+  answers['consulta.fecha'] = det(fechaDeConsulta(c.encounterDate), 'encounter.encounterDate');
   answers['consulta.motivo'] = det(c.chiefComplaint, 'encounter.chiefComplaint');
 
   // ── Vitales. Las unidades son las del expediente: talla en cm, peso en kg ──
@@ -299,7 +323,7 @@ export function construirPrefillDeterminista(entrada: EntradaPrefill): Resultado
   answers['medico.domicilio'] = det(m.clinicAddress, 'doctor.clinicAddress');
 
   // ── El informe ────────────────────────────────────────────────────────────
-  const hoy = fechaMomento(new Date());
+  const hoy = fechaDeHoy();
   answers['informe.lugar'] = det(m.city, 'doctor.city');
   answers['informe.fecha'] = det(hoy, 'fecha de emisión');
   answers['informe.lugarYFecha'] = det(

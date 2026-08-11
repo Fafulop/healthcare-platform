@@ -1408,10 +1408,18 @@ en cada `PATCH`, el servidor lo rechazaba con 409, y el panel no tenía casilla 
 se podía ni quitar OTRA fuente. Arreglado (se descarta + se reporta + huérfanas en rojo) y
 **probado ejecutándose contra datos reales de prod**, no leyendo el código.
 
-## Sigue abierto (heredado, NO se tocó hoy)
+## Cerrado hoy: el BUG DE UN DÍA en las fechas
 
-- ⚠️ **`prefill.ts` `fechaMomento()` — MEDIDO el 2026-08-11, y la conclusión es más fina que el
-  susto que traía este doc.** Usa componentes **locales del servidor** (`getFullYear/Month/Date`).
+- ✅ **`prefill.ts` — CERRADO el 2026-08-11.** Esto era lo que sigue abajo, y ya está arreglado:
+  ahora usa `fechas-de-fuente.ts` como todo lo demás. `consulta.fecha` va por la regla de clase
+  (medianoche UTC ⇒ día; si no ⇒ instante en México) y **`informe.fecha` / `informe.lugarYFecha`
+  van SIEMPRE en hora de México**, que es lo que estaba roto en prod todas las tardes.
+  ⚠️ Los informes YA GUARDADOS no cambian: `answers` se escribió una vez y el pre-llenado sólo
+  corre al crear. Un informe emitido ayer a las 20:00 conserva la fecha de mañana que se le puso.
+
+  <details><summary>El diagnóstico original, para que no se re-litigue</summary>
+
+  Usaba componentes **locales del servidor** (`getFullYear/Month/Date`).
   En el servicio `@healthcare/doctor` **`TZ` no está seteada**, así que en prod "local" = **UTC**.
   Y las columnas de fecha clínica se escriben con `new Date("YYYY-MM-DD")` ⇒ **medianoche UTC**
   (medido: `encounter_date` 193/199, `prescription_date` 41/41, `expires_at` 8/8).
@@ -1427,8 +1435,25 @@ se podía ni quitar OTRA fuente. Arreglado (se descarta + se reporta + huérfana
     calendario y se lee en **UTC**; cualquier otra es un instante y se lee en **México**. Lo
     segundo hace falta porque **6 de las 199 `encounter_date` traen hora de verdad** y leerlas en
     UTC las corría un día HACIA ADELANTE.
-  - ⚠️ **`prefill.ts` NO se migró a ese módulo** — escribe los valores 🟩 verdes de un documento
-    médico-legal y merece su propia pasada, no ir de aventón en este cambio.
+  </details>
+
+## Sigue abierto (heredado, NO se tocó hoy)
+
+- 🔴 **`informe.fecha` dice "Fecha de emisión" y NO es la de emisión.** Se calcula UNA vez, al
+  CREAR el informe, y se congela en `answers`; la emisión real se escribe mucho después y en otro
+  lado (`issuedAt = new Date()` al hacer `PATCH status: 'issued'`). Un borrador creado el 1 de
+  agosto y emitido el 20 imprime **01/08** en el campo que la aseguradora cruza contra el
+  siniestro. Hoy se le arregló un error de UN DÍA (la zona) a un campo que puede traer uno de
+  SEMANAS. Hay que decidir: **recalcularlo al emitir** —cuidando no pisar una corrección manual
+  del doctor, que sería `origin: 'manual'`— **o renombrarlo a "fecha de elaboración"**.
+  (Lo encontró el code review del 2026-08-11.)
+
+  📌 **DIFERIDO por el usuario (2026-08-11): se queda como está por ahora.** Y el dato que hacía
+  falta para decidir, ya medido sobre el PDF oficial: **la hoja de AXA no dice ni "emisión" ni
+  "elaboración"**. Dice `"Fecha:"` (p1) y `"Lugar y fecha"` (p5, junto a la firma). O sea que
+  *"Fecha de emisión"* es **etiqueta NUESTRA** (`canonical.ts`), no de la aseguradora — el formato
+  es agnóstico y no obliga a ninguna de las dos lecturas. Quien retome esto elige la semántica
+  libremente; sólo que la elija a propósito.
 - **`/api/…/dictar` sigue SIN UI** que lo llame. Endpoint LLM vivo y sin superficie.
 - **El autoguardado al salir del campo YA NO EXISTE** (1B) y nadie decidió si se quiere así.
 - **GNP**: ¿el formato de Eleonor (3 págs) o el oficial (2 págs)?

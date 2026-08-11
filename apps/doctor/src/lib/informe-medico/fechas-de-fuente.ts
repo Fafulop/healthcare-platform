@@ -82,6 +82,56 @@ function hoyEnMexico(ahora: Date): string {
   return ahora.toLocaleDateString('en-CA', { timeZone: MX_TZ });
 }
 
+/** Los componentes del día, ya leídos en la zona correcta. */
+export interface PartesDelDia { anio: number; mes: number; dia: number }
+
+/**
+ * 🔴 Devuelve `null` si no salen tres números, y NO es paranoia de más: quien
+ * llama arma `dd/mm/aaaa` con esto, y sin la guarda un parseo fallido produce el
+ * literal `"undefined/undefined/NaN"` — que `det()` estampa como
+ * `origin: 'deterministic'`, o sea **una fecha inventada presentada como "del
+ * expediente"** en un documento médico-legal. `fechaCalendario` en `prefill.ts`
+ * ya se guardaba de exactamente esto.
+ *
+ * Se llega ahí con un runtime cuyo ICU no traiga `en-CA` (build small-icu,
+ * `NODE_ICU_DATA` mal puesto): el formato cae a `M/D/YYYY` y el `split('-')` se
+ * rompe. Y trivialmente con el siguiente que pase un `new Date(x)` sin validar.
+ */
+function partesEnZona(d: Date, zona: string): PartesDelDia | null {
+  if (Number.isNaN(d.getTime())) return null;
+  const partes = d.toLocaleDateString('en-CA', { timeZone: zona }).split('-').map(Number);
+  if (partes.length !== 3 || partes.some((n) => !Number.isFinite(n))) return null;
+  const [anio, mes, dia] = partes;
+  return { anio, mes, dia };
+}
+
+/**
+ * El día de la fecha de una FUENTE, en la zona que le toca — la misma regla que
+ * `fechaDeFuente`, porque **delega en `zonaDeFuente`** en vez de repetirla.
+ *
+ * ⚠️ El `tipo` es obligatorio a propósito. Con la heurística de medianoche suelta
+ * y un nombre genérico, esto invita a llamarlo con `nota.createdAt` — y una nota
+ * creada justo a las 00:00Z se leería como día de calendario, que es lo que
+ * `zonaDeFuente` evita al exigir además que la COLUMNA sea de calendario.
+ *
+ * Lo usa `prefill.ts`, que arma su propio `dd/mm/aaaa` con ceros a la izquierda:
+ * lo que se comparte es **la decisión de la zona**, no el formato.
+ */
+export function partesDelDiaDeFuente(d: Date, tipo: TipoFuente): PartesDelDia | null {
+  return partesEnZona(d, zonaDeFuente(d, tipo));
+}
+
+/**
+ * El día de un INSTANTE de verdad (`new Date()`), siempre en la zona del negocio.
+ *
+ * 🔴 Para esto no hay heurística que valga: un instante se lee donde está el
+ * negocio. Con el contenedor en UTC y componentes locales, a las 19:00 en CDMX ya
+ * es el día siguiente y el informe se estampa con la fecha de MAÑANA.
+ */
+export function partesDelDiaEnMexico(d: Date): PartesDelDia | null {
+  return partesEnZona(d, MX_TZ);
+}
+
 /** El día de una fecha de calendario, como `aaaa-mm-dd`. */
 function diaDeCalendario(d: Date, tipo: TipoFuente): string {
   return d.toLocaleDateString('en-CA', { timeZone: zonaDeFuente(d, tipo) });
