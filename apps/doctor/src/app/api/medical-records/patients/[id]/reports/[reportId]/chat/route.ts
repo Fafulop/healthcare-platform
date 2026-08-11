@@ -8,7 +8,9 @@ import { dictParaRender, formatoDe, leerPdfBase } from '@/lib/informe-medico/for
 import { geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { camposDictables } from '@/lib/informe-medico/campos-dictables';
 import { casillasParaElAgente, etiquetasCacheadas } from '@/lib/informe-medico/etiquetas-de-la-hoja';
-import { consultasParaModelo, MAX_CONSULTAS } from '@/lib/informe-medico/contexto-clinico';
+import {
+  consultasParaModelo, fuentesParaModelo, leerFuentes, PRESUPUESTO_TOKENS_FUENTES,
+} from '@/lib/informe-medico/contexto-clinico';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
 import { leerAnswers, resolverClave, type Answers } from '@/lib/informe-medico/types';
 import { transcribirAudio } from '@/lib/voice/transcribir-audio';
@@ -82,7 +84,6 @@ export async function POST(
     let transcript: string | null = null;
     let mensajes: MensajeCliente[] = [];
     let pendientes: Record<string, string> = {};
-    let adjuntarEncounterIds: string[] = [];
 
     const leerJson = (s: unknown): unknown => {
       if (typeof s !== 'string') return null;
@@ -102,8 +103,6 @@ export async function POST(
       mensajes = leerMensajes(leerJson(fd.get('mensajes')));
       const p = leerJson(fd.get('pendientes'));
       if (p && typeof p === 'object' && !Array.isArray(p)) pendientes = p as Record<string, string>;
-      const a = leerJson(fd.get('adjuntarEncounterIds'));
-      if (Array.isArray(a)) adjuntarEncounterIds = a.filter((x) => typeof x === 'string');
     } else {
       const body = await request.json();
       mensaje = typeof body?.mensaje === 'string' ? body.mensaje.trim() : '';
@@ -111,9 +110,6 @@ export async function POST(
       if (body?.pendientes && typeof body.pendientes === 'object' && !Array.isArray(body.pendientes)) {
         pendientes = body.pendientes as Record<string, string>;
       }
-      adjuntarEncounterIds = Array.isArray(body?.adjuntarEncounterIds)
-        ? body.adjuntarEncounterIds.filter((x: unknown) => typeof x === 'string')
-        : [];
     }
 
     if (mensaje === '') {
@@ -201,15 +197,29 @@ export async function POST(
       });
     }
 
-    // 🔴 El alcance clínico (06-AGENTE §7.1): la consulta LIGADA a este informe
-    // entra sola —el doctor la eligió al crearlo y el pre-llenado ya la leyó— y
-    // cualquier otra tiene que pedirla él. `consultasParaModelo` comprueba
-    // paciente y doctor en el `where`; no se confía en los ids del cliente.
-    const ids = [
-      ...(report.encounterId ? [report.encounterId] : []),
-      ...adjuntarEncounterIds,
-    ].slice(0, MAX_CONSULTAS);
-    const consultas = await consultasParaModelo(ids, patientId, doctorId);
+    // 🔴 El alcance clínico (06-AGENTE §7.1 · 07-PLAN §4): entra la consulta
+    // ANCLA —el doctor la eligió al crear el informe y el pre-llenado ya la
+    // leyó— más las FUENTES que él marcó en el panel. Los ids salen de la
+    // COLUMNA, no del navegador, y aun así se vuelven a acotar por paciente y
+    // doctor en el `where`: la columna la escribió otra petición.
+    const consultas = await consultasParaModelo(
+      report.encounterId ? [report.encounterId] : [], patientId, doctorId
+    );
+    const { fuentes, faltantes, tokensAprox } = await fuentesParaModelo(
+      leerFuentes(report.sources), patientId, doctorId, report.encounterId
+    );
+
+    // 🔴 Si lo elegido dejó de caber —una nota creció después de marcarla— NO se
+    // recorta solo (07-PLAN §11): se le pide al doctor que deseleccione. Un
+    // recorte callado es indistinguible de "el modelo lo ignoró", y él eligió
+    // esas fuentes a propósito.
+    if (tokensAprox > PRESUPUESTO_TOKENS_FUENTES) {
+      return NextResponse.json({
+        error: `Las fuentes que elegiste ya no caben en la conversación (${tokensAprox} de `
+          + `${PRESUPUESTO_TOKENS_FUENTES}): alguna creció desde que la marcaste. Quita una `
+          + `en "Fuentes del expediente" y vuelve a intentarlo.`,
+      }, { status: 409 });
+    }
 
     const ctx = {
       formato: `${report.form.insurer} — ${report.form.name}`,
@@ -217,6 +227,7 @@ export async function POST(
       casillas,
       yaLleno,
       consultas,
+      fuentes,
     };
     const [estable, volatil] = promptsSistemaChat(ctx);
 
@@ -351,7 +362,10 @@ export async function POST(
         turnos: mensajes.length + 1,
         propuestos: Object.keys(valores),
         descartados: descartados.length,
-        consultas: ids,        // qué se mandó al modelo (05-VOZ §7.5)
+        // Qué se le mandó al modelo (05-VOZ §7.5). Con fuentes a nivel paciente
+        // esto es lo que contesta "de dónde sacó eso" dentro de un año.
+        consultas: report.encounterId ? [report.encounterId] : [],
+        fuentes: fuentes.map((f) => `${f.tipo}:${f.id}`),
         porVoz: transcript !== null,
       },
       request,
@@ -369,6 +383,13 @@ export async function POST(
       // Lo descartado NO se calla: si el doctor dijo algo y no aparece en la
       // hoja, tiene que saber por qué.
       descartados,
+      // 🔴 Fuentes que el doctor eligió y que ya NO se pudieron leer (se borró la
+      // nota, la receta volvió a borrador, quedó vacía). Sin decirlo, el turno se
+      // contesta sin ellas y se ve idéntico a uno completo.
+      //
+      // Va la FECHA guardada, no sólo el tipo: "nota · nota" no le dice al doctor
+      // CUÁL falta, y sin saber cuál no puede ir a quitarla del panel.
+      fuentesFaltantes: faltantes.map((f) => ({ tipo: f.tipo, fecha: f.fecha })),
       // Lo que se oyó, para que el doctor vea si Whisper lo entendió mal.
       transcript,
     });

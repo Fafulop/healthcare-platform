@@ -2506,6 +2506,20 @@ model MedicalReport {
   /// origin ∈ deterministic | llm | voice | manual | empty. "empty" es un estado
   /// EXPLÍCITO: falta de dato y borrado a propósito no son lo mismo (01-FUENTES §4).
   answers       Json      @default("{}")
+
+  /// Las FUENTES que el doctor eligió además del ancla (07-PLAN §5): otras
+  /// consultas, notas y recetas que se le inyectan al CHAT y caen en ámbar.
+  /// [{ tipo: 'consulta'|'nota'|'receta', id, fecha, actualizadoEn }]
+  ///
+  /// 🔴 INSTANTÁNEA, no FKs: `RESTRICT` sobre notas y recetas volvería imborrable
+  /// medio expediente. Para auditar interesa QUÉ SE CONSULTÓ, no que siga
+  /// existiendo — una referencia que sobrevive al borrado es mejor registro que
+  /// una FK que impide borrar. `actualizadoEn` deja ver la deriva si la fuente se
+  /// editó después. NO se copia contenido clínico aquí: sería un segundo
+  /// expediente que nadie mantiene ni borra.
+  /// Migración: `migrations/add-informe-medico-sources.sql`.
+  sources       Json      @default("[]")
+
   status        String    @default("draft") @db.VarChar(20)
 
   /// Transferencia a un TERCERO bajo LFPDPPP: se registra la autorización.

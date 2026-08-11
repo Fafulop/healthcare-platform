@@ -29,6 +29,10 @@ interface Mensaje {
   colocados?: number;
   /** Lo que el modelo propuso y no se pudo colocar. */
   descartados?: Array<{ clave: string; motivo: string; caracteres?: string[]; opciones?: string[] }>;
+  /** 🔴 Fuentes que el doctor eligió y que el servidor ya no pudo leer (se borró
+   * la nota, la receta volvió a borrador). Se dice: si no, este turno se contestó
+   * sin ellas y se ve idéntico a uno completo. */
+  fuentesFaltantes?: Array<{ tipo: string; fecha: string }>;
 }
 
 interface Props {
@@ -49,6 +53,15 @@ interface Props {
 const SALUDO =
   'Conozco este formato y tú no te lo sabes de memoria. Cuéntame el caso como se lo contarías ' +
   'a un colega y yo lo voy colocando en la hoja, o pregúntame qué le falta.';
+
+/** `2026-03-12T…` → ` del 12/03/2026`. Vacío si la fuente se guardó sin fecha
+ * (informes de antes de que la columna existiera). */
+function fechaCorta(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return ` del ${d.toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}`;
+}
 
 async function mensajeDeError(r: Response, porDefecto: string): Promise<string> {
   if (r.status === 401) return 'Se venció la sesión. Vuelve a entrar.';
@@ -148,6 +161,7 @@ export default function ChatInforme({ base, reportId, estadoHoja, onPropuesta, a
         content: String(d.mensaje ?? ''),
         colocados,
         descartados: Array.isArray(d.descartados) ? d.descartados : [],
+        fuentesFaltantes: Array.isArray(d.fuentesFaltantes) ? d.fuentesFaltantes : [],
       }]);
     } catch {
       setError('No se pudo hablar con el asistente');
@@ -222,6 +236,13 @@ export default function ChatInforme({ base, reportId, estadoHoja, onPropuesta, a
             {m.colocados !== undefined && m.colocados > 0 && (
               <p className="mt-1 text-[11px] text-amber-700">
                 {m.colocados} campo(s) puestos en la hoja en ámbar — revísalos y aprieta Guardar.
+              </p>
+            )}
+            {m.fuentesFaltantes && m.fuentesFaltantes.length > 0 && (
+              <p className="mt-1 text-[11px] text-red-700">
+                {m.fuentesFaltantes.length} fuente(s) que elegiste ya no se pudieron leer
+                ({m.fuentesFaltantes.map((f) => `${f.tipo}${fechaCorta(f.fecha)}`).join(' · ')}):
+                este turno se contestó sin ellas. Quítalas en “Fuentes del expediente”.
               </p>
             )}
             {m.descartados && m.descartados.length > 0 && (

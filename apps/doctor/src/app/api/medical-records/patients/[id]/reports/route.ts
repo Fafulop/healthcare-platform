@@ -4,6 +4,7 @@ import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { cargarPrefill, DatosDelInformeNoEncontrados } from '@/lib/informe-medico/cargar-prefill';
 import { formatoDe } from '@/lib/informe-medico/formatos';
+import { leerFuentesPedidas, resolverFuentesElegidas } from '@/lib/informe-medico/contexto-clinico';
 
 // GET /api/medical-records/patients/:id/reports?encounterId=...
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -54,12 +55,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
+    // Las FUENTES son opcionales (07-PLAN §10 #1: el selector arranca VACÍO —
+    // nada se adjunta solo, y el doctor elige a propósito). Si vienen, el
+    // veredicto de qué es una fuente válida y de si cabe lo da el servidor.
+    let sources: unknown[] = [];
+    let fuentesDescartadas: unknown[] = [];
+    if (body?.sources !== undefined) {
+      const pedidas = leerFuentesPedidas(body.sources);
+      if ('error' in pedidas) return NextResponse.json({ error: pedidas.error }, { status: 400 });
+      const resuelto = await resolverFuentesElegidas(pedidas, patientId, doctorId, encounterId);
+      if (!resuelto.ok) return NextResponse.json({ error: resuelto.error }, { status: 409 });
+      sources = resuelto.fuentes;
+      fuentesDescartadas = resuelto.descartadas;
+    }
+
     const { answers, avisos } = await cargarPrefill({ doctorId, patientId, encounterId });
 
     const report = await prisma.medicalReport.create({
       data: {
         doctorId, patientId, encounterId, formId,
         answers: answers as object,
+        sources: sources as object,
         status: 'draft',
         createdBy: userId,
       },
@@ -68,14 +84,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     await logAudit({
       patientId, doctorId, userId, userRole: role,
+      // Qué se eligió como fuente queda EN EL LOG: es la mitad de la respuesta a
+      // "por qué este documento dice lo que dice" (01-FUENTES §6).
       action: 'CREATE', resourceType: 'MedicalReport', resourceId: report.id,
-      changes: { formId, encounterId }, request,
+      changes: { formId, encounterId, sources }, request,
     });
 
     // Los avisos van con la respuesta, no al log: son para el doctor (un
     // apellido partido a ojo, más de 10 medicamentos recetados). Guardarlos sólo
     // en el servidor deja al doctor firmando algo que nadie le advirtió.
-    return NextResponse.json({ report, avisos }, { status: 201 });
+    // `fuentesDescartadas`: lo que el doctor marcó y el servidor no pudo leer.
+    // Va con la respuesta por lo mismo que los avisos — callarlo lo deja creyendo
+    // que el asistente va a leer algo que no le llega.
+    return NextResponse.json({ report, avisos, fuentesDescartadas }, { status: 201 });
   } catch (error) {
     if (error instanceof DatosDelInformeNoEncontrados) {
       return NextResponse.json({ error: error.message }, { status: 404 });

@@ -1,0 +1,883 @@
+'use client';
+
+/**
+ * INFORME MÉDICO — la pantalla del doctor (paso 5 de 02-PLAN §6, ampliada por
+ * 07-PLAN).
+ *
+ * 🔴 El PDF es una SALIDA, nunca la superficie de captura: aquí se teclea contra
+ * el JSON de respuestas y el PDF se genera al final. Por eso el borrador que se
+ * descarga es de SÓLO LECTURA — si el doctor tecleara en el PDF, ese valor
+ * viviría sólo en ese archivo y desaparecería al regenerarlo (02-PLAN §4b).
+ *
+ * 🔴 Se entra por DOS puertas y es la MISMA pantalla:
+ *   · a nivel PACIENTE — el doctor elige la consulta ANCLA de una lista;
+ *   · desde una CONSULTA — esa consulta entra como ancla sin preguntar. Es un
+ *     atajo del mismo flujo, no otro flujo (07-PLAN §7).
+ *
+ * El ancla no se puede cambiar después (07-PLAN §10 #3): da el pre-llenado 🟩
+ * verde y cambiarla invalidaría lo que el doctor ya revisó. Se genera otro.
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, Bot, Download, FileText, Loader2, AlertTriangle, ShieldCheck, Save, X } from 'lucide-react';
+import InformeVisor, { type ValorVisor } from './InformeVisor';
+import ChatInforme, { type PropuestaChat } from './ChatInforme';
+import PanelFuentes, { type FuenteDisponible, type FuenteElegida } from './PanelFuentes';
+import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
+
+interface Formato { id: string; insurer: string; name: string; version: string }
+interface Valor { value: string; source: string | null; origin: string }
+interface Campo { clave: string; etiqueta: string; valor: Valor }
+interface Informe {
+  id: string; status: string; consentGiven: boolean; issuedAt: string | null;
+  encounterId: string | null;
+  sources?: FuenteElegida[];
+  form: Formato;
+}
+/** Un informe ya existente de este paciente, para poder volver a abrirlo. */
+interface ResumenInforme {
+  id: string; status: string; createdAt: string; encounterId: string | null;
+  form: Formato;
+}
+type Aviso = { tipo: string; [k: string]: unknown };
+
+interface Props {
+  patientId: string;
+  /**
+   * La consulta ANCLA cuando se entra desde una consulta. `null` = se entra a
+   * nivel paciente y hay que elegirla.
+   */
+  anclaFija?: string | null;
+  volverHref: string;
+  volverTexto: string;
+}
+
+/** El color dice de dónde salió el valor: el doctor revisa con los ojos donde
+ * hay riesgo, no los 40 campos por igual (01-FUENTES §4). */
+const ESTILO_ORIGEN: Record<string, { chip: string; texto: string }> = {
+  deterministic: { chip: 'bg-green-100 text-green-800', texto: 'del expediente' },
+  manual: { chip: 'bg-blue-100 text-blue-800', texto: 'lo escribiste tú' },
+  llm: { chip: 'bg-amber-100 text-amber-900', texto: 'lo redactó la IA — revísalo' },
+  voice: { chip: 'bg-amber-100 text-amber-900', texto: 'dictado — revísalo' },
+  empty: { chip: 'bg-gray-100 text-gray-600', texto: 'sin dato en el expediente' },
+};
+
+function textoAviso(a: Aviso): string {
+  switch (a.tipo) {
+    case 'apellido-heuristico':
+      return `El apellido se partió a ojo: "${a.paterno}" / "${a.materno}". Corrígelo si está mal — el expediente los guarda juntos.`;
+    case 'apellido-unico':
+      return `"${a.lastName}" es un solo apellido: el materno quedó vacío.`;
+    case 'sexo-desconocido':
+      return `El sexo del paciente ("${a.valor}") no es masculino/femenino/otro, así que se dejó vacío.`;
+    case 'medicamentos-truncados':
+      return `Hay ${a.total} medicamentos recetados y en la hoja caben ${a.escritos}. Los demás hay que anexarlos aparte.`;
+    default:
+      return JSON.stringify(a);
+  }
+}
+
+const FECHA_MX: Intl.DateTimeFormatOptions = {
+  timeZone: 'America/Mexico_City', day: '2-digit', month: '2-digit', year: 'numeric',
+};
+
+export default function PantallaInforme({ patientId, anclaFija = null, volverHref, volverTexto }: Props) {
+  const [formatos, setFormatos] = useState<Formato[]>([]);
+  const [formatoElegido, setFormatoElegido] = useState('');
+  const [informe, setInforme] = useState<Informe | null>(null);
+  const [campos, setCampos] = useState<Campo[]>([]);
+  const [avisos, setAvisos] = useState<Aviso[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [trabajando, setTrabajando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+
+  /** 07-PLAN: el catálogo de fuentes del paciente. De aquí sale también la lista
+   * de consultas para elegir el ANCLA. */
+  const [catalogo, setCatalogo] = useState<FuenteDisponible[]>([]);
+  const [presupuestoTokens, setPresupuestoTokens] = useState(6000);
+  const [ancla, setAncla] = useState<string>(anclaFija ?? '');
+  const [seleccion, setSeleccion] = useState<FuenteElegida[]>([]);
+  const [guardandoFuente, setGuardandoFuente] = useState<string | null>(null);
+  /**
+   * 🔴 El mismo valor en un ref, para `abrirInforme`.
+   *
+   * `abrirInforme` es un `useCallback` con `[base]`: leer el estado desde su
+   * clausura daría el de hace varios renders. Y sin esta comprobación, guardar
+   * la hoja mientras una fuente viaja hace que el GET —que sale con la selección
+   * ANTERIOR— pise la casilla que el doctor acaba de marcar: se ve desmarcada
+   * aunque el servidor sí la guardó, y la vuelve a marcar sobre algo ya guardado.
+   */
+  const fuenteEnVuelo = useRef<string | null>(null);
+  /** Los informes que este paciente ya tiene, para volver a abrirlos. Sólo se
+   * usa a nivel paciente: desde una consulta se abre el suyo directo. */
+  const [existentes, setExistentes] = useState<ResumenInforme[]>([]);
+
+  /**
+   * 🔴 LO PENDIENTE: editado y **todavía NO guardado**.
+   *
+   * Decisión 1B (06-AGENTE §10): en esta pantalla **nada se persiste hasta que
+   * el doctor aprieta Guardar**. Antes cada campo hacía `PATCH` al salir; con el
+   * agente proponiendo valores encima, dos cajas idénticas se habrían comportado
+   * distinto —una guardada y otra no— sin forma de saber cuál era cuál.
+   *
+   * El precio: se puede perder trabajo al cerrar la pestaña ⇒ el aviso de abajo.
+   * Se descartó respaldarlo en `localStorage`: no se mete texto clínico del
+   * paciente en el navegador sin decidirlo a propósito.
+   *
+   * ⚠️ Las FUENTES no siguen esta regla y es a propósito: el chat las lee de la
+   * BASE, así que una selección "pendiente" sería una que el doctor ve marcada y
+   * el modelo nunca recibe.
+   */
+  const [pendientes, setPendientes] = useState<Record<string, ValorVisor>>({});
+  /** El VISOR es la vista principal: es el formato real con las cajas encima.
+   * La lista se queda como red — si el render del PDF falla en algún navegador,
+   * el doctor todavía puede llenar y emitir. */
+  const [vista, setVista] = useState<'visor' | 'lista'>('visor');
+  /** El chat abierto ⇒ la hoja usa el ancho que queda en vez de `max-w-4xl`. */
+  const [chatAbierto, setChatAbierto] = useState(false);
+
+  const base = `/api/medical-records/patients/${patientId}/reports`;
+
+  /** El error de una respuesta que puede NO ser JSON (login HTML, proxy 502). */
+  async function mensajeDeRespuesta(r: Response, porDefecto: string): Promise<string> {
+    if (r.status === 401) return 'Se venció la sesión. Vuelve a entrar.';
+    try {
+      if (r.headers.get('content-type')?.includes('application/json')) {
+        return ((await r.json()) as { error?: string }).error ?? porDefecto;
+      }
+    } catch { /* cae al mensaje por defecto */ }
+    return porDefecto;
+  }
+
+  /**
+   * @param aplicados si viene, sólo se limpian ESTOS pendientes (los que el
+   *   servidor acaba de aceptar) y **se conserva lo que se editó mientras el
+   *   PATCH viajaba**. Sin esto, teclear durante el guardado —o un turno del
+   *   chat que aterrice en esa ventana— se perdía en silencio: el `setPendientes({})`
+   *   ciego borraba también lo que nunca se mandó, y la caja volvía al valor del
+   *   servidor sin ningún error.
+   */
+  const abrirInforme = useCallback(async (id: string, aplicados?: Record<string, ValorVisor>) => {
+    const r = await fetch(`${base}/${id}`);
+    const d = await r.json();
+    if (!r.ok) { setError(d.error ?? 'No se pudo abrir el informe'); return; }
+    setInforme(d.report);
+    setCampos(d.campos);
+    // Las fuentes vienen del servidor: son lo que el chat va a leer de verdad.
+    // Salvo que una esté viajando: entonces esta respuesta ya es vieja y pisarla
+    // desmarcaría una casilla que sí se guardó.
+    if (fuenteEnVuelo.current === null) {
+      setSeleccion(Array.isArray(d.report?.sources) ? d.report.sources : []);
+    }
+    if (d.report?.encounterId) setAncla(d.report.encounterId);
+    // Los avisos vienen del servidor recalculados, así que sobreviven a una
+    // recarga. Antes sólo existían en la respuesta del POST.
+    setAvisos(d.avisos ?? []);
+    setPendientes((p) => {
+      if (!aplicados) return {};
+      const n = { ...p };
+      // Sólo deja de estar pendiente lo que se guardó Y no ha vuelto a cambiar.
+      for (const [clave, v] of Object.entries(aplicados)) {
+        if (n[clave]?.value === v.value) delete n[clave];
+      }
+      return n;
+    });
+  }, [base]);
+
+  // 🔴 El precio de 1B: si se cierra la pestaña con cambios sin guardar, se
+  // pierden. Al menos hay que avisar.
+  useEffect(() => {
+    if (Object.keys(pendientes).length === 0) return;
+    // `returnValue` sigue siendo OBLIGATORIO en Safari: con sólo
+    // `preventDefault()` (que basta en Chrome ≥119 y Firefox) el diálogo no sale
+    // y el doctor de iPad cierra la pestaña con texto clínico sin guardar —
+    // justo la pérdida que 1B introdujo y que este efecto existe para evitar.
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [pendientes]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [rf, rr, rs] = await Promise.all([
+          fetch('/api/medical-records/insurance-forms'),
+          fetch(anclaFija ? `${base}?encounterId=${anclaFija}` : base),
+          fetch(`/api/medical-records/patients/${patientId}/fuentes`),
+        ]);
+        const df = await rf.json();
+        const dr = await rr.json();
+        const ds = await rs.json();
+        if (rf.ok) { setFormatos(df.forms ?? []); setFormatoElegido(df.forms?.[0]?.id ?? ''); }
+        if (rs.ok) {
+          setCatalogo(ds.fuentes ?? []);
+          if (typeof ds.presupuestoTokens === 'number') setPresupuestoTokens(ds.presupuestoTokens);
+        }
+        if (rr.ok && dr.reports?.length) {
+          // Desde una CONSULTA se abre el suyo directo, que es lo que había. A
+          // nivel paciente NO se abre ninguno solo: elegir cuál es del doctor, y
+          // abrir "el más reciente" de una lista de varios sería adivinar.
+          if (anclaFija) await abrirInforme(dr.reports[0].id);
+          else setExistentes(dr.reports);
+        }
+      } catch {
+        setError('No se pudo cargar la pantalla.');
+      } finally {
+        setCargando(false);
+      }
+    })();
+  }, [base, patientId, anclaFija, abrirInforme]);
+
+  async function generar() {
+    if (!ancla) { setError('Elige de qué consulta sale este informe.'); return; }
+    setTrabajando(true); setError(null);
+    try {
+      const r = await fetch(base, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ encounterId: ancla, formId: formatoElegido, sources: seleccion }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setError(d.error ?? 'No se pudo generar'); return; }
+      setAvisos(d.avisos ?? []);
+      await abrirInforme(d.report.id);
+      // Lo que se marcó y el servidor no pudo leer al crear. Se dice DESPUÉS de
+      // abrir, o `abrirInforme` no lo dejaría ver: limpia el error.
+      if (Array.isArray(d.fuentesDescartadas) && d.fuentesDescartadas.length > 0) {
+        setError(
+          `${d.fuentesDescartadas.length} fuente(s) que elegiste ya no se pudieron leer y no `
+          + `quedaron en el informe.`
+        );
+      }
+    } finally { setTrabajando(false); }
+  }
+
+  /**
+   * Marca o desmarca una FUENTE.
+   *
+   * 🔴 Se guarda AL MOMENTO cuando ya hay informe: el chat lee las fuentes de la
+   * base, y una marcada-pero-no-guardada es una que el doctor cree que el
+   * asistente está leyendo y no. Si el servidor la rechaza —ya no cabe, la
+   * receta volvió a borrador— se revierte la casilla y se dice por qué.
+   */
+  async function alternarFuente(f: FuenteElegida, marcar: boolean) {
+    const antes = seleccion;
+    const despues = marcar
+      ? [...seleccion, { ...f, fecha: catalogo.find((c) => c.tipo === f.tipo && c.id === f.id)?.fecha }]
+      : seleccion.filter((x) => !(x.tipo === f.tipo && x.id === f.id));
+    setSeleccion(despues);
+    setError(null);
+    if (!informe) return;   // todavía no existe: viajan en el POST
+
+    const llave = `${f.tipo}:${f.id}`;
+    setGuardandoFuente(llave);
+    fuenteEnVuelo.current = llave;
+    try {
+      const r = await fetch(`${base}/${informe.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sources: despues }),
+      });
+      if (!r.ok) {
+        setSeleccion(antes);
+        setError(await mensajeDeRespuesta(r, 'No se pudo cambiar las fuentes'));
+        return;
+      }
+      // El servidor manda la selección tal como quedó GUARDADA: si descartó algo
+      // que ya no se puede leer, la casilla tiene que desaparecer aquí también.
+      const d = await r.json();
+      if (Array.isArray(d.report?.sources)) setSeleccion(d.report.sources);
+      if (Array.isArray(d.fuentesDescartadas) && d.fuentesDescartadas.length > 0) {
+        setError(
+          `${d.fuentesDescartadas.length} fuente(s) que tenías elegidas ya no se pueden leer `
+          + `(borradas, canceladas o vacías) y se quitaron de este informe.`
+        );
+      }
+    } catch {
+      setSeleccion(antes);
+      setError('No se pudo cambiar las fuentes: revisa tu conexión.');
+    } finally {
+      setGuardandoFuente(null);
+      fuenteEnVuelo.current = null;
+    }
+  }
+
+  /** Anota una edición como PENDIENTE. No toca el servidor (decisión 1B). */
+  function editarCampo(clave: string, value: string) {
+    const guardadoActual = campos.find((c) => c.clave === clave)?.valor;
+    setPendientes((p) => {
+      const n = { ...p };
+      // Si vuelve a ser igual a lo guardado deja de estar pendiente: el contador
+      // no debe decir "1 sin guardar" de un campo que se devolvió a su valor.
+      if ((guardadoActual?.value ?? '') === value) delete n[clave];
+      else n[clave] = { value, origin: value.trim() === '' ? 'empty' : 'manual' };
+      return n;
+    });
+  }
+
+  /**
+   * Lo que propone el CHAT o el DICTADO entra por aquí: **pendiente**, nunca
+   * guardado (06-AGENTE §3). El servidor propone, el doctor revisa sobre la
+   * hoja, y el que escribe es el cliente al apretar Guardar.
+   *
+   * `useCallback` porque va a un `useCallback` del panel del chat: una función
+   * nueva en cada render lo haría reconstruirse a cada tecla.
+   */
+  const aplicarPropuesta = useCallback((valores: Record<string, PropuestaChat>) => {
+    setPendientes((p) => {
+      const n = { ...p };
+      for (const [clave, v] of Object.entries(valores)) {
+        n[clave] = { value: v.value, origin: v.origin };
+      }
+      return n;
+    });
+  }, []);
+
+  /** Descarta UN pendiente: el campo vuelve a como está guardado (2B). */
+  function descartarCampo(clave: string) {
+    setPendientes((p) => { const n = { ...p }; delete n[clave]; return n; });
+  }
+
+  /** Descarta TODO lo pendiente, para que una tanda mala del agente no haya que
+   * deshacerla campo por campo. */
+  function descartarTodo() {
+    setPendientes({});
+  }
+
+  /** Guarda TODO lo pendiente de una sola vez. Es la ÚNICA escritura. */
+  async function guardarTodo(): Promise<boolean> {
+    if (!informe || Object.keys(pendientes).length === 0) return true;
+    setGuardando(true);
+    setError(null);
+    // Se congela lo que se manda: entre el `fetch` y su respuesta el doctor
+    // puede seguir tecleando y el chat puede proponer.
+    const enviados = pendientes;
+    try {
+      const r = await fetch(`${base}/${informe.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: enviados }),
+      });
+      if (!r.ok) { setError(await mensajeDeRespuesta(r, 'No se pudo guardar')); return false; }
+      await abrirInforme(informe.id, enviados);
+      return true;
+    } catch {
+      // 🔴 Sin `catch` una caída de red dejaba de girar la ruedita y ya: ni
+      // error ni confirmación, y lo pendiente se queda en ámbar — exactamente
+      // el mismo aspecto que antes de apretar Guardar.
+      setError('No se pudo guardar: revisa tu conexión. Lo que escribiste sigue aquí.');
+      return false;
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  /**
+   * El mismo aviso que da el visor, para que las dos pestañas digan lo mismo.
+   * Aquí no se conoce la geometría de la caja, así que sólo se puede comprobar
+   * lo que no depende del tamaño: los caracteres que el formato no imprime.
+   */
+  function avisoDeImpresion(c: Campo): string | null {
+    // 🔴 Sobre lo que el usuario VE, no sobre lo último confirmado por el
+    // servidor: si no, el aviso llega un guardado tarde (se teclea `β` y no
+    // aparece hasta el blur) y se queda pegado tras corregirlo. Y si el PATCH
+    // falla, la caja conserva el texto malo SIN aviso.
+    const texto = pendientes[c.clave]?.value ?? c.valor.value;
+    const malos = caracteresNoImprimibles(texto);
+    if (malos.length === 0) return null;
+    return `El formato no puede imprimir ${malos.map((m) => `"${m}"`).join(' ')} — saldría vacío.`;
+  }
+
+  /** Lo que el visor pinta: lo GUARDADO con lo PENDIENTE encima. */
+  const valoresVisor: Record<string, ValorVisor> = {
+    ...Object.fromEntries(campos.map((c) => [c.clave, { value: c.valor.value, origin: c.valor.origin }])),
+    ...pendientes,
+  };
+  const sinGuardar = Object.keys(pendientes).length;
+  /**
+   * Lo que el agente y el dictado tienen que ver: la hoja tal como está AHORA,
+   * pendientes incluidos. Sin ellos el modelo vuelve a proponer lo que el doctor
+   * aceptó hace dos turnos y todavía no guarda.
+   *
+   * Se mandan los campos con contenido **y los que estén pendientes aunque
+   * vayan vacíos**: un campo que el doctor acaba de borrar tiene que llegar
+   * VACÍO, o el modelo lo ve con su valor guardado, no lo cuenta como faltante y
+   * construye su siguiente pregunta sobre un dato que él ya quitó.
+   *
+   * Los 255 vacíos NO se mandan: no le dicen nada al modelo y engordan el
+   * payload de cada turno.
+   */
+  const estadoHoja: Record<string, string> = Object.fromEntries(
+    Object.entries(valoresVisor)
+      .filter(([k, v]) => v.value.trim() !== '' || k in pendientes)
+      .map(([k, v]) => [k, v.value])
+  );
+
+  function nuevoInforme() {
+    setInforme(null); setCampos([]); setAvisos([]); setPendientes({}); setError(null);
+    // El ancla y las fuentes vuelven a elegirse: son de ESE informe, no del
+    // paciente. Desde una consulta el ancla sigue siendo la suya.
+    setSeleccion([]);
+    setAncla(anclaFija ?? '');
+  }
+
+  async function cambiarConsentimiento(dado: boolean) {
+    if (!informe) return;
+    const r = await fetch(`${base}/${informe.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ consentGiven: dado }),
+    });
+    const d = await r.json();
+    if (!r.ok) { setError(d.error ?? 'No se pudo registrar el consentimiento'); return; }
+    setInforme({ ...informe, consentGiven: d.report.consentGiven });
+  }
+
+  async function emitir() {
+    if (!informe) return;
+    // 🔴 Emitir con pendientes es PÉRDIDA TOTAL: se emite con las respuestas
+    // viejas, `emitido` esconde la barra ámbar y pone el visor en sólo lectura,
+    // y el informe ya no se puede editar (409). Los valores desaparecen sin un
+    // solo mensaje y la aseguradora recibe la hoja sin ellos.
+    if (sinGuardar > 0) {
+      setError(`Tienes ${sinGuardar} campo(s) sin guardar. Guárdalos o descártalos antes de emitir: un informe emitido ya no se puede editar.`);
+      return;
+    }
+    setTrabajando(true); setError(null);
+    try {
+      const r = await fetch(`${base}/${informe.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'issued' }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setError(d.error ?? 'No se pudo emitir'); return; }
+      setInforme({ ...informe, status: d.report.status, issuedAt: d.report.issuedAt });
+    } finally { setTrabajando(false); }
+  }
+
+  /**
+   * 🔴 El PDF se genera de lo GUARDADO, no de lo que hay en pantalla: la ruta
+   * `/pdf` lee `report.answers` de la base. Con 1B eso dejó de coincidir por
+   * primera vez, así que descargar con pendientes daba una hoja **a la que le
+   * faltan justo los campos que el doctor acaba de poner** — y se ve completa.
+   * Por eso los botones se bloquean con pendientes en vez de bajar un PDF que
+   * miente. Lo mismo vale para EMITIR (abajo).
+   */
+  function descargar(tipo: 'borrador' | 'final') {
+    if (!informe) return;
+    if (sinGuardar > 0) { setError('Guarda los cambios antes de descargar: el PDF se genera de lo guardado.'); return; }
+    // 🔴 NO `window.open`. La ruta responde con `Content-Disposition: attachment`,
+    // así que el navegador se baja el archivo y deja la pestaña nueva EN BLANCO
+    // enseñando la URL de la API — parecía que el botón te mandaba a una página
+    // rara. Con un ancla `download` la descarga ocurre sin abrir nada.
+    const a = document.createElement('a');
+    a.href = `${base}/${informe.id}/pdf?tipo=${tipo}`;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  if (cargando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  const emitido = informe?.status === 'issued';
+  const llenos = campos.filter((c) => c.valor.value.trim() !== '').length;
+  const consultasDelPaciente = catalogo.filter((f) => f.tipo === 'consulta');
+  const anclaAbierta = informe?.encounterId ?? null;
+
+  return (
+    // Fila flex: la hoja a la izquierda y el chat como HERMANO, no encima.
+    //
+    // 🔴 En `lg` la fila se ACOTA A LA PANTALLA y quien hace scroll es la
+    // columna de la izquierda. Sin esto, el alto de la fila es el de la hoja
+    // renderizada (6 páginas, miles de px): el panel se estira hasta ahí, su
+    // `overflow-y-auto` no tiene nada que desbordar, y la caja de escribir queda
+    // al final del documento — habría que recorrer el informe entero para poder
+    // teclear un mensaje. `AgendaAgentPanel` no lo sufre porque su padre es el
+    // `flex h-screen` de `DashboardLayout`.
+    <div className="flex min-h-screen lg:h-screen lg:min-h-0 bg-gray-50">
+      <div className="flex-1 min-w-0 overflow-x-hidden p-6 lg:overflow-y-auto">
+      <div className={chatAbierto ? 'max-w-none' : 'max-w-4xl mx-auto'}>
+        <Link
+          href={volverHref}
+          className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" /> {volverTexto}
+        </Link>
+
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <FileText className="h-6 w-6 text-blue-600" /> Informe para la aseguradora
+        </h1>
+
+        {error && (
+          <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800">{error}</div>
+        )}
+
+        {!informe && existentes.length > 0 && (
+          <div className="mt-6 bg-white rounded-lg border p-5">
+            <p className="text-sm font-semibold text-gray-900">Informes de este paciente</p>
+            <ul className="mt-2 divide-y">
+              {existentes.map((r) => (
+                <li key={r.id} className="py-2 flex items-center justify-between gap-3">
+                  <span className="text-sm text-gray-800">
+                    {r.form.insurer} — {r.form.name}
+                    <span className="block text-xs text-gray-500">
+                      {new Date(r.createdAt).toLocaleDateString('es-MX', FECHA_MX)}
+                      {r.status === 'issued' ? ' · EMITIDO' : ' · borrador'}
+                    </span>
+                  </span>
+                  <button
+                    onClick={() => abrirInforme(r.id)}
+                    className="text-sm border px-3 py-1.5 rounded-lg hover:bg-gray-50 shrink-0"
+                  >
+                    Abrir
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!informe && (
+          <div className="mt-6 bg-white rounded-lg border p-5">
+            {formatos.length === 0 ? (
+              <p className="text-sm text-gray-600">
+                No hay formatos dados de alta todavía.
+              </p>
+            ) : (
+              <>
+                {/* 🔴 EL ANCLA. El formato pregunta por un EPISODIO —fecha de
+                    padecimiento, de diagnóstico, de cirugía— así que un informe
+                    "del paciente en general" no existe. Y sin ancla no hay nada
+                    verde: la hoja entera nacería ámbar (07-PLAN §2). */}
+                {!anclaFija && (
+                  <>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ¿De qué consulta sale este informe?
+                    </label>
+                    {consultasDelPaciente.length === 0 ? (
+                      <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        Este paciente no tiene ninguna consulta con contenido. El informe se llena
+                        desde una consulta: registra una primero.
+                      </p>
+                    ) : (
+                      <select
+                        value={ancla}
+                        onChange={(e) => {
+                          // 🔴 La consulta que pasa a ser ANCLA deja de ser una
+                          // fuente extra: ya entra sola. Sin esto se quedaba en
+                          // `seleccion` pero fuera de la lista del panel, y el
+                          // marcador de espacio dejaba de contarla — decía "0 de
+                          // 6000" con dos fuentes marcadas.
+                          setAncla(e.target.value);
+                          setSeleccion((s) => s.filter(
+                            (f) => !(f.tipo === 'consulta' && f.id === e.target.value)
+                          ));
+                        }}
+                        className="w-full border rounded-lg px-3 py-2 text-sm"
+                      >
+                        <option value="">Elige una consulta…</option>
+                        {consultasDelPaciente.map((c) => (
+                          <option key={c.id} value={c.id}>{c.titulo}</option>
+                        ))}
+                      </select>
+                    )}
+                    <p className="mt-1 mb-4 text-xs text-gray-500">
+                      De esa consulta se copian, sin interpretar, la fecha, el motivo, los signos
+                      vitales y el SOAP. No se puede cambiar después: si te equivocas, se genera
+                      otro informe.
+                    </p>
+                  </>
+                )}
+
+                <label className="block text-sm font-medium text-gray-700 mb-2">Formato</label>
+                <select
+                  value={formatoElegido}
+                  onChange={(e) => setFormatoElegido(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  {formatos.map((f) => (
+                    <option key={f.id} value={f.id}>{f.insurer} — {f.name} ({f.version})</option>
+                  ))}
+                </select>
+                <button
+                  onClick={generar}
+                  disabled={trabajando || !formatoElegido || !ancla}
+                  className="mt-4 inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                >
+                  {trabajando && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Pre-llenar con el expediente
+                </button>
+                <p className="mt-2 text-xs text-gray-500">
+                  Se copia lo que ya está en la ficha y en esa consulta. Nada se inventa: lo que no
+                  exista se queda vacío y marcado.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Las FUENTES se pueden elegir antes de generar (viajan en el POST) y
+            después, mientras el informe sea borrador. En uno EMITIDO se siguen
+            viendo, en sólo lectura: son parte de por qué el documento dice lo
+            que dice, y esconderlas borraría esa mitad de la respuesta. */}
+        {(Boolean(informe) || Boolean(ancla)) && (
+          <div className="mt-4">
+            <PanelFuentes
+              disponibles={catalogo}
+              seleccion={seleccion}
+              anclaId={anclaAbierta ?? ancla ?? null}
+              presupuestoTokens={presupuestoTokens}
+              guardando={guardandoFuente}
+              soloLectura={Boolean(emitido)}
+              onAlternar={alternarFuente}
+            />
+          </div>
+        )}
+
+        {avisos.length > 0 && (
+          <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 p-4">
+            <p className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+              <AlertTriangle className="h-4 w-4" /> Revisa esto antes de emitir
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-amber-900 list-disc pl-5">
+              {avisos.map((a, i) => <li key={i}>{textoAviso(a)}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {informe && (
+          <>
+            <div className="mt-4 bg-white rounded-lg border p-4 flex flex-wrap items-center gap-3 justify-between">
+              <div className="text-sm">
+                <p className="font-medium text-gray-900">
+                  {informe.form.insurer} — {informe.form.name}
+                </p>
+                <p className="text-gray-500 text-xs">
+                  versión {informe.form.version} · {llenos} de {campos.length} campos con contenido
+                  {emitido && ' · EMITIDO'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => descargar('borrador')}
+                  disabled={sinGuardar > 0}
+                  title={sinGuardar > 0 ? 'Guarda primero: el PDF se genera de lo guardado' : ''}
+                  className="inline-flex items-center gap-2 border px-3 py-2 rounded-lg text-sm disabled:opacity-40"
+                >
+                  <Download className="h-4 w-4" /> Borrador
+                </button>
+                <button
+                  onClick={() => descargar('final')}
+                  disabled={!informe.consentGiven || sinGuardar > 0}
+                  title={
+                    sinGuardar > 0 ? 'Guarda primero: el PDF se genera de lo guardado'
+                      : informe.consentGiven ? '' : 'Falta registrar el consentimiento'
+                  }
+                  className="inline-flex items-center gap-2 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm disabled:opacity-40"
+                >
+                  <Download className="h-4 w-4" /> Final
+                </button>
+              </div>
+            </div>
+
+            <p className="mt-2 text-xs text-gray-500">
+              El borrador es de <strong>sólo lectura</strong> a propósito: se edita aquí, no en el
+              PDF. Azul = puedes escribir, verde = ya tiene contenido.
+            </p>
+
+            <div className="mt-4 bg-white rounded-lg border p-4">
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={informe.consentGiven}
+                  disabled={emitido}
+                  onChange={(e) => cambiarConsentimiento(e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium text-gray-900 flex items-center gap-1">
+                    <ShieldCheck className="h-4 w-4 text-green-600" />
+                    El paciente autorizó enviar estos datos a su aseguradora
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    Mandar datos clínicos a una aseguradora es una transferencia a un tercero bajo la
+                    LFPDPPP. Sin esto no se genera el informe final.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            {sinGuardar > 0 && !emitido && (
+              <div className="mt-4 sticky top-2 z-20 flex items-center justify-between gap-3 rounded-lg border-2 border-amber-400 bg-amber-50 px-4 py-2 shadow">
+                <span className="text-sm text-amber-900">
+                  <strong>{sinGuardar}</strong> campo(s) sin guardar. Nada se manda a la aseguradora
+                  hasta que guardes.
+                </span>
+                <span className="flex items-center gap-2 shrink-0">
+                  <button onClick={descartarTodo} disabled={guardando} className="text-xs underline text-gray-600 disabled:opacity-50">
+                    descartar todo
+                  </button>
+                  {/* 🔴 Guardar se bloquea mientras una FUENTE viaja: los dos
+                      escriben sobre el mismo informe y el GET de este relee las
+                      fuentes. Con las dos en vuelo, la casilla se veía volver
+                      atrás aunque el servidor sí la había guardado. */}
+                  <button
+                    onClick={guardarTodo}
+                    disabled={guardando || guardandoFuente !== null}
+                    title={guardandoFuente !== null ? 'Espera: se está guardando una fuente' : ''}
+                    className="inline-flex items-center gap-1.5 bg-amber-600 text-white px-3 py-1.5 rounded-md text-sm font-medium disabled:opacity-50"
+                  >
+                    {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Guardar
+                  </button>
+                </span>
+              </div>
+            )}
+
+            <div className="mt-4 flex gap-1 border-b">
+              {([['visor', 'Formato de la aseguradora'], ['lista', 'Lista de campos']] as const).map(([v, t]) => (
+                <button
+                  key={v}
+                  onClick={() => setVista(v)}
+                  className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px ${
+                    vista === v ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {vista === 'visor' && (
+              <div className="mt-4 bg-gray-100 rounded-lg border p-4 overflow-x-auto">
+                <InformeVisor
+                  formId={informe.form.id}
+                  valores={valoresVisor}
+                  soloLectura={emitido}
+                  onEditar={editarCampo}
+                  onDescartar={descartarCampo}
+                  pendientes={new Set(Object.keys(pendientes))}
+                />
+              </div>
+            )}
+
+            {vista === 'lista' && (
+            <div className="mt-4 bg-white rounded-lg border divide-y">
+              {campos.map((c) => {
+                // 🔴 El chip lo manda lo PENDIENTE si lo hay. Con el origen
+                // guardado, una propuesta de la IA sobre un campo vacío se
+                // enseñaba con el chip "sin dato en el expediente" al lado de
+                // prosa que redactó el modelo: el chip es justo la señal de
+                // 01-FUENTES §4 para saber dónde leer con cuidado, y apuntaba
+                // al revés. "sin guardar" no dice QUIÉN lo escribió.
+                const origenVisible = pendientes[c.clave]?.origin ?? c.valor.origin;
+                const estilo = ESTILO_ORIGEN[origenVisible] ?? ESTILO_ORIGEN.empty;
+                const aviso = avisoDeImpresion(c);
+                return (
+                  <div key={c.clave} className="p-3 sm:flex sm:items-center sm:gap-4">
+                    <div className="sm:w-1/3">
+                      <p className="text-sm font-medium text-gray-800">{c.etiqueta}</p>
+                      <span className={`inline-block mt-1 text-[11px] px-2 py-0.5 rounded ${estilo.chip}`}>
+                        {estilo.texto}
+                      </span>
+                    </div>
+                    <div className="sm:flex-1 mt-2 sm:mt-0">
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={pendientes[c.clave]?.value ?? c.valor.value}
+                          disabled={emitido}
+                          onChange={(e) => editarCampo(c.clave, e.target.value)}
+                          className={`w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 ${
+                            pendientes[c.clave] ? 'border-amber-400 bg-amber-50' : ''
+                          }`}
+                          placeholder="—"
+                        />
+                        {pendientes[c.clave] && !emitido && (
+                          <button
+                            onClick={() => descartarCampo(c.clave)}
+                            title="Descartar este cambio y volver a lo guardado"
+                            className="text-gray-400 hover:text-red-600 shrink-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      {pendientes[c.clave] && (
+                        <span className="text-[11px] text-amber-700">sin guardar</span>
+                      )}
+                      {aviso && <span className="block text-[11px] text-red-700 mt-0.5">{aviso}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            )}
+
+            {emitido && (
+              <div className="mt-4 rounded-lg bg-gray-100 border p-4 text-sm">
+                <p className="text-gray-800">
+                  Este informe ya fue emitido, así que no se puede editar: la aseguradora ya tiene su
+                  copia y cambiarlo aquí las dejaría diciendo cosas distintas.
+                </p>
+                <button onClick={nuevoInforme} className="mt-3 border bg-white px-3 py-2 rounded-lg text-sm font-medium">
+                  Generar un informe nuevo
+                </button>
+              </div>
+            )}
+
+            {!emitido && (
+              <button
+                onClick={emitir}
+                disabled={trabajando || !informe.consentGiven || sinGuardar > 0}
+                title={sinGuardar > 0 ? 'Guarda o descarta los cambios antes de emitir' : ''}
+                className="mt-4 inline-flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                {trabajando && <Loader2 className="h-4 w-4 animate-spin" />}
+                Marcar como emitido
+              </button>
+            )}
+          </>
+        )}
+      </div>
+      </div>
+
+      {/* 🔴 `!emitido` va AQUÍ y no dentro del panel: un `return null` no
+          desmonta, y la limpieza que cierra el MICRÓFONO corre al desmontar.
+          Emitir mientras el chat graba dejaba el micrófono abierto en un
+          consultorio donde se están hablando datos del paciente. */}
+      {informe && !emitido && (
+        <ChatInforme
+          base={base}
+          reportId={informe.id}
+          estadoHoja={estadoHoja}
+          onPropuesta={aplicarPropuesta}
+          abierto={chatAbierto}
+          onCerrar={() => setChatAbierto(false)}
+        />
+      )}
+
+      {/* La pestaña del borde derecho para abrirlo, igual que la del asistente. */}
+      {informe && !emitido && !chatAbierto && (
+        <button
+          onClick={() => setChatAbierto(true)}
+          title="Conversar con el formato"
+          className="fixed bottom-64 right-0 z-[51] flex items-center justify-center
+            w-5 h-12 rounded-l-lg border border-r-0 border-blue-600 bg-blue-600 text-white shadow-md
+            hover:bg-blue-700 transition-colors"
+        >
+          <Bot className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
+}

@@ -6,6 +6,7 @@ import { etiquetaCanonica } from '@/lib/informe-medico/canonical';
 import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
 import { clavesDelInforme, geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { cargarPrefill } from '@/lib/informe-medico/cargar-prefill';
+import { leerFuentes, leerFuentesPedidas, resolverFuentesElegidas } from '@/lib/informe-medico/contexto-clinico';
 import { leerAnswers, type Answers, type AnswerValue } from '@/lib/informe-medico/types';
 
 /**
@@ -115,6 +116,8 @@ export async function GET(
         id: report.id, status: report.status, encounterId: report.encounterId,
         consentGiven: report.consentGiven, consentAt: report.consentAt,
         issuedAt: report.issuedAt,
+        // Las fuentes elegidas, para que el panel abra marcado lo que ya se eligió.
+        sources: leerFuentes(report.sources),
         form: { id: report.form.id, insurer: report.form.insurer, name: report.form.name, version: report.form.version },
       },
       // 🔴 La lista muestra los MISMOS campos que el visor: todos los blancos
@@ -162,6 +165,9 @@ export async function PATCH(
     }
 
     const data: Record<string, unknown> = {};
+    /** Fuentes que se pidieron y ya no se pudieron leer: se guardan SIN ellas y
+     * se dicen. Rechazar el PATCH entero dejaba el informe atorado. */
+    let fuentesDescartadas: unknown[] = [];
 
     if (body?.answers !== undefined) {
       const sane = saneaAnswers(body.answers);
@@ -169,6 +175,21 @@ export async function PATCH(
       // Se fusiona sobre lo guardado: el cliente manda sólo lo que cambió, y un
       // PATCH parcial no debe borrar el pre-llenado que no tocó.
       data.answers = { ...leerAnswers(actual.answers), ...sane } as object;
+    }
+
+    // 🔴 Las FUENTES se pueden cambiar mientras el informe sea borrador; el
+    // ANCLA no (07-PLAN §10 #3): cambiarla invalidaría el pre-llenado verde que
+    // el doctor ya revisó, así que se genera un informe nuevo. Por eso este
+    // PATCH no acepta `encounterId`.
+    if (body?.sources !== undefined) {
+      const pedidas = leerFuentesPedidas(body.sources);
+      if ('error' in pedidas) return NextResponse.json({ error: pedidas.error }, { status: 400 });
+      const resuelto = await resolverFuentesElegidas(pedidas, patientId, doctorId, actual.encounterId);
+      if (!resuelto.ok) return NextResponse.json({ error: resuelto.error }, { status: 409 });
+      // Se REEMPLAZA, no se fusiona: el panel manda la selección completa, y
+      // fusionar haría imposible DESmarcar una fuente.
+      data.sources = resuelto.fuentes as object;
+      fuentesDescartadas = resuelto.descartadas;
     }
 
     if (body?.consentGiven !== undefined) {
@@ -200,7 +221,10 @@ export async function PATCH(
     const report = await prisma.medicalReport.update({
       where: { id: reportId },
       data,
-      select: { id: true, status: true, consentGiven: true, consentAt: true, issuedAt: true },
+      select: {
+        id: true, status: true, consentGiven: true, consentAt: true, issuedAt: true,
+        sources: true,
+      },
     });
 
     await logAudit({
@@ -209,7 +233,10 @@ export async function PATCH(
       changes: { camposTocados: Object.keys(data) }, request,
     });
 
-    return NextResponse.json({ report });
+    return NextResponse.json({
+      report: { ...report, sources: leerFuentes(report.sources) },
+      fuentesDescartadas,
+    });
   } catch (error) {
     return handleApiError(error, 'PATCH /api/medical-records/patients/:id/reports/:reportId');
   }

@@ -807,6 +807,14 @@ export default function PatientProfilePage() {
               <span>Notas</span>
             </Link>
             <Link
+              href={`/dashboard/medical-records/patients/${patient.id}/informe`}
+              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 text-sm transition-colors"
+              title="Llenar el formato de una aseguradora con el expediente de este paciente"
+            >
+              <FileText className="w-4 h-4 flex-shrink-0" />
+              <span>Informe</span>
+            </Link>
+            <Link
               href={`/dashboard/medical-records/patients/${patient.id}/encounters/new`}
               className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1.5 text-sm font-semibold transition-colors"
             >
