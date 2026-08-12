@@ -625,14 +625,66 @@ export async function GET(request: Request) {
             amount: true,
           },
         },
+        // ¿YA SE FACTURÓ esta cita? La respuesta NO vive en la cita ni en el paciente:
+        // el CFDI cuelga del INGRESO (`Booking → LedgerEntry → cfdisEmitted/facturas`).
+        //
+        // ⚠️ El proxy tentador —`patient.requiereFactura && patient.rfc`, que es lo que
+        // pinta `FiscalFormButton`— contesta OTRA pregunta: "¿ya tenemos su RFC?". Un
+        // paciente CON RFC al que nunca se le facturó saldría como resuelto, y ésas son
+        // justo las citas que el filtro existe para encontrar. Por eso el veredicto se
+        // resuelve aquí, contra las tres tablas que registran una factura, y no en el
+        // cliente a partir de datos que sólo se le parecen.
+        //
+        // `take: 1` en las tres: sólo importa si hay ALGUNA, no cuántas.
+        ledgerEntry: {
+          select: {
+            id: true,
+            // El ingreso YA REGISTRADO de esta cita. Nace por dos caminos: el webhook de
+            // un link pagado, o el propio "Completar". Si existe, `createCitaLedgerEntry`
+            // devuelve `alreadyExisted` y DESCARTA la forma de pago y el monto que mande
+            // el cliente (practice-utils.ts §idempotency) — así que el modal tiene que
+            // MOSTRAR esto en vez de volver a preguntarlo.
+            formaDePago: true,
+            amount: true,
+            // Timbrada por nosotros. Una CANCELADA no cuenta como facturada:
+            // el doctor tiene que volver a emitir.
+            cfdisEmitted: {
+              where: { status: { not: 'cancelled' } },
+              select: { id: true },
+              take: 1,
+            },
+            // Factura SUBIDA a mano (PDF) y su XML — el doctor que factura por fuera
+            // de la plataforma la registra así, y para él la cita SÍ está facturada.
+            facturas: { select: { id: true }, take: 1 },
+            facturasXml: { select: { id: true }, take: 1 },
+          },
+        },
       },
       orderBy: [{ createdAt: 'desc' }],
     });
 
+    // Se manda el VEREDICTO, no las tres listas: el cliente no tiene por qué volver a
+    // derivar "qué cuenta como facturada" — esa regla vive en un solo sitio (regla 0).
+    // Sin `ledgerEntry` (cita que nunca generó ingreso) ⇒ no facturada.
+    const data = bookings.map(({ ledgerEntry, ...booking }) => ({
+      ...booking,
+      facturada: !!ledgerEntry && (
+        ledgerEntry.cfdisEmitted.length > 0 ||
+        ledgerEntry.facturas.length > 0 ||
+        ledgerEntry.facturasXml.length > 0
+      ),
+      // `null` = no hay ingreso registrado ⇒ completar lo va a CREAR con lo que capture
+      // el doctor. Presente = ya existe ⇒ completar NO lo toca, y estos son los valores
+      // reales que quedaron guardados (no `finalPrice`, que es sólo el precio de lista).
+      ingreso: ledgerEntry
+        ? { formaDePago: ledgerEntry.formaDePago, amount: Number(ledgerEntry.amount) }
+        : null,
+    }));
+
     return NextResponse.json({
       success: true,
-      count: bookings.length,
-      data: bookings,
+      count: data.length,
+      data,
     });
   } catch (error) {
     console.error('Error fetching bookings:', error);

@@ -18,6 +18,25 @@ const STATUS_SORT_ORDER: Record<string, number> = {
   CANCELLED: 5,
 };
 
+/**
+ * Valor de `bookingFilterStatus` que NO es un estado de cita: "la casilla ¿Necesita
+ * factura? está marcada y todavía no hay factura". Vive en el mismo estado que los
+ * estados porque los filtros de la barra son mutuamente excluyentes — pero se compara
+ * aparte, nunca contra `booking.status`.
+ */
+export const POR_FACTURAR = "POR_FACTURAR";
+
+/**
+ * ¿El payload trae el veredicto de facturación? Es `false` sólo cuando NINGUNA cita
+ * tiene la clave — o sea, cuando el API que la calcula todavía no está desplegado
+ * (un push a main puede desplegar `doctor` y no `api`: ver TOOLING/railway).
+ * Sin esto, un API viejo haría que TODA cita con la casilla marcada se viera como no
+ * facturada, y el filtro afirmaría un backlog falso con toda confianza.
+ */
+export function facturadaDisponible(bookings: Booking[]): boolean {
+  return bookings.some((b) => b.facturada !== undefined);
+}
+
 function getEffectiveStatus(booking: Booking, nowLocal: string): string {
   if (booking.status === "PENDING" || booking.status === "CONFIRMED") {
     const date = (booking.slot?.date ?? booking.date ?? "").split("T")[0];
@@ -65,6 +84,17 @@ export interface Booking {
   /** Casilla POR CITA. Distinto de patient.requiereFactura (ése es del PACIENTE y lo
    *  escribe el formulario fiscal al recibirse). null = nunca se marcó = desmarcada. */
   facturaSolicitada?: boolean | null;
+  /** ¿Ya existe una factura de esta cita? Lo resuelve el SERVIDOR mirando el ingreso
+   *  (`LedgerEntry → cfdisEmitted / facturas / facturasXml`), porque el CFDI no cuelga de
+   *  la cita. NO confundir con `patient.rfc`: tener RFC es poder facturar, no haberlo hecho. */
+  facturada?: boolean;
+  /** Ingreso YA registrado en Flujo de Dinero para esta cita, o `null` si todavía no hay.
+   *  Cuando existe (típicamente porque se pagó un link y lo escribió el webhook),
+   *  completar la cita NO lo modifica: el servidor lo detecta por el `bookingId` único y
+   *  descarta el precio y la forma de pago que mande el cliente. Por eso el modal lo
+   *  MUESTRA en lugar de volver a pedirlos. `amount` es lo realmente cobrado — puede
+   *  diferir de `finalPrice`, que es el precio de lista de la cita. */
+  ingreso?: { formaDePago: string | null; amount: number } | null;
   patientId?: string | null;
   patient?: {
     id: string;
@@ -419,6 +449,14 @@ export function useBookings(doctorId: string | undefined) {
       }
       if (bookingFilterStatus === "ACTIVE") {
         if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") return false;
+      } else if (bookingFilterStatus === POR_FACTURAR) {
+        // No es un estado: es una PREGUNTA DE PAPELEO, y por eso cruza todos los estados
+        // (una cita cancelada que ya se había cobrado y facturado no aparece; una
+        // completada sin factura sí). Las dos mitades son datos, no deducciones: la
+        // casilla la marca el doctor, y `facturada` la resuelve el servidor contra el
+        // ingreso. Ver el comentario del `include` en api/appointments/bookings/route.ts.
+        if (!booking.facturaSolicitada) return false;
+        if (booking.facturada) return false;
       } else if (bookingFilterStatus && booking.status !== bookingFilterStatus) {
         return false;
       }
@@ -485,12 +523,26 @@ export function useBookings(doctorId: string | undefined) {
         }),
       });
       const data = await res.json();
-      if (data.data?.Id || data.success) {
+      // ⚠️ El éxito se lee del CÓDIGO HTTP y de la respuesta REAL del endpoint, que es
+      //    `{ data: <fila CfdiEmitted>, facturama: { id, uuid } }` con 201
+      //    (apps/api/src/app/api/facturacion/cfdi/route.ts).
+      //
+      // Antes se preguntaba por `data.data?.Id || data.success`, y NINGUNA de las dos
+      // existe: la fila de Prisma trae `id` en minúscula (el mismo archivo lo prueba dos
+      // líneas arriba, `emittedCfdiId: cfdiRecord.id`) y no hay clave `success`. O sea:
+      // TODA factura timbrada con éxito se le reportaba al doctor como error. El CFDI ya
+      // vivía en el SAT, y la reacción natural —reintentar— timbraba un SEGUNDO CFDI de
+      // la misma consulta, que después hay que cancelar ante el SAT.
+      if (res.ok && (data.facturama?.uuid || data.data?.id)) {
         toast.success("Factura (CFDI) emitida correctamente");
+        // La cita acaba de dejar de estar "por facturar". Sin esto la lista sigue
+        // mostrándola en ese filtro hasta recargar la página: `completeBooking` refresca
+        // en su `finally`, o sea ANTES de que exista el CFDI (CompleteBookingModal llama
+        // primero a onConfirm y luego a onEmitCfdi).
+        fetchBookings();
         return { success: true };
-      } else {
-        return { success: false, error: data.error || "Error al emitir CFDI" };
       }
+      return { success: false, error: data.error || "Error al emitir CFDI" };
     } catch {
       return { success: false, error: "Error de conexión al emitir CFDI" };
     }

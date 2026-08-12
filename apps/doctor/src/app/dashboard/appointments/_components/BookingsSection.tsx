@@ -13,7 +13,7 @@ import {
   ExpedienteCell,
   StatusActions,
 } from "./BookingActions";
-import { defaultBookingFilterDate } from "../_hooks/useBookings";
+import { defaultBookingFilterDate, POR_FACTURAR, facturadaDisponible } from "../_hooks/useBookings";
 import type { Booking, SortColumn, SortDirection } from "../_hooks/useBookings";
 
 interface Props {
@@ -46,8 +46,10 @@ interface Props {
   onSort: (column: SortColumn) => void;
 }
 
-/** Estados con botón propio en la barra de filtros — se excluyen del desplegable. */
-const STATUS_BUTTONS = ["ACTIVE", "COMPLETED"];
+/** Filtros con botón propio en la barra — se excluyen del desplegable.
+ *  `COMPLETED` VOLVIÓ al desplegable cuando su botón cedió el sitio a "Por Facturar":
+ *  sin eso no quedaba ninguna forma de ver las citas completadas. */
+const STATUS_BUTTONS = ["ACTIVE", POR_FACTURAR];
 /** Valor centinela del desplegable cuando el estado lo controla un botón. */
 const BUTTON_OWNED = "__button__";
 
@@ -131,7 +133,7 @@ export function BookingsSection({
             {/* flex-wrap en los grupos: en móvil el contenedor es flex-col, así que
                 cada grupo ocupa el ancho del teléfono. ‹ + fecha + › + "Todas las
                 fechas" (etiqueta más larga que la anterior "Todas") no cabe en 360px
-                sin envolver, y lo mismo el trío Activas/Completada/desplegable. */}
+                sin envolver, y lo mismo el trío Citas Agendadas/Por Facturar/desplegable. */}
             <div className="flex items-center flex-wrap gap-1">
               <button
                 onClick={() => shiftBookingFilterDate(-1)}
@@ -152,8 +154,8 @@ export function BookingsSection({
                 <ChevronRight className="w-4 h-4" />
               </button>
               {/* Toca SOLO la fecha. Antes también reseteaba estado y paciente,
-                  pero con "Activas"/"Completada" al lado eso rompería la consulta
-                  más útil: completadas + todas las fechas.
+                  pero con "Citas Agendadas"/"Por Facturar" al lado eso rompería la
+                  consulta más útil: por facturar + todas las fechas.
                   Es un INTERRUPTOR: ya se pintaba como activo (`aria-pressed`) pero no
                   tenía vuelta — apagarlo devuelve la tabla al día de HOY, que es el estado
                   con el que se entra a la página. */}
@@ -192,23 +194,26 @@ export function BookingsSection({
                     : "text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200"
                 }`}
               >
-                Activas
+                Citas Agendadas
               </button>
+              {/* NO es un estado — es "falta la factura". Ocupa el sitio del antiguo
+                  botón "Completada", que se fue al desplegable. */}
               <button
-                onClick={() => setBookingFilterStatus("COMPLETED")}
-                aria-pressed={bookingFilterStatus === "COMPLETED"}
+                onClick={() => setBookingFilterStatus(POR_FACTURAR)}
+                aria-pressed={bookingFilterStatus === POR_FACTURAR}
+                title="Citas con «¿Necesita factura?» marcada que todavía no tienen factura"
                 className={`text-sm font-medium px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${
-                  bookingFilterStatus === "COMPLETED"
+                  bookingFilterStatus === POR_FACTURAR
                     ? "bg-blue-600 text-white"
                     : "text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200"
                 }`}
               >
-                Completada
+                Por Facturar
               </button>
-              {/* ACTIVE y COMPLETED ya no son opciones: viven en los botones de
+              {/* ACTIVE y POR_FACTURAR no son opciones: viven en los botones de
                   arriba. Un <select> cuyo value no existe entre sus <option>
                   muestra el PRIMERO, así que sin este placeholder el desplegable
-                  diría "Todos los estados" mientras el filtro real es Activas. */}
+                  diría "Todos los estados" mientras el filtro real es Citas Agendadas. */}
               <select
                 value={STATUS_BUTTONS.includes(bookingFilterStatus) ? BUTTON_OWNED : bookingFilterStatus}
                 onChange={(e) => setBookingFilterStatus(e.target.value)}
@@ -218,6 +223,9 @@ export function BookingsSection({
                 <option value="">Todos los estados</option>
                 <option value="PENDING">Pendiente</option>
                 <option value="CONFIRMED">Agendada</option>
+                {/* Recuperó su sitio aquí al perder su botón — sin esta opción no
+                    quedaba ninguna forma de listar las citas completadas. */}
+                <option value="COMPLETED">Completada</option>
                 <option value="NO_SHOW">No asistió</option>
                 <option value="CANCELLED">Cancelada</option>
               </select>
@@ -235,6 +243,18 @@ export function BookingsSection({
               </button>
             )}
           </div>
+
+          {/* El filtro depende de un campo que calcula el API (`facturada`). Si ese
+              servicio todavía no está desplegado, el campo no viaja y TODA cita con la
+              casilla marcada se vería como pendiente de factura: una lista falsa, con la
+              misma pinta de confianza que una verdadera. Se dice, en vez de afirmarla. */}
+          {bookingFilterStatus === POR_FACTURAR && bookings.length > 0 && !facturadaDisponible(bookings) && (
+            <div className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-800">
+              No se puede saber cuáles ya se facturaron — esta lista muestra todas las citas
+              con la casilla marcada, estén facturadas o no. Vuelve a intentarlo en unos
+              minutos; si sigue igual, avísale a soporte.
+            </div>
+          )}
 
           {filteredBookings.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
