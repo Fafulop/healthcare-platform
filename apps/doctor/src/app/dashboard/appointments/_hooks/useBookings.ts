@@ -502,51 +502,8 @@ export function useBookings(doctorId: string | undefined) {
     }
   };
 
-  const emitCfdi = async (params: {
-    bookingId: string;
-    receiver: { rfc: string; name: string; cfdiUse: string; fiscalRegime: string; taxZipCode: string };
-    items: Array<{ productCode: string; description: string; quantity: number; unitCode: string; unitPrice: number; subtotal: number; total: number }>;
-    paymentForm: string;
-    paymentMethod: string;
-    ledgerEntryId?: number;
-  }): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await authFetch(`${API_URL}/api/facturacion/cfdi`, {
-        method: "POST",
-        body: JSON.stringify({
-          receiver: params.receiver,
-          items: params.items,
-          paymentForm: params.paymentForm,
-          paymentMethod: params.paymentMethod,
-          cfdiType: "I",
-          ...(params.ledgerEntryId ? { ledgerEntryId: params.ledgerEntryId } : {}),
-        }),
-      });
-      const data = await res.json();
-      // ⚠️ El éxito se lee del CÓDIGO HTTP y de la respuesta REAL del endpoint, que es
-      //    `{ data: <fila CfdiEmitted>, facturama: { id, uuid } }` con 201
-      //    (apps/api/src/app/api/facturacion/cfdi/route.ts).
-      //
-      // Antes se preguntaba por `data.data?.Id || data.success`, y NINGUNA de las dos
-      // existe: la fila de Prisma trae `id` en minúscula (el mismo archivo lo prueba dos
-      // líneas arriba, `emittedCfdiId: cfdiRecord.id`) y no hay clave `success`. O sea:
-      // TODA factura timbrada con éxito se le reportaba al doctor como error. El CFDI ya
-      // vivía en el SAT, y la reacción natural —reintentar— timbraba un SEGUNDO CFDI de
-      // la misma consulta, que después hay que cancelar ante el SAT.
-      if (res.ok && (data.facturama?.uuid || data.data?.id)) {
-        toast.success("Factura (CFDI) emitida correctamente");
-        // La cita acaba de dejar de estar "por facturar". Sin esto la lista sigue
-        // mostrándola en ese filtro hasta recargar la página: `completeBooking` refresca
-        // en su `finally`, o sea ANTES de que exista el CFDI (CompleteBookingModal llama
-        // primero a onConfirm y luego a onEmitCfdi).
-        fetchBookings();
-        return { success: true };
-      }
-      return { success: false, error: data.error || "Error al emitir CFDI" };
-    } catch {
-      return { success: false, error: "Error de conexión al emitir CFDI" };
-    }
-  };
+  // (Se eliminó `emitCfdi`: el modal de Completar ya no timbra CFDIs. La factura
+  //  se emite en Facturación o con el botón Facturar de la cita en el expediente.)
 
   return {
     bookings,
@@ -565,7 +522,6 @@ export function useBookings(doctorId: string | undefined) {
     updateExtendedBlock,
     updateFacturaSolicitada,
     completeBooking,
-    emitCfdi,
     updateBookingPrice,
     deleteBooking,
     deleteFormLink,

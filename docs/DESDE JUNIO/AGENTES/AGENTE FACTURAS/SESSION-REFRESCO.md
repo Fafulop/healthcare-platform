@@ -41,6 +41,38 @@ hidratado; folio 9) · **money-model #5** (patrón de SEPARACIÓN, folio 10).
 **Qué sigue:** F3 (`propose_email_cfdi` / `propose_send_fiscal_form`), las semillas de evals
 data-blocked, y el radar de facturas SIN cita — detalle en **PRÓXIMOS PASOS** abajo.
 
+## 🚫 Completar una cita ya NO factura (2026-08-13)
+
+La casilla **"Emitir factura (CFDI)"** del modal de Completar **se eliminó**. Timbraba un
+documento fiscal LEGAL en el mismo clic con el que se cierra una cita, sin que el doctor viera
+nunca los conceptos, las claves ni los impuestos que se iban a declarar. Completar y facturar
+son pasos SEPARADOS: la factura se emite en **Facturación → Nueva Factura**, o con el botón
+**Facturar** de la cita en el expediente (llega con receptor y concepto pre-llenados).
+
+Se fueron con ella: `CfdiParams`, `FORMA_TO_SAT` y `hasFiscalData` del modal, el prop
+`onEmitCfdi` (page · BookingActions · BookingDetailModal · BookingsSection) y `emitCfdi` de
+`useBookings`. **Se queda** el aviso "Esta cita ya tiene factura" (dato, no acción), el panel
+verde del ingreso ya cobrado, el filtro "Por Facturar" y todo el grupo `FiscalFormButton`.
+
+⚠️ **Quitar un botón de la UI obligó a editar el PROMPT en cuatro sitios**, y los dos gates lo
+cazaron uno detrás del otro:
+
+1. `gate:prompt` — la promesa no vivía solo en `AGENDA_CITAS_RULES`: estaba también en la
+   **descripción de `propose_complete_booking`** (`proposals.ts`) y en el **swap por permiso**
+   de `registry.ts` (`from:`). Tres caminos que se editan por separado; se había tocado uno.
+   El ancla literal del gate (`CONDICION_FACTURACION`) pasó a `'completar y facturar son pasos
+   SEPARADOS'`, porque la vieja describía un botón inexistente y habría dejado el `.replace()`
+   de CORE y el swap como no-ops mudos.
+2. `gate:prosa` — la redacción nueva mandaba al **expediente** ("el botón Facturar de esa cita
+   en su expediente") y `agenda` solo exige `citas`: un member con agenda y sin `expedientes`
+   habría sido enviado a donde no puede entrar. La prosa apunta solo a Facturación, que
+   `prosaDependsOn: ['facturacion']` ya cubre. (Mismo error que un review cazó horas antes en
+   la prosa de facturas — esta vez lo cazó el gate.)
+
+⚠️ **La suite de evals NO se corrió** (decisión del doctor por costo): type-check + los 5 gates.
+
+---
+
 ## ⏸️ Borradores en pausa (2026-08-13)
 
 `propose_prepare_factura_borrador` **ya no se le ofrece al modelo**. Lo apaga un flag,

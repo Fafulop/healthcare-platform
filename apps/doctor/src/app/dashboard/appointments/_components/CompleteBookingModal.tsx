@@ -4,44 +4,24 @@ import { useState } from "react";
 import { X, CheckCircle, Loader2, Banknote, CreditCard, FileText, Building2, Receipt } from "lucide-react";
 import type { Booking } from "../_hooks/useBookings";
 
+/**
+ * COMPLETAR ≠ FACTURAR (2026-08-13). Este modal ya NO emite CFDIs.
+ *
+ * Tenía una casilla "Emitir factura (CFDI)" que timbraba un documento fiscal
+ * LEGAL en el mismo clic con el que se cierra una cita, sin que el doctor viera
+ * nunca los conceptos, las claves ni los impuestos que se iban a declarar. La
+ * facturación vive donde se puede revisar: Facturación → Nueva Factura, o el
+ * botón **Facturar** de la cita en el expediente, que llega con el receptor y el
+ * concepto pre-llenados.
+ *
+ * Lo que SÍ se queda aquí es la INFORMACIÓN: si la cita ya tiene factura, se
+ * dice (abajo) para que nadie intente emitir otra por fuera.
+ */
 interface Props {
   booking: Booking;
   onClose: () => void;
   onConfirm: (price: number, formaDePago: string) => Promise<{ ledgerEntryId?: number }>;
-  onEmitCfdi?: (params: CfdiParams) => Promise<{ success: boolean; error?: string }>;
 }
-
-export interface CfdiParams {
-  bookingId: string;
-  receiver: {
-    rfc: string;
-    name: string;
-    cfdiUse: string;
-    fiscalRegime: string;
-    taxZipCode: string;
-  };
-  items: Array<{
-    productCode: string;
-    description: string;
-    quantity: number;
-    unitCode: string;
-    unitPrice: number;
-    subtotal: number;
-    total: number;
-  }>;
-  paymentForm: string;
-  paymentMethod: string;
-  ledgerEntryId?: number;
-}
-
-// Map appointment formaDePago to SAT payment form code
-const FORMA_TO_SAT: Record<string, string> = {
-  efectivo: "01",
-  cheque: "02",
-  transferencia: "03",
-  tarjeta: "04",
-  deposito: "03",
-};
 
 const FORMAS_DE_PAGO = [
   { value: "efectivo", label: "Efectivo", icon: Banknote, activeColor: "border-green-500 bg-green-50 text-green-800" },
@@ -61,7 +41,7 @@ function etiquetaFormaDePago(valor: string | null): string {
   return FORMAS_DE_PAGO.find((f) => f.value === valor)?.label ?? valor;
 }
 
-export function CompleteBookingModal({ booking, onClose, onConfirm, onEmitCfdi }: Props) {
+export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
   // EL INGRESO YA REGISTRADO manda. Si existe (un link de pago cobrado lo escribió por
   // webhook), el servidor lo detecta por el `bookingId` único y DESCARTA el precio y la
   // forma de pago que mande este modal — completar sólo cierra la cita.
@@ -84,9 +64,6 @@ export function CompleteBookingModal({ booking, onClose, onConfirm, onEmitCfdi }
   const [price, setPrice] = useState(String(Number(booking.finalPrice)));
   const [formaDePago, setFormaDePago] = useState("efectivo");
   const [submitting, setSubmitting] = useState(false);
-  const [emitirFactura, setEmitirFactura] = useState(false);
-  const [cfdiStatus, setCfdiStatus] = useState<"idle" | "emitting" | "success" | "error">("idle");
-  const [cfdiError, setCfdiError] = useState("");
 
   const amount = parseFloat(price);
 
@@ -105,90 +82,23 @@ export function CompleteBookingModal({ booking, onClose, onConfirm, onEmitCfdi }
   // `finalPrice` como si fuera lo que entró.
   const montoDifiere = !!ingreso && Number(booking.finalPrice) !== ingreso.amount;
 
-  // Check if patient has complete fiscal data
-  const patient = booking.patient;
-  const hasFiscalData = !!(
-    patient?.requiereFactura &&
-    patient?.rfc &&
-    patient?.razonSocial &&
-    patient?.regimenFiscal &&
-    patient?.usoCfdi &&
-    patient?.codigoPostalFiscal
-  );
-
-  // Esta cita YA tiene factura (la resuelve el servidor contra el ingreso; ver `facturada`
-  // en api/appointments/bookings/route.ts). Ofrecer "Emitir factura" aquí produciría un
-  // SEGUNDO CFDI de la misma consulta —un timbrado real ante el SAT que después hay que
-  // cancelar—, así que la casilla no se ofrece: se dice que ya está.
+  // Esta cita YA tiene factura (lo resuelve el servidor contra el ingreso; ver
+  // `facturada` en api/appointments/bookings/route.ts). Aquí ya no hay nada que emitir,
+  // pero decirlo evita que alguien salga a emitir una SEGUNDA por otro camino.
   const yaFacturada = booking.facturada === true;
 
   const handleConfirm = async () => {
     if (!isValid) return;
     setSubmitting(true);
-
-    // 1. Complete the booking + create ledger entry
-    const { ledgerEntryId } = await onConfirm(montoEfectivo, formaEfectiva);
-
-    // 2. If user wants factura and we have fiscal data, emit CFDI.
-    //    `!yaFacturada` también aquí, no sólo al pintar la casilla: si el payload se
-    //    refresca con la casilla ya marcada, ésta se desmonta pero `emitirFactura` se
-    //    queda en true — y confirmar timbraría el CFDI duplicado que esto evita.
-    if (emitirFactura && !yaFacturada && hasFiscalData && onEmitCfdi) {
-      setCfdiStatus("emitting");
-      try {
-        const result = await onEmitCfdi({
-          bookingId: booking.id,
-          receiver: {
-            rfc: patient!.rfc!,
-            name: patient!.razonSocial!,
-            cfdiUse: patient!.usoCfdi!,
-            fiscalRegime: patient!.regimenFiscal!,
-            taxZipCode: patient!.codigoPostalFiscal!,
-          },
-          items: [
-            {
-              productCode: "85121800", // Servicios de consultoría en salud
-              description: booking.serviceName || "Consulta médica",
-              quantity: 1,
-              unitCode: "E48", // Unidad de servicio
-              unitPrice: montoEfectivo,
-              subtotal: montoEfectivo,
-              total: montoEfectivo,
-            },
-          ],
-          // La factura tiene que declarar la forma de pago REAL, no la que preseleccione
-          // la rejilla: un CFDI que dice "efectivo" sobre un cobro con tarjeta es un dato
-          // falso ante el SAT.
-          paymentForm: FORMA_TO_SAT[formaEfectiva] || "03",
-          paymentMethod: "PUE",
-          ledgerEntryId,
-        });
-
-        if (result.success) {
-          setCfdiStatus("success");
-        } else {
-          setCfdiStatus("error");
-          setCfdiError(result.error || "Error al emitir factura");
-        }
-      } catch {
-        setCfdiStatus("error");
-        setCfdiError("Error de conexión al emitir factura");
-      }
-      setSubmitting(false);
-      return; // Don't close — show CFDI result first
-    }
-
+    await onConfirm(montoEfectivo, formaEfectiva);
     setSubmitting(false);
-    onClose(); // No factura: close immediately
+    onClose();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && isValid) handleConfirm();
     if (e.key === "Escape") onClose();
   };
-
-  // After CFDI status shown, allow closing
-  const showResult = cfdiStatus === "success" || cfdiStatus === "error";
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
@@ -314,60 +224,11 @@ export function CompleteBookingModal({ booking, onClose, onConfirm, onEmitCfdi }
           </>
           )}
 
-          {/* Ya facturada — se informa en vez de ofrecer timbrar otra vez. */}
+          {/* Ya facturada — dato, no acción. */}
           {yaFacturada && (
             <div className="flex items-center gap-2 text-xs text-teal-800 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">
               <FileText className="w-4 h-4 shrink-0 text-teal-600" />
-              Esta cita ya tiene factura. Completarla no emite otra.
-            </div>
-          )}
-
-          {/* Factura toggle — only if patient has fiscal data AND it isn't invoiced yet */}
-          {!yaFacturada && hasFiscalData && onEmitCfdi && (
-            <div
-              className={`border-2 rounded-lg p-3 cursor-pointer transition-all ${
-                emitirFactura
-                  ? "border-teal-500 bg-teal-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-              onClick={() => setEmitirFactura((v) => !v)}
-            >
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={emitirFactura}
-                  onChange={(e) => setEmitirFactura(e.target.checked)}
-                  className="w-4 h-4 text-teal-600 rounded"
-                />
-                <FileText className="w-4 h-4 text-teal-600" />
-                <span className="text-sm font-medium text-gray-800">Emitir factura (CFDI)</span>
-              </label>
-              {emitirFactura && (
-                <div className="mt-2 ml-6 text-xs text-gray-500 space-y-0.5">
-                  <p>RFC: <span className="font-medium text-gray-700">{patient!.rfc}</span></p>
-                  <p>Razón social: <span className="font-medium text-gray-700">{patient!.razonSocial}</span></p>
-                  <p>Uso CFDI: <span className="font-medium text-gray-700">{patient!.usoCfdi}</span></p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* CFDI status messages */}
-          {cfdiStatus === "emitting" && (
-            <div className="flex items-center gap-2 text-sm text-teal-700 bg-teal-50 rounded-lg px-3 py-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Emitiendo factura...
-            </div>
-          )}
-          {cfdiStatus === "success" && (
-            <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">
-              <CheckCircle className="w-4 h-4" /> Factura emitida exitosamente
-            </div>
-          )}
-          {cfdiStatus === "error" && (
-            <div className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">
-              <p className="font-medium">Error al emitir factura</p>
-              <p className="text-xs mt-0.5">{cfdiError}</p>
-              <p className="text-xs mt-1 text-gray-500">Puedes emitir la factura manualmente desde Facturación.</p>
+              Esta cita ya tiene factura.
             </div>
           )}
 
@@ -383,25 +244,23 @@ export function CompleteBookingModal({ booking, onClose, onConfirm, onEmitCfdi }
           <div className="flex gap-2 pt-1">
             <button
               onClick={onClose}
-              disabled={submitting || cfdiStatus === "emitting"}
+              disabled={submitting}
               className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
-              {showResult ? "Cerrar" : "Cancelar"}
+              Cancelar
             </button>
-            {!showResult && (
-              <button
-                onClick={handleConfirm}
-                disabled={submitting || !isValid}
-                className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {submitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <CheckCircle className="w-4 h-4" />
-                )}
-                {submitting ? "Guardando..." : emitirFactura ? "Completar + Facturar" : "Completar"}
-              </button>
-            )}
+            <button
+              onClick={handleConfirm}
+              disabled={submitting || !isValid}
+              className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4" />
+              )}
+              {submitting ? "Guardando..." : "Completar"}
+            </button>
           </div>
         </div>
       </div>

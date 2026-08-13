@@ -222,7 +222,12 @@ for (const tier of DOCTOR_TIERS) {
 // Sigue siendo una frase LITERAL a propósito: el `.replace()` de la variante CORE
 // y el `from` del override de descripción son text-matching, y sin una aserción
 // que los ancle un reword los convierte en no-ops mudos (bitácora #26).
-const CONDICION_FACTURACION = 'solo si el paciente ya tiene datos fiscales COMPLETOS';
+// 2026-08-13: la casilla "Emitir factura (CFDI)" salió del modal de Completar, así
+// que la condición vieja ("...pero solo si el paciente ya tiene datos fiscales
+// COMPLETOS") describía un botón que ya no existe. El ancla ahora es la frase que
+// SEPARA los dos pasos — y sigue teniendo que vivir en los DOS caminos (prosa del
+// módulo y descripción del tool), que es lo que este check protege.
+const CONDICION_FACTURACION = 'completar y facturar son pasos SEPARADOS';
 
 // The prose check runs on what the scope PROVIDES, so it must fire on the
 // MEMBER axis too — not just the tier (TIERS 01-DISENO §11.5.1).

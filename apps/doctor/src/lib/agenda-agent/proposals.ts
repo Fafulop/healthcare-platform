@@ -282,7 +282,7 @@ export const PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_complete_booking',
     description:
-      'PROPONE marcar una cita CONFIRMADA como COMPLETADA y registrar el ingreso en Flujo de Dinero (estado FINAL; no notifica al paciente). REQUIERE la forma de pago SALVO que el ingreso ya exista (p. ej. cita pagada con link de pago — este tool lo detecta y te lo dice). Si el doctor no dijo la forma de pago, llama al tool solo con bookingId: si hace falta, el error te pedirá preguntarla ("¿cómo te pagaron?"). El precio default es el de la cita. Una PENDIENTE no se puede completar directo: propone confirmar y completar como DOS pasos del mismo plan. La factura (CFDI) NO se emite aquí: al completar la cita el doctor puede emitirla en el mismo paso, pero solo si el paciente ya tiene datos fiscales COMPLETOS.',
+      'PROPONE marcar una cita CONFIRMADA como COMPLETADA y registrar el ingreso en Flujo de Dinero (estado FINAL; no notifica al paciente). REQUIERE la forma de pago SALVO que el ingreso ya exista (p. ej. cita pagada con link de pago — este tool lo detecta y te lo dice). Si el doctor no dijo la forma de pago, llama al tool solo con bookingId: si hace falta, el error te pedirá preguntarla ("¿cómo te pagaron?"). El precio default es el de la cita. Una PENDIENTE no se puede completar directo: propone confirmar y completar como DOS pasos del mismo plan. La factura (CFDI) NO se emite aquí: completar y facturar son pasos SEPARADOS, y la factura se emite en Facturación.',
     input_schema: {
       type: 'object',
       properties: {

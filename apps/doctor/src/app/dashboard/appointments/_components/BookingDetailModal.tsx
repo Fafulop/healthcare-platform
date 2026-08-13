@@ -53,7 +53,6 @@ interface Props {
   onSendEmail: (id: string) => Promise<void>;
   onReschedule: (booking: Booking) => void;
   onCompleteBooking: (id: string, price: number, formaDePago: string) => Promise<{ ledgerEntryId?: number }>;
-  onEmitCfdi?: (params: import("./CompleteBookingModal").CfdiParams) => Promise<{ success: boolean; error?: string }>;
 }
 
 /** Etiqueta de una sección del cuerpo — mismo tono que los rótulos de `StatusActions`. */
@@ -69,7 +68,7 @@ export function BookingDetailModal({
   booking, onClose, getStatusColor,
   onUpdateStatus, onUpdateExtendedBlock, onUpdateFacturaSolicitada, onUpdatePatientLink,
   onUpdatePrice, onDeleteBooking, onOpenFormLinkModal, onDeleteFormLink, onSendEmail,
-  onReschedule, onCompleteBooking, onEmitCfdi,
+  onReschedule, onCompleteBooking,
 }: Props) {
   // Fecha/hora por el resolvedor compartido: las citas tienen DOS formas (con `slot` y
   // libres) y derivarlo aquí a mano es cómo una vista pierde citas en silencio.
@@ -199,7 +198,6 @@ export function BookingDetailModal({
               onSendEmail={onSendEmail}
               onReschedule={onReschedule}
               onCompleteBooking={onCompleteBooking}
-              onEmitCfdi={onEmitCfdi}
             />
           </div>
         </div>

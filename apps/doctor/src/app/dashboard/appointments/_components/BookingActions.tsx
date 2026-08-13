@@ -370,7 +370,6 @@ export function StatusActions({
   onSendEmail,
   onReschedule,
   onCompleteBooking,
-  onEmitCfdi,
   layout = "card",
 }: {
   booking: Booking;
@@ -388,7 +387,6 @@ export function StatusActions({
   onSendEmail: (id: string) => Promise<void>;
   onReschedule: (booking: Booking) => void;
   onCompleteBooking: (id: string, price: number, formaDePago: string) => Promise<{ ledgerEntryId?: number }>;
-  onEmitCfdi?: (params: import("./CompleteBookingModal").CfdiParams) => Promise<{ success: boolean; error?: string }>;
 }) {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
@@ -461,7 +459,6 @@ export function StatusActions({
         const result = await onCompleteBooking(booking.id, price, formaDePago);
         return result || {};
       }}
-      onEmitCfdi={onEmitCfdi}
     />
   );
 

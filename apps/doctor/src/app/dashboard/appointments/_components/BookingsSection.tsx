@@ -38,7 +38,6 @@ interface Props {
   onSendEmail: (id: string) => Promise<void>;
   onReschedule: (booking: Booking) => void;
   onCompleteBooking: (id: string, price: number, formaDePago: string) => Promise<{ ledgerEntryId?: number }>;
-  onEmitCfdi?: (params: import("./CompleteBookingModal").CfdiParams) => Promise<{ success: boolean; error?: string }>;
   onUpdatePrice: (id: string, price: number) => Promise<void>;
   getStatusColor: (status: string, endTime?: string, date?: string) => string;
   sortColumn: SortColumn;
@@ -82,7 +81,6 @@ export function BookingsSection({
   onSendEmail,
   onReschedule,
   onCompleteBooking,
-  onEmitCfdi,
   onUpdatePrice,
   getStatusColor,
   sortColumn,
@@ -387,7 +385,6 @@ export function BookingsSection({
                             onSendEmail={onSendEmail}
                             onReschedule={onReschedule}
                             onCompleteBooking={onCompleteBooking}
-                            onEmitCfdi={onEmitCfdi}
                           />
                         </StopClick>
                       )}
@@ -545,8 +542,7 @@ export function BookingsSection({
                                 onSendEmail={onSendEmail}
                                 onReschedule={onReschedule}
                                 onCompleteBooking={onCompleteBooking}
-                                onEmitCfdi={onEmitCfdi}
-                              />
+                                  />
                             </td>
                           </tr>
                         )}

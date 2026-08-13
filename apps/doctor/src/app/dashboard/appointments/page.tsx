@@ -99,8 +99,7 @@ export default function AppointmentsPage() {
   // mostrando la cita ya cancelada y su botón Eliminar, igual que la fila de la tabla.
   const [openBookingId, setOpenBookingId] = useState<string | null>(null);
   const { open: openAgentPanel, subscribeAgendaChanged } = useAgentActions();
-  // `can` gates member-only UI: the agent button (asistente_ia) and the CompleteBooking
-  // modal's "Emitir factura" checkbox (facturacion) — passing onEmitCfdi undefined hides it.
+  // `can` gates member-only UI: hoy, el botón del asistente (asistente_ia).
   const { can } = usePermissions();
 
   // Refresh this page's views after the assistant executes proposals; the
@@ -420,7 +419,6 @@ export default function AppointmentsPage() {
         shiftBookingFilterDate={bookingsHook.shiftBookingFilterDate}
         onUpdateStatus={handleUpdateStatus}
         onCompleteBooking={handleCompleteBooking}
-        onEmitCfdi={can("facturacion") ? bookingsHook.emitCfdi : undefined}
         onUpdatePrice={bookingsHook.updateBookingPrice}
         onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
         onUpdateFacturaSolicitada={bookingsHook.updateFacturaSolicitada}
@@ -467,8 +465,7 @@ export default function AppointmentsPage() {
           getStatusColor={bookingsHook.getStatusColor}
           onUpdateStatus={handleUpdateStatus}
           onCompleteBooking={handleCompleteBooking}
-          onEmitCfdi={can("facturacion") ? bookingsHook.emitCfdi : undefined}
-          onUpdatePrice={bookingsHook.updateBookingPrice}
+            onUpdatePrice={bookingsHook.updateBookingPrice}
           onUpdateExtendedBlock={bookingsHook.updateExtendedBlock}
           onUpdateFacturaSolicitada={bookingsHook.updateFacturaSolicitada}
           onUpdatePatientLink={bookingsHook.updatePatientLink}

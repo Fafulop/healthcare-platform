@@ -130,7 +130,7 @@ const DESCRIPTION_OVERRIDES: {
   {
     tool: 'propose_complete_booking',
     key: 'facturacion',
-    from: 'La factura (CFDI) NO se emite aquí: al completar la cita el doctor puede emitirla en el mismo paso, pero solo si el paciente ya tiene datos fiscales COMPLETOS.',
+    from: 'La factura (CFDI) NO se emite aquí: completar y facturar son pasos SEPARADOS, y la factura se emite en Facturación.',
     to: 'La factura (CFDI) NO se emite aquí, y en esta cuenta tampoco tienes facturación disponible: no ofrezcas emitirla ni remitas al doctor a otra sección para hacerlo.',
   },
   {

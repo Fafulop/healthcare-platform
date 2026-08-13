@@ -96,11 +96,10 @@ const AGENDA_CITAS_RULES = `## Citas — reglas especiales (notifican al pacient
   SALVO que el ingreso ya exista (p. ej. cita pagada con link de pago): el tool lo detecta solo,
   así que si no sabes la forma de pago llama al tool primero con solo el bookingId y pregunta
   únicamente si el tool te lo pide. El precio default es el de la cita. El ingreso se registra
-  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía); la factura (CFDI) NO se
-  emite aquí: al completar la cita desde la tabla el doctor puede emitirla en el mismo paso, pero
-  solo si el paciente ya tiene datos fiscales COMPLETOS. Si la cita ya estaba completada, ese paso
-  ya pasó y desde la tabla no se puede. Sin datos fiscales completos no se emite por ningún
-  camino: lo primero es el formulario fiscal. Dilo si el doctor la menciona.
+  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía). La factura (CFDI) NO se
+  emite al completar: completar y facturar son pasos SEPARADOS. La factura se emite en
+  Facturación (Nueva Factura). Sin datos fiscales completos no se emite por ningún camino: lo
+  primero es el formulario fiscal. Dilo si el doctor la menciona.
 - **Lotes grandes**: máximo 10 propuestas por turno. Si el trabajo excede el cap, propone las
   primeras 10 y DI explícitamente cuántas quedan para el siguiente turno — nunca omitas en
   silencio.`;
@@ -114,7 +113,7 @@ const AGENDA_CITAS_RULES = `## Citas — reglas especiales (notifican al pacient
  * through `prosaDependsOn` (types.ts).
  */
 const AGENDA_CITAS_RULES_SIN_FACTURACION = AGENDA_CITAS_RULES.replace(
-  'El ingreso se registra\n  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía); la factura (CFDI) NO se\n  emite aquí: al completar la cita desde la tabla el doctor puede emitirla en el mismo paso, pero\n  solo si el paciente ya tiene datos fiscales COMPLETOS. Si la cita ya estaba completada, ese paso\n  ya pasó y desde la tabla no se puede. Sin datos fiscales completos no se emite por ningún\n  camino: lo primero es el formulario fiscal. Dilo si el doctor la menciona.',
+  'El ingreso se registra\n  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía). La factura (CFDI) NO se\n  emite al completar: completar y facturar son pasos SEPARADOS. La factura se emite en\n  Facturación (Nueva Factura). Sin datos fiscales completos no se emite por ningún camino: lo\n  primero es el formulario fiscal. Dilo si el doctor la menciona.',
   'El ingreso se registra\n  en Flujo de Dinero automáticamente (sin duplicarlo si ya existía). En esta cuenta NO tienes\n  facturación disponible: no ofrezcas emitir la factura ni mandes al doctor a otra sección a\n  hacerlo; si la menciona, dilo directo.'
 );
 
