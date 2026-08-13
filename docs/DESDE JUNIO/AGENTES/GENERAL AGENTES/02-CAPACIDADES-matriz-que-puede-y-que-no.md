@@ -99,7 +99,7 @@ bitácora #24 y `00-BLUEPRINT` §5.2 punto 6.
 | | |
 |---|---|
 | Tools lectura | get_billing_status ⭐ · get_patient_profile · get_fiscal_profile_status · get_cfdis · get_sat_cfdis · get_payment_links · get_payment_provider_status · get_guia (4 temas) · **search_catalogo_sat** · **get_pendientes_factura** |
-| Tools propuesta | **propose_create_cfdi** (card 🧾 tier-MÁXIMO — timbra un documento fiscal legal): ingreso de cita/link (nunca manual), receptor SOLO del expediente completo, impuestos server-side (`cfdi-builder.ts`, E7), RFC genérico ⇒ Público en General (S01/616) con advertencia; doble emisión bloqueada en pre-check Y endpoint (409); **uso×régimen incompatible = hard stop** (post-F2c: matriz REGIMEN_USO_VALID); PPD solo explícito (forma 99 + advertencia REP); cita sin completar ⇒ DOS turnos · **propose_prepare_factura_borrador** (F2c, card LIGERA — reversible, nada se timbra): factura COMPUESTA pre-llenada como CfdiDraft que el doctor revisa/edita/emite en el form (`?draft=`); botón "Abrir borrador" en la card; anti-duplicado; discrepancia factura-vs-ingreso NORMAL aquí; los reads reportan borradorPendiente |
+| Tools propuesta | **propose_create_cfdi** (card 🧾 tier-MÁXIMO — timbra un documento fiscal legal): ingreso de cita/link (nunca manual), receptor SOLO del expediente completo, impuestos server-side (`cfdi-builder.ts`, E7), RFC genérico ⇒ Público en General (S01/616) con advertencia; doble emisión bloqueada en pre-check Y endpoint (409); **uso×régimen incompatible = hard stop** (post-F2c: matriz REGIMEN_USO_VALID); PPD solo explícito (forma 99 + advertencia REP); cita sin completar ⇒ DOS turnos · ⏸️ **propose_prepare_factura_borrador EN PAUSA desde 2026-08-13** (código intacto tras el flag `BORRADORES_DE_FACTURA_HABILITADOS`, ver §4): el agente ya NO prepara borradores — una factura compuesta o "prepárala" se llena en Facturación → Nueva Factura, o con el botón Facturar de la cita en el expediente. Los borradores ya existentes se siguen leyendo (`borradorPendiente` en los reads) y se abren/descartan desde el expediente |
 | Responde | diagnóstico completo de cobro/factura de una cita o paciente (matriz de 6 preguntas), CFDIs por fuente DUAL (plataforma vs SAT, con frescura), completitud fiscal server-side (listoParaFacturar), links de pago, estado Stripe/MP, guías curadas (incl. claves_y_reglas_cfdi), **claves de los catálogos OFICIALES del SAT (grounded — nunca inventa claves)** y **el barrido "¿a quién le falta factura?"** (paridad exacta con ingresosSinFactura) |
 | NO puede | cancelar CFDIs (nunca-v1) ni complementos de pago · facturar ingresos manuales o PG "de dedo" (solo vía RFC genérico del expediente) · **facturas SIN cita (extras/venta suelta) — hoy UI-only vía patrón de separación (money-model #5); tool del agente decidido-sin-diseñar, radar en REFRESCO facturas #6** · crear links de pago (F2+) · enviar el formulario fiscal (F2+) · tomar datos fiscales de texto libre (solo del expediente) · subfacturar (guardrail emergente ENDOSADO: rehúsa montos ≠ ingreso sin contexto legítimo, incluso "de prueba") |
 | Desempate | "¿quién me debe?" tiene TRES lecturas: sin PAGAR (flujo POR_COBRAR) · PPD sin complemento (fiscal) · sin FACTURA (get_pendientes_factura) — una cifra CON fuente + nombrar las otras |
@@ -153,15 +153,33 @@ bitácora #24 y `00-BLUEPRINT` §5.2 punto 6.
 <!-- Marcadores verificados por scripts/check-docs-numbers.ts contra el CÓDIGO.
      Si el gate falla: NO edites el marcador a mano sin entender por qué cambió el código.
      Actualiza el número Y el texto de esta sección juntos. -->
-<!-- gate:tools=38 -->
+<!-- gate:tools=37 -->
 <!-- gate:modules=5 -->
 <!-- gate:evals=87 -->
 <!-- gate:module-list=agenda,facturas,fiscal,flujo,expediente -->
 
-**38 tools / 5 módulos** — desglose real (conteo de `input_schema` por archivo): agenda 7 de
-lectura (`tools.ts`) + 10 de propuesta (`proposals.ts`) · facturas 12 (10 lectura + 2
-propuestas) · fiscal 2 · flujo 5 · expediente 2. El conteo válido es `ALL_TOOLS.length` del
+**37 tools / 5 módulos** — desglose real (conteo de `input_schema` por archivo): agenda 7 de
+lectura (`tools.ts`) + 10 de propuesta (`proposals.ts`) · facturas 11 (10 lectura + 1
+propuesta) · fiscal 2 · flujo 5 · expediente 2. El conteo válido es `ALL_TOOLS.length` del
 registry — nunca sumar a mano.
+
+> ⏸️ **38 → 37 el 2026-08-13: `propose_prepare_factura_borrador` queda EN PAUSA** (facturas
+> pasó de 2 propuestas a 1). Decisión del doctor: el flujo de facturación es DETERMINISTA —la
+> factura se ancla a un ingreso, el receptor sale del expediente, casi siempre es un concepto—
+> así que preparar borradores desde el chat no ahorraba nada; el doctor termina igual en
+> Facturación. Y en el expediente el borrador **competía** con el botón "Facturar" de su propia
+> cita: dos caminos sobre el mismo ingreso, y el que NO pasa por el borrador lo deja huérfano
+> (`POST /cfdi` solo lo marca `emitted` si recibe `draftId`), de modo que el botón del borrador
+> ya solo podía dar 409.
+>
+> **No se borró código:** la tool, `proposePrepareFacturaBorrador`, el executor, la tabla
+> `CfdiDraft` y el hidratado `?draft=` del form siguen enteros. Lo apaga un solo flag,
+> `BORRADORES_DE_FACTURA_HABILITADOS` en `modules/facturas.ts`, que la filtra del toolset.
+> Reactivar = ponerlo en `true` y **devolver su prosa** a `FACTURAS_RULES` y a `prompt.ts`
+> (apagarla sin limpiar la prosa truena `gate:prosa`, a propósito).
+>
+> Los borradores YA creados (3 en prod) siguen leyéndose y se abren/descartan desde el
+> expediente — apagar la CREACIÓN no los deja huérfanos.
 
 > 📉 **39 → 38 el 2026-08-05: se eliminó `get_availability`** (agenda pasó de 8 lecturas a 7).
 > Con el agendado freeform "¿qué horarios tengo libres?" dejó de tener respuesta útil —

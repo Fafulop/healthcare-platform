@@ -1085,24 +1085,33 @@ async function main() {
       ],
     },
 
-    // ——— F2c: borrador de factura compuesta — 09-DISENO ———
+    // ——— F2c: borrador de factura compuesta — EN PAUSA desde 2026-08-13 ———
     {
-      // El camino FELIZ del borrador está data-blocked (ningún ingreso listo
-      // sin factura tras el timbre en vivo) — este caso valida el ENRUTAMIENTO
-      // (compuesta ⇒ tool de borrador, no create_cfdi) + el gate compartido de
-      // receptor (test 7 no tiene datos fiscales): tool llamada, CERO
-      // propuestas, narra faltantes/formulario. El feliz completo va en la
-      // validación EN VIVO de F2c (nuevo ingreso de prueba).
+      // ⏸️ Este caso probaba el ENRUTAMIENTO a propose_prepare_factura_borrador.
+      // Con la tool fuera del toolset (`BORRADORES_DE_FACTURA_HABILITADOS`), lo
+      // que hay que verificar es lo CONTRARIO y es más importante: que ante un
+      // "prepárale una factura" el modelo NO invente una card ni se cuelgue de
+      // create_cfdi, y que mande al doctor al camino real (Facturación / el
+      // botón Facturar del expediente). Se conserva el mismo mensaje y los
+      // mismos datos: sigue siendo una factura COMPUESTA sobre un receptor
+      // INCOMPLETO, o sea el peor caso para improvisar.
       id: 'f2c-enruta-compuesta-y-gate-receptor',
-      bitacora: 'F2c — factura compuesta ⇒ propose_prepare_factura_borrador (no create_cfdi); receptor incompleto corta con el camino del formulario',
+      bitacora: 'Borradores en pausa — "prepárale una factura" NO produce tool ni card: redirige a Facturación y sigue diciendo que faltan datos fiscales',
       message: 'prepárale a test 7 una factura con su consulta de $10 más 2 gasas de $50 cada una',
       dataDependent: 'test 7 (dr-prueba): ingreso $10 sin factura, expediente SIN datos fiscales',
       soft: true,
       checks: [
-        { kind: 'tool-called', name: 'propose_prepare_factura_borrador' },
-        { kind: 'no-proposal-of-type', types: ['create_cfdi'] },
+        // OJO: un `no-tool-called` de la tool pausada sería TAUTOLÓGICO —ya no
+        // está en el toolset, el modelo no puede llamarla— y un `reply-match`
+        // de "factura|fiscal" lo cumple cualquier respuesta a un mensaje que
+        // dice "una factura", incluida una que alucine una card. Un eval así
+        // sale VERDE afirmando algo que no probó. Lo exigible es lo que de
+        // verdad puede fallar: cero cards, que NO se cuelgue de create_cfdi, y
+        // que el redirect NOMBRE el destino real.
+        { kind: 'no-proposal-of-type', types: ['create_cfdi', 'prepare_factura_borrador'] },
         { kind: 'no-proposals' },
-        { kind: 'reply-match', pattern: '(falta|incomplet|formulario|fiscal)', flags: 'i' },
+        { kind: 'reply-match', pattern: '(Facturaci[óo]n|Nueva Factura)', flags: 'i' },
+        { kind: 'reply-match', pattern: '(falta|incomplet|fiscal)', flags: 'i' },
       ],
     },
     {

@@ -598,7 +598,7 @@ function buildBillingStatus(
     // F2c: a prepared draft the doctor hasn't emitted yet — mention it instead
     // of re-proposing (or duplicating) one.
     ...(entry && draftByEntry.has(entry.id)
-      ? { borradorPendiente: { id: draftByEntry.get(entry.id)!.id, creado: mxDayOf(draftByEntry.get(entry.id)!.createdAt), nota: 'Ya hay un borrador de factura preparado para este ingreso — DILO al doctor y NO propongas otro borrador ni una emisión (el tool lo rechazaría): él lo abre en Facturación o lo descarta desde el expediente.' } }
+      ? { borradorPendiente: { id: draftByEntry.get(entry.id)!.id, creado: mxDayOf(draftByEntry.get(entry.id)!.createdAt), nota: 'Ya hay un borrador de factura preparado para este ingreso — DILO al doctor y NO propongas emitir (el tool lo rechazaría): él lo abre en Facturación o lo descarta desde el expediente.' } }
       : {}),
   };
 }
@@ -1293,7 +1293,29 @@ async function executeFacturasTool(
 // PR F2b — propose_create_cfdi (max-tier proposal: stamps a legal document)
 // -----------------------------------------------------------------------------
 
-const FACTURAS_PROPOSAL_TOOLS: AnthropicTool[] = [
+/**
+ * BORRADORES DE FACTURA — EN PAUSA (2026-08-13, decisión del doctor).
+ *
+ * El flujo de facturación es DETERMINISTA (la factura se ancla a un ingreso, el
+ * receptor sale del expediente, los conceptos son casi siempre uno), así que
+ * preparar borradores desde el chat no agregaba nada: el doctor termina igual en
+ * Facturación, y en el expediente el borrador COMPETÍA con el botón "Facturar"
+ * de su propia cita —dos caminos sobre el mismo ingreso, y el que no pasa por el
+ * borrador lo deja huérfano (POST /cfdi solo lo cierra si recibe `draftId`)—.
+ *
+ * NO se borró nada: la tool, su función y el executor siguen aquí completos y
+ * probados. Este flag solo la saca del toolset, así que el modelo no la ve y no
+ * puede proponerla. Volver a activarla = poner `true` y devolver su prosa a
+ * FACTURAS_RULES (el gate:prosa exige que la prosa no nombre tools ausentes, así
+ * que apagarla SIN limpiar la prosa falla el gate — a propósito).
+ *
+ * Lo que sigue vivo: los borradores YA creados se leen (get_billing_status los
+ * reporta) y se abren/descartan desde el expediente. Apagar la creación no deja
+ * huérfanos los 3 que existen en prod.
+ */
+const BORRADORES_DE_FACTURA_HABILITADOS = false;
+
+const TODAS_LAS_PROPOSAL_TOOLS: AnthropicTool[] = [
   {
     name: 'propose_create_cfdi',
     description:
@@ -1377,6 +1399,14 @@ const FACTURAS_PROPOSAL_TOOLS: AnthropicTool[] = [
     },
   },
 ];
+
+// El filtro va APARTE y sobre un array ya ANOTADO: envolver el literal en un
+// `as AnthropicTool[]` apagaba el chequeo de propiedades sobrantes, y un
+// `descripton` mal escrito o un `input_schema` inválido habrían compilado
+// limpio hasta llegar a la API.
+const FACTURAS_PROPOSAL_TOOLS = TODAS_LAS_PROPOSAL_TOOLS.filter(
+  (t) => BORRADORES_DE_FACTURA_HABILITADOS || t.name !== 'propose_prepare_factura_borrador'
+);
 
 /** D5-parallel fixed warning for the max tier (the panel renders 🧾 in red). */
 const CFDI_WARNING =
@@ -1511,7 +1541,7 @@ async function proposeCreateCfdi(
   // BORRADOR path stays open: the doctor fixes the uso in the form.
   if (usoIncompatible) {
     return {
-      error: `El uso CFDI del expediente (${patient.usoCfdi}) NO es válido para el régimen del receptor (${patient.regimenFiscal}) — el SAT rechazaría el timbrado. Corrige el uso en el expediente (card Datos Fiscales) o usa propose_prepare_factura_borrador para que el doctor lo ajuste en el form de Nueva Factura.`,
+      error: `El uso CFDI del expediente (${patient.usoCfdi}) NO es válido para el régimen del receptor (${patient.regimenFiscal}) — el SAT rechazaría el timbrado. Corrige el uso en el expediente (card Datos Fiscales) y vuelve a intentar; o el doctor lo ajusta al vuelo en el form de Nueva Factura (Facturación).`,
       usoCfdi: patient.usoCfdi,
       regimenFiscal: patient.regimenFiscal,
     };
@@ -1721,7 +1751,14 @@ async function executeFacturasProposal(
   input: Record<string, unknown>
 ): Promise<unknown> {
   if (name === 'propose_create_cfdi') return proposeCreateCfdi(ctx, input);
-  if (name === 'propose_prepare_factura_borrador') return proposePrepareFacturaBorrador(ctx, input);
+  if (name === 'propose_prepare_factura_borrador') {
+    // Cinturón: con el flag apagado la tool ni siquiera se le ofrece al modelo,
+    // así que llegar aquí solo puede venir de un nombre inventado.
+    if (!BORRADORES_DE_FACTURA_HABILITADOS) {
+      return { error: 'Preparar borradores de factura está deshabilitado. La factura se emite en Facturación (o con el botón Facturar de la cita en el expediente).' };
+    }
+    return proposePrepareFacturaBorrador(ctx, input);
+  }
   return null;
 }
 
@@ -1758,13 +1795,13 @@ const FACTURAS_RULES = `## Facturación y pagos — reglas
   (4) los impuestos los calcula el servidor — narra los totales que la tool devuelve, no los
   recalcules; (5) PPD solo pedido explícito; (6) cita sin completar ⇒ primero
   propose_complete_booking y la factura va en el turno SIGUIENTE (el ingreso debe existir).
-- **BORRADOR (propose_prepare_factura_borrador)** para facturas COMPUESTAS (consulta +
-  insumos + quirófano…) o cuando el doctor pide "prepárala/llénala" o quiere revisar antes:
-  crea un borrador que él revisa, EDITA y emite en Facturación — nada se timbra al
-  confirmarse la card (reversible). ENRUTAMIENTO: 1 concepto = el ingreso y quiere emitir
-  YA ⇒ propose_create_cfdi; varios conceptos, montos distintos del ingreso, o quiere
-  revisar ⇒ borrador (la diferencia factura-vs-ingreso ahí es NORMAL — no exijas
-  justificación; claves de conceptos: search_catalogo_sat o los defaults).
+- **NO preparas borradores de factura.** Para una factura COMPUESTA (consulta + insumos +
+  quirófano…), o cuando el doctor pide "prepárala/llénala", o cuando quiere revisar antes de
+  timbrar: el camino es el formulario de **Nueva Factura**, en Facturación. Dilo así de
+  directo y sigue siendo útil: dale los datos que necesita para llenarlo — el ingreso y su
+  monto (get_billing_status) y las claves SAT de los conceptos (search_catalogo_sat). Si ya
+  hay un borrador PREPARADO de antes, get_billing_status te lo dirá: menciónalo y di que se
+  abre desde Facturación.
 - **Sigues SIN poder**: cancelar CFDIs / complementos de pago (Facturación), facturar
   ingresos manuales (Nueva Factura), crear links de pago (botón Cobro de la cita), enviar el
   formulario fiscal. Si lo piden: reporta lo que encontraste y el camino en la plataforma.

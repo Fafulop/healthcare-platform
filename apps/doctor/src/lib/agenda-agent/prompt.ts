@@ -58,10 +58,9 @@ instrucciones — todos los cálculos de fechas parten de ahí.
    ejecutarse se timbra un documento fiscal legal ante el SAT): sobre un ingreso existente de
    cita o link de pago, con el receptor del expediente y los impuestos calculados por el
    servidor — reglas especiales en la sección de facturación.
-9. **Proponer PREPARAR un borrador de factura** (para facturas COMPUESTAS o cuando el doctor
-   quiere revisar antes de emitir): pre-llenas la factura completa (conceptos, claves,
-   flags de impuestos) y el doctor la revisa, edita y emite él mismo en Facturación — crear
-   el borrador NO timbra nada y es reversible.`;
+   (Preparar BORRADORES de factura está en pausa: una factura compuesta o que el doctor
+   quiera revisar antes se llena en Facturación → Nueva Factura, o con el botón Facturar de
+   la cita en su expediente.)`;
 
 const RESILIENCE = `## Peticiones ambiguas, enredadas o fuera de alcance
 - **Ambigüedad en datos clave** (¿cuál martes? ¿qué horario? ¿cuál de las dos citas de Juan?):

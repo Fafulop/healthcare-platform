@@ -115,20 +115,34 @@ function BookingStatusPill({ status }: { status: string }) {
   );
 }
 
-/** ¿Ya se cobró? Sale del INGRESO, no del estado de la cita: un link de pago
- *  pagado deja el ingreso PAID con la cita todavía agendada. `null` = todavía no
- *  hay ingreso, y eso NO es "no pagado" — es "no hay nada que cobrar aún", así
- *  que no se pinta nada en vez de afirmar algo falso. */
-function PagoBadge({ paymentStatus }: { paymentStatus: string | null }) {
-  if (!paymentStatus) return null;
+/** ¿Ya se cobró? El hecho sale del INGRESO, no del estado de la cita: un link de
+ *  pago pagado deja el ingreso PAID con la cita todavía agendada.
+ *
+ *  SIN ingreso no hay estado de pago que leer — pero callarse ahí dejaba sin
+ *  contraparte al chip "Pagado": la mayoría de las citas no tiene ingreso, así
+ *  que la ausencia de chip era el caso COMÚN y no se leía como "falta cobrar".
+ *  Se dice "Por cobrar" solo donde el dinero de verdad se espera; una CANCELADA
+ *  o un NO_SHOW sin ingreso no deben nada, y ahí sigue sin pintarse nada. */
+function PagoBadge({
+  paymentStatus, tieneIngreso, status, precio,
+}: { paymentStatus: string | null; tieneIngreso: boolean; status: string; precio: number | null }) {
   const map: Record<string, { cls: string; label: string }> = {
     PAID:    { cls: 'bg-green-100 text-green-700', label: 'Pagado' },
     PARTIAL: { cls: 'bg-amber-100 text-amber-800', label: 'Pago parcial' },
     PENDING: { cls: 'bg-amber-100 text-amber-800', label: 'Por cobrar' },
   };
-  const s = map[paymentStatus];
-  if (!s) return null;
-  return <span className={`text-[11px] px-1.5 py-0.5 rounded ${s.cls}`}>{s.label}</span>;
+  if (tieneIngreso && paymentStatus) {
+    const s = map[paymentStatus];
+    return s ? <span className={`text-[11px] px-1.5 py-0.5 rounded ${s.cls}`}>{s.label}</span> : null;
+  }
+  // SIN ingreso hay que decidir si se afirma algo. "Por cobrar" solo donde la
+  // deuda ya EXISTE: la cita ocurrió y tiene precio. Una cita FUTURA todavía no
+  // debe nada (el chip ámbar en toda la agenda por venir sería ruido), y una sin
+  // precio no puede deber una cantidad — ahí, además, la propia tarjeta dice
+  // "Sin cobro registrado" abajo, y las dos frases se contradecían.
+  const deudaReal = status === 'COMPLETED' && precio != null && precio > 0;
+  if (!deudaReal) return null;
+  return <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Por cobrar</span>;
 }
 
 const FACTURA_VIA_LABEL: Record<string, string> = {
@@ -470,10 +484,83 @@ function useCfdiDrafts(patientId: string, bookingEntryIds: Set<number>) {
   return { byLedgerEntry, sueltos, discard };
 }
 
-function CfdiDraftRow({ draft, onDiscard }: { draft: CfdiDraft; onDiscard: (id: number) => void }) {
+/**
+ * La fila de Cobro. `PaymentLinkButton` solo sabe de LINKS: si no hay ninguno
+ * pagado, ofrece crear uno — aunque el dinero ya haya entrado en efectivo. Eso
+ * dejaba tarjetas con el chip "Pagado" arriba y un botón "Link de pago" abajo,
+ * invitando a cobrar algo ya cobrado.
+ *
+ * Cuando el INGRESO ya está PAID y no hay link pagado que enseñar, la fila se
+ * repliega: el cobro está resuelto y el chip de arriba ya lo dice. Queda un
+ * disclosure para el caso raro (cobrar un saldo aparte, mandar link de todos
+ * modos) — se esconde, no se prohíbe.
+ */
+function CobroRow({
+  yaCobrado, tieneLinkPagado, tieneLinkActivo, children,
+}: { yaCobrado: boolean; tieneLinkPagado: boolean; tieneLinkActivo: boolean; children: React.ReactNode }) {
+  const [abierto, setAbierto] = useState(false);
+  // ⚠️ `tieneLinkActivo` es tan importante como `tieneLinkPagado`: un link VIVO y
+  // sin pagar (el paciente acabó pagando en efectivo) deja el ingreso en PAID
+  // mientras el link sigue cobrable ahí fuera. Replegar ahí escondía el estado
+  // "Link enviado + Copiar + WhatsApp" detrás de un "+ Link de pago" gris, que
+  // se lee como "no hay ningún link" — justo al revés.
+  const replegar = yaCobrado && !tieneLinkPagado && !tieneLinkActivo;
+
+  if (replegar && !abierto) {
+    return (
+      <div className="px-4 py-1.5 border-t border-gray-100">
+        <button
+          onClick={() => setAbierto(true)}
+          className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          + Link de pago
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="px-4 py-2 border-t border-gray-100 flex items-center gap-2 flex-wrap">
+      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cobro</span>
+      {children}
+      {replegar && (
+        <button
+          onClick={() => setAbierto(false)}
+          className="text-[11px] text-gray-400 hover:text-gray-600 ml-auto"
+        >
+          Ocultar
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CfdiDraftRow({
+  draft, onDiscard, ingresoYaFacturado = false,
+}: { draft: CfdiDraft; onDiscard: (id: number) => void; ingresoYaFacturado?: boolean }) {
   const router = useRouter();
   const items = draft.items ?? [];
   const total = items.reduce((s, it) => s + it.unitPrice * (it.quantity || 1), 0);
+
+  // Borrador MUERTO: su ingreso ya se facturó por otro camino. Abrirlo solo
+  // llevaría al 409 de POST /cfdi ("ese ingreso ya tiene una factura ligada"),
+  // así que se ofrece lo único que queda por hacer con él: descartarlo.
+  if (ingresoYaFacturado) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="text-xs text-gray-500 min-w-0">
+          <span className="font-medium">Borrador de factura #{draft.id}</span> — este ingreso ya se
+          facturó por otro camino, así que el borrador ya no aplica.
+        </div>
+        <button
+          onClick={() => onDiscard(draft.id)}
+          className="text-xs px-2 py-1 rounded bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors shrink-0"
+        >
+          Descartar
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
       <div className="text-xs text-blue-900 min-w-0">
@@ -482,18 +569,23 @@ function CfdiDraftRow({ draft, onDiscard }: { draft: CfdiDraft; onDiscard: (id: 
         <span className="text-blue-600 ml-1">
           ({new Date(draft.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })})
         </span>
-        <p className="text-[11px] text-blue-700 mt-0.5">Preparado por el asistente — nada se ha timbrado todavía.</p>
+        <p className="text-[11px] text-blue-700 mt-0.5">
+          Preparado por el asistente — nada se ha timbrado. Se emite en Facturación, cuando tú lo confirmes ahí.
+        </p>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* "Revisar y emitir" prometía de más: este botón NO timbra, solo abre el
+            formulario de Nueva Factura con el borrador cargado. Quien timbra es
+            el doctor, en esa página. */}
         <button
           onClick={() => router.push(`/dashboard/facturacion?draft=${draft.id}`)}
-          className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          className="text-xs px-2.5 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
         >
-          Revisar y emitir
+          Revisar en Facturación
         </button>
         <button
           onClick={() => onDiscard(draft.id)}
-          className="text-xs px-2 py-1 rounded bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
+          className="text-xs px-2 py-1.5 rounded bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
         >
           Descartar
         </button>
@@ -607,7 +699,12 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                         servidor (facturada = resolveFacturaVerdict; paymentStatus =
                         del ingreso) — aquí no se deduce ninguna. */}
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                      <PagoBadge paymentStatus={b.paymentStatus ?? null} />
+                      <PagoBadge
+                        paymentStatus={b.paymentStatus ?? null}
+                        tieneIngreso={b.ledgerEntryId != null}
+                        status={b.status}
+                        precio={b.finalPrice}
+                      />
                       <FacturaBadge
                         facturada={b.facturada === true}
                         via={b.facturadaVia ?? null}
@@ -639,8 +736,14 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                 {(['PENDING', 'CONFIRMED', 'COMPLETED'].includes(b.status) ||
                   b.stripeLink?.status === 'PAID' || b.mpLink?.status === 'PAID' ||
                   b.stripeLink?.isActive || b.mpLink?.isActive) && (
-                  <div className="px-4 py-2 border-t border-gray-100 flex items-center gap-2">
-                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cobro</span>
+                  <CobroRow
+                    yaCobrado={b.paymentStatus === 'PAID'}
+                    tieneLinkPagado={b.stripeLink?.status === 'PAID' || b.mpLink?.status === 'PAID'}
+                    tieneLinkActivo={
+                      (b.stripeLink?.isActive && b.stripeLink.status !== 'PAID') ||
+                      (b.mpLink?.isActive && b.mpLink.status !== 'PAID') || false
+                    }
+                  >
                     <PaymentLinkButton
                       bookingId={b.id}
                       patientId={patient.id}
@@ -652,7 +755,7 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                       stripeLink={b.stripeLink || null}
                       mpLink={b.mpLink || null}
                     />
-                  </div>
+                  </CobroRow>
                 )}
 
                 {/* Fila financiera. La condición ya NO es `isCompleted`: el ingreso
@@ -736,12 +839,21 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                              ingreso). Antes esto no pintaba NADA y la cita marcada
                              "necesita factura" parecía rota. */
                           <span className="text-xs text-gray-400">Se factura al registrar el cobro</span>
+                        ) : drafts.length > 0 ? (
+                          /* DOS CAMINOS SOBRE EL MISMO INGRESO. Con un borrador vivo,
+                             un botón "Facturar" al lado abre el form SIN el borrador
+                             (prefill por query params) y, al timbrar, NO lo cierra —
+                             cfdi/route.ts solo marca `emitted` si recibe `draftId`.
+                             El borrador quedaba huérfano y su botón ya solo podía dar
+                             409. Se deja UN camino: el borrador manda, y para ignorarlo
+                             está Descartar (y entonces reaparece Facturar). */
+                          <span className="text-xs text-blue-700">Hay un borrador preparado ↓</span>
                         ) : fiscalDataComplete ? (
                           <button
                             onClick={() => handleEmitCfdi(b)}
-                            className="text-xs px-2.5 py-1 rounded bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors flex items-center gap-1"
+                            className="text-sm px-3.5 py-2 rounded-lg bg-teal-600 text-white font-medium hover:bg-teal-700 transition-colors flex items-center gap-1.5 shadow-sm"
                           >
-                            <Receipt className="w-3 h-3" /> Facturar
+                            <Receipt className="w-4 h-4" /> Facturar
                           </button>
                         ) : (
                           /* Faltan datos del receptor: el camino es el formulario
@@ -762,7 +874,12 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                     {drafts.length > 0 && (
                       <div className="space-y-2 pt-1">
                         {drafts.map((d) => (
-                          <CfdiDraftRow key={d.id} draft={d} onDiscard={discardDraft} />
+                          <CfdiDraftRow
+                            key={d.id}
+                            draft={d}
+                            onDiscard={discardDraft}
+                            ingresoYaFacturado={b.facturada === true}
+                          />
                         ))}
                       </div>
                     )}
@@ -772,7 +889,7 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                 {/* Completed but no ledger entry (legacy bookings before bookingId link) */}
                 {isCompleted && b.amount == null && (
                   <div className="px-4 py-2 border-t border-gray-100">
-                    <span className="text-xs text-gray-400">Sin datos financieros registrados</span>
+                    <span className="text-xs text-gray-400">Sin cobro registrado</span>
                   </div>
                 )}
               </div>

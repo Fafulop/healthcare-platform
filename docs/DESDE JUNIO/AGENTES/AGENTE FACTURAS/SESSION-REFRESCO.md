@@ -7,6 +7,11 @@
 > entregas* — qué se shippeó, cuándo y con qué commit · (3) *PRÓXIMOS PASOS* — lo único que
 > queda abierto. Para profundidad, el *Mapa de documentos* dice a cuál de los 10 docs ir.
 >
+> **⏸️ Estado de ESTADO: 2026-08-13** — **los BORRADORES de factura del agente quedan EN
+> PAUSA** (`propose_prepare_factura_borrador` fuera del toolset; código intacto). El asistente
+> sigue pudiendo EMITIR (`propose_create_cfdi`) y leer todo. Ver **"Borradores en pausa"**
+> justo debajo de *En una frase*. Tools: 38 → **37**.
+>
 > **Estado de ESTADO: 2026-07-30** — el módulo cambió en la pasada del plan 07 (ver
 > **"Cambios de dominio 2026-07-30"** más abajo, justo antes de PRÓXIMOS PASOS): la intención
 > por cita (`necesitaFactura` / `citasMarcadasSinFactura`), la prosa de walk-in resuelta
@@ -35,6 +40,45 @@ hidratado; folio 9) · **money-model #5** (patrón de SEPARACIÓN, folio 10).
 
 **Qué sigue:** F3 (`propose_email_cfdi` / `propose_send_fiscal_form`), las semillas de evals
 data-blocked, y el radar de facturas SIN cita — detalle en **PRÓXIMOS PASOS** abajo.
+
+## ⏸️ Borradores en pausa (2026-08-13)
+
+`propose_prepare_factura_borrador` **ya no se le ofrece al modelo**. Lo apaga un flag,
+`BORRADORES_DE_FACTURA_HABILITADOS` en `modules/facturas.ts`; la tool, `proposePrepareFacturaBorrador`,
+el executor, la tabla `CfdiDraft` y el hidratado `?draft=` del form **siguen enteros**.
+
+**Por qué.** Decisión del doctor: el flujo de facturación es **determinista** —la factura se ancla
+a un ingreso, el receptor sale del expediente, casi siempre es un concepto—, así que preparar
+borradores desde el chat no ahorraba un paso: se terminaba igual en Facturación.
+
+**Y había un choque real.** En la tarjeta de la cita del expediente convivían DOS caminos sobre el
+mismo ingreso: el botón **Facturar** y el botón del borrador. No producen un CFDI duplicado (el
+`hasFactura` de `POST /cfdi` da 409), pero **el camino que NO pasa por el borrador lo deja
+huérfano**: `cfdi/route.ts` solo marca el draft `emitted` si recibe `draftId`, y el prefill por
+query params (`?from=booking`) no lo manda. El borrador sobrevivía a su propia factura y su botón
+ya solo podía dar 409.
+
+**Qué se tocó al apagarlo** (todo en el mismo commit — apagar sin limpiar prosa truena `gate:prosa`,
+a propósito):
+
+| | |
+|---|---|
+| `modules/facturas.ts` | flag + `.filter()` del toolset · guarda en el executor · `FACTURAS_RULES`: la regla de enrutamiento se sustituye por "NO preparas borradores → Facturación / botón Facturar" · el error de uso×régimen deja de mandar al borrador · la nota de `borradorPendiente` ya no dice "no propongas otro borrador" |
+| `prompt.ts` | se retira la capacidad #9 de la lista del sistema |
+| `02-CAPACIDADES` | `gate:tools` 38 → **37** (facturas 11: 10 lectura + 1 propuesta) + nota del porqué |
+| `agenda-agent-evals.ts` | `f2c-enruta-compuesta-y-gate-receptor` se invierte: cero cards, que no se cuelgue de `create_cfdi`, y que el redirect **nombre** Facturación / Nueva Factura. ⚠️ Un `no-tool-called` de la tool pausada NO sirve —es tautológico, ya no está en el toolset— y un `reply-match` de `factura|fiscal` lo cumple cualquier respuesta: así se escribe un eval VERDE que no probó nada. La suite sigue en **87** casos |
+
+**Lo que NO se apagó:** los borradores YA creados (3 en prod, todos `origin: 'agent'`; #2 y #3
+siguen en `draft`) se leen igual —`get_billing_status` reporta `borradorPendiente`— y se abren o
+descartan desde el expediente. Apagar la CREACIÓN no los deja huérfanos.
+
+**Para reactivar:** flag a `true` y **devolver la prosa** a `FACTURAS_RULES` y `prompt.ts`,
+más revertir el caso de eval. Antes de hacerlo, resolver el choque de los dos caminos (lo más
+simple: que el prefill por query params mande `draftId` cuando exista un borrador para ese ingreso).
+
+⚠️ **La suite de evals NO se corrió tras este cambio** — solo `type-check` + los 5 gates.
+
+---
 
 **Limitación en vigor:** Facturama apunta a **SANDBOX** en prod (intencional) — todo timbrado es
 de prueba, y **cancelar facturas seguirá fallando hasta salir de sandbox** (diagnosticado, no es
