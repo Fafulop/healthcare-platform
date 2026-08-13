@@ -8,7 +8,6 @@ import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { PatientSummaryModal } from '@/components/medical-records/PatientSummaryModal';
 import { formatSex } from '@/components/medical-records/patient-display';
 import { usePatientProfile } from '../_components/usePatientProfile';
-import { PaymentLinkButton } from '@/components/payments/PaymentLinkButton';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
 
@@ -67,6 +66,9 @@ interface PatientBooking {
   /** Del INGRESO: 'PENDING' | 'PARTIAL' | 'PAID'. null = no hay ingreso todavía. */
   paymentStatus?: string | null;
   amountPaid?: number | null;
+  /** VEREDICTO de cobro del servidor (ingreso + links juntos) y su método ya legible. */
+  estadoPago?: 'PAGADO' | 'PARCIAL' | 'PENDIENTE';
+  metodoPago?: string | null;
   /** VEREDICTO del servidor (resolveFacturaVerdict) — no se re-deriva aquí. */
   facturada?: boolean;
   facturadaVia?: 'plataforma' | 'subida' | 'externa_sat' | null;
@@ -85,13 +87,8 @@ interface PatientSummaryData {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-const FORMA_PAGO_LABEL: Record<string, string> = {
-  efectivo: 'Efectivo',
-  transferencia: 'Transferencia',
-  tarjeta: 'Tarjeta',
-  cheque: 'Cheque',
-  deposito: 'Depósito',
-};
+// (Las etiquetas de forma de pago se fueron al servidor: la ruta manda
+// `metodoPago` ya legible, resuelto junto con el veredicto de cobro.)
 
 function BookingStatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -123,53 +120,39 @@ function BookingStatusPill({ status }: { status: string }) {
  *  que la ausencia de chip era el caso COMÚN y no se leía como "falta cobrar".
  *  Se dice "Por cobrar" solo donde el dinero de verdad se espera; una CANCELADA
  *  o un NO_SHOW sin ingreso no deben nada, y ahí sigue sin pintarse nada. */
+/** ¿Ya se cobró? El veredicto —y el método— los resuelve el SERVIDOR mirando el
+ *  ingreso Y los links juntos (`pagado`/`metodoPago` en la ruta de bookings).
+ *  Aquí solo se pinta: dos componentes leyendo mitades distintas es lo que hacía
+ *  que una misma tarjeta dijera "Por cobrar" y "Pagado" a la vez. */
 function PagoBadge({
-  paymentStatus, tieneIngreso, status, precio,
-}: { paymentStatus: string | null; tieneIngreso: boolean; status: string; precio: number | null }) {
-  const map: Record<string, { cls: string; label: string }> = {
-    PAID:    { cls: 'bg-green-100 text-green-700', label: 'Pagado' },
-    PARTIAL: { cls: 'bg-amber-100 text-amber-800', label: 'Pago parcial' },
-    PENDING: { cls: 'bg-amber-100 text-amber-800', label: 'Por cobrar' },
-  };
-  if (tieneIngreso && paymentStatus) {
-    const s = map[paymentStatus];
-    return s ? <span className={`text-[11px] px-1.5 py-0.5 rounded ${s.cls}`}>{s.label}</span> : null;
+  estadoPago, metodoPago,
+}: { estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE'; metodoPago: string | null }) {
+  if (estadoPago === 'PENDIENTE') {
+    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Por cobrar</span>;
   }
-  // SIN ingreso hay que decidir si se afirma algo. "Por cobrar" solo donde la
-  // deuda ya EXISTE: la cita ocurrió y tiene precio. Una cita FUTURA todavía no
-  // debe nada (el chip ámbar en toda la agenda por venir sería ruido), y una sin
-  // precio no puede deber una cantidad — ahí, además, la propia tarjeta dice
-  // "Sin cobro registrado" abajo, y las dos frases se contradecían.
-  const deudaReal = status === 'COMPLETED' && precio != null && precio > 0;
-  if (!deudaReal) return null;
-  return <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Por cobrar</span>;
+  if (estadoPago === 'PARCIAL') {
+    return (
+      <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+        Pago parcial{metodoPago ? ` · ${metodoPago}` : ''}
+      </span>
+    );
+  }
+  return (
+    <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">
+      Pagado{metodoPago ? ` · ${metodoPago}` : ''}
+    </span>
+  );
 }
 
-const FACTURA_VIA_LABEL: Record<string, string> = {
-  plataforma: 'Facturada',
-  subida:     'Facturada (subida)',
-  externa_sat:'Facturada (vía SAT)',
-};
-
-/** Dos hechos INDEPENDIENTES en un solo chip, por orden de importancia:
- *  ya está facturada (veredicto del servidor) gana sobre la petición. Si la
- *  pidieron y no está, ese es el pendiente que hay que ver. */
-function FacturaBadge({
-  facturada, via, solicitada,
-}: { facturada: boolean; via: string | null; solicitada: boolean }) {
+/** Dos hechos INDEPENDIENTES en un solo chip, por orden de importancia: ya está
+ *  facturada (veredicto del servidor) gana sobre la petición. Si la pidieron y no
+ *  está, ese es el pendiente que hay que ver. */
+function FacturaBadge({ facturada, solicitada }: { facturada: boolean; solicitada: boolean }) {
   if (facturada) {
-    return (
-      <span className="text-[11px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">
-        {(via && FACTURA_VIA_LABEL[via]) || 'Facturada'}
-      </span>
-    );
+    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">Facturado</span>;
   }
   if (solicitada) {
-    return (
-      <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">
-        Necesita factura
-      </span>
-    );
+    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">Necesita factura</span>;
   }
   return null;
 }
@@ -484,56 +467,6 @@ function useCfdiDrafts(patientId: string, bookingEntryIds: Set<number>) {
   return { byLedgerEntry, sueltos, discard };
 }
 
-/**
- * La fila de Cobro. `PaymentLinkButton` solo sabe de LINKS: si no hay ninguno
- * pagado, ofrece crear uno — aunque el dinero ya haya entrado en efectivo. Eso
- * dejaba tarjetas con el chip "Pagado" arriba y un botón "Link de pago" abajo,
- * invitando a cobrar algo ya cobrado.
- *
- * Cuando el INGRESO ya está PAID y no hay link pagado que enseñar, la fila se
- * repliega: el cobro está resuelto y el chip de arriba ya lo dice. Queda un
- * disclosure para el caso raro (cobrar un saldo aparte, mandar link de todos
- * modos) — se esconde, no se prohíbe.
- */
-function CobroRow({
-  yaCobrado, tieneLinkPagado, tieneLinkActivo, children,
-}: { yaCobrado: boolean; tieneLinkPagado: boolean; tieneLinkActivo: boolean; children: React.ReactNode }) {
-  const [abierto, setAbierto] = useState(false);
-  // ⚠️ `tieneLinkActivo` es tan importante como `tieneLinkPagado`: un link VIVO y
-  // sin pagar (el paciente acabó pagando en efectivo) deja el ingreso en PAID
-  // mientras el link sigue cobrable ahí fuera. Replegar ahí escondía el estado
-  // "Link enviado + Copiar + WhatsApp" detrás de un "+ Link de pago" gris, que
-  // se lee como "no hay ningún link" — justo al revés.
-  const replegar = yaCobrado && !tieneLinkPagado && !tieneLinkActivo;
-
-  if (replegar && !abierto) {
-    return (
-      <div className="px-4 py-1.5 border-t border-gray-100">
-        <button
-          onClick={() => setAbierto(true)}
-          className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          + Link de pago
-        </button>
-      </div>
-    );
-  }
-  return (
-    <div className="px-4 py-2 border-t border-gray-100 flex items-center gap-2 flex-wrap">
-      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Cobro</span>
-      {children}
-      {replegar && (
-        <button
-          onClick={() => setAbierto(false)}
-          className="text-[11px] text-gray-400 hover:text-gray-600 ml-auto"
-        >
-          Ocultar
-        </button>
-      )}
-    </div>
-  );
-}
-
 function CfdiDraftRow({
   draft, onDiscard, ingresoYaFacturado = false,
 }: { draft: CfdiDraft; onDiscard: (id: number) => void; ingresoYaFacturado?: boolean }) {
@@ -596,8 +529,13 @@ function CfdiDraftRow({
 
 function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) {
   const router = useRouter();
+  // Las CANCELADAS no se listan: no hay nada que cobrar ni que facturar en una
+  // cita que no ocurrió, y ocupaban la lista con chips que no llevaban a ninguna
+  // acción. (Medido antes de decidirlo: cero citas canceladas en prod tienen un
+  // ingreso, así que esto no esconde dinero de nadie.)
+  const citasVisibles = bookings.filter((b) => b.status !== 'CANCELLED');
   const bookingEntryIds = new Set(
-    bookings.map((b) => b.ledgerEntryId).filter((id): id is number => id != null)
+    citasVisibles.map((b) => b.ledgerEntryId).filter((id): id is number => id != null)
   );
   const { byLedgerEntry: draftsByEntry, sueltos: draftsSueltos, discard: discardDraft } =
     useCfdiDrafts(patient.id, bookingEntryIds);
@@ -652,11 +590,20 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
           <CalendarDays className="w-5 h-5" />
           Citas e Ingresos
         </h2>
+        {/* Factura que NO nace de una cita (insumos, quirófano, un saldo aparte).
+            Lleva al form con este paciente ya elegido como receptor — sus datos
+            fiscales los deriva el servidor, no se copian aquí. */}
+        <Link
+          href={`/dashboard/facturacion?patient=${patient.id}`}
+          className="text-sm px-4 py-2 rounded-lg bg-teal-600 text-white font-medium hover:bg-teal-700 transition-colors flex items-center gap-2 shadow-sm"
+        >
+          <Receipt className="w-4 h-4" /> Nueva factura manual
+        </Link>
       </div>
 
       {/* Borradores SIN tarjeta donde vivir: sin ingreso (el campo es nullable en
@@ -670,18 +617,11 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
           ))}
         </div>
       )}
-      {bookings.length > 0 ? (
+      {citasVisibles.length > 0 ? (
         <div className="space-y-3">
-          {bookings.map((b) => {
+          {citasVisibles.map((b) => {
             const isCompleted = b.status === 'COMPLETED';
             const drafts = b.ledgerEntryId ? (draftsByEntry.get(b.ledgerEntryId) ?? []) : [];
-            // Una CANCELADA con ingreso casi siempre es un cobro que se devolvió;
-            // ofrecer ahí un botón que TIMBRA es invitar a facturar algo que no
-            // ocurrió. Se muestra el estado, no la acción — y para el caso
-            // legítimo queda Facturación (el enlace del pie).
-            // NO_SHOW sí lo conserva: quedarse con el dinero de quien no llegó es
-            // normal, y entonces facturarlo es lo correcto.
-            const facturableDesdeLaTarjeta = b.status !== 'CANCELLED';
             return (
               <div key={b.id} className="rounded-lg border border-gray-200 overflow-hidden">
                 {/* Top row: date, service, status */}
@@ -695,19 +635,12 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                       {b.endTime && `–${b.endTime}`}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">{b.serviceName || '—'}</p>
-                    {/* El PAPELEO de un vistazo. Las tres respuestas vienen del
-                        servidor (facturada = resolveFacturaVerdict; paymentStatus =
-                        del ingreso) — aquí no se deduce ninguna. */}
+                    {/* El PAPELEO de un vistazo. Los DOS veredictos —cobro y
+                        factura— los resuelve el servidor; aquí no se deduce nada. */}
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                      <PagoBadge
-                        paymentStatus={b.paymentStatus ?? null}
-                        tieneIngreso={b.ledgerEntryId != null}
-                        status={b.status}
-                        precio={b.finalPrice}
-                      />
+                      <PagoBadge estadoPago={b.estadoPago ?? 'PENDIENTE'} metodoPago={b.metodoPago ?? null} />
                       <FacturaBadge
                         facturada={b.facturada === true}
-                        via={b.facturadaVia ?? null}
                         solicitada={b.facturaSolicitada === true}
                       />
                     </div>
@@ -725,38 +658,11 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                   </div>
                 </div>
 
-                {/* Cobro row: citas activas y COMPLETADAS pueden generar link de pago;
-                    canceladas/no-asistió solo muestran el estatus de un link PAGADO o ACTIVO
-                    (un link viejo desactivado no debe reabrir el crear sobre una cita que
-                    nunca ocurrió).
-                    COMPLETADA entra aquí porque significa "el doctor ya vio al paciente", no
-                    "el asunto se cerró": el cobro sigue abierto. Mismo criterio que la tabla
-                    de citas (`showCobroGroup` en BookingsSection, d35037db) — las dos
-                    superficies pintan la MISMA cita y deben responder igual. */}
-                {(['PENDING', 'CONFIRMED', 'COMPLETED'].includes(b.status) ||
-                  b.stripeLink?.status === 'PAID' || b.mpLink?.status === 'PAID' ||
-                  b.stripeLink?.isActive || b.mpLink?.isActive) && (
-                  <CobroRow
-                    yaCobrado={b.paymentStatus === 'PAID'}
-                    tieneLinkPagado={b.stripeLink?.status === 'PAID' || b.mpLink?.status === 'PAID'}
-                    tieneLinkActivo={
-                      (b.stripeLink?.isActive && b.stripeLink.status !== 'PAID') ||
-                      (b.mpLink?.isActive && b.mpLink.status !== 'PAID') || false
-                    }
-                  >
-                    <PaymentLinkButton
-                      bookingId={b.id}
-                      patientId={patient.id}
-                      patientName={`${patient.firstName} ${patient.lastName}`.trim()}
-                      patientPhone={patient.phone || null}
-                      patientEmail={patient.email || null}
-                      defaultAmount={b.finalPrice}
-                      defaultDescription={b.serviceName ? `${b.serviceName} - ${patient.firstName} ${patient.lastName}` : undefined}
-                      stripeLink={b.stripeLink || null}
-                      mpLink={b.mpLink || null}
-                    />
-                  </CobroRow>
-                )}
+                {/* La fila de COBRO (crear/compartir link de Stripe o Mercado Pago)
+                    se quitó del expediente a propósito: aquí lo que importa es el
+                    ESTADO —pagado o no, y con qué— y eso ya lo dice el chip de
+                    arriba. Crear y compartir links sigue viviendo en Mis Citas,
+                    que es donde se cobra. */}
 
                 {/* Fila financiera. La condición ya NO es `isCompleted`: el ingreso
                     nace por DOS caminos y el del link de pago no espera a que la
@@ -764,16 +670,14 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                     mostraba la tarjeta vacía justo cuando había algo que decir. */}
                 {b.amount != null && (
                   <div className="px-4 py-3 border-t border-gray-100 space-y-2">
-                    {/* Amount + forma de pago */}
+                    {/* Monto. La FORMA de pago ya va en el chip "Pagado · Efectivo"
+                        de arriba, así que aquí no se repite. */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-wrap">
                         <DollarSign className="w-4 h-4 text-teal-600" />
                         <span className="text-sm font-semibold text-teal-700">{formatCurrency(b.amount)}</span>
-                        {b.formaDePago && (
-                          <span className="text-xs text-gray-500">· {FORMA_PAGO_LABEL[b.formaDePago] || b.formaDePago}</span>
-                        )}
-                        {/* Un cobro a medias se DICE con su número: "Pago parcial"
-                            solo no deja saber cuánto falta. */}
+                        {/* Un cobro a medias se DICE con su número: el chip solo no
+                            deja saber cuánto falta. */}
                         {b.paymentStatus === 'PARTIAL' && b.amountPaid != null && (
                           <span className="text-xs text-amber-700">
                             · cobrado {formatCurrency(b.amountPaid)} de {formatCurrency(b.amount)}
@@ -782,29 +686,17 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                       </div>
                     </div>
 
-                    {/* CFDI status */}
+                    {/* Factura: el estado y, si ya está, sus archivos */}
                     <div className="flex items-center justify-between gap-2">
                       {b.facturada ? (
                         <div className="flex items-center gap-2 min-w-0">
                           <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
-                          {b.cfdi ? (
-                            <>
-                              <span className="text-xs text-green-700 font-medium">
-                                CFDI emitida{b.cfdi.folio ? ` · Folio ${b.cfdi.folio}` : ''}
-                              </span>
-                              <span className="text-xs text-gray-400">
-                                {new Date(b.cfdi.issuedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                              </span>
-                            </>
-                          ) : (
-                            /* Facturada SIN CFDI de plataforma: la factura existe
-                               como PDF/XML subido o la detectó el SAT. No hay PDF
-                               que descargar desde aquí, y decir "Sin factura"
-                               llevaría a timbrar una segunda. */
-                            <span className="text-xs text-green-700 font-medium">
-                              {b.facturadaVia === 'externa_sat'
-                                ? 'Facturada fuera de la plataforma (detectada vía SAT)'
-                                : 'Factura registrada a mano (PDF/XML) — en Flujo de Dinero'}
+                          <span className="text-xs text-green-700 font-medium">
+                            Facturado{b.cfdi?.folio ? ` · Folio ${b.cfdi.folio}` : ''}
+                          </span>
+                          {b.cfdi && (
+                            <span className="text-xs text-gray-400">
+                              {new Date(b.cfdi.issuedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
                             </span>
                           )}
                         </div>
@@ -834,7 +726,7 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                               XML
                             </button>
                           </>
-                        ) : b.facturada || !facturableDesdeLaTarjeta ? null : !b.ledgerEntryId ? (
+                        ) : b.facturada ? null : !b.ledgerEntryId ? (
                           /* Sin ingreso no hay qué facturar (la factura se ancla al
                              ingreso). Antes esto no pintaba NADA y la cita marcada
                              "necesita factura" parecía rota. */
@@ -886,10 +778,12 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                   </div>
                 )}
 
-                {/* Completed but no ledger entry (legacy bookings before bookingId link) */}
-                {isCompleted && b.amount == null && (
+                {/* Completada sin ingreso: el chip "Por cobrar" de arriba ya lo dice,
+                    así que aquí solo queda la vía para facturarla si hiciera falta.
+                    (Antes esta fila repetía "sin cobro registrado" debajo del chip.) */}
+                {isCompleted && b.amount == null && b.facturaSolicitada && (
                   <div className="px-4 py-2 border-t border-gray-100">
-                    <span className="text-xs text-gray-400">Sin cobro registrado</span>
+                    <span className="text-xs text-gray-400">Se factura al registrar el cobro</span>
                   </div>
                 )}
               </div>
@@ -903,22 +797,6 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
         </div>
       )}
 
-      {/* La facturación de este expediente pasa por las tarjetas de arriba (una
-          factura se ancla a un ingreso). Pero eso deja fuera dos casos reales —
-          un paciente sin citas con ingreso, y un cobro que no corresponde a una
-          sola cita — y sin esta línea el expediente sería un callejón sin salida
-          para ellos: el botón "+ Nueva factura" que vivía en el encabezado se
-          quitó justamente para no competir con el flujo por cita. */}
-      <p className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
-        ¿Una factura que no corresponde a una cita (insumos, quirófano)?{' '}
-        <Link
-          href={`/dashboard/facturacion?patient=${patient.id}`}
-          className="text-blue-600 hover:underline"
-        >
-          Emítela en Facturación
-        </Link>{' '}
-        con este paciente ya seleccionado.
-      </p>
     </div>
   );
 }

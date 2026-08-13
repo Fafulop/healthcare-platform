@@ -7,6 +7,17 @@ import { prisma, resolveFacturaVerdict, buildSatStatusMap, satUuidQueryVariants 
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 
+/** Etiquetas de `LedgerEntry.formaDePago`. Viven aquí porque el método se manda ya
+ *  resuelto (el cliente no vuelve a mapear). Mismos valores que FORMAS_DE_PAGO en
+ *  ledger-types. */
+const FORMA_PAGO_LABEL: Record<string, string> = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia',
+  tarjeta: 'Tarjeta',
+  cheque: 'Cheque',
+  deposito: 'Depósito',
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -125,6 +136,35 @@ export async function GET(
       // veredicto es otra cosa y lo resuelve el helper compartido.
       const cfdi = le?.cfdisEmitted?.find((c) => c.status === 'active') ?? null;
       const veredicto = resolveFacturaVerdict(le, satStatusByUuid);
+
+      // ¿YA SE COBRÓ? UN solo veredicto, resuelto aquí (regla 0), mirando las DOS
+      // mitades: el ingreso y los links. Antes cada mitad la pintaba un componente
+      // distinto en el cliente, y la misma tarjeta podía decir "Por cobrar" arriba
+      // (mirando el ingreso) y "Pagado" abajo (mirando el link) al mismo tiempo.
+      const linkStripePagado = b.paymentLink?.status === 'PAID';
+      const linkMpPagado = b.mpPaymentPreference?.status === 'PAID';
+      // TRES estados, no un booleano: un cobro a medias no es "pagado" ni es
+      // "por cobrar" a secas, y aplastarlo contra cualquiera de los dos miente.
+      // ⚠️ El PARCIAL del ingreso GANA sobre un link pagado: un anticipo por link
+      // deja el link en PAID y el ingreso en PARTIAL, y decir "Pagado · Mercado
+      // Pago" ahí afirma que un saldo vivo ya se saldó (además de contradecir el
+      // "cobrado X de Y" de la misma tarjeta).
+      const estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' =
+        le?.paymentStatus === 'PARTIAL' ? 'PARCIAL'
+        : (le?.paymentStatus === 'PAID' || linkStripePagado || linkMpPagado) ? 'PAGADO'
+        : 'PENDIENTE';
+      const pagado = estadoPago === 'PAGADO';
+      // El MÉTODO se manda ya legible. El proveedor del link gana sobre la forma
+      // de pago del ingreso: "Mercado Pago" dice de dónde salió el dinero, que es
+      // justo lo que el doctor quiere ver; el webhook escribe además una forma
+      // genérica ("tarjeta") que sola no distingue un cobro en ventanilla.
+      const metodoPago = estadoPago === 'PENDIENTE'
+        ? null
+        : linkStripePagado ? 'Stripe'
+        : linkMpPagado ? 'Mercado Pago'
+        : le?.formaDePago
+          ? (FORMA_PAGO_LABEL[le.formaDePago] ?? le.formaDePago)
+          : null;
       return {
         id: b.id,
         date: (b.slot?.date ?? b.date)?.toISOString().split('T')[0] ?? null,
@@ -142,6 +182,9 @@ export async function GET(
         formaDePago: le?.formaDePago ?? null,
         paymentStatus: le?.paymentStatus ?? null,
         amountPaid: le ? Number(le.amountPaid) : null,
+        // VEREDICTO de cobro + método ya legible (ver arriba).
+        estadoPago,
+        metodoPago,
         // VEREDICTO, no las señales sueltas: el cliente no re-deriva "qué cuenta
         // como facturada" (regla 0). `via` es solo para la copy de la tarjeta.
         facturada: veredicto.facturada,
