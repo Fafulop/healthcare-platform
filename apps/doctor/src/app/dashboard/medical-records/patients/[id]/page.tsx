@@ -57,10 +57,19 @@ interface PatientBooking {
   appointmentMode: string | null;
   finalPrice: number | null;
   formLinkId?: string | null;
+  /** Casilla "¿Necesita factura?" de la tabla de citas. Pregunta por CITA —
+   *  distinta de `patient.requiereFactura`, que es del expediente. */
+  facturaSolicitada?: boolean | null;
   // Financial
   ledgerEntryId: number | null;
   amount: number | null;
   formaDePago: string | null;
+  /** Del INGRESO: 'PENDING' | 'PARTIAL' | 'PAID'. null = no hay ingreso todavía. */
+  paymentStatus?: string | null;
+  amountPaid?: number | null;
+  /** VEREDICTO del servidor (resolveFacturaVerdict) — no se re-deriva aquí. */
+  facturada?: boolean;
+  facturadaVia?: 'plataforma' | 'subida' | 'externa_sat' | null;
   cfdi: BookingCfdi | null;
   // Payment links (linked cobro)
   stripeLink?: BookingPaymentLink | null;
@@ -104,6 +113,51 @@ function BookingStatusPill({ status }: { status: string }) {
       {label[status] ?? status}
     </span>
   );
+}
+
+/** ¿Ya se cobró? Sale del INGRESO, no del estado de la cita: un link de pago
+ *  pagado deja el ingreso PAID con la cita todavía agendada. `null` = todavía no
+ *  hay ingreso, y eso NO es "no pagado" — es "no hay nada que cobrar aún", así
+ *  que no se pinta nada en vez de afirmar algo falso. */
+function PagoBadge({ paymentStatus }: { paymentStatus: string | null }) {
+  if (!paymentStatus) return null;
+  const map: Record<string, { cls: string; label: string }> = {
+    PAID:    { cls: 'bg-green-100 text-green-700', label: 'Pagado' },
+    PARTIAL: { cls: 'bg-amber-100 text-amber-800', label: 'Pago parcial' },
+    PENDING: { cls: 'bg-amber-100 text-amber-800', label: 'Por cobrar' },
+  };
+  const s = map[paymentStatus];
+  if (!s) return null;
+  return <span className={`text-[11px] px-1.5 py-0.5 rounded ${s.cls}`}>{s.label}</span>;
+}
+
+const FACTURA_VIA_LABEL: Record<string, string> = {
+  plataforma: 'Facturada',
+  subida:     'Facturada (subida)',
+  externa_sat:'Facturada (vía SAT)',
+};
+
+/** Dos hechos INDEPENDIENTES en un solo chip, por orden de importancia:
+ *  ya está facturada (veredicto del servidor) gana sobre la petición. Si la
+ *  pidieron y no está, ese es el pendiente que hay que ver. */
+function FacturaBadge({
+  facturada, via, solicitada,
+}: { facturada: boolean; via: string | null; solicitada: boolean }) {
+  if (facturada) {
+    return (
+      <span className="text-[11px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">
+        {(via && FACTURA_VIA_LABEL[via]) || 'Facturada'}
+      </span>
+    );
+  }
+  if (solicitada) {
+    return (
+      <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">
+        Necesita factura
+      </span>
+    );
+  }
+  return null;
 }
 
 function parseNoteTitle(content: string): string {
@@ -214,7 +268,9 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
   const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent";
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    // `id` + `scroll-mt-4`: las tarjetas de cita enlazan aquí con #datos-fiscales
+    // cuando faltan datos del receptor para poder facturar.
+    <div id="datos-fiscales" className="bg-white rounded-lg shadow p-6 scroll-mt-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
           <FileText className="w-5 h-5 text-teal-600" />
@@ -354,12 +410,20 @@ interface CitasIngresosSectionProps {
   patient: import('../_components/patient-types').Patient;
 }
 
-// F2c: pending CFDI drafts of this patient (prepared by the agent or future
-// manual flows) — the trace the doctor reviews/opens/discards from the
-// expediente. Only status='draft' shows; emitted ones already appear as CFDIs.
-function CfdiDraftsBlock({ patientId }: { patientId: string }) {
-  const router = useRouter();
-  const [drafts, setDrafts] = useState<{ id: number; items: { description: string; unitPrice: number; quantity: number }[]; createdAt: string }[]>([]);
+interface CfdiDraft {
+  id: number;
+  ledgerEntryId: number | null;
+  items: { description: string; unitPrice: number; quantity: number }[];
+  createdAt: string;
+}
+
+/** F2c: pending CFDI drafts of this patient (prepared by the agent). Fetched
+ *  ONCE per expediente and repartidos por ingreso — cada borrador se pinta
+ *  DENTRO de la tarjeta de su cita, no flotando encima de la lista: un borrador
+ *  siempre cuelga de un ingreso (`ledgerEntryId`), o sea de una cita concreta,
+ *  y suelto arriba no se sabía de cuál. */
+function useCfdiDrafts(patientId: string, bookingEntryIds: Set<number>) {
+  const [drafts, setDrafts] = useState<CfdiDraft[]>([]);
 
   const fetchDrafts = useCallback(async () => {
     try {
@@ -368,12 +432,12 @@ function CfdiDraftsBlock({ patientId }: { patientId: string }) {
         const { data } = await res.json();
         if (Array.isArray(data)) setDrafts(data);
       }
-    } catch { /* silent: the block simply doesn't render */ }
+    } catch { /* silent: sin borradores la tarjeta se pinta igual */ }
   }, [patientId]);
 
   useEffect(() => { fetchDrafts(); }, [fetchDrafts]);
 
-  const handleDiscard = async (id: number) => {
+  const discard = useCallback(async (id: number) => {
     try {
       const res = await authFetch(`${API_URL}/api/facturacion/drafts/${id}`, {
         method: 'PATCH',
@@ -385,47 +449,75 @@ function CfdiDraftsBlock({ patientId }: { patientId: string }) {
     } catch {
       toast.error('No se pudo descartar el borrador');
     }
-  };
+  }, [fetchDrafts]);
 
-  if (drafts.length === 0) return null;
+  // El reparto NO puede ser "null ⇒ suelto, lo demás ⇒ su tarjeta": un borrador
+  // puede colgar de un ingreso que NO es ninguna de estas citas (un ingreso
+  // manual con paciente, un sat_recibido, una entrada fusionada). Ese borrador no
+  // encontraría tarjeta donde pintarse y quedaría INVISIBLE — y no es cosmético:
+  // la API rechaza crear un segundo borrador para el mismo ingreso (409), así que
+  // uno invisible bloquea para siempre preparar otro y no deja botón para
+  // descartarlo. Sin tarjeta que lo aloje, arriba.
+  const byLedgerEntry = new Map<number, CfdiDraft[]>();
+  const sueltos: CfdiDraft[] = [];
+  for (const d of drafts) {
+    if (d.ledgerEntryId == null || !bookingEntryIds.has(d.ledgerEntryId)) {
+      sueltos.push(d);
+      continue;
+    }
+    byLedgerEntry.set(d.ledgerEntryId, [...(byLedgerEntry.get(d.ledgerEntryId) ?? []), d]);
+  }
+  return { byLedgerEntry, sueltos, discard };
+}
+
+function CfdiDraftRow({ draft, onDiscard }: { draft: CfdiDraft; onDiscard: (id: number) => void }) {
+  const router = useRouter();
+  const items = draft.items ?? [];
+  const total = items.reduce((s, it) => s + it.unitPrice * (it.quantity || 1), 0);
   return (
-    <div className="mb-4 space-y-2">
-      {drafts.map((d) => {
-        const total = (d.items ?? []).reduce((s, it) => s + it.unitPrice * (it.quantity || 1), 0);
-        return (
-          <div key={d.id} className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-2">
-            <div className="text-sm text-blue-900">
-              📝 Borrador de factura #{d.id} · {(d.items ?? []).length} concepto(s) · subtotal ${total.toFixed(2)}
-              <span className="text-xs text-blue-700 ml-2">
-                {new Date(d.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 ml-2">
-              <button
-                onClick={() => router.push(`/dashboard/facturacion?draft=${d.id}`)}
-                className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-              >
-                Revisar y emitir
-              </button>
-              <button
-                onClick={() => handleDiscard(d.id)}
-                className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-              >
-                Descartar
-              </button>
-            </div>
-          </div>
-        );
-      })}
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+      <div className="text-xs text-blue-900 min-w-0">
+        <span className="font-medium">Borrador de factura #{draft.id}</span>
+        <span className="text-blue-700"> · {items.length} concepto(s) · subtotal {formatCurrency(total)}</span>
+        <span className="text-blue-600 ml-1">
+          ({new Date(draft.createdAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })})
+        </span>
+        <p className="text-[11px] text-blue-700 mt-0.5">Preparado por el asistente — nada se ha timbrado todavía.</p>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          onClick={() => router.push(`/dashboard/facturacion?draft=${draft.id}`)}
+          className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+        >
+          Revisar y emitir
+        </button>
+        <button
+          onClick={() => onDiscard(draft.id)}
+          className="text-xs px-2 py-1 rounded bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
+        >
+          Descartar
+        </button>
+      </div>
     </div>
   );
 }
 
 function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) {
   const router = useRouter();
+  const bookingEntryIds = new Set(
+    bookings.map((b) => b.ledgerEntryId).filter((id): id is number => id != null)
+  );
+  const { byLedgerEntry: draftsByEntry, sueltos: draftsSueltos, discard: discardDraft } =
+    useCfdiDrafts(patient.id, bookingEntryIds);
 
-  const hasFiscalData = !!(
-    patient.requiereFactura &&
+  // ⚠️ DOS preguntas distintas, antes mezcladas en un solo `hasFiscalData`:
+  //   · ¿PODEMOS facturar?  → los cinco campos del receptor. Es lo único que
+  //     condiciona el botón: sin ellos el SAT rechaza el timbrado.
+  //   · ¿QUIERE factura?    → `requiereFactura` (expediente) y, por cita, la
+  //     casilla `facturaSolicitada` de la tabla de citas.
+  // Mezcladas, una cita marcada "necesita factura" para un paciente cuyo
+  // `requiereFactura` está en false escondía el botón sin decir por qué.
+  const fiscalDataComplete = !!(
     patient.rfc &&
     patient.razonSocial &&
     patient.regimenFiscal &&
@@ -434,7 +526,7 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
   );
 
   const handleEmitCfdi = (booking: PatientBooking) => {
-    if (!hasFiscalData || !booking.ledgerEntryId || !booking.amount) return;
+    if (!fiscalDataComplete || !booking.ledgerEntryId || !booking.amount) return;
     const params = new URLSearchParams({
       from: 'booking',
       ledgerId: String(booking.ledgerEntryId),
@@ -473,25 +565,36 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
           <CalendarDays className="w-5 h-5" />
           Citas e Ingresos
         </h2>
-        {/* Money-model #5: separate factura for extras (insumos/quirófano) —
-            opens Nueva Factura with this patient preselected as receptor */}
-        <Link
-          href={`/dashboard/facturacion?patient=${patient.id}`}
-          className="text-sm text-blue-600 hover:text-blue-700 hover:underline whitespace-nowrap"
-        >
-          + Nueva factura
-        </Link>
       </div>
-      <CfdiDraftsBlock patientId={patient.id} />
+
+      {/* Borradores SIN tarjeta donde vivir: sin ingreso (el campo es nullable en
+          el esquema) o colgados de un ingreso que no es ninguna de estas citas.
+          Si no se pintaran aquí serían invisibles, y un borrador invisible
+          bloquea crear otro (409) sin dejar cómo descartarlo. */}
+      {draftsSueltos.length > 0 && (
+        <div className="mb-4 space-y-2">
+          {draftsSueltos.map((d) => (
+            <CfdiDraftRow key={d.id} draft={d} onDiscard={discardDraft} />
+          ))}
+        </div>
+      )}
       {bookings.length > 0 ? (
         <div className="space-y-3">
           {bookings.map((b) => {
             const isCompleted = b.status === 'COMPLETED';
+            const drafts = b.ledgerEntryId ? (draftsByEntry.get(b.ledgerEntryId) ?? []) : [];
+            // Una CANCELADA con ingreso casi siempre es un cobro que se devolvió;
+            // ofrecer ahí un botón que TIMBRA es invitar a facturar algo que no
+            // ocurrió. Se muestra el estado, no la acción — y para el caso
+            // legítimo queda Facturación (el enlace del pie).
+            // NO_SHOW sí lo conserva: quedarse con el dinero de quien no llegó es
+            // normal, y entonces facturarlo es lo correcto.
+            const facturableDesdeLaTarjeta = b.status !== 'CANCELLED';
             return (
               <div key={b.id} className="rounded-lg border border-gray-200 overflow-hidden">
                 {/* Top row: date, service, status */}
                 <div className="flex items-center justify-between px-4 py-3 bg-gray-50">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800">
                       {b.date
                         ? new Date(b.date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -500,6 +603,17 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                       {b.endTime && `–${b.endTime}`}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">{b.serviceName || '—'}</p>
+                    {/* El PAPELEO de un vistazo. Las tres respuestas vienen del
+                        servidor (facturada = resolveFacturaVerdict; paymentStatus =
+                        del ingreso) — aquí no se deduce ninguna. */}
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                      <PagoBadge paymentStatus={b.paymentStatus ?? null} />
+                      <FacturaBadge
+                        facturada={b.facturada === true}
+                        via={b.facturadaVia ?? null}
+                        solicitada={b.facturaSolicitada === true}
+                      />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
                     {b.formLinkId && (
@@ -541,41 +655,67 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                   </div>
                 )}
 
-                {/* Financial row: only for completed bookings with ledger data */}
-                {isCompleted && b.amount != null && (
+                {/* Fila financiera. La condición ya NO es `isCompleted`: el ingreso
+                    nace por DOS caminos y el del link de pago no espera a que la
+                    cita se complete, así que una cita agendada y ya cobrada
+                    mostraba la tarjeta vacía justo cuando había algo que decir. */}
+                {b.amount != null && (
                   <div className="px-4 py-3 border-t border-gray-100 space-y-2">
                     {/* Amount + forma de pago */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <DollarSign className="w-4 h-4 text-teal-600" />
                         <span className="text-sm font-semibold text-teal-700">{formatCurrency(b.amount)}</span>
                         {b.formaDePago && (
                           <span className="text-xs text-gray-500">· {FORMA_PAGO_LABEL[b.formaDePago] || b.formaDePago}</span>
                         )}
+                        {/* Un cobro a medias se DICE con su número: "Pago parcial"
+                            solo no deja saber cuánto falta. */}
+                        {b.paymentStatus === 'PARTIAL' && b.amountPaid != null && (
+                          <span className="text-xs text-amber-700">
+                            · cobrado {formatCurrency(b.amountPaid)} de {formatCurrency(b.amount)}
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {/* CFDI status */}
-                    <div className="flex items-center justify-between">
-                      {b.cfdi ? (
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                          <span className="text-xs text-green-700 font-medium">
-                            CFDI emitida{b.cfdi.folio ? ` · Folio ${b.cfdi.folio}` : ''}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {new Date(b.cfdi.issuedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                          </span>
+                    <div className="flex items-center justify-between gap-2">
+                      {b.facturada ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                          {b.cfdi ? (
+                            <>
+                              <span className="text-xs text-green-700 font-medium">
+                                CFDI emitida{b.cfdi.folio ? ` · Folio ${b.cfdi.folio}` : ''}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {new Date(b.cfdi.issuedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                              </span>
+                            </>
+                          ) : (
+                            /* Facturada SIN CFDI de plataforma: la factura existe
+                               como PDF/XML subido o la detectó el SAT. No hay PDF
+                               que descargar desde aquí, y decir "Sin factura"
+                               llevaría a timbrar una segunda. */
+                            <span className="text-xs text-green-700 font-medium">
+                              {b.facturadaVia === 'externa_sat'
+                                ? 'Facturada fuera de la plataforma (detectada vía SAT)'
+                                : 'Factura registrada a mano (PDF/XML) — en Flujo de Dinero'}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4 text-amber-500" />
-                          <span className="text-xs text-amber-700 font-medium">Sin factura</span>
+                          <AlertCircle className={`w-4 h-4 ${b.facturaSolicitada ? 'text-orange-500' : 'text-amber-500'}`} />
+                          <span className={`text-xs font-medium ${b.facturaSolicitada ? 'text-orange-700' : 'text-amber-700'}`}>
+                            {b.facturaSolicitada ? 'Pendiente de facturar' : 'Sin factura'}
+                          </span>
                         </div>
                       )}
 
                       {/* Actions */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         {b.cfdi ? (
                           <>
                             <button
@@ -591,18 +731,41 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                               XML
                             </button>
                           </>
-                        ) : hasFiscalData && b.ledgerEntryId ? (
+                        ) : b.facturada || !facturableDesdeLaTarjeta ? null : !b.ledgerEntryId ? (
+                          /* Sin ingreso no hay qué facturar (la factura se ancla al
+                             ingreso). Antes esto no pintaba NADA y la cita marcada
+                             "necesita factura" parecía rota. */
+                          <span className="text-xs text-gray-400">Se factura al registrar el cobro</span>
+                        ) : fiscalDataComplete ? (
                           <button
                             onClick={() => handleEmitCfdi(b)}
                             className="text-xs px-2.5 py-1 rounded bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors flex items-center gap-1"
                           >
-                            <Receipt className="w-3 h-3" /> Emitir factura
+                            <Receipt className="w-3 h-3" /> Facturar
                           </button>
-                        ) : !hasFiscalData && b.ledgerEntryId ? (
-                          <span className="text-xs text-gray-400">Sin datos fiscales</span>
-                        ) : null}
+                        ) : (
+                          /* Faltan datos del receptor: el camino es el formulario
+                             fiscal (desde la cita) o capturarlos en Datos Fiscales,
+                             arriba en este mismo expediente. Antes decía "Sin datos
+                             fiscales" y ahí se acababa. */
+                          <span className="text-xs text-gray-500">
+                            Faltan datos fiscales —{' '}
+                            <a href="#datos-fiscales" className="text-blue-600 hover:underline">captúralos</a>
+                          </span>
+                        )}
                       </div>
                     </div>
+
+                    {/* Borradores de ESTA cita (F2c). Viven aquí, no flotando encima
+                        de la lista: un borrador cuelga de un ingreso, o sea de una
+                        cita concreta. */}
+                    {drafts.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        {drafts.map((d) => (
+                          <CfdiDraftRow key={d.id} draft={d} onDiscard={discardDraft} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -622,6 +785,23 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
           <p className="text-sm">No hay citas vinculadas a este paciente.</p>
         </div>
       )}
+
+      {/* La facturación de este expediente pasa por las tarjetas de arriba (una
+          factura se ancla a un ingreso). Pero eso deja fuera dos casos reales —
+          un paciente sin citas con ingreso, y un cobro que no corresponde a una
+          sola cita — y sin esta línea el expediente sería un callejón sin salida
+          para ellos: el botón "+ Nueva factura" que vivía en el encabezado se
+          quitó justamente para no competir con el flujo por cita. */}
+      <p className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
+        ¿Una factura que no corresponde a una cita (insumos, quirófano)?{' '}
+        <Link
+          href={`/dashboard/facturacion?patient=${patient.id}`}
+          className="text-blue-600 hover:underline"
+        >
+          Emítela en Facturación
+        </Link>{' '}
+        con este paciente ya seleccionado.
+      </p>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 // GET /api/appointments/bookings - Get bookings (for doctor or admin)
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, resolveFacturaVerdict, buildSatStatusMap, satUuidQueryVariants } from '@healthcare/database';
 import {
   sendPatientSMS,
   sendDoctorSMS,
@@ -632,10 +632,9 @@ export async function GET(request: Request) {
         // pinta `FiscalFormButton`— contesta OTRA pregunta: "¿ya tenemos su RFC?". Un
         // paciente CON RFC al que nunca se le facturó saldría como resuelto, y ésas son
         // justo las citas que el filtro existe para encontrar. Por eso el veredicto se
-        // resuelve aquí, contra las tres tablas que registran una factura, y no en el
-        // cliente a partir de datos que sólo se le parecen.
-        //
-        // `take: 1` en las tres: sólo importa si hay ALGUNA, no cuántas.
+        // resuelve aquí —contra las CUATRO señales que registran una factura, ver
+        // resolveFacturaVerdict— y no en el cliente a partir de datos que sólo se le
+        // parecen.
         ledgerEntry: {
           select: {
             id: true,
@@ -646,33 +645,66 @@ export async function GET(request: Request) {
             // MOSTRAR esto en vez de volver a preguntarlo.
             formaDePago: true,
             amount: true,
-            // Timbrada por nosotros. Una CANCELADA no cuenta como facturada:
-            // el doctor tiene que volver a emitir.
-            cfdisEmitted: {
-              where: { status: { not: 'cancelled' } },
-              select: { id: true },
-              take: 1,
-            },
+            // Las señales del veredicto de facturación. `cfdisEmitted` va SIN `where`
+            // y SIN `take`: qué status cuenta lo decide resolveFacturaVerdict, y un
+            // `take: 1` sobre la lista sin filtrar podría traerse justo la cancelada
+            // y esconder la activa.
+            cfdisEmitted: { select: { status: true } },
             // Factura SUBIDA a mano (PDF) y su XML — el doctor que factura por fuera
             // de la plataforma la registra así, y para él la cita SÍ está facturada.
+            // `take: 1` en estas DOS: solo importa si hay ALGUNA, no cuántas.
+            // (`cfdisEmitted`, arriba, va sin `take` a propósito — ahí el status
+            // de cada una decide.)
             facturas: { select: { id: true }, take: 1 },
             facturasXml: { select: { id: true }, take: 1 },
+            // Factura externa detectada vía SAT Descarga. Esta señal ANTES no se
+            // miraba aquí y sí en el agente: una cita facturada por fuera salía en
+            // "Por Facturar" y el asistente decía que ya estaba facturada.
+            satCfdiUuid: true,
+            // Para la clave del lookup del SAT (un uuid por doctor, ver abajo).
+            doctorId: true,
           },
         },
       },
       orderBy: [{ createdAt: 'desc' }],
     });
 
-    // Se manda el VEREDICTO, no las tres listas: el cliente no tiene por qué volver a
-    // derivar "qué cuenta como facturada" — esa regla vive en un solo sitio (regla 0).
+    // Contraste de los uuids EXTERNOS contra el último sync del SAT (Vigente vs
+    // Cancelado), en una sola consulta para toda la lista.
+    const satUuids = Array.from(
+      new Set(
+        bookings
+          .map((b) => b.ledgerEntry?.satCfdiUuid)
+          .filter((u): u is string => !!u)
+      )
+    );
+    // Acotado a los doctores de ESTAS citas (este GET también lo usa un ADMIN sin
+    // `doctorId`, que ve las de todos) y a las dos variantes de case del uuid.
+    // Un uuid NO identifica una sola fila: `SatCfdiMetadata` es
+    // `@@unique([doctorId, uuid])` y los satStatus de dos doctores pueden
+    // discrepar —el fallback por XML del worker escribe 'Vigente' a ciegas—, así
+    // que la clave del mapa lleva el doctor y aquí no gana una fila ajena.
+    const satDoctorIds = Array.from(
+      new Set(bookings.map((b) => b.ledgerEntry?.doctorId).filter((d): d is string => !!d))
+    );
+    const satStatusByUuid = satUuids.length > 0
+      ? buildSatStatusMap(
+          await prisma.satCfdiMetadata.findMany({
+            where: { doctorId: { in: satDoctorIds }, uuid: { in: satUuidQueryVariants(satUuids) } },
+            select: { doctorId: true, uuid: true, satStatus: true },
+          })
+        )
+      : undefined;
+
+    // Se manda el VEREDICTO, no las señales sueltas: el cliente no tiene por qué volver
+    // a derivar "qué cuenta como facturada" — esa regla vive en un solo sitio (regla 0),
+    // y desde 2026-08 ese sitio es `resolveFacturaVerdict` en @healthcare/database, que
+    // comparten esta ruta y la del expediente (antes cada una miraba un subconjunto
+    // distinto de las mismas tres señales).
     // Sin `ledgerEntry` (cita que nunca generó ingreso) ⇒ no facturada.
     const data = bookings.map(({ ledgerEntry, ...booking }) => ({
       ...booking,
-      facturada: !!ledgerEntry && (
-        ledgerEntry.cfdisEmitted.length > 0 ||
-        ledgerEntry.facturas.length > 0 ||
-        ledgerEntry.facturasXml.length > 0
-      ),
+      facturada: resolveFacturaVerdict(ledgerEntry, satStatusByUuid).facturada,
       // `null` = no hay ingreso registrado ⇒ completar lo va a CREAR con lo que capture
       // el doctor. Presente = ya existe ⇒ completar NO lo toca, y estos son los valores
       // reales que quedaron guardados (no `finalPrice`, que es sólo el precio de lista).

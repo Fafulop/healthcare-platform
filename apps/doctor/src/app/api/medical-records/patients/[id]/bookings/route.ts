@@ -3,7 +3,7 @@
 // Scoped to the authenticated doctor — only returns bookings where booking.doctorId === doctor.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, resolveFacturaVerdict, buildSatStatusMap, satUuidQueryVariants } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 
@@ -32,6 +32,10 @@ export async function GET(
         serviceName: true,
         appointmentMode: true,
         finalPrice: true,
+        // La casilla "¿Necesita factura?" de la tabla de citas. Es una pregunta
+        // por CITA y no se deduce de `patient.requiereFactura`, que contesta otra
+        // ("¿tenemos su RFC?", ver bookings/route.ts en apps/api).
+        facturaSolicitada: true,
         slot: {
           select: {
             date: true,
@@ -56,10 +60,22 @@ export async function GET(
         ledgerEntry: {
           select: {
             id: true,
+            // Dueño del ingreso — la clave del lookup del SAT lo incluye (un uuid
+            // tiene una fila por doctor y sus satStatus pueden discrepar).
+            doctorId: true,
             amount: true,
             formaDePago: true,
+            // ¿Ya se COBRÓ? El estado de pago vive en el ingreso, no en la cita:
+            // un link de pago pagado crea el ingreso PAID aunque la cita siga
+            // agendada, y completar una cita registra el ingreso aunque no haya
+            // habido pago electrónico.
+            paymentStatus: true,
+            amountPaid: true,
+            // Las tres señales del veredicto de facturación. `cfdisEmitted` va SIN
+            // filtro de status a propósito: la regla de qué status cuenta vive en
+            // resolveFacturaVerdict (packages/database), no en cada query.
+            satCfdiUuid: true,
             cfdisEmitted: {
-              where: { status: 'active' },
               select: {
                 id: true,
                 uuid: true,
@@ -72,9 +88,10 @@ export async function GET(
                 formaPago: true,
                 issuedAt: true,
               },
-              take: 1,
               orderBy: { issuedAt: 'desc' },
             },
+            facturas: { select: { id: true } },
+            facturasXml: { select: { id: true } },
           },
         },
       },
@@ -85,9 +102,29 @@ export async function GET(
       ],
     });
 
+    // Una sola consulta para todas las citas: contrastar los uuids EXTERNOS contra
+    // el último sync del SAT (Vigente vs Cancelado). Se consultan las DOS variantes
+    // de case (satUuidQueryVariants): el `IN` de Postgres es case-sensitive y el
+    // uuid no se escribe con el mismo case por todos los caminos — no encontrar la
+    // fila se leería como "no está cancelada".
+    const satUuids = bookings
+      .map((b) => b.ledgerEntry?.satCfdiUuid)
+      .filter((u): u is string => !!u);
+    const satStatusByUuid = satUuids.length > 0
+      ? buildSatStatusMap(
+          await prisma.satCfdiMetadata.findMany({
+            where: { doctorId, uuid: { in: satUuidQueryVariants(satUuids) } },
+            select: { doctorId: true, uuid: true, satStatus: true },
+          })
+        )
+      : undefined;
+
     const data = bookings.map((b) => {
       const le = b.ledgerEntry;
-      const cfdi = le?.cfdisEmitted?.[0] ?? null;
+      // Display: la ACTIVA más reciente (la lista viene ordenada desc). El
+      // veredicto es otra cosa y lo resuelve el helper compartido.
+      const cfdi = le?.cfdisEmitted?.find((c) => c.status === 'active') ?? null;
+      const veredicto = resolveFacturaVerdict(le, satStatusByUuid);
       return {
         id: b.id,
         date: (b.slot?.date ?? b.date)?.toISOString().split('T')[0] ?? null,
@@ -98,10 +135,17 @@ export async function GET(
         appointmentMode: b.appointmentMode ?? null,
         finalPrice: b.finalPrice ? Number(b.finalPrice) : null,
         formLinkId: b.formLink?.status === 'SUBMITTED' ? (b.formLink.id ?? null) : null,
+        facturaSolicitada: b.facturaSolicitada ?? null,
         // Financial
         ledgerEntryId: le?.id ?? null,
         amount: le ? Number(le.amount) : null,
         formaDePago: le?.formaDePago ?? null,
+        paymentStatus: le?.paymentStatus ?? null,
+        amountPaid: le ? Number(le.amountPaid) : null,
+        // VEREDICTO, no las señales sueltas: el cliente no re-deriva "qué cuenta
+        // como facturada" (regla 0). `via` es solo para la copy de la tarjeta.
+        facturada: veredicto.facturada,
+        facturadaVia: veredicto.via,
         // Payment links (linked cobro)
         stripeLink: b.paymentLink ? {
           url: b.paymentLink.stripePaymentLinkUrl,
