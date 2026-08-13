@@ -149,16 +149,32 @@ export async function GET(
       // deja el link en PAID y el ingreso en PARTIAL, y decir "Pagado · Mercado
       // Pago" ahí afirma que un saldo vivo ya se saldó (además de contradecir el
       // "cobrado X de Y" de la misma tarjeta).
-      const estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' =
-        le?.paymentStatus === 'PARTIAL' ? 'PARCIAL'
+      //
+      // Y SIN_REGISTRO no es lo mismo que PENDIENTE, aunque las dos signifiquen
+      // "no está pagada": PENDIENTE es un ingreso que EXISTE y sigue debiéndose
+      // —deuda real—, mientras que sin ingreso no sabemos nada. La diferencia es
+      // histórica y grande: completar una cita no creó ingreso hasta may–jun
+      // 2026, así que 49 citas viejas (feb–may) no tienen ninguno. Marcarlas
+      // "Por cobrar" las convertiría en una lista de 49 pacientes que deben
+      // dinero, cuando casi seguro pagaron en efectivo y nadie lo registró.
+      //
+      // ⚠️ "Sin ingreso" NO alcanza para decir SIN_REGISTRO: un link PAGADO sin
+      // ingreso es un estado REAL y permanente. Los dos webhooks marcan el link
+      // PAID primero y crean el ingreso después con el error tragado
+      // (stripe/webhook `catch { console.error }`, mercadopago/webhook
+      // `.catch(...)`), y nadie reintenta. Ahí el dinero SÍ entró y el link lo
+      // prueba en el mismo payload — pintar "Sin cobro registrado" sería afirmar
+      // en gris que no hay cobro sobre una cita cobrada.
+      const estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO' =
+        !le && !linkStripePagado && !linkMpPagado ? 'SIN_REGISTRO'
+        : le?.paymentStatus === 'PARTIAL' ? 'PARCIAL'
         : (le?.paymentStatus === 'PAID' || linkStripePagado || linkMpPagado) ? 'PAGADO'
         : 'PENDIENTE';
-      const pagado = estadoPago === 'PAGADO';
       // El MÉTODO se manda ya legible. El proveedor del link gana sobre la forma
       // de pago del ingreso: "Mercado Pago" dice de dónde salió el dinero, que es
       // justo lo que el doctor quiere ver; el webhook escribe además una forma
       // genérica ("tarjeta") que sola no distingue un cobro en ventanilla.
-      const metodoPago = estadoPago === 'PENDIENTE'
+      const metodoPago = estadoPago === 'PENDIENTE' || estadoPago === 'SIN_REGISTRO'
         ? null
         : linkStripePagado ? 'Stripe'
         : linkMpPagado ? 'Mercado Pago'

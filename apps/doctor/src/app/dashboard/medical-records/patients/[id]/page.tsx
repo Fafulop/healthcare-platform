@@ -67,7 +67,7 @@ interface PatientBooking {
   paymentStatus?: string | null;
   amountPaid?: number | null;
   /** VEREDICTO de cobro del servidor (ingreso + links juntos) y su método ya legible. */
-  estadoPago?: 'PAGADO' | 'PARCIAL' | 'PENDIENTE';
+  estadoPago?: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO';
   metodoPago?: string | null;
   /** VEREDICTO del servidor (resolveFacturaVerdict) — no se re-deriva aquí. */
   facturada?: boolean;
@@ -112,21 +112,21 @@ function BookingStatusPill({ status }: { status: string }) {
   );
 }
 
-/** ¿Ya se cobró? El hecho sale del INGRESO, no del estado de la cita: un link de
- *  pago pagado deja el ingreso PAID con la cita todavía agendada.
- *
- *  SIN ingreso no hay estado de pago que leer — pero callarse ahí dejaba sin
- *  contraparte al chip "Pagado": la mayoría de las citas no tiene ingreso, así
- *  que la ausencia de chip era el caso COMÚN y no se leía como "falta cobrar".
- *  Se dice "Por cobrar" solo donde el dinero de verdad se espera; una CANCELADA
- *  o un NO_SHOW sin ingreso no deben nada, y ahí sigue sin pintarse nada. */
 /** ¿Ya se cobró? El veredicto —y el método— los resuelve el SERVIDOR mirando el
- *  ingreso Y los links juntos (`pagado`/`metodoPago` en la ruta de bookings).
+ *  ingreso Y los links juntos (`estadoPago`/`metodoPago` en la ruta de bookings).
  *  Aquí solo se pinta: dos componentes leyendo mitades distintas es lo que hacía
- *  que una misma tarjeta dijera "Por cobrar" y "Pagado" a la vez. */
+ *  que una misma tarjeta dijera "Por cobrar" y "Pagado" a la vez.
+ *
+ *  Siempre pinta algo (los cuatro estados tienen chip), a diferencia de la
+ *  versión anterior, que se callaba cuando no había ingreso. */
 function PagoBadge({
   estadoPago, metodoPago,
-}: { estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE'; metodoPago: string | null }) {
+}: { estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO'; metodoPago: string | null }) {
+  // Gris y neutro: no afirma una deuda, dice que no hay registro. Es el estado de
+  // las 49 citas anteriores a que completar creara el ingreso (may–jun 2026).
+  if (estadoPago === 'SIN_REGISTRO') {
+    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">Sin cobro registrado</span>;
+  }
   if (estadoPago === 'PENDIENTE') {
     return <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Por cobrar</span>;
   }
@@ -285,9 +285,9 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
 
       {editing ? (
         <div className="space-y-3">
-          {/* lg:grid-cols-1 — the card lives in the NARROW right column from lg up;
-              below lg the page is one stacked column and two fields fit fine. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-3">
+          {/* Dos columnas, igual que la vista de lectura: los campos cortos van
+              en pareja y solo Razón Social ocupa el ancho. */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">RFC</label>
               <input
@@ -299,6 +299,16 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
               />
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Código Postal Fiscal</label>
+              <input
+                value={form.codigoPostalFiscal}
+                onChange={e => setForm(p => ({ ...p, codigoPostalFiscal: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
+                maxLength={5}
+                className={inputClass}
+                placeholder="44100"
+              />
+            </div>
+            <div className="col-span-2">
               <label className="block text-xs font-medium text-gray-500 mb-1">Razón Social</label>
               <input
                 value={form.razonSocial}
@@ -335,16 +345,6 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
                 <p className="text-xs text-gray-400 mt-1">Filtrado por régimen fiscal</p>
               )}
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Código Postal Fiscal</label>
-              <input
-                value={form.codigoPostalFiscal}
-                onChange={e => setForm(p => ({ ...p, codigoPostalFiscal: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
-                maxLength={5}
-                className={inputClass}
-                placeholder="44100"
-              />
-            </div>
           </div>
           <div className="flex gap-2 pt-2">
             <button
@@ -365,32 +365,36 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
+        // DOS COLUMNAS siempre (antes `lg:grid-cols-1` la volvía una pila de 5–6
+        // filas): son cinco datos cortos y la tarjeta ocupaba media pantalla para
+        // decir muy poco. Razón Social y Constancia ocupan el ancho porque son
+        // las únicas que se alargan.
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <div>
-            <label className="text-sm font-medium text-gray-500">RFC</label>
-            <p className="text-gray-900 font-mono">{patient.rfc}</p>
+            <label className="text-xs font-medium text-gray-500">RFC</label>
+            <p className="text-sm text-gray-900 font-mono break-all">{patient.rfc}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-500">Razón Social</label>
-            <p className="text-gray-900">{patient.razonSocial || '—'}</p>
+            <label className="text-xs font-medium text-gray-500">Código Postal Fiscal</label>
+            <p className="text-sm text-gray-900">{patient.codigoPostalFiscal || '—'}</p>
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs font-medium text-gray-500">Razón Social</label>
+            <p className="text-sm text-gray-900 break-words">{patient.razonSocial || '—'}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-500">Régimen Fiscal</label>
-            <p className="text-gray-900">{patient.regimenFiscal || '—'}</p>
+            <label className="text-xs font-medium text-gray-500">Régimen Fiscal</label>
+            <p className="text-sm text-gray-900">{patient.regimenFiscal || '—'}</p>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-500">Uso CFDI</label>
-            <p className="text-gray-900">{patient.usoCfdi || '—'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500">Código Postal Fiscal</label>
-            <p className="text-gray-900">{patient.codigoPostalFiscal || '—'}</p>
+            <label className="text-xs font-medium text-gray-500">Uso CFDI</label>
+            <p className="text-sm text-gray-900">{patient.usoCfdi || '—'}</p>
           </div>
           {patient.constanciaFiscalUrl && (
-            <div>
-              <label className="text-sm font-medium text-gray-500">Constancia Fiscal</label>
+            <div className="col-span-2">
+              <label className="text-xs font-medium text-gray-500">Constancia Fiscal</label>
               <p>
-                <a href={patient.constanciaFiscalUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                <a href={patient.constanciaFiscalUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline break-all">
                   {patient.constanciaFiscalName || 'Ver constancia'}
                 </a>
               </p>
@@ -590,20 +594,22 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
+      {/* Factura que NO nace de una cita (insumos, quirófano, un saldo aparte).
+          Va ARRIBA y a lo ancho: es la acción de entrada de la sección, no un
+          accesorio del encabezado. Lleva al form con este paciente ya elegido
+          como receptor — sus datos fiscales los deriva el servidor. */}
+      <Link
+        href={`/dashboard/facturacion?patient=${patient.id}`}
+        className="w-full mb-4 px-4 py-3 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+      >
+        <Receipt className="w-4 h-4" /> Nueva factura manual
+      </Link>
+
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
           <CalendarDays className="w-5 h-5" />
           Citas e Ingresos
         </h2>
-        {/* Factura que NO nace de una cita (insumos, quirófano, un saldo aparte).
-            Lleva al form con este paciente ya elegido como receptor — sus datos
-            fiscales los deriva el servidor, no se copian aquí. */}
-        <Link
-          href={`/dashboard/facturacion?patient=${patient.id}`}
-          className="text-sm px-4 py-2 rounded-lg bg-teal-600 text-white font-medium hover:bg-teal-700 transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <Receipt className="w-4 h-4" /> Nueva factura manual
-        </Link>
       </div>
 
       {/* Borradores SIN tarjeta donde vivir: sin ingreso (el campo es nullable en
@@ -638,7 +644,7 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                     {/* El PAPELEO de un vistazo. Los DOS veredictos —cobro y
                         factura— los resuelve el servidor; aquí no se deduce nada. */}
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                      <PagoBadge estadoPago={b.estadoPago ?? 'PENDIENTE'} metodoPago={b.metodoPago ?? null} />
+                      <PagoBadge estadoPago={b.estadoPago ?? 'SIN_REGISTRO'} metodoPago={b.metodoPago ?? null} />
                       <FacturaBadge
                         facturada={b.facturada === true}
                         solicitada={b.facturaSolicitada === true}
@@ -778,9 +784,9 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                   </div>
                 )}
 
-                {/* Completada sin ingreso: el chip "Por cobrar" de arriba ya lo dice,
-                    así que aquí solo queda la vía para facturarla si hiciera falta.
-                    (Antes esta fila repetía "sin cobro registrado" debajo del chip.) */}
+                {/* Completada sin ingreso: el chip "Sin cobro registrado" de arriba
+                    ya lo dice, así que aquí solo queda la vía para facturarla si
+                    hiciera falta (sin ingreso no hay a qué anclar la factura). */}
                 {isCompleted && b.amount == null && b.facturaSolicitada && (
                   <div className="px-4 py-2 border-t border-gray-100">
                     <span className="text-xs text-gray-400">Se factura al registrar el cobro</span>
