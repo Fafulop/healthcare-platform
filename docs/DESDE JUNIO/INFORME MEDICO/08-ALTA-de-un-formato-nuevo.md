@@ -178,6 +178,33 @@ izquierda + 11 por arriba, 5 sin etiqueta, 0 no creados, **más 14 grupos de cas
 12 campos escritos, **0 problemas**, **0 ilegibles**, **0 campos vivos** tras aplanar, y los
 acentos intactos (`Muñoz`, `Peña`, `María de los Ángeles`).
 
+### 🔴 En un formato plano, MUCHOS huecos no tienen raya (2026-08-14)
+
+La premisa del extractor era *"donde se escribe hay una raya dibujada"*. **En Allianz es falsa en
+la mayoría de los huecos**, y sólo se descubrió cuando el usuario abrió la hoja en la app y no pudo
+escribir. Tres familias, y ninguna deja rastro en el operator list:
+
+| Familia | Cómo se detecta | Cuántas en Allianz |
+|---|---|---|
+| **Fechas** | la corrida de guías `DD MM AAAA` impresas | **18** |
+| **Importes** | la etiqueta que termina en `$` | **3** |
+| **Opciones** | el glifo `□` (U+25A1) | **33** en 14 grupos |
+
+**Las fechas son el caso que más duele.** Toda la rejilla de antecedentes patológicos —cáncer,
+obesidad, diabetes, neurológicas, cardíacos, hepáticos, hipertensivos, VIH/SIDA— pide una fecha por
+renglón, y en esa zona de la hoja hay exactamente **2 rayas**. Las celdas están dibujadas como
+tabla. Resultado antes del arreglo: el doctor no podía escribir **ni una sola fecha** en el informe,
+y el pre-llenado no tenía dónde escribir tampoco.
+
+Los **importes** son los tres honorarios de «Programación de Cirugía» (`Cirujano $`, `Ayudante $`,
+`Anestesista $`): el presupuesto con el que la aseguradora autoriza el procedimiento. El hueco va
+después del `$` y llega hasta la siguiente etiqueta del renglón, o hasta el margen.
+
+> 🔎 **La lección, transferible al siguiente formato plano:** "no se detectó ninguna raya" y "aquí
+> no se escribe" no son lo mismo. Antes de dar por bueno un formato hay que contar los huecos
+> **contra lo que la hoja pregunta**, no contra lo que el extractor encontró. Los tres conteos
+> salen ahora en el reporte de `alta-formato` justo para eso.
+
 ### ✅ Y las CASILLAS de un formato plano también se deducen (2026-08-14)
 
 Primero se dio por hecho que un formato plano no podía tener casillas —la colocación automática

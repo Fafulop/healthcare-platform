@@ -673,6 +673,10 @@ async function ponerCampos(entrada: string, salida: string) {
   for (const c of conNombre) porPagina.set(c.page, (porPagina.get(c.page) ?? 0) + 1);
   linea(`  por página        : ${[...porPagina].sort((a, b) => a[0] - b[0]).map(([p, n]) => `p${p}=${n}`).join(' · ')}`);
 
+  linea(`  fechas (guías DD/MM/AAAA, sin raya): ${r.fechas.length}`);
+  for (const f of r.fechas) linea(`      p${f.page} ${f.label}`);
+  linea(`  importes (marcados con $, sin raya): ${r.importes.length}`);
+  for (const h of r.importes) linea(`      p${h.page} ${h.label}`);
   linea(`  grupos de opciones : ${r.casillas.length} (${r.casillas.reduce((n, g) => n + g.opciones.length, 0)} recuadros □)`);
   for (const g of r.casillas) {
     linea(`      p${g.page} ${g.nombre}${g.pregunta ? `  «${g.pregunta}»` : '  (sin pregunta)'}`);

@@ -1439,6 +1439,25 @@ vivos tras `flatten` · acentos intactos. `type-check` ✅ · 5 gates ✅.
 `Downloads/allianz-PRUEBA-final.pdf` y `-borrador.pdf` — **eso es lo que hay que abrir**. Y siguen
 sin mirarse las **páginas 2 y 3**, pendientes desde el 08-08.
 
+### 🔴 En un formato plano, la mayoría de los huecos NO tienen raya
+
+Lo descubrió el usuario usando la app: no podía escribir **ninguna fecha**, ni los importes de la
+p3. La premisa del extractor era "donde se escribe hay una raya", y en Allianz es falsa:
+
+| Familia | Se detecta por | En Allianz |
+|---|---|---|
+| **Fechas** | la corrida de guías `DD MM AAAA` | **18** |
+| **Importes** | la etiqueta que acaba en `$` | **3** (Cirujano · Ayudante · Anestesista) |
+| **Opciones** | el glifo `□` | **33** en 14 grupos |
+
+Toda la rejilla de antecedentes patológicos pide una fecha por renglón y en esa zona hay **2**
+rayas: las celdas están dibujadas como tabla. Allianz pasa de 66 a **87 campos** (73 texto + 14
+grupos).
+
+🔎 **La lección:** "no se detectó ninguna raya" y "aquí no se escribe" no son lo mismo. Un formato
+plano se valida contando los huecos **contra lo que la hoja pregunta**, no contra lo que encontró
+el extractor — y eso, hasta ahora, sólo lo ve alguien abriendo la hoja.
+
 ### ✅ Las CASILLAS de Allianz — deducidas de los `□` impresos
 
 Se había anotado como limitación ("un formato plano no puede tener casillas"). **Falso**, igual que

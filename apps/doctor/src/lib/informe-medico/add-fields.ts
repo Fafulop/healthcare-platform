@@ -60,6 +60,8 @@ export interface Recuadro { x: number; y: number; w: number }
 /** Lo que se saca de UNA pasada por el PDF: reglas, recuadros y textos. */
 export interface GeometriaPagina {
   pagina: number;
+  /** Ancho de la página en puntos: hace falta para saber dónde termina un hueco. */
+  ancho: number;
   reglas: Regla[];
   recuadros: Recuadro[];
   textos: Texto[];
@@ -88,6 +90,7 @@ export async function geometriaDelPdf(pdfBase: Uint8Array): Promise<GeometriaPag
       const contenido = await page.getTextContent();
       salida.push({
         pagina: p,
+        ancho: page.getViewport({ scale: 1 }).width,
         reglas: reglasDeOperadores(await page.getOperatorList(), OPS),
         recuadros: recuadrosDeContenido(contenido),
         textos: textosDeContenido(contenido),
@@ -214,6 +217,119 @@ function recuadrosDeContenido(contenido: { items: unknown[] }): Recuadro[] {
       typeof (i as { str: unknown }).str === 'string' &&
       (i as { str: string }).str.trim() === '□')
     .map((i) => ({ x: i.transform[4], y: i.transform[5], w: i.width || 9 }));
+}
+
+/** Las guías impresas de una fecha: `DD` `MM` `AAAA`, o `Día` `Mes` `Año`. */
+const GUIA_DE_FECHA_SUELTA = /^(DD|MM|AAAA|D[ií]a|Mes|A[ñn]o)$/i;
+
+/** Un hueco deducido SIN raya: sólo por lo que dice la hoja alrededor. */
+export interface HuecoDeducido { page: number; x: number; y: number; w: number; label: string | null }
+
+/** Una fecha deducida de sus guías: no tiene raya debajo, sólo los rótulos. */
+export type FechaPropuesta = HuecoDeducido;
+
+/** El margen que se respeta al extender un hueco hasta el borde de la hoja. */
+const MARGEN = 24;
+
+/**
+ * 🔴 Los IMPORTES tampoco tienen raya: los marca el `$` impreso.
+ *
+ * Medido en la p3 del Allianz oficial, bajo «Programación de Cirugía»:
+ *
+ * ```
+ * [23]Cirujano $      [225]Ayudante $      [413]Anestesista $
+ * ```
+ *
+ * Cero rayas en ese renglón, así que no se creaba ningún campo y el presupuesto
+ * de honorarios —tres cantidades que la aseguradora usa para autorizar el
+ * procedimiento— no se podía escribir. Lo reportó el usuario probando la hoja.
+ *
+ * El hueco va DESPUÉS del `$` y llega hasta donde empieza la siguiente etiqueta
+ * del renglón, o hasta el margen si es la última.
+ */
+export function importesDibujados(pagina: GeometriaPagina): HuecoDeducido[] {
+  const huecos: HuecoDeducido[] = [];
+  for (const t of pagina.textos) {
+    if (!/\$\s*$/.test(t.s)) continue;
+    const inicio = t.x + t.w + 2;
+    // Lo siguiente que hay en el mismo renglón marca dónde termina el hueco.
+    const siguiente = pagina.textos
+      .filter((o) => o !== t && Math.abs(o.y - t.y) <= 5 && o.x > t.x + t.w)
+      .sort((a, b) => a.x - b.x)[0];
+    const fin = siguiente ? siguiente.x - 4 : pagina.ancho - MARGEN;
+    if (fin - inicio < 20) continue;   // no cabe nada: no es un hueco de captura
+    huecos.push({
+      page: pagina.pagina,
+      x: inicio,
+      y: t.y,
+      w: fin - inicio,
+      label: t.s.replace(/\s*\$\s*$/, '').trim() || null,
+    });
+  }
+  return huecos;
+}
+
+/**
+ * 🔴 Las fechas de un formato plano NO se detectan por la raya, porque **no
+ * tienen raya**.
+ *
+ * Medido en el Allianz oficial: **18 fechas** —toda la rejilla de antecedentes
+ * patológicos (cáncer, obesidad, diabetes, cardíacos…), las de hospitalización
+ * y las de tratamiento— y en esa zona de la hoja hay exactamente **2** rayas.
+ * Las celdas están dibujadas como tabla, y lo único que dice dónde va la fecha
+ * son las guías `DD MM AAAA` impresas dentro.
+ *
+ * Sin esto el doctor abre la hoja y **no puede escribir NI UNA fecha**: no hay
+ * campo que clicar y el pre-llenado no tiene dónde escribir. Es exactamente lo
+ * que reportó el usuario al probar Allianz en la app.
+ *
+ * Una corrida de guías contiguas = UNA fecha, y el campo cubre la corrida
+ * entera — igual que en AXA, donde `Día_4` es una caja ancha para la fecha
+ * completa con las tres guías impresas encima.
+ */
+export function fechasDibujadas(pagina: GeometriaPagina): FechaPropuesta[] {
+  const guias = pagina.textos.filter((t) => GUIA_DE_FECHA_SUELTA.test(t.s.trim()));
+  if (guias.length === 0) return [];
+
+  const filas = new Map<number, Texto[]>();
+  for (const g of guias) {
+    const k = [...filas.keys()].find((k) => Math.abs(k - g.y) <= 5) ?? g.y;
+    filas.set(k, [...(filas.get(k) ?? []), g]);
+  }
+
+  const fechas: FechaPropuesta[] = [];
+  for (const [y, fila] of filas) {
+    const orden = fila.sort((a, b) => a.x - b.x);
+    // Guías contiguas = la misma fecha. Un hueco grande separa dos columnas de
+    // la rejilla: `DD MM AAAA … DD MM AAAA` son DOS fechas, no una.
+    const corridas: Texto[][] = [];
+    for (const g of orden) {
+      const ultima = corridas[corridas.length - 1];
+      const previa = ultima?.[ultima.length - 1];
+      if (previa && g.x - (previa.x + previa.w) < 22) ultima.push(g);
+      else corridas.push([g]);
+    }
+
+    for (const c of corridas) {
+      const x = c[0].x;
+      const w = c[c.length - 1].x + c[c.length - 1].w - x;
+      // 🔴 La etiqueta ignora las OTRAS guías: si no, la fecha de la segunda
+      // columna se llamaría "AAAA" —la última guía de la primera— y las nueve
+      // de la rejilla saldrían con el mismo nombre.
+      const izquierda = pagina.textos
+        .filter((t) => !GUIA_DE_FECHA_SUELTA.test(t.s.trim()) && Math.abs(t.y - y) <= 6 && t.x + t.w <= x + 4)
+        .sort((a, b) => (b.x + b.w) - (a.x + a.w))[0];
+      // Si no hay nada a la izquierda, el encabezado de su columna.
+      const arriba = izquierda
+        ? undefined
+        : pagina.textos
+            .filter((t) => !GUIA_DE_FECHA_SUELTA.test(t.s.trim()) && t.y > y && t.y - y < 40 &&
+              t.x < x + w && t.x + t.w > x)
+            .sort((a, b) => a.y - b.y)[0];
+      fechas.push({ page: pagina.pagina, x, y, w, label: (izquierda ?? arriba)?.s ?? null });
+    }
+  }
+  return fechas;
 }
 
 /** Una opción de un grupo dibujado, con dónde va su recuadro. */
@@ -367,6 +483,10 @@ export interface ResultadoAltaFormato {
   sinEtiqueta: number;
   /** Reglas que no se pudieron convertir en campo (nombre repetido, etc.). */
   noCreados: { page: number; label: string; motivo: string }[];
+  /** Las fechas deducidas de sus guías impresas (no tienen raya). */
+  fechas: FechaPropuesta[];
+  /** Los importes deducidos del `$` impreso (tampoco tienen raya). */
+  importes: HuecoDeducido[];
   /** Los grupos de opciones que se dedujeron de los `□` impresos. */
   casillas: GrupoDibujado[];
 }
@@ -417,6 +537,75 @@ export async function agregarCamposAFormatoPlano(pdfBase: Uint8Array): Promise<R
         // Se salta ESE campo; no se aborta el alta entera del formato.
         noCreados.push({ page: p, label, motivo: e instanceof Error ? e.message : String(e) });
         campos.push({ page: p, ...r, label, via, name: null });
+      }
+    }
+  }
+
+  // ── Las FECHAS: las guías `DD MM AAAA` impresas, que no traen raya ────────
+  const fechas: FechaPropuesta[] = [];
+  for (const geoPagina of geo) {
+    for (const f of fechasDibujadas(geoPagina)) {
+      // Si una raya ya cubre ese hueco (AXA-style: caja ancha CON las guías
+      // encima), no se duplica el campo.
+      const yaHay = campos.some(
+        (c) => c.name && c.page === f.page && Math.abs(c.y - f.y) <= 8 &&
+          c.x < f.x + f.w && c.x + c.w > f.x
+      );
+      if (yaHay) continue;
+
+      // Si la etiqueta ya dice "Fecha de …", no se le antepone otra:
+      // `Fecha_Fecha_de_ingreso` se lee peor y no dice nada de más.
+      const etiqueta = f.label ? slug(f.label) : '';
+      const base = /^fecha/i.test(etiqueta)
+        ? `p${f.page}_${etiqueta}`
+        : `p${f.page}_Fecha${etiqueta ? `_${etiqueta}` : ''}`;
+      const n = (usados.get(base) ?? 0) + 1;
+      usados.set(base, n);
+      const name = n === 1 ? base : `${base}_${n}`;
+      try {
+        const field = form.createTextField(name);
+        field.addToPage(pages[f.page - 1], {
+          x: f.x, y: f.y - 2, width: f.w, height: 11, borderWidth: 0,
+        });
+        field.setFontSize(8);
+        fechas.push({ ...f, label: name });
+      } catch (e) {
+        noCreados.push({
+          page: f.page,
+          label: `fecha «${f.label ?? name}»`,
+          motivo: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+
+  // ── Los IMPORTES: el `$` impreso marca dónde va la cantidad ───────────────
+  const importes: HuecoDeducido[] = [];
+  for (const geoPagina of geo) {
+    for (const h of importesDibujados(geoPagina)) {
+      const yaHay = campos.some(
+        (c) => c.name && c.page === h.page && Math.abs(c.y - h.y) <= 8 &&
+          c.x < h.x + h.w && c.x + c.w > h.x
+      );
+      if (yaHay) continue;
+
+      const base = `p${h.page}_Importe${h.label ? `_${slug(h.label)}` : ''}`;
+      const n = (usados.get(base) ?? 0) + 1;
+      usados.set(base, n);
+      const name = n === 1 ? base : `${base}_${n}`;
+      try {
+        const field = form.createTextField(name);
+        field.addToPage(pages[h.page - 1], {
+          x: h.x, y: h.y - 2, width: h.w, height: 11, borderWidth: 0,
+        });
+        field.setFontSize(8);
+        importes.push({ ...h, label: name });
+      } catch (e) {
+        noCreados.push({
+          page: h.page,
+          label: `importe «${h.label ?? name}»`,
+          motivo: e instanceof Error ? e.message : String(e),
+        });
       }
     }
   }
@@ -481,6 +670,8 @@ export async function agregarCamposAFormatoPlano(pdfBase: Uint8Array): Promise<R
   return {
     pdf: await pdf.save(),
     campos,
+    fechas,
+    importes,
     casillas,
     // Se cuentan las reglas SIN ETIQUETA, no las que no tienen `name`: un campo
     // que reventó en `createTextField` entra con `name: null` pero CON label, y
