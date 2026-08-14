@@ -251,19 +251,29 @@ export function importesDibujados(pagina: GeometriaPagina): HuecoDeducido[] {
   const huecos: HuecoDeducido[] = [];
   for (const t of pagina.textos) {
     if (!/\$\s*$/.test(t.s)) continue;
+    // 🔴 Una etiqueta tiene LETRAS. Sin esto, un monto ya impreso en la hoja
+    // (`1,500 $`) se lee como etiqueta y se le pone un campo encima.
+    const etiqueta = t.s.replace(/\s*\$\s*$/, '').trim();
+    if (etiqueta !== '' && !/\p{L}/u.test(etiqueta)) continue;
+
     const inicio = t.x + t.w + 2;
-    // Lo siguiente que hay en el mismo renglón marca dónde termina el hueco.
-    const siguiente = pagina.textos
-      .filter((o) => o !== t && Math.abs(o.y - t.y) <= 5 && o.x > t.x + t.w)
-      .sort((a, b) => a.x - b.x)[0];
-    const fin = siguiente ? siguiente.x - 4 : pagina.ancho - MARGEN;
+    // 🔴 El hueco termina en lo siguiente del renglón, sea TEXTO o RECUADRO.
+    // `textosDeContenido` excluye los `□` a propósito, así que mirando sólo el
+    // texto el importe se estiraba POR ENCIMA de una casilla y la tapaba: el
+    // doctor ya no puede marcarla, y nada lo reporta. Medido: 9 pt de traslape
+    // con una casilla a 200 pt.
+    const topes = [
+      ...pagina.textos.filter((o) => o !== t && Math.abs(o.y - t.y) <= 5 && o.x > t.x + t.w).map((o) => o.x),
+      ...pagina.recuadros.filter((r) => Math.abs(r.y - t.y) <= 5 && r.x > t.x + t.w).map((r) => r.x),
+    ].sort((a, b) => a - b);
+    const fin = topes.length > 0 ? topes[0] - 4 : pagina.ancho - MARGEN;
     if (fin - inicio < 20) continue;   // no cabe nada: no es un hueco de captura
     huecos.push({
       page: pagina.pagina,
       x: inicio,
       y: t.y,
       w: fin - inicio,
-      label: t.s.replace(/\s*\$\s*$/, '').trim() || null,
+      label: etiqueta || null,
     });
   }
   return huecos;
@@ -311,6 +321,13 @@ export function fechasDibujadas(pagina: GeometriaPagina): FechaPropuesta[] {
     }
 
     for (const c of corridas) {
+      // 🔴 Una guía SOLA no es una fecha. El campo se dibuja ENCIMA de las
+      // guías (es lo correcto para `DD MM AAAA`: la caja las cubre), así que
+      // una palabra suelta —`Mes` como pregunta de verdad, o un `AAAA` que es
+      // el encabezado de una columna— generaba un campo de 30 pt tapando el
+      // texto impreso. Las 18 fechas de Allianz son corridas de TRES.
+      if (c.length < 2) continue;
+
       const x = c[0].x;
       const w = c[c.length - 1].x + c[c.length - 1].w - x;
       // 🔴 La etiqueta ignora las OTRAS guías: si no, la fecha de la segunda

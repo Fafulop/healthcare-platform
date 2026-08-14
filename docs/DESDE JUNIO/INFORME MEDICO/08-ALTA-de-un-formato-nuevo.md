@@ -205,6 +205,30 @@ después del `$` y llega hasta la siguiente etiqueta del renglón, o hasta el ma
 > **contra lo que la hoja pregunta**, no contra lo que el extractor encontró. Los tres conteos
 > salen ahora en el reporte de `alta-formato` justo para eso.
 
+### 🔴 Y el review de los detectores nuevos — 3 defectos, ninguno visible en Allianz
+
+Se probaron `fechasDibujadas` e `importesDibujados` con geometría **sintética**: cada caso una
+hipótesis de fallo concreta. De siete, cuatro salieron limpias y **tres eran reales** — y las tres
+son latentes, es decir: Allianz da los mismos números con y sin el arreglo, así que ninguna
+medición sobre esta hoja las habría encontrado.
+
+| Defecto | Qué pasaba | Cómo se vio |
+|---|---|---|
+| **El importe TAPABA una casilla** | `textosDeContenido` excluye los `□` a propósito, así que el hueco del `$` no los veía como tope y se estiraba por encima. Un campo de texto sobre una casilla = el doctor ya no puede marcarla | 9 pt de traslape medidos |
+| **Una guía SUELTA creaba un campo** | El campo se dibuja ENCIMA de las guías (correcto para `DD MM AAAA`), así que un `Mes` que fuera una pregunta de verdad, o un `AAAA` de encabezado, ponía un campo de 30 pt tapando el texto impreso | `Mes` suelto → 1 campo |
+| **Un monto ya impreso se leía como etiqueta** | `1,500 $` acaba en `$` ⇒ campo `Importe_1500` encima de la cifra | idem |
+
+⇒ El importe se corta contra **texto Y recuadros**; una fecha necesita **≥2 guías**; una etiqueta
+de importe tiene que traer **letras**.
+
+**Regresión tras los tres arreglos:** Allianz idéntico (57 reglas → 52 campos, 18 fechas, 3
+importes, 14 grupos / 33 recuadros), **0 de 106 recuadros solapados** (rect contra rect, no sólo
+misma fila), AXA sin cambio (277 campos, 13/22 grupos al asistente).
+
+> 🔎 **Por qué importa aunque hoy no se vea:** los tres se disparan en la SIGUIENTE hoja plana, y
+> los tres producen un campo que se ve perfectamente normal encima de algo que ya estaba impreso.
+> Es el modo de falla de esta funcionalidad entera: no un error, una hoja convincente y falsa.
+
 ### ✅ Y las CASILLAS de un formato plano también se deducen (2026-08-14)
 
 Primero se dio por hecho que un formato plano no podía tener casillas —la colocación automática
