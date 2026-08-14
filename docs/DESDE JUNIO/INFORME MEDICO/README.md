@@ -9,18 +9,21 @@ El doctor elige el formato de una aseguradora de una lista, el sistema **lo pre-
 ya sabe del paciente y de la consulta**, el doctor corrige (tecleando o hablándole al LLM), y sale
 un **PDF idéntico al oficial de la aseguradora** para descargar o mandarle al paciente.
 
-## ⚠️ Estado (2026-08-08): **las TABLAS ya están en prod. La aplicación NO existe.**
+## ✅ Estado (2026-08-14): **EN PROD, con DOS aseguradoras**
 
 | | |
 |---|---|
-| Tablas `insurance_forms` + `medical_reports` + columnas de póliza | ✅ **EN PROD** |
-| `schema.prisma` | ✅ actualizado y commiteado |
-| Motor de PDF (llenar · aplanar · borrador · alta de formato plano) | ✅ **en `apps/doctor/src/lib/informe-medico/`**, probado |
-| `pdf-lib` y `pdfjs-dist` | ✅ declaradas, con lockfile en el mismo commit |
-| Endpoint · pantalla · pre-llenado · filas en `insurance_forms` | ❌ nada |
+| Tablas + columnas de póliza · `schema.prisma` | ✅ **EN PROD** |
+| Motor de PDF (llenar · aplanar · borrador · alta de formato plano) | ✅ **EN PROD** |
+| Endpoints · pantalla · visor · pre-llenado determinista | ✅ **EN PROD** |
+| Chat sobre la hoja · informe a nivel PACIENTE con fuentes elegidas | ✅ **EN PROD** |
+| **AXA** — GMM Informe Médico (277 campos, el oficial ya venía rellenable) | ✅ **EN PROD y en uso** |
+| **Allianz** — GMM Informe Médico (oficial PLANO ⇒ 87 campos puestos por nosotros) | ✅ **EN PROD**, poco probado a mano |
+| **GNP** | ⛔ bloqueado: falta decidir cuál formato rige |
 
-🔴 **Un doctor no puede llegar a nada de esto todavía:** no hay endpoint ni pantalla, y
-`insurance_forms` tiene **0 filas** — no hay ni un formato que elegir.
+👉 **Para agregar la aseguradora #3, el documento es
+[`08-ALTA-de-un-formato-nuevo.md`](08-ALTA-de-un-formato-nuevo.md)**: las 4 piezas que hay que
+tocar, la herramienta (`scripts/alta-formato.ts`) y las trampas que ya mordieron una vez.
 
 🔴 **`prisma db push` REVIERTE TRES cosas que viven sólo en prod** y que Prisma no sabe modelar:
 la **FK compuesta** `(patient_id, doctor_id)`, el **índice único parcial** de versión vigente, y
@@ -28,7 +31,7 @@ la FK **`DEFERRABLE`** de `encounter_id` (sin la cual **borrar un paciente truen
 están comentadas en `schema.prisma` y viven en
 `packages/database/prisma/migrations/create-informe-medico.sql`.
 
-## Los dos hallazgos del día
+## Los hallazgos del primer día (2026-08-08, histórico)
 
 **1. No son escaneos.** Se midieron 3 formatos reales (Allianz, AXA, GNP): traen **campos
 rellenables**, capa de texto, sin cifrar, sin XFA, sin rotación. Llenar por nombre de campo es
@@ -60,7 +63,11 @@ editar**. Detalle en [`SESSION-REFRESCO`](SESSION-REFRESCO.md).
 | [`01-FUENTES-de-donde-sale-cada-campo.md`](01-FUENTES-de-donde-sale-cada-campo.md) | **El documento importante.** De dónde sale cada valor, y por qué la consulta NO tiene un esquema fijo |
 | [`02-PLAN-el-formato-y-los-pasos.md`](02-PLAN-el-formato-y-los-pasos.md) | Qué se midió en los PDFs reales (§2), el diccionario de campos (§3), las tablas y los 7 pasos |
 | [`03-FORMATOS-procedencia-y-versiones.md`](03-FORMATOS-procedencia-y-versiones.md) | **De dónde bajar el PDF y por qué el del tercero no sirve** — oficial vs. intermediario, formato por formato |
-| [`04-MAPEO-expediente-a-formato.md`](04-MAPEO-expediente-a-formato.md) | Qué columna llena qué campo de cada formato · el **canónico** intermedio · **lo que NO podemos llenar** (empezando por el nº de póliza) |
+| [`04-MAPEO-expediente-a-formato.md`](04-MAPEO-expediente-a-formato.md) | Qué columna llena qué campo de cada formato · el **canónico** intermedio · **lo que NO podemos llenar** |
+| [`05-VOZ-el-doctor-le-dicta-al-formato.md`](05-VOZ-el-doctor-le-dicta-al-formato.md) | El dictado contra la hoja. **Superado por el chat** (06), se conserva por sus reglas |
+| [`06-AGENTE-conversar-con-el-formato.md`](06-AGENTE-conversar-con-el-formato.md) | El chat sobre la hoja: **la hoja ES el card**. En prod |
+| [`07-PLAN-informe-a-nivel-paciente.md`](07-PLAN-informe-a-nivel-paciente.md) | Informe a nivel PACIENTE con fuentes elegidas. En prod |
+| 👉 [`08-ALTA-de-un-formato-nuevo.md`](08-ALTA-de-un-formato-nuevo.md) | **CÓMO AGREGAR UNA ASEGURADORA.** Las 4 piezas, la herramienta y las trampas |
 
 ## De dónde viene este pedido
 
@@ -110,24 +117,14 @@ Casi todo está construido para otras cosas y se reusa:
 | LLM que edita formularios conversando | `form-builder/AIChatPanel.tsx` + `hooks/useFormBuilderChat` |
 | Voz | `apps/doctor/src/components/voice-assistant/` |
 | PDF | `lib/pdf/encounter-pdf.ts` (jsPDF) · `lib/pdf/PrescriptionTemplate.tsx` (@react-pdf/renderer) |
-| Render de un PDF a canvas | `pdfjs-dist` — ⚠️ **NO declarado**, ver abajo |
+| Render de un PDF a canvas | `pdfjs-dist` (declarado, ver abajo) |
 | Link con token al paciente | `apps/public/src/app/formulario-cita/[token]/page.tsx` |
 | Resolver claves crudas → etiquetas | `lib/receta-custom-content.ts` — **el precedente exacto** |
 
-### ⚠️ Hay que instalar DOS, no una
+### Las dependencias, ya resueltas
 
-| | Estado real (verificado 2026-08-08) |
-|---|---|
-| `pdf-lib` | ❌ No está. Se usó **sólo en el scratchpad**, con un `npm install` fuera del repo |
-| `pdfjs-dist` | ❌ **Tampoco está declarada.** Existe únicamente bajo `node_modules/.pnpm` como dependencia **transitiva de `pdf-parse`**; `node_modules/pdfjs-dist` **no existe** y no aparece en ningún `package.json` |
+`pdf-lib@^1.17.1` y `pdfjs-dist@^5.4.296` están declaradas en `apps/doctor/package.json` con el
+`pnpm-lock.yaml` regenerado en el mismo commit. ⚠️ La lección se conserva porque vuelve a aplicar
+a cualquier dependencia nueva: `pdfjs-dist` sólo existía como transitiva de `pdf-parse`, funcionaba
+en local por la ruta larga de `.pnpm`, y habría tronado con `MODULE_NOT_FOUND` en el build.
 
-🔴 Los scripts de medición la resolvieron por la ruta larga de `.pnpm`. Con el layout estricto de
-pnpm, un `require('pdfjs-dist')` normal **truena con MODULE_NOT_FOUND**, y cualquier `pnpm install`
-ajeno puede cambiarle la versión o quitarla.
-
-**Las dos hay que declararlas, y eso obliga a regenerar `pnpm-lock.yaml` en el MISMO commit**, o
-Railway falla el build con frozen lockfile y el push no shipea (`CLAUDE.md`).
-- [`05-VOZ-el-doctor-le-dicta-al-formato.md`](05-VOZ-el-doctor-le-dicta-al-formato.md) — **PLAN**: el doctor dicta contra el formato y el LLM escribe en sus campos. Sustituye el mapeo de `customData` (01-FUENTES §3).
-- [`06-AGENTE-conversar-con-el-formato.md`](06-AGENTE-conversar-con-el-formato.md) — el chat sobre la hoja. **En prod.**
-- [`07-PLAN-informe-a-nivel-paciente.md`](07-PLAN-informe-a-nivel-paciente.md) — informe a nivel paciente con fuentes elegidas. **En prod, sin probar con el dedo.**
-- 👉 [`08-ALTA-de-un-formato-nuevo.md`](08-ALTA-de-un-formato-nuevo.md) — **cómo agregar una aseguradora**: las 4 piezas, `scripts/alta-formato.ts`, y las trampas que revisa por ti.

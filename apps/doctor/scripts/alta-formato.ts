@@ -633,6 +633,16 @@ function resumen() {
 // campos — el caso PLANO
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** `p1_Fecha_Diabetes_Mellitus` → `Diabetes Mellitus`. Sólo deshace el slug. */
+function etiquetaLegible(nombre: string): string {
+  return nombre
+    .replace(/^p\d+_/, '')
+    .replace(/^(Fecha|Importe)_?/, '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function ponerCampos(entrada: string, salida: string) {
   const bytes = new Uint8Array(await readFile(entrada));
   const antes = await PDFDocument.load(bytes, SIN_TOCAR);
@@ -689,8 +699,14 @@ async function ponerCampos(entrada: string, salida: string) {
   for (const nc of r.noCreados) linea(`      no creado: p${nc.page} «${nc.label}» — ${nc.motivo}`);
 
   linea('');
-  linea('  Nombres propuestos (los primeros 40):');
-  for (const c of conNombre.slice(0, 40)) linea(`      p${c.page}  ${c.name}`);
+  linea('  // 🔴 ETIQUETAS — para pegar en dicts/<slug>.ts. NO es opcional en un');
+  linea('  // formato plano: sin esto el asistente ve `p1_AAAA` como etiqueta.');
+  linea('  // Es el texto IMPRESO en la hoja, no el nombre inventado del campo.');
+  linea('export const ETIQUETAS: Record<string, string> = {');
+  for (const [nombre, etiqueta] of Object.entries(r.etiquetas)) {
+    linea(`  ${JSON.stringify(nombre)}: ${JSON.stringify(etiqueta)},`);
+  }
+  linea('};');
 
   avisar(
     'Este PDF ya NO es el oficial byte a byte: los campos se los pusimos nosotros. ' +

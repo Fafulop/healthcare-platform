@@ -1539,6 +1539,36 @@ presentado como "Mts." — invitando a escribir una estatura ahí. Lo cazó el `
 🔎 **La lección:** un nombre poco informativo se ignora; un rótulo FALSO se obedece. Un nombre feo
 se corrige mirando la hoja y escribiéndolo en el diccionario, no adivinándolo con geometría.
 
+## 🔴 El asistente NO entendía la hoja de Allianz — 61 de 73 campos (2026-08-14)
+
+Pregunta del usuario: *"¿está todo bien mapeado para que el agente lo entienda?"*. Se midió, y la
+respuesta era **NO**.
+
+En AXA los nombres los puso la aseguradora (`Apellido paterno`). En Allianz los inventamos nosotros
+del texto vecino, así que al modelo le llegaba `campo:p1_AAAA`, `campo:p1_y_cantidad`,
+`campo:p1_CAUSA` como única pista — **61 de 73 campos de texto**. Es la MISMA causa por la que las
+fechas de AXA no aterrizaban (`06-AGENTE` §12).
+
+⇒ `FormatoEnRepo.etiquetas` (`nombre → lo que dice la hoja`), generado por `alta-formato campos` y
+guardado en `dicts/allianz.ts`. **61 ilegibles → 1.** Ejemplos:
+
+```
+campo:p1_Cual         → "Referido por otro médico o unidad: — ¿Cuál?"
+campo:p1_AAAA         → "Diabetes Mellitus — AAAA"
+campo:p3_Importe_...  → "Importe — Cirujano"
+```
+
+Es texto IMPRESO, no interpretación: el mismo del que salió el nombre, con acentos, y con la
+pregunta del renglón antepuesta cuando la etiqueta sola no dice nada. Los campos con concepto
+canónico no se pisan.
+
+⚠️ **El mapa se indexa por CLAVE (`campo:p1_AAAA`), no por nombre.** Indexarlo por nombre —que es
+como se escribe— habría sido un **no-op silencioso**: el modelo seguiría viendo el nombre crudo y
+todos los contadores en verde. Se cazó antes de shipear porque se midió el catálogo, no el código.
+
+🔴 **Quedan 3 que ni con su renglón se entienden** (`p1_CAUSA`, `p1_padecimiento`, `p2_Cual`):
+hay que MIRAR la hoja impresa y corregirlos a mano en `ETIQUETAS_ALLIANZ`.
+
 ## Lo siguiente
 
 1. 🔴 **ABRIR `Downloads/allianz-DEMO-todo-lleno.pdf`**: los 52 campos llenos y los 14 grupos

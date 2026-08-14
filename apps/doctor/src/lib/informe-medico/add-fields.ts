@@ -490,6 +490,39 @@ export interface CampoPropuesto extends Regla {
   label: string | null;
   via: 'izquierda' | 'arriba' | null;
   name: string | null;
+  /**
+   * La etiqueta COMO SE LE ENSEÑA A UN HUMANO (y al modelo), que no es el
+   * nombre del campo.
+   *
+   * 🔴 En un formato plano el nombre lo inventamos nosotros a partir del texto
+   * vecino, y a veces ese texto no basta: `¿Cuál?`, `Especifique`, `AAAA` o
+   * `y cantidad)` no dicen nada fuera de su renglón. Medido en Allianz: de 73
+   * campos, **61 llegaban al asistente con el nombre crudo** (`campo:p1_AAAA`)
+   * como única pista.
+   *
+   * Se antepone la pregunta que manda en el renglón —el texto más a la
+   * izquierda— así que `¿Cuál?` se convierte en
+   * *"Referido por otro médico o unidad: — ¿Cuál?"*. **No se adivina nada**: es
+   * texto impreso en la hoja, el mismo del que salió el nombre.
+   */
+  etiquetaLarga: string | null;
+}
+
+/** Etiquetas que no significan nada fuera de su renglón. */
+const ETIQUETA_GENERICA =
+  /^(¿?cu[áa]l\??:?|especifique:?|otros?:?|otro ?\(s\):?|aaaa|dd|mm|causa|padecimiento:?|y cantidad\)?|s[ií]:?|no:?|\d+)$/i;
+
+/**
+ * La etiqueta legible de un hueco: si la suya no dice nada por sí sola, se le
+ * antepone la pregunta que manda en el renglón.
+ */
+function etiquetaLargaDe(label: string | null, x: number, y: number, textos: Texto[]): string | null {
+  if (!label) return null;
+  if (!ETIQUETA_GENERICA.test(label.trim())) return label;
+  const pregunta = textos
+    .filter((t) => Math.abs(t.y - y) <= 6 && t.x + t.w <= x + 4 && t.s.trim() !== label.trim())
+    .sort((a, b) => a.x - b.x)[0];
+  return pregunta ? `${pregunta.s} — ${label}` : label;
 }
 
 export interface ResultadoAltaFormato {
@@ -504,6 +537,12 @@ export interface ResultadoAltaFormato {
   fechas: FechaPropuesta[];
   /** Los importes deducidos del `$` impreso (tampoco tienen raya). */
   importes: HuecoDeducido[];
+  /**
+   * `nombre del campo -> lo que dice la HOJA`, para que el asistente no reciba
+   * `p1_AAAA` como etiqueta. Se arma aquí porque es el único sitio donde se
+   * conocen a la vez el nombre inventado y el texto impreso del que salió.
+   */
+  etiquetas: Record<string, string>;
   /** Los grupos de opciones que se dedujeron de los `□` impresos. */
   casillas: GrupoDibujado[];
 }
@@ -521,6 +560,7 @@ export async function agregarCamposAFormatoPlano(pdfBase: Uint8Array): Promise<R
   const form = pdf.getForm();
   const pages = pdf.getPages();
   const campos: CampoPropuesto[] = [];
+  const etiquetas: Record<string, string> = {};
   const noCreados: { page: number; label: string; motivo: string }[] = [];
   const usados = new Map<string, number>();
 
@@ -531,7 +571,7 @@ export async function agregarCamposAFormatoPlano(pdfBase: Uint8Array): Promise<R
     for (const r of reglas) {
       const { label, via } = etiquetaDe(r, textos);
       if (!label) {
-        campos.push({ page: p, ...r, label: null, via: null, name: null });
+        campos.push({ page: p, ...r, label: null, via: null, name: null, etiquetaLarga: null });
         continue;
       }
       const base = `p${p}_${slug(label)}`;
@@ -547,13 +587,15 @@ export async function agregarCamposAFormatoPlano(pdfBase: Uint8Array): Promise<R
           x: r.x + 1, y: r.y + 2, width: r.w - 2, height: 12, borderWidth: 0,
         });
         field.setFontSize(9);
-        campos.push({ page: p, ...r, label, via, name });
+        const larga = etiquetaLargaDe(label, r.x, r.y, textos);
+        if (larga) etiquetas[name] = larga;
+        campos.push({ page: p, ...r, label, via, name, etiquetaLarga: larga });
       } catch (e) {
         // `createTextField` truena si el nombre ya existe (una etiqueta que slug
         // a un `_2` ya tomado, o un PDF que no era tan "plano" como se creía).
         // Se salta ESE campo; no se aborta el alta entera del formato.
         noCreados.push({ page: p, label, motivo: e instanceof Error ? e.message : String(e) });
-        campos.push({ page: p, ...r, label, via, name: null });
+        campos.push({ page: p, ...r, label, via, name: null, etiquetaLarga: etiquetaLargaDe(label, r.x, r.y, textos) });
       }
     }
   }
@@ -586,6 +628,10 @@ export async function agregarCamposAFormatoPlano(pdfBase: Uint8Array): Promise<R
         });
         field.setFontSize(8);
         fechas.push({ ...f, label: name });
+        // Si la etiqueta impresa ya dice "Fecha de …", no se prefija otra vez.
+        etiquetas[name] = !f.label ? 'Fecha'
+          : /^fecha/i.test(f.label) ? f.label
+          : `Fecha — ${f.label}`;
       } catch (e) {
         noCreados.push({
           page: f.page,
@@ -617,6 +663,7 @@ export async function agregarCamposAFormatoPlano(pdfBase: Uint8Array): Promise<R
         });
         field.setFontSize(8);
         importes.push({ ...h, label: name });
+        etiquetas[name] = h.label ? `Importe — ${h.label}` : 'Importe';
       } catch (e) {
         noCreados.push({
           page: h.page,
@@ -690,6 +737,7 @@ export async function agregarCamposAFormatoPlano(pdfBase: Uint8Array): Promise<R
     fechas,
     importes,
     casillas,
+    etiquetas,
     // Se cuentan las reglas SIN ETIQUETA, no las que no tienen `name`: un campo
     // que reventó en `createTextField` entra con `name: null` pero CON label, y
     // contarlo aquí infla el número que la pantalla de revisión usa para decir

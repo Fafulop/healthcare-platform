@@ -278,6 +278,46 @@ en las tres.
 `clinico.diagnostico`, `clinico.tratamiento`, `clinico.exploracionFisica`, `paciente.rfc`,
 `informe.fecha` y el hospital.
 
+## 7b. 🔴 En un formato PLANO, las ETIQUETAS son una pieza aparte del diccionario
+
+Ésta es la diferencia de fondo entre AXA y Allianz, y hay que tenerla presente en cada formato
+plano que venga después.
+
+| | AXA | Allianz |
+|---|---|---|
+| Quién nombró los campos | **la aseguradora** | **nosotros**, del texto vecino |
+| Qué ve el asistente | `Apellido paterno`, `Tensión arterial` | `p1_AAAA`, `p1_y_cantidad`, `p1_CAUSA` |
+
+Medido: de los 73 campos de texto de Allianz, **61 llegaban al modelo con el nombre crudo como
+única pista**. No es un detalle cosmético — es exactamente la causa por la que las fechas de AXA no
+aterrizaban hasta que se les dio contexto (`06-AGENTE` §12): *nadie elige un campo cuyo nombre no
+dice qué es*, ni un modelo ni una persona.
+
+⇒ `FormatoEnRepo.etiquetas` — `nombre del campo → lo que dice la HOJA` — que
+`alta-formato campos` genera y el dict del formato guarda. Resultado: **61 ilegibles → 1**.
+
+**Tres reglas que lo hacen seguro:**
+
+1. **Es texto IMPRESO, no una interpretación.** Es el mismo del que salió el nombre, sin pasar por
+   el slug, así que conserva acentos (`Cáncer`, no `Cancer`).
+2. **Cuando la etiqueta sola no dice nada, se le antepone la pregunta del renglón.** `¿Cuál?` se
+   vuelve `Referido por otro médico o unidad: — ¿Cuál?`; `AAAA` se vuelve
+   `Fecha de diagnóstico de este padecimiento — AAAA`.
+3. **Los campos con concepto canónico NO se pisan**: conservan su etiqueta del canónico, que es la
+   buena. El mapa se indexa por CLAVE (`campo:p1_AAAA`), no por nombre — indexarlo mal habría sido
+   un no-op silencioso, con el modelo viendo el nombre crudo y todos los contadores en verde.
+
+⚠️ **Quedan 3 que la hoja no explica ni con su renglón** (`p1_CAUSA`, `p1_padecimiento`,
+`p2_Cual`): necesitan que alguien MIRE la hoja impresa y corrija el mapa a mano. Eso es
+**la pantalla de revisión que 02-PLAN §3 pidió desde el principio**, sólo que en forma de un
+`Record<string, string>` en el dict — y las correcciones a mano sobreviven a regenerar el PDF
+mientras el nombre del campo no cambie.
+
+> 🔎 **Lección para el siguiente formato plano:** el diccionario canónico y las etiquetas son
+> **dos problemas distintos**. El primero decide qué se PRE-LLENA; el segundo decide si el
+> asistente y el doctor pueden siquiera SABER qué es cada blanco. Un formato plano necesita los
+> dos, y sólo el primero salta a la vista.
+
 ## 8. 🔴 Lo que encontró el `/code-review` — el emparejador proponía cosas peligrosas
 
 Tres de sus hallazgos son de la MISMA familia, y la familia es lo que hay que recordar:

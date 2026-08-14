@@ -26,9 +26,9 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { PDFCheckBox, PDFDocument } from 'pdf-lib';
-import type { FieldDict } from '../types';
+import { claveCruda, type FieldDict } from '../types';
 import { DICT_AXA } from '../dicts/axa';
-import { DICT_ALLIANZ } from '../dicts/allianz';
+import { DICT_ALLIANZ, ETIQUETAS_ALLIANZ } from '../dicts/allianz';
 
 export interface FormatoEnRepo {
   insurer: string;
@@ -39,6 +39,14 @@ export interface FormatoEnRepo {
   /** Archivo dentro de `public/formatos/`. */
   archivo: string;
   dict: FieldDict;
+  /**
+   * `nombre del campo -> lo que dice la HOJA`, para los formatos cuyos nombres
+   * inventamos nosotros (los planos).
+   *
+   * 🔴 Sin esto el asistente recibe `campo:p1_AAAA` y no puede elegirlo. En AXA
+   * no hace falta: sus nombres los puso la aseguradora y se explican solos.
+   */
+  etiquetas?: Record<string, string>;
   /**
    * `true` si los campos rellenables se los pusimos nosotros (Allianz), `false`
    * si el PDF oficial ya venía con AcroForm (AXA). Va a
@@ -71,6 +79,7 @@ export const FORMATOS: FormatoEnRepo[] = [
     sourceUrl: 'https://componentes.allianz.com.mx/widget/web/guest/documentos',
     archivo: 'allianz-gmm-informe-medico-2023-02.pdf',
     dict: DICT_ALLIANZ,
+    etiquetas: ETIQUETAS_ALLIANZ,
     // 🔴 El oficial viene PLANO (0 campos). Los 52 campos de texto y los 14
     // grupos de casillas se los pusimos nosotros con
     // `agregarCamposAFormatoPlano()`, así que este archivo ya no es el de
@@ -157,4 +166,26 @@ export function dictParaRender(formato: FormatoEnRepo, fieldDictDeLaFila: unknow
     return dict;
   }
   return formato.dict;
+}
+
+/**
+ * Las etiquetas del formato, **por CLAVE** — que es como las busca
+ * `camposDictables`, no por nombre de campo.
+ *
+ * 🔴 El mapa se escribe por nombre (`p1_AAAA`) porque es lo natural al leer la
+ * hoja, pero el catálogo del modelo indexa por clave (`campo:p1_AAAA`). Sin
+ * convertir, el merge no empata NADA y todo el trabajo de etiquetas es un no-op
+ * silencioso: el modelo sigue viendo el nombre crudo y los contadores no se
+ * mueven.
+ *
+ * Los campos que SÍ tienen concepto canónico (`paciente.nombres`) no llevan
+ * prefijo y por lo tanto no se pisan: conservan su etiqueta del canónico, que
+ * es la buena.
+ */
+export function etiquetasPorClave(formato: FormatoEnRepo): Record<string, string> {
+  const salida: Record<string, string> = {};
+  for (const [nombre, etiqueta] of Object.entries(formato.etiquetas ?? {})) {
+    salida[claveCruda(nombre)] = etiqueta;
+  }
+  return salida;
 }

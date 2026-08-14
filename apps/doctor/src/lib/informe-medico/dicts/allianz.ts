@@ -83,3 +83,102 @@ export const DICT_ALLIANZ: FieldDict = {
  * texto se llama así y el grupo de casillas de la misma pregunta es
  * `p2_Hubo_complicaciones_2`. Igual con `p2_Continuara_recibiendo_...`.
  */
+
+/**
+ * 🔴 CÓMO SE LE NOMBRA CADA CAMPO AL ASISTENTE (y al doctor en la lista).
+ *
+ * En AXA los nombres los puso la aseguradora y se explican solos
+ * (`Apellido paterno`, `Tensión arterial`). **Aquí los inventamos nosotros** a
+ * partir del texto vecino, así que el nombre interno (`p1_AAAA`,
+ * `p1_y_cantidad`) no sirve como etiqueta. Medido antes de esto: de los 73
+ * campos de texto, **61 llegaban al modelo con el nombre crudo como única
+ * pista** — el asistente no podía elegirlos, que es exactamente por lo que las
+ * fechas de AXA no aterrizaban hasta que se les dio contexto.
+ *
+ * El texto de aquí es el que está IMPRESO en la hoja, no una interpretación: es
+ * el mismo del que salió el nombre, sin pasar por el slug (conserva acentos) y
+ * con la pregunta del renglón antepuesta cuando la etiqueta sola no dice nada
+ * (`¿Cuál?` → `Referido por otro médico o unidad: — ¿Cuál?`).
+ *
+ * Generado por `scripts/alta-formato.ts campos`. Se puede CORREGIR a mano —es
+ * la pantalla de revisión que 02-PLAN §3 siempre pidió— y las correcciones
+ * sobreviven a regenerar el PDF mientras el nombre no cambie.
+ *
+ * ⚠️ Quedan tres que la hoja no explica ni con su renglón: `p1_CAUSA`,
+ * `p1_padecimiento` y `p2_Cual`. Necesitan que alguien MIRE la hoja impresa.
+ */
+export const ETIQUETAS_ALLIANZ: Record<string, string> = {
+  "p1_Apellido_Paterno": "Apellido Paterno",
+  "p1_Apellido_Materno": "Apellido Materno",
+  "p1_Nombres": "Nombre(s)",
+  "p1_Edad": "Edad",
+  "p1_Estado_Civil": "Estado Civil",
+  "p1_Cual": "Referido por otro médico o unidad: — ¿Cuál?",
+  "p1_Antecedentes_Heredo-Familiares": "Antecedentes Heredo-Familiares:",
+  "p1_Antecedentes_Heredo-Familiares_2": "Antecedentes Heredo-Familiares:",
+  "p1_Especifique": "Neurológicas — Especifique",
+  "p1_AAAA": "Diabetes Mellitus — AAAA",
+  "p1_Mencione_cirugias_realizadas": "Mencione cirugías realizadas",
+  "p1_Indique_motivo_de_hospitalizacion_no_quirurg": "Indique motivo de hospitalización (no quirúrgica)",
+  "p1_y_cantidad": "¿Consume o ha consumido bebidas alcohólicas? especificar tipo — y cantidad)",
+  "p1_y_cantidad_2": "¿Consume o ha consumido algún tipo de drogas? — y cantidad)",
+  "p1_FUM": "FUM",
+  "p1_No_de_Embarazos": "No. de Embarazo(s):",
+  "p1_Partos": "Parto(s):",
+  "p1_Cesareas": "Cesárea(s):",
+  "p1_Abortos": "Aborto(s):",
+  "p1_Antecedentes_Perinatales": "Antecedentes Perinatales:",
+  "p1_Otro_s": "Antecedentes Perinatales: — Otro (s):",
+  "p1_padecimiento": "padecimiento:",
+  "p1_AAAA_2": "Fecha de diagnóstico de este padecimiento — AAAA",
+  "p1_CAUSA": "CAUSA",
+  "p2_Cual": "¿Cuál?",
+  "p2_Cual_2": "¿El origen del padecimiento es primario? — ¿Cuál?",
+  "p2_Favor_de_especificar_el_tipo_de_tratamiento": "Favor de especificar el tipo de tratamiento",
+  "p2_Continuara_recibiendo_tratamiento_en_el_futu": "¿Continuará recibiendo tratamiento en el futuro?",
+  "p2_Talla": "Talla:",
+  "p2_Peso": "Peso:",
+  "p2_TA": "T/A:",
+  "p2_Senale_los_datos_relevantes_de_la_exploracio": "Señale los datos relevantes de la exploración física:",
+  "p2_Senale_los_datos_relevantes_de_la_exploracio_2": "Señale los datos relevantes de la exploración física:",
+  "p2_Senale_los_resultados_de_examenes_de_laborat": "Señale los resultados de exámenes de laboratorio, gabinete, imagenología u otros, que sustenten el diagnóstico",
+  "p2_Senale_los_resultados_de_examenes_de_laborat_2": "Señale los resultados de exámenes de laboratorio, gabinete, imagenología u otros, que sustenten el diagnóstico",
+  "p2_Descripcion_del_tratamiento": "Descripción del tratamiento:",
+  "p2_Descripcion_del_tratamiento_2": "Descripción del tratamiento:",
+  "p2_car_procedimiento": "car procedimiento",
+  "p2_Descripcion_de_las_complicaciones": "Descripción de las complicaciones",
+  "p2_Hubo_complicaciones": "¿Hubo complicaciones?",
+  "p2_Nombre_del_Hospital": "Nombre del Hospital:",
+  "p2_Ciudad": "Ciudad:",
+  "p2_Nombre_del_Medico": "Nombre del Médico",
+  "p2_Especialidad": "Especialidad:",
+  "p2_Telefono": "Teléfono",
+  "p2_Telefono_Celular": "Teléfono Celular",
+  "p2_Radio_Localizador": "Radio Localizador",
+  "p2_Cedula_Profesional": "Cédula Profesional",
+  "p2_RFC": "R.F.C.",
+  "p2_E-mail": "E-mail",
+  "p3_Fecha_exacta_de_la_cirugia_ddmmaa": "Fecha exacta de la cirugía (dd/mm/aa)",
+  "p3_Hospital_donde_se_practicara_la_cirugia": "Hospital dónde se practicará la cirugía",
+  "p1_Fecha_Cancer": "Fecha — Cáncer",
+  "p1_Fecha_Cardiacos": "Fecha — Cardíacos",
+  "p1_Fecha_Otro": "Fecha — Otro",
+  "p1_Fecha_Obesidad": "Fecha — Obesidad",
+  "p1_Fecha_VIHSIDA": "Fecha — VIH/SIDA",
+  "p1_Fecha_Neurologicas": "Fecha — Neurológicas",
+  "p1_Fecha_Hepaticos": "Fecha — Hepáticos",
+  "p1_Fecha_Diabetes_Mellitus": "Fecha — Diabetes Mellitus",
+  "p1_Fecha_Hipertensivos": "Fecha — Hipertensivos",
+  "p1_Fecha_de_primeros_sintomas_del_padecimiento": "Fecha de primeros síntomas del padecimiento",
+  "p1_Fecha_de_primera_consulta_por_este_padecimie": "Fecha de primera consulta por este padecimiento",
+  "p1_Fecha_de_diagnostico_de_este_padecimiento": "Fecha de diagnóstico de este padecimiento",
+  "p2_Fecha_Desde": "Fecha — Desde",
+  "p2_Fecha_Hasta": "Fecha — Hasta",
+  "p2_Fecha_de_ingreso": "Fecha de ingreso",
+  "p2_Fecha_de_egreso": "Fecha de egreso",
+  "p2_Fecha_favor_de_indicar_fecha_de_inicio": "Fecha — favor de indicar fecha de inicio",
+  "p2_Fecha_car_procedimiento": "Fecha — car procedimiento",
+  "p3_Importe_Cirujano": "Importe — Cirujano",
+  "p3_Importe_Ayudante": "Importe — Ayudante",
+  "p3_Importe_Anestesista": "Importe — Anestesista",
+};
