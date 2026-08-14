@@ -37,6 +37,10 @@ npx tsx scripts/alta-formato.ts inspeccionar <ruta.pdf>
 npx tsx scripts/alta-formato.ts campos <plano.pdf> <salida.pdf>
 npx tsx scripts/alta-formato.ts inspeccionar <salida.pdf>   # y otra vez el reporte
 
+# 2b. REVISAR CON LOS OJOS — es donde han salido TODOS los bugs reales:
+npx tsx scripts/alta-formato.ts mapa <salida.pdf> ~/Downloads/MAPA.pdf   # cada campo con su nombre
+npx tsx scripts/alta-formato.ts demo <salida.pdf> ~/Downloads/DEMO.pdf   # la hoja con todo lleno
+
 # 3. Escribir dicts/<slug>.ts corrigiendo la propuesta, y agregar la entrada a FORMATOS
 
 # 4. Generar el SQL DESDE el diccionario — nunca a mano

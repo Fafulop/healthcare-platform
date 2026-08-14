@@ -14,6 +14,8 @@
  * ─── Uso ──────────────────────────────────────────────────────────────────────
  *   npx tsx scripts/alta-formato.ts inspeccionar <ruta.pdf>
  *   npx tsx scripts/alta-formato.ts campos <plano.pdf> <salida.pdf>
+ *   npx tsx scripts/alta-formato.ts mapa <pdf> <salida.pdf>
+ *   npx tsx scripts/alta-formato.ts demo <pdf> <salida.pdf>
  *   npx tsx scripts/alta-formato.ts sql "<insurer>|<name>|<version>"
  *
  *   inspeccionar  Mide el PDF y saca el reporte completo: identidad, campos,
@@ -22,6 +24,12 @@
  *                 campos por vecindad y guarda el PDF que será la base.
  *                 ⚠️ Ese archivo YA NO es el oficial byte a byte ⇒
  *                 `camposPropios: true` y `fields_added_by_us = TRUE`.
+ *   mapa          Rotula CADA campo con su propio nombre sobre la hoja real. Es
+ *                 cómo se revisa la colocación de un formato plano de un vistazo
+ *                 (así se cazaron 4 campos ENCIMADOS con todos los contadores en
+ *                 verde).
+ *   demo          La hoja con TODOS los campos llenos por el motor real, para
+ *                 verla como la recibiría la aseguradora sin crear un informe.
  *   sql           Genera el INSERT de `insurance_forms` DESDE el diccionario del
  *                 repo. Nunca se teclea: 60 entradas y una errata silenciosa
  *                 deja campos sin llenar en un PDF que se ve bien.
@@ -49,7 +57,8 @@ import {
 } from '../src/lib/informe-medico/etiquetas-de-la-hoja';
 import { agregarCamposAFormatoPlano } from '../src/lib/informe-medico/add-fields';
 import { claveFormato, FORMATOS } from '../src/lib/informe-medico/formatos';
-import { nombrePdfDeClaveCruda, esClaveCruda } from '../src/lib/informe-medico/types';
+import { claveCruda, nombrePdfDeClaveCruda, esClaveCruda } from '../src/lib/informe-medico/types';
+import { renderFinal } from '../src/lib/informe-medico/render-pdf';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Presentación
@@ -633,6 +642,78 @@ function resumen() {
 // campos — el caso PLANO
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+/**
+ * MAPA — cada campo rotulado con su propio nombre, sobre la hoja real.
+ *
+ * Es la forma barata de revisar la colocación automática de un formato plano:
+ * en vez de valores sueltos se ven TODOS los recuadros a la vez y la pregunta
+ * es una sola — ¿lo que dice cada raya coincide con la etiqueta impresa a su
+ * lado? Con esto el usuario cazó 4 pares de campos ENCIMADOS que ningún
+ * contador delataba (todos los números estaban en verde).
+ */
+async function mapa(entrada: string, salida: string) {
+  const pdf = await PDFDocument.load(new Uint8Array(await readFile(entrada)), SIN_TOCAR);
+  const form = pdf.getForm();
+  let n = 0;
+  for (const field of form.getFields()) {
+    try {
+      (field as PDFTextField).setText(field.getName().replace(/^p\d+_/, ''));
+      (field as PDFTextField).setFontSize(7);
+      n++;
+    } catch { /* las casillas no llevan texto */ }
+  }
+  form.flatten();
+  await writeFile(salida, await pdf.save());
+  linea(`${n} campos rotulados con su propio nombre → ${salida}`);
+  ojo('Ábrelo y compara: ¿lo que dice cada raya es la etiqueta impresa a su lado?');
+}
+
+/**
+ * DEMO — la hoja con TODOS los campos llenos, por el motor real.
+ *
+ * Para ver el formato como lo recibiría la aseguradora, sin tener que crear un
+ * informe. Los valores son de relleno; lo que se revisa es la COLOCACIÓN, si
+ * algo se sale de su caja y si las casillas caen donde deben.
+ */
+async function demo(entrada: string, salida: string) {
+  const base = new Uint8Array(await readFile(entrada));
+  const pdf = await PDFDocument.load(base, SIN_TOCAR);
+  const answers: Record<string, { value: string; source: null; origin: 'manual' }> = {};
+  for (const f of pdf.getForm().getFields()) {
+    const nombre = f.getName();
+    if (f instanceof PDFCheckBox) {
+      // La ÚLTIMA opción del grupo, no la primera: marcar la primera es
+      // precisamente el bug que no se ve si sólo se prueba con la primera.
+      const estados = f.acroField.getWidgets()
+        .map((w) => {
+          const normal = w.getAppearances()?.normal;
+          const claves = normal && 'keys' in normal ? [...normal.keys()] : [];
+          return claves.map((k) => k.asString().replace(/^\//, '')).find((k) => k !== 'Off');
+        })
+        .filter((v): v is string => !!v);
+      if (estados.length > 0) answers[claveCruda(nombre)] = { value: estados[estados.length - 1], source: null, origin: 'manual' };
+      continue;
+    }
+    answers[claveCruda(nombre)] = { value: etiquetaDeRelleno(nombre), source: null, origin: 'manual' };
+  }
+  const r = await renderFinal(base, answers, {});
+  await writeFile(salida, r.pdf);
+  linea(`respuestas: ${Object.keys(answers).length}  ·  llenados: ${r.llenados}`);
+  linea(`problemas : ${r.problemas.length}`);
+  linea(`ilegibles : ${r.ilegibles.length} ${JSON.stringify(r.ilegibles.map((i) => `${i.campoCanonico}(+${i.sobran})`))}`);
+  const final = await PDFDocument.load(r.pdf, SIN_TOCAR);
+  linea(`campos vivos tras flatten: ${final.getForm().getFields().length}  (tiene que ser 0)`);
+  linea(`→ ${salida}`);
+}
+
+/** Un valor de relleno que se reconoce de un vistazo en la hoja. */
+function etiquetaDeRelleno(nombre: string): string {
+  if (/fecha/i.test(nombre)) return '15 03 2019';
+  if (/importe|honorario/i.test(nombre)) return '35,000.00';
+  return nombre.replace(/^p\d+_/, '').replace(/_/g, ' ').slice(0, 40);
+}
+
 async function ponerCampos(entrada: string, salida: string) {
   const bytes = new Uint8Array(await readFile(entrada));
   const antes = await PDFDocument.load(bytes, SIN_TOCAR);
@@ -783,6 +864,12 @@ async function main() {
     case 'campos':
       if (!a || !b) return uso();
       return ponerCampos(a, b);
+    case 'mapa':
+      if (!a || !b) return uso();
+      return mapa(a, b);
+    case 'demo':
+      if (!a || !b) return uso();
+      return demo(a, b);
     case 'sql':
       if (!a) return uso();
       return sql(a);
@@ -795,6 +882,8 @@ function uso() {
   console.error('Uso:');
   console.error('  npx tsx scripts/alta-formato.ts inspeccionar <ruta.pdf>');
   console.error('  npx tsx scripts/alta-formato.ts campos <plano.pdf> <salida.pdf>');
+  console.error('  npx tsx scripts/alta-formato.ts mapa <pdf> <salida.pdf>        # cada campo con su nombre encima');
+  console.error('  npx tsx scripts/alta-formato.ts demo <pdf> <salida.pdf>        # la hoja con TODO lleno');
   console.error('  npx tsx scripts/alta-formato.ts sql "<insurer>|<name>|<version>"');
   console.error('');
   console.error('Formatos dados de alta en el repo:');

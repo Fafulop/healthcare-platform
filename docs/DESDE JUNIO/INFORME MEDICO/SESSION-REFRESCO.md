@@ -1,5 +1,100 @@
 # 🔄 SESSION-REFRESCO — INFORME MÉDICO
 
+---
+
+# ⏱️ EMPIEZA AQUÍ — cierre del 2026-08-14
+
+**Nada a medias. Todo commiteado, pusheado, desplegado (SUCCESS) y verificado dentro del
+contenedor.** `main` == `origin/main` == `ffb735a5` (+ el commit de cierre).
+
+## Qué quedó vivo hoy
+
+**La segunda aseguradora, ALLIANZ, está EN PROD** — y con ella la herramienta para las que
+siguen. El doctor ya la ve en el desplegable y la fila está en `insurance_forms`.
+
+| | |
+|---|---|
+| **AXA** | 277 campos · 22 grupos (13 al asistente) · **en uso** |
+| **Allianz** | 87 campos (73 texto + 14 grupos, 33 recuadros) · oficial PLANO, los campos se los pusimos nosotros |
+| Herramienta | `apps/doctor/scripts/alta-formato.ts` — `inspeccionar · campos · mapa · demo · sql` |
+| Procedimiento | [`08-ALTA-de-un-formato-nuevo.md`](08-ALTA-de-un-formato-nuevo.md) ← **el documento para la #3** |
+
+Seis commits: `e1d7d105` (Allianz + herramienta) · `c3d91ea4` (fechas e importes) ·
+`519b1e39` (3 defectos latentes) · `4e1f8a7f` (etiquetas para el agente) · `ffb735a5` (2 etiquetas
+FALSAS + 4 hallazgos del review) · el de cierre.
+
+## 🔴 LO PRIMERO: lo que necesita OJOS, no código
+
+Todo lo de abajo está bloqueado en mirar la hoja impresa. Nada es difícil; nadie más puede hacerlo.
+
+1. **Las 7 etiquetas de Allianz que la hoja no explica** — `p1_Especifique`, `p1_AAAA`,
+   `p1_y_cantidad_2`, `p1_padecimiento`, `p1_CAUSA`, `p2_Cual`, `p2_car_procedimiento`.
+   Una línea cada una en `ETIQUETAS_ALLIANZ` (`dicts/allianz.ts`). Hoy son honestas pero vagas:
+   el asistente las ve y no sabe qué son.
+2. **Las 4 de AXA de la misma clase** — `Cuál`, `Días`, `Hasta`, `Total`. Las dos últimas están en
+   la fila `Sí No Parcial Total ___ ___` de la p2 y parecen nombradas por la opción de al lado, no
+   por lo que el blanco pregunta.
+3. **Los 6 conceptos de Allianz SIN mapear** (razón escrita en `dicts/allianz.ts`): diagnóstico,
+   tratamiento, exploración física, RFC, fecha del informe y hospital.
+4. **NADIE ha visto las 3 páginas de Allianz renderizadas en el navegador** con los 87 campos.
+   Se revisó el mapa en PDF, que no es lo mismo que el visor pintando cajas sobre un lienzo.
+5. **GNP sigue bloqueado en el usuario**: ¿el formato de Eleonor (3 págs) o el oficial (2 págs)?
+
+Para 1, 2 y 4 hay dos PDFs recién generados en `Downloads/`:
+`allianz-MAPA-de-campos.pdf` (cada campo rotulado con su nombre) y
+`allianz-DEMO-todo-lleno.pdf` (la hoja como la recibiría la aseguradora). Se regeneran con
+`alta-formato mapa|demo`.
+
+## 🔎 La lección del día, y ya tiene nombre
+
+**Un rótulo pobre se ignora; uno FALSO se obedece.** Pasó TRES veces hoy, las tres intentando ser
+útil derivando algo de la geometría:
+
+| | |
+|---|---|
+| `vitales.tensionArterial` → **"Mts."** | la unidad de la caja de al lado |
+| `paciente.rfc` → **`p2_RFC`** | que está en el bloque del MÉDICO |
+| `p1_AAAA` → **"Diabetes Mellitus — AAAA"** | el hueco está en la mitad de *Hipertensivos* |
+
+Las tres llegaron a shipear o casi. Ninguna la habrían encontrado los gates, el type-check ni el
+`next build`. ⇒ **Cuando no se pueda saber, hay que dejar la etiqueta pelona**, y quien mire la
+hoja la corrige.
+
+Y la de método: **los 4 bugs REALES de Allianz los encontró el usuario usando la pantalla** — los
+campos encimados, las fechas no editables, los importes, y "¿el agente entiende esto?". Los
+contadores estaban en verde en los cuatro casos.
+
+## Cómo se verifica que nada se rompió (todo corre en local, sin desplegar)
+
+```bash
+cd apps/doctor
+npx tsc --noEmit                 # los scripts/ SÍ entran
+cd ../.. && pnpm gates           # los 5
+cd apps/doctor
+npx tsx scripts/alta-formato.ts inspeccionar public/formatos/axa-gmm-informe-medico-2022-02.pdf
+#   → 277 campos · 22 grupos · 13 al asistente   (AXA es el ORÁCULO: si cambia, algo se rompió)
+npx tsx scripts/alta-formato.ts inspeccionar public/formatos/allianz-gmm-informe-medico-2023-02.pdf
+#   → 87 campos · 14 grupos · 12 al asistente
+npx tsx scripts/alta-formato.ts demo public/formatos/allianz-gmm-informe-medico-2023-02.pdf /tmp/x.pdf
+#   → 87/87 llenados · 0 problemas · 0 campos vivos tras flatten
+```
+
+⚠️ **Hay `OPENAI_API_KEY` en `apps/doctor/.env.local`**: se puede llamar al modelo DE VERDAD desde
+un script, sin desplegar. Es lo que destapó el bug del prefijo `campo:` tras dos sesiones en verde.
+Un contrato con un LLM no se verifica leyendo el prompt.
+
+## Lo que NO se re-litiga
+
+- El PDF es una SALIDA, nunca la superficie de captura.
+- Un campo sin fuente se queda VACÍO y marcado. Nunca se adivina.
+- Nada se guarda hasta **Guardar** (1B); se descarta campo por campo (2B).
+- El informe es un flujo **CONTENIDO**, no un módulo del asistente.
+- `prisma db push` REVIERTE 3 cosas que viven sólo en prod. SQL manual + `prisma db execute`.
+- El PDF base sale del **dominio de la aseguradora** (03-FORMATOS §5).
+
+---
+
+
 > **Handoff canónico de esta carpeta.** Estado vivo. Se actualiza al cerrar cada sesión.
 > Última actualización: **2026-08-09**.
 
