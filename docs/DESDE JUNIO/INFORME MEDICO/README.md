@@ -128,3 +128,6 @@ ajeno puede cambiarle la versión o quitarla.
 **Las dos hay que declararlas, y eso obliga a regenerar `pnpm-lock.yaml` en el MISMO commit**, o
 Railway falla el build con frozen lockfile y el push no shipea (`CLAUDE.md`).
 - [`05-VOZ-el-doctor-le-dicta-al-formato.md`](05-VOZ-el-doctor-le-dicta-al-formato.md) — **PLAN**: el doctor dicta contra el formato y el LLM escribe en sus campos. Sustituye el mapeo de `customData` (01-FUENTES §3).
+- [`06-AGENTE-conversar-con-el-formato.md`](06-AGENTE-conversar-con-el-formato.md) — el chat sobre la hoja. **En prod.**
+- [`07-PLAN-informe-a-nivel-paciente.md`](07-PLAN-informe-a-nivel-paciente.md) — informe a nivel paciente con fuentes elegidas. **En prod, sin probar con el dedo.**
+- 👉 [`08-ALTA-de-un-formato-nuevo.md`](08-ALTA-de-un-formato-nuevo.md) — **cómo agregar una aseguradora**: las 4 piezas, `scripts/alta-formato.ts`, y las trampas que revisa por ti.

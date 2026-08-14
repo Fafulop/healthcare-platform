@@ -197,10 +197,16 @@ Los 3 formatos las tienen y muchas son parejas `Sí`/`No` con nombres inservible
 
 ⚠️ **Los conteos que había aquí (Allianz 33 · AXA 45 · GNP 43) estaban medidos sobre los PDFs de
 ELEONOR, que [`03-FORMATOS`](03-FORMATOS-procedencia-y-versiones.md) descarta.** Sobre los
-OFICIALES: AXA trae 45 casillas de 277 campos, y el Allianz oficial **no trae ninguna** (es plano;
-los 56 campos que le pusimos son todos de texto). Falta medirlas en los oficiales antes de
-dimensionar este trabajo. **Se dejan para después de los campos de texto**: son las que más
-trabajo de diccionario piden y las menos automatizables.
+OFICIALES: AXA trae 45 recuadros (22 grupos) de 277 campos.
+
+> ✅ **ACTUALIZADO 2026-08-14.** Aquí decía que el Allianz oficial *"no trae ninguna, y los 56
+> campos que le pusimos son todos de texto"*. **Es falso desde que se supo leerlas**: la hoja
+> plana SÍ pregunta opciones, impresas como el glifo `□` — son **33 recuadros en 14 grupos**, y
+> hoy se crean como casillas de verdad ([`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §7). Los
+> campos de TEXTO de Allianz son **52**, no 56: los otros 4 eran rayas duplicadas.
+
+Y ya no se dejan para el final: en los dos formatos las casillas están resueltas, con la
+salvedad de qué grupos puede tocar el asistente (`casillasParaElAgente`).
 
 ## 5. Por dónde empezar
 

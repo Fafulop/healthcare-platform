@@ -473,7 +473,7 @@ export function ExpedientesGuide() {
           {[
             { btn: <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Nueva Consulta</Btn>, desc: "Crea una nueva consulta clínica para este paciente." },
             { btn: <Btn color="bg-blue-50 text-blue-700"><Pill className="w-3 h-3" />Recetas</Btn>, desc: "Lista de prescripciones del paciente (borradores y emitidas)." },
-            { btn: <Btn color="bg-blue-50 text-blue-700"><FileText className="w-3 h-3" />Informe</Btn>, desc: "Llena el formato de una aseguradora con el expediente del paciente. Hoy el catálogo trae el de AXA (GMM Informe Médico)." },
+            { btn: <Btn color="bg-blue-50 text-blue-700"><FileText className="w-3 h-3" />Informe</Btn>, desc: "Llena el formato de una aseguradora con el expediente del paciente. El desplegable muestra los formatos disponibles." },
             { btn: <Btn color="bg-gray-100 text-gray-700"><Clock className="w-3 h-3" />Línea de Tiempo</Btn>, desc: "Vista cronológica de todas las consultas, prescripciones, documentos y notas." },
             { btn: <Btn color="bg-gray-100 text-gray-700"><Image className="w-3 h-3" />Docs y Galería</Btn>, desc: "Sube y visualiza imágenes, videos, audios y documentos clínicos." },
             { btn: <Btn color="bg-gray-100 text-gray-700"><NotebookPen className="w-3 h-3" />Notas</Btn>, desc: "Notas clínicas libres, no estructuradas, asociadas al paciente." },

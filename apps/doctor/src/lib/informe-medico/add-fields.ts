@@ -12,14 +12,17 @@
  *      en el mismo renglón, o si no, el de arriba MÁS CENTRADO sobre la regla.
  *   3. Crear el campo sobre la regla.
  *
- * Resultado medido el 2026-08-08 sobre el Allianz oficial: 61 reglas → 56 campos,
- * 43 por la izquierda y 13 por arriba; llenado de prueba 12/12; verificado a ojo
- * por el usuario (el primero y el último de la página caen en su raya).
+ * Resultado sobre el Allianz oficial (2026-08-14): **57 reglas → 52 campos de
+ * texto**, 41 por la izquierda y 11 por arriba, **más 14 grupos de casillas con
+ * 33 recuadros** deducidos de los `□` impresos. Verificado a ojo por el usuario.
+ *
+ * ⚠️ La primera corrida (2026-08-08) daba 61 → 56: 4 de esas "rayas" eran la
+ * misma raya contada dos veces, y se creaban campos ENCIMADOS.
  *
  * ⚠️ El PDF que sale de aquí YA NO es el oficial byte a byte. Se marca con
  * `insurance_forms.fields_added_by_us = true`.
  */
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName, type PDFDict } from 'pdf-lib';
 import type { FieldDict } from './types';
 
 // pdfjs se carga dinámicamente: es pesado y sólo se usa al dar de alta un formato.
@@ -44,8 +47,23 @@ const aplicar = (m: Matriz, x: number, y: number): [number, number] =>
 export interface Regla { x: number; y: number; w: number }
 export interface Texto { x: number; y: number; w: number; s: string }
 
-/** Lo que se saca de UNA pasada por el PDF: reglas y textos de cada página. */
-export interface GeometriaPagina { pagina: number; reglas: Regla[]; textos: Texto[] }
+/**
+ * Un recuadro de opción DIBUJADO: el glifo `□` de la capa de texto.
+ *
+ * 🔴 En un formato plano las preguntas de opción no son campos, son un carácter
+ * impreso. Medido en el Allianz oficial: **33 `□`** (U+25A1), cada uno con su
+ * posición y su etiqueta impresa a la derecha — exactamente la misma estructura
+ * que las 22 casillas de AXA, sólo que dibujada en vez de declarada.
+ */
+export interface Recuadro { x: number; y: number; w: number }
+
+/** Lo que se saca de UNA pasada por el PDF: reglas, recuadros y textos. */
+export interface GeometriaPagina {
+  pagina: number;
+  reglas: Regla[];
+  recuadros: Recuadro[];
+  textos: Texto[];
+}
 
 /**
  * Abre el PDF UNA vez y saca la geometría de todas las páginas.
@@ -67,10 +85,12 @@ export async function geometriaDelPdf(pdfBase: Uint8Array): Promise<GeometriaPag
     const salida: GeometriaPagina[] = [];
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p);
+      const contenido = await page.getTextContent();
       salida.push({
         pagina: p,
         reglas: reglasDeOperadores(await page.getOperatorList(), OPS),
-        textos: textosDeContenido(await page.getTextContent()),
+        recuadros: recuadrosDeContenido(contenido),
+        textos: textosDeContenido(contenido),
       });
     }
     return salida;
@@ -137,10 +157,41 @@ function reglasDeOperadores(
   }
 
   // La misma raya suele dibujarse dos veces (borde + relleno).
+  //
+  // 🔴 Antes se comparaban las ESQUINAS (`|Δy| <= 2 && |Δx| <= 3`) y se colaban
+  // duplicados: las dos versiones de una raya no empiezan exactamente en el
+  // mismo sitio. Medido en el Allianz oficial, 4 pares sobrevivían —
+  // `CAUSA` (Δx=7), `Especifique` (Δx=4), `Antecedentes_Heredo-Familiares`
+  // (Δy=4) e `Indique_motivo_de_hospitalizacion` (Δy=3)— y se creaban DOS
+  // campos encimados sobre el mismo blanco. El de arriba tapa al de abajo: el
+  // doctor escribe en uno, el PDF final imprime el otro vacío, y no hay ningún
+  // aviso porque para el motor son dos campos perfectamente válidos.
+  //
+  // Lo correcto es comparar el TRASLAPE, no las esquinas: dos rayas que ocupan
+  // el mismo renglón y se solapan casi por completo son la misma raya. Los
+  // pares legítimos (el renglón de continuación de una respuesta larga) están
+  // separados 21 pt o más, muy lejos de esta tolerancia.
+  const TOLERANCIA_MISMA_RAYA = 6;
+  const TRASLAPE_MINIMO = 0.7;
   const unicas: Regla[] = [];
   for (const r of salida.sort((a, b) => b.y - a.y || a.x - b.x)) {
-    if (unicas.some((u) => Math.abs(u.y - r.y) <= 2 && Math.abs(u.x - r.x) <= 3)) continue;
-    unicas.push(r);
+    const gemela = unicas.findIndex((u) => {
+      if (Math.abs(u.y - r.y) > TOLERANCIA_MISMA_RAYA) return false;
+      const inicio = Math.max(u.x, r.x);
+      const fin = Math.min(u.x + u.w, r.x + r.w);
+      // 🔴 El denominador es la raya MÁS LARGA, no la más corta. Con la más
+      // corta, una raya CONTENIDA en otra da 1.0 siempre, así que un blanco
+      // chico dentro de un renglón largo (una casilla `No.` dentro de una fila
+      // ancha) se fusionaría con él y desaparecería — y a diferencia de un
+      // `createTextField` que revienta, esto no deja rastro en `noCreados`: el
+      // reporte se ve limpio y a la hoja le falta un blanco.
+      return Math.max(0, fin - inicio) / Math.max(u.w, r.w) > TRASLAPE_MINIMO;
+    });
+    if (gemela < 0) { unicas.push(r); continue; }
+    // Se queda la MÁS ANCHA (cubre el blanco entero) y, a igual ancho, la de
+    // más abajo: es la raya sobre la que de verdad se escribe.
+    const u = unicas[gemela];
+    if (r.w > u.w || (r.w === u.w && r.y < u.y)) unicas[gemela] = r;
   }
   return unicas;
 }
@@ -153,6 +204,125 @@ function textosDeContenido(contenido: { items: unknown[] }): Texto[] {
       typeof (i as { str: unknown }).str === 'string' &&
       (i as { str: string }).str.trim() !== '' && (i as { str: string }).str.trim() !== '□')
     .map((i) => ({ x: i.transform[4], y: i.transform[5], w: i.width, s: i.str.trim() }));
+}
+
+/** Los recuadros `□` de una página, que `textosDeContenido` deja fuera a propósito. */
+function recuadrosDeContenido(contenido: { items: unknown[] }): Recuadro[] {
+  return contenido.items
+    .filter((i): i is { str: string; transform: number[]; width: number } =>
+      typeof i === 'object' && i !== null && 'str' in i &&
+      typeof (i as { str: unknown }).str === 'string' &&
+      (i as { str: string }).str.trim() === '□')
+    .map((i) => ({ x: i.transform[4], y: i.transform[5], w: i.width || 9 }));
+}
+
+/** Una opción de un grupo dibujado, con dónde va su recuadro. */
+export interface OpcionDibujada { onState: string; etiqueta: string; x: number; y: number; w: number }
+
+/** Un grupo de opciones EXCLUYENTES deducido de la hoja. */
+export interface GrupoDibujado {
+  page: number;
+  nombre: string;
+  pregunta: string | null;
+  opciones: OpcionDibujada[];
+}
+
+/** `Sí`/`No` — etiquetas que no nombran a su grupo (misma idea que en el catálogo del agente). */
+const OPCION_GENERICA = /^(s[ií]|no)$/i;
+
+/**
+ * Agrupa los `□` de una hoja en preguntas de opciones excluyentes.
+ *
+ * 🔴 El corte NO es por renglón. Medido en Allianz, la fila `y=628` trae DOS
+ * preguntas juntas:
+ *
+ *   «El padecimiento ocasionó u ocasionará incapacidad?»  □Si □No  □Parcial □Total
+ *
+ * Meterlas en un grupo haría que marcar «Parcial» DESMARCARA «Si» — el PDF
+ * guarda un valor por campo. La regla que separa bien las 13 filas: las
+ * genéricas (`Sí`/`No`) van juntas y las que se explican solas van juntas; el
+ * corte está donde cambia la clase.
+ *
+ * La pregunta es el texto a la IZQUIERDA del primer recuadro de la fila, y la
+ * heredan los dos grupos: «incapacidad» aplica igual a `Si|No` que a
+ * `Parcial|Total`, y las opciones ya los distinguen.
+ */
+export function casillasDibujadas(pagina: GeometriaPagina): GrupoDibujado[] {
+  const filas = new Map<number, Recuadro[]>();
+  for (const r of pagina.recuadros) {
+    const clave = [...filas.keys()].find((k) => Math.abs(k - r.y) <= 5) ?? r.y;
+    filas.set(clave, [...(filas.get(clave) ?? []), r]);
+  }
+
+  const grupos: GrupoDibujado[] = [];
+
+  for (const [y, recuadros] of filas) {
+    const enOrden = recuadros.sort((a, b) => a.x - b.x);
+
+    // La etiqueta de cada recuadro: el texto que EMPIEZA justo a su derecha.
+    const etiquetados = enOrden.map((r) => {
+      const t = pagina.textos
+        .filter((t) => Math.abs(t.y - y) <= 5 && t.x >= r.x + r.w - 2 && t.x <= r.x + r.w + 40)
+        .sort((a, b) => a.x - b.x)[0];
+      return { recuadro: r, etiqueta: t?.s ?? '' };
+    });
+
+    // La pregunta de la FILA: lo que hay a la izquierda del primer recuadro.
+    const primero = enOrden[0];
+    const pregunta = pagina.textos
+      .filter((t) => Math.abs(t.y - y) <= 5 && t.x + t.w <= primero.x + 4)
+      .sort((a, b) => (b.x + b.w) - (a.x + a.w))[0]?.s ?? null;
+
+    // El corte: cambia la clase de etiqueta ⇒ empieza otro grupo.
+    const tandas: Array<typeof etiquetados> = [];
+    for (const e of etiquetados) {
+      const ultima = tandas[tandas.length - 1];
+      const generica = OPCION_GENERICA.test(e.etiqueta);
+      const mismaClase = ultima && OPCION_GENERICA.test(ultima[ultima.length - 1].etiqueta) === generica;
+      if (mismaClase) ultima.push(e);
+      else tandas.push([e]);
+    }
+
+    for (const tanda of tandas) {
+      // Sin etiqueta no se puede nombrar la opción, y un on-state inventado
+      // marcaría un recuadro que nadie eligió. Se descarta la tanda entera.
+      if (tanda.some((t) => t.etiqueta === '')) continue;
+
+      // 🔴 El nombre va SIN desambiguar. Quien crea los campos lleva un contador
+      // ÚNICO para casillas y textos, y desambiguar aquí también hacía que dos
+      // contadores se pisaran: si una raya ya tomó `base`, el grupo A pasa a
+      // `base_2` y el grupo B —que aquí ya se llamaba `base_2`— choca con él.
+      // `createCheckBox` truena y una pregunta entera de la hoja se queda sin
+      // recuadros que marcar.
+      const nombre = `p${pagina.pagina}_${slug(pregunta ?? tanda[0].etiqueta)}`;
+
+      // 🔴 Dos opciones del MISMO grupo no pueden compartir on-state. El PDF
+      // guarda UN valor por campo, así que dos recuadros con la misma clave
+      // `/N` se encienden JUNTOS: la hoja afirmaría dos respuestas a una
+      // pregunta excluyente. Pasa por dos caminos reales — una fila con dos
+      // preguntas de Sí/No (todas genéricas, no las corta la clase), y dos
+      // etiquetas que coinciden en los primeros 20 caracteres del slug, que en
+      // esta misma hoja ya se truncan (`Programacion_de_Ciru`).
+      const vistos = new Map<string, number>();
+      const opciones = tanda.map((t) => {
+        const base = slug(t.etiqueta).slice(0, 18) || 'On';
+        const n = (vistos.get(base) ?? 0) + 1;
+        vistos.set(base, n);
+        return {
+          // El on-state es un token interno: sin acentos ni espacios porque es
+          // un /Name del PDF. Lo que ve el modelo es la ETIQUETA.
+          onState: n === 1 ? base : `${base}_${n}`,
+          etiqueta: t.etiqueta,
+          x: t.recuadro.x,
+          y: t.recuadro.y,
+          w: t.recuadro.w,
+        };
+      });
+
+      grupos.push({ page: pagina.pagina, nombre, pregunta, opciones });
+    }
+  }
+  return grupos;
 }
 
 /** La etiqueta de una regla: primero por la izquierda, si no por arriba. */
@@ -197,6 +367,8 @@ export interface ResultadoAltaFormato {
   sinEtiqueta: number;
   /** Reglas que no se pudieron convertir en campo (nombre repetido, etc.). */
   noCreados: { page: number; label: string; motivo: string }[];
+  /** Los grupos de opciones que se dedujeron de los `□` impresos. */
+  casillas: GrupoDibujado[];
 }
 
 /**
@@ -249,9 +421,67 @@ export async function agregarCamposAFormatoPlano(pdfBase: Uint8Array): Promise<R
     }
   }
 
+  // ── Las casillas: los `□` impresos se vuelven grupos de verdad ────────────
+  //
+  // 🔴 Se fabrica la MISMA forma que trae AXA —un campo, N recuadros, cada uno
+  // con SU on-state— porque así el resto del motor (geometría, etiquetas,
+  // render, el catálogo del agente) funciona sin tocar una línea. pdf-lib crea
+  // todos los recuadros con el mismo on-state (`/Yes`), que es exactamente el
+  // bug que hacía que marcar una opción marcara a sus hermanas, así que hay que
+  // renombrarlos uno por uno.
+  const casillas: GrupoDibujado[] = [];
+  for (const geoPagina of geo) {
+    for (const propuesto of casillasDibujadas(geoPagina)) {
+      // 🔴 El nombre se decide contra el MISMO contador que los campos de
+      // texto. Una pregunta con opciones suele traer además una raya en el
+      // mismo renglón («¿Hubo complicaciones? □Si □No ____»), y las dos salen
+      // con el mismo nombre derivado: `createCheckBox` reventaba por nombre
+      // repetido y el grupo desaparecía. Con el `catch` de abajo mudo, eso se
+      // veía como "29 de 33 recuadros" y nada decía por qué.
+      const n = (usados.get(propuesto.nombre) ?? 0) + 1;
+      usados.set(propuesto.nombre, n);
+      const grupo = n === 1 ? propuesto : { ...propuesto, nombre: `${propuesto.nombre}_${n}` };
+      try {
+        const cb = form.createCheckBox(grupo.nombre);
+        for (const o of grupo.opciones) {
+          cb.addToPage(pages[grupo.page - 1], {
+            x: o.x, y: o.y - 1, width: Math.max(8, o.w), height: Math.max(8, o.w), borderWidth: 0,
+          });
+        }
+        const widgets = cb.acroField.getWidgets();
+        widgets.forEach((w, i) => {
+          const destino = grupo.opciones[i]?.onState;
+          if (!destino) return;
+          const ap = w.dict.get(PDFName.of('AP')) as PDFDict | undefined;
+          const normal = ap?.get(PDFName.of('N')) as PDFDict | undefined;
+          if (!normal) return;
+          const actual = normal.keys().map((k) => k.asString().replace(/^\//, '')).find((k) => k !== 'Off');
+          if (!actual) return;
+          const stream = normal.get(PDFName.of(actual));
+          if (stream) normal.set(PDFName.of(destino), stream);
+          if (actual !== destino) normal.delete(PDFName.of(actual));
+          // Todas apagadas: lo que trae marcado de fábrica una hoja es una
+          // afirmación que nadie eligió (la lección de las 9 de AXA).
+          w.setAppearanceState(PDFName.of('Off'));
+        });
+        casillas.push(grupo);
+      } catch (e) {
+        // Un grupo que no se pueda crear no tumba el alta del formato, pero
+        // TAMPOCO se calla: un grupo perdido en silencio es una pregunta que la
+        // hoja hace y el informe no puede contestar.
+        noCreados.push({
+          page: grupo.page,
+          label: `casillas «${grupo.pregunta ?? grupo.nombre}»`,
+          motivo: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+
   return {
     pdf: await pdf.save(),
     campos,
+    casillas,
     // Se cuentan las reglas SIN ETIQUETA, no las que no tienen `name`: un campo
     // que reventó en `createTextField` entra con `name: null` pero CON label, y
     // contarlo aquí infla el número que la pantalla de revisión usa para decir

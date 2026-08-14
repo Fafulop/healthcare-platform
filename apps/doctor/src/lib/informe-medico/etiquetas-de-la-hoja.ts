@@ -127,6 +127,28 @@ function limpiar(s: string): string {
  * ésos se les busca contexto: para `Apellido paterno` el nombre ya es mejor que
  * cualquier cosa que se deduzca de la hoja, y sustituirlo sería empeorarlo.
  */
+/**
+ * ⚠️ **NO ampliar esto para "arreglar" nombres feos de un formato plano.**
+ *
+ * Se intentó el 2026-08-14: quitar el prefijo `pN_` antes de las pruebas, para
+ * que `p1_AAAA` se declarara opaco y el modelo recibiera la pregunta impresa en
+ * vez del nombre. Medido sobre el Allianz real, el resultado fue PEOR:
+ *
+ * | campo | contexto que se derivaba |
+ * |---|---|
+ * | `vitales.tensionArterial` (`p2_TA`) | **"Mts."** ← la unidad de la caja de Talla de al lado |
+ * | `campo:p1_AAAA` | **"Hipertensivos"** |
+ * | `campo:p1_y_cantidad_2` | `"y cantidad) y cantidad)"` |
+ *
+ * Y como el contexto **PISA la etiqueta canónica** (`campos-dictables.ts`), al
+ * modelo se le habría presentado el campo de la TENSIÓN ARTERIAL de un
+ * documento médico-legal bajo el rótulo "Mts.". Un nombre poco informativo se
+ * ignora; un rótulo FALSO se obedece — y aquí invita a escribir una estatura en
+ * la casilla de la presión.
+ *
+ * Un nombre feo se corrige mirando la hoja y escribiéndolo en el diccionario,
+ * no adivinándolo con geometría.
+ */
 function esOpaco(nombre: string): boolean {
   return (
     /^(D[ií]a|Mes|A[ñn]o)(\s|_|\d|$)/i.test(nombre) ||   // cajas de fecha partidas
@@ -161,7 +183,7 @@ function esOpaco(nombre: string): boolean {
  * marcando a mano en el visor. Lo que se quita es que las proponga un modelo.
  */
 const CONSENTIMIENTO_O_FACTURACION =
-  /autoriz|acepto|consent|tabulador|firma|datos personales|aviso de privacidad|resp?onsabilidad civil/i;
+  /autoriz|acepto|consent|tabulador|firma|datos personales|aviso de privacidad|resp?onsabilidad civil|convenio|comprom|compa[ñn][ií]a de seguros/i;
 
 /** `Sí`, `No`, `Si acepto`… — etiquetas que no dicen NADA fuera de su pregunta. */
 const GENERICA = /^(s[ií]|no)$/i;

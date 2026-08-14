@@ -1374,9 +1374,168 @@ Pregunta del usuario. La respuesta tiene dos partes porque `ClinicalEncounter` e
 
 ---
 
+# 🔴 DÓNDE QUEDAMOS — 2026-08-14: la SEGUNDA aseguradora
+
+> **Empieza por aquí.** Todo lo de abajo es historial.
+
+**AXA funciona bien** (veredicto del usuario) ⇒ se abrió el trabajo de las demás aseguradoras.
+Decidido con el usuario: **Allianz + GNP**, el usuario provee los PDFs, y **primero la
+herramienta**. Procedimiento completo en [`08-ALTA`](08-ALTA-de-un-formato-nuevo.md).
+
+## ✅ La herramienta de alta — `scripts/alta-formato.ts`
+
+`inspeccionar` · `campos` (para un PDF plano) · `sql` (genera el INSERT desde el diccionario).
+Reusa lo que ya existía (`geometriaDelFormato`, `etiquetasDeLaHoja`, `casillasParaElAgente`,
+`capacidadDeCaja`, `caracteresNoImprimibles`, `agregarCamposAFormatoPlano`) — no reimplementa nada.
+
+**Validada contra AXA, que es el oráculo**: reproduce 277 campos (255 texto · 22 casilla),
+22 grupos → **13 que el asistente ve / 9 bloqueados**, las **7** cajas `maxLength=8`, y las **9**
+casillas marcadas de fábrica con los mismos nombres y on-states que este doc registró en su día.
+La propuesta de diccionario acertó **13 de los 20** escalares hechos a mano, se declaró ambigua en
+4, se calló 1 y discrepó en 1 con aviso.
+
+⚠️ **Y esa frase, tal como la escribí primero —"0 elecciones equivocadas en silencio"— era FALSA.**
+Valía para AXA y no para Allianz: ahí el emparejador propuso `paciente.rfc → p2_RFC`, que está en
+el bloque del MÉDICO, **con empate exacto y sin ninguna marca**. Lo cazó el `/code-review` con dos
+hermanos más (`telefono`, `email`, `domicilio`) y un cuarto por otra puerta
+(`informe.fecha → fecha de la CIRUGÍA`, porque el largo mínimo sólo cubría `includes` y no
+`startsWith`). Todos corregidos — detalle en [`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §8.
+
+🔎 **La lección:** ser conservador con la FUERZA del empate no sirve si el término no distingue
+**de quién** es el dato. Y una propiedad medida sobre UN formato no es una propiedad de la
+herramienta.
+
+`type-check` ✅ · los **5 gates** ✅. **Sin commit y sin push.**
+
+⚠️ Los `scripts/*.ts` SÍ entran al `type-check` (`include: **/*.ts`) — de hecho ahí salió un error
+real (`OPS.paintJpegXObject` no existe en pdfjs 5.x).
+
+## 🔴 Los DOS bugs que encontró el propio AXA, en mi script
+
+Los dos son de método y valen más que el script:
+
+1. **`PDFDocument.load()` reescribe `/Producer` a `pdf-lib` y `/ModDate` a AHORA.** Sin
+   `updateMetadata: false`, la herramienta acusaba de "no es el PDF de la aseguradora" a **todos**
+   los formatos — incluido el oficial. Dije eso del Allianz oficial y era **falso**: leído bien es
+   `Adobe PDF library 15.00 · 2023-02-27`, exactamente el oficial. Una herramienta que modifica lo
+   que mide no da un dato, da un artefacto — y éste tenía la forma del hallazgo que buscábamos.
+2. **`isChecked()` de pdf-lib encuentra 4 de las 9 casillas marcadas de fábrica.** Compara el `/V`
+   contra el on-state del PRIMER recuadro, así que un grupo cuyo valor de fábrica es la segunda
+   opción (`S1 = /N`, Femenino) se reporta como no marcado. Es la misma familia del viejo `check()`
+   que marcaba la primera opción sin importar cuál eligió el doctor. Se lee el `/V` directo.
+
+## 🟡 ALLIANZ — construido, sin desplegar y SIN MIRAR
+
+El PDF bueno se bajó **del portal de documentos de Allianz** (la primera copia estaba corrupta,
+abajo). Tras deduplicar las rayas encimadas: **57 reglas → 52 campos de texto** (5 sin etiqueta,
+0 fallidos) **+ 14 grupos de casillas con 33 recuadros**.
+
+Quedó: el PDF con campos en `public/formatos/`, `dicts/allianz.ts` con **13** entradas verificadas
+a mano, la entrada en `FORMATOS` (`camposPropios: true`) y `seed-formato-allianz.sql` **generado y
+NO aplicado a prod**. Probado con el motor real: 13 escritos · 0 problemas · 0 ilegibles · 0 campos
+vivos tras `flatten` · acentos intactos. `type-check` ✅ · 5 gates ✅.
+
+🔴 **Nadie ha visto la hoja.** Las 56 posiciones las dedujo el algoritmo. Hay dos PDFs de prueba en
+`Downloads/allianz-PRUEBA-final.pdf` y `-borrador.pdf` — **eso es lo que hay que abrir**. Y siguen
+sin mirarse las **páginas 2 y 3**, pendientes desde el 08-08.
+
+### ✅ Las CASILLAS de Allianz — deducidas de los `□` impresos
+
+Se había anotado como limitación ("un formato plano no puede tener casillas"). **Falso**, igual que
+cuando se dijo de AXA: las opciones son el glifo `□` (U+25A1) de la capa de texto, **33** en la
+hoja, con su etiqueta a la derecha. Se fabrican con **la misma forma que AXA** —un campo, N
+recuadros, cada uno con SU on-state— así que geometría, etiquetas, render y el catálogo del agente
+funcionan **sin tocar una línea**. Resultado: **14 grupos, 33/33 recuadros**.
+
+Verificado eligiendo la **4ª de 4**, la 2ª de 2 y la 2ª de 3: se marca **una sola** y la correcta
+(`/V=/Accidente`, `/AS=[/Off /Off /Off /Accidente]`). Es el bug de AXA evitado por construcción.
+
+🔴 Dos grupos quedaron **fuera del alcance del agente** (hubo que ampliar la regex):
+`Tiene convenio con la aseguradora` y `…informe complementario … a la Compañía de Seguros`. Son
+declaraciones administrativas, no hechos clínicos. **AXA sigue en 13 de 22, sin cambio.**
+
+⚠️ Tres trampas nuevas anotadas en `08-ALTA` §7: el corte de grupos **no es por renglón** (una fila
+trae `Si|No` **y** `Parcial|Total`, y unirlos haría que marcar «Parcial» desmarcara «Si»); pdf-lib
+crea todos los recuadros con el mismo on-state y hay que renombrarlos; y la casilla y el campo de
+texto de un mismo renglón salen con el **mismo nombre**, lo que reventaba `createCheckBox` y un
+`catch` mudo se lo comía (29 de 33 sin explicación).
+
+⚠️ **Seis conceptos SIN mapear a propósito** (razón escrita en `dicts/allianz.ts`), uno de ellos
+por TAMAÑO: `clinico.exploracionFisica` cabía en **110 caracteres** a 6 pt, así que se habría
+marcado ilegible en casi todos los informes. Un mapeo que siempre avisa no es un mapeo.
+`clinico.diagnostico` y `clinico.tratamiento` (no se sabe, sin ver la hoja, si Allianz pregunta por
+el tratamiento dado o el propuesto — en AXA equivocarse ahí habría dicho algo falso), `informe.fecha`
+(el candidato era la fecha de la CIRUGÍA), el hospital, y **`paciente.rfc`**: la propuesta lo empató
+EXACTO con `p2_RFC`, que está en el bloque del **médico**. Habría impreso el RFC del paciente en la
+casilla del doctor. Se corrigió el sinónimo para que no vuelva a pasar.
+
+## 🔴 Y por qué la PRIMERA copia no servía: estaba CORRUPTA
+
+Abre perfecto —3 páginas, 612×794, rot 0, sin cifrar, metadatos correctos de 2023— y `pdf-lib` no
+protesta. Pero sus streams de contenido tienen cabecera zlib inválida:
+
+```
+Warning: Indexing all PDF objects                                  ← xref roto
+Warning: Invalid stream: "Bad FCHECK in flate stream: 72, 239"     ← ×6
+⇒ 0 operadores y 0 items de texto en las 3 páginas
+```
+
+⇒ **Hace falta volver a bajarlo.** Nada podía funcionar con este archivo: sin texto no hay reglas,
+sin reglas no hay campos, y el visor pintaría hojas en blanco.
+
+🔴 **Y el síntoma engañaba:** se ve como **"0 reglas detectadas"**, que se lee como *este formato no
+se puede automatizar* — y manda a escribir un extractor nuevo en vez de a volver a bajar el PDF.
+Ahora `revisarLegibilidad()` lo distingue de un escaneo de verdad y lo dice con esas palabras.
+
+⚠️ **Los warnings de pdf.js estaban impresos desde la primera corrida y yo los filtraba** con
+`grep -v Warning`, porque el `standardFontDataUrl` es ruido. El diagnóstico estuvo en pantalla todo
+el tiempo, tapado a propósito.
+
+## ✅ Lo que el usuario YA revisó (2026-08-14)
+
+Abrió el mapa de campos y **la colocación es correcta** en las tres páginas. De paso su lectura
+destapó **4 pares de campos ENCIMADOS** (`Especifique`, `CAUSA`, `Antecedentes_Heredo-Familiares`,
+`Indique_motivo_de_hospitalizacion`): la misma raya detectada dos veces. La deduplicación existía
+pero comparaba ESQUINAS (`|Δy|<=2 && |Δx|<=3`) y se le colaban; ahora compara **traslape** y quedan
+57 reglas → **52 campos**, 0 encimados.
+
+🔎 Todos los números decían que estaba bien —61 reglas, 56 campos, 0 fallidos— y el defecto sólo se
+veía mirando la hoja.
+
+⚠️ Y los nombres feos que reportó (`AAAA`, `y_cantidad`, `CAUSA`) **no eran errores de posición**:
+son rayas cuya etiqueta se tomó del encabezado de columna.
+
+🔴 **Se intentó "arreglarlos" con geometría y salió PEOR — revertido.** La idea era declararlos
+opacos (quitando el prefijo `pN_` en `esOpaco`) para que el modelo recibiera la pregunta impresa.
+Medido sobre la hoja real, el contexto derivado decía:
+
+| campo | rótulo que se le habría dado al modelo |
+|---|---|
+| `vitales.tensionArterial` (`p2_TA`) | **"Mts."** ← la unidad de la caja de Talla de al lado |
+| `campo:p1_AAAA` | **"Hipertensivos"** |
+
+Y el contexto **PISA la etiqueta canónica**, así que el campo de la TENSIÓN ARTERIAL se habría
+presentado como "Mts." — invitando a escribir una estatura ahí. Lo cazó el `/code-review`.
+
+🔎 **La lección:** un nombre poco informativo se ignora; un rótulo FALSO se obedece. Un nombre feo
+se corrige mirando la hoja y escribiéndolo en el diccionario, no adivinándolo con geometría.
+
+## Lo siguiente
+
+1. 🔴 **ABRIR `Downloads/allianz-DEMO-todo-lleno.pdf`**: los 52 campos llenos y los 14 grupos
+   marcados, por el motor real. Es la hoja como la recibiría la aseguradora.
+2. 🔴 Decidir los 6 conceptos sin mapear mirando la hoja (arriba).
+3. Aplicar `seed-formato-allianz.sql` a prod (`prisma db execute`, jamás `db push`) y desplegar.
+   ⚠️ Hasta que esa fila exista, el dropdown NO ofrece Allianz: `formatoDe()` empata contra la BD.
+4. 🔴 **GNP sigue bloqueado en el usuario**: ¿el de Eleonor (3 págs) o el oficial (2 págs)?
+3. Lo de 08-11 que sigue sin probarse con el dedo: el paso 07 **nunca ha renderizado en un
+   navegador**.
+
+---
+
 # 🔴 DÓNDE QUEDAMOS DE VERDAD — 2026-08-11, fin de sesión
 
-> **Empieza por aquí.** Lo de abajo (sección del 2026-08-10) es el historial; esto es el estado.
+> Lo de abajo (sección del 2026-08-10) es el historial; esto era el estado al cerrar el 08-11.
 
 ## ✅ CERRADO MÁS TARDE ESE MISMO DÍA (2026-08-11, tarde)
 

@@ -15,14 +15,20 @@
  * ⚠️ El PDF vive en `public/formatos/` a propósito. Es la única carpeta que se
  * despliega con garantía en cualquier modo de build de Next; `src/` no. Se lee
  * del disco con `fs` (nunca por HTTP) y no se enlaza desde la UI — aunque si
- * alguien adivina la URL, lo que baja es la hoja **en blanco** que AXA ya publica
- * en su propio sitio. Nada de esto es PHI.
+ * alguien adivina la URL, lo que baja es una hoja **en blanco**. Nada de esto es
+ * PHI.
+ *
+ * ⚠️ Y no todas son la hoja tal cual la publica la aseguradora: la de **Allianz**
+ * es la oficial **con los campos que le pusimos nosotros** (`camposPropios`), así
+ * que su `Producer` dice `pdf-lib`. Sigue siendo un formato en blanco, pero no es
+ * el archivo de Allianz byte a byte y la fila lo declara (03-FORMATOS §5).
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { PDFCheckBox, PDFDocument } from 'pdf-lib';
 import type { FieldDict } from '../types';
 import { DICT_AXA } from '../dicts/axa';
+import { DICT_ALLIANZ } from '../dicts/allianz';
 
 export interface FormatoEnRepo {
   insurer: string;
@@ -54,6 +60,22 @@ export const FORMATOS: FormatoEnRepo[] = [
     archivo: 'axa-gmm-informe-medico-2022-02.pdf',
     dict: DICT_AXA,
     camposPropios: false,
+  },
+  {
+    insurer: 'Allianz',
+    name: 'GMM Informe Médico',
+    // Allianz no imprime una clave de versión en la hoja como AXA
+    // (`AI-346 FEBRERO 2022`). Se usa la fecha de creación del PDF oficial,
+    // que es lo único estable que lo identifica: 2023-02-27.
+    version: 'FEBRERO 2023',
+    sourceUrl: 'https://componentes.allianz.com.mx/widget/web/guest/documentos',
+    archivo: 'allianz-gmm-informe-medico-2023-02.pdf',
+    dict: DICT_ALLIANZ,
+    // 🔴 El oficial viene PLANO (0 campos). Los 52 campos de texto y los 14
+    // grupos de casillas se los pusimos nosotros con
+    // `agregarCamposAFormatoPlano()`, así que este archivo ya no es el de
+    // Allianz byte a byte y la fila lo declara (03-FORMATOS §5).
+    camposPropios: true,
   },
 ];
 
