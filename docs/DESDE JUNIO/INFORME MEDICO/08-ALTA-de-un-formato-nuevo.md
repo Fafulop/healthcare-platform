@@ -294,21 +294,34 @@ aterrizaban hasta que se les dio contexto (`06-AGENTE` §12): *nadie elige un ca
 dice qué es*, ni un modelo ni una persona.
 
 ⇒ `FormatoEnRepo.etiquetas` — `nombre del campo → lo que dice la HOJA` — que
-`alta-formato campos` genera y el dict del formato guarda. Resultado: **61 ilegibles → 1**.
+`alta-formato campos` genera y el dict del formato guarda. Resultado: **61 ilegibles → 7**.
 
 **Tres reglas que lo hacen seguro:**
 
 1. **Es texto IMPRESO, no una interpretación.** Es el mismo del que salió el nombre, sin pasar por
    el slug, así que conserva acentos (`Cáncer`, no `Cancer`).
-2. **Cuando la etiqueta sola no dice nada, se le antepone la pregunta del renglón.** `¿Cuál?` se
-   vuelve `Referido por otro médico o unidad: — ¿Cuál?`; `AAAA` se vuelve
-   `Fecha de diagnóstico de este padecimiento — AAAA`.
-3. **Los campos con concepto canónico NO se pisan**: conservan su etiqueta del canónico, que es la
+2. **Cuando la etiqueta sola no dice nada, se le antepone la pregunta del renglón — pero SÓLO si
+   el renglón tiene UNA.** `¿Cuál?` se vuelve `Referido por otro médico o unidad: — ¿Cuál?`.
+   🔴 Con dos o más preguntas el renglón es una **rejilla de columnas** y la de más a la izquierda
+   es la de OTRA columna: el hueco de `x=429` en la fila
+   `[24]Diabetes Mellitus […] [231]Hipertensivos […] [429]____` se rotulaba
+   **"Diabetes Mellitus — AAAA"**, mandando el año de la diabetes al blanco de hipertensivos.
+   Lo cazó el `/code-review` **después de shipear**. Con ambigüedad no se antepone nada.
+3. **La corrección a mano MANDA sobre la geometría.** El merge va
+   `{ ...contexto, ...etiquetasPorClave(formato) }` y no al revés: si un nombre es opaco
+   (`P1_7` de GNP) la geometría propone algo, pero lo que escribió un humano lo pisa. Al revés
+   —como se shipeó primero— las correcciones a mano se perdían en silencio.
+4. **Las MISMAS etiquetas en las tres superficies**: el chat, la lista de campos del doctor y el
+   visor. Si el chat propone "Fecha — Diabetes Mellitus" y la lista dice
+   `p1_Fecha_Diabetes_Mellitus`, el doctor no encuentra el renglón que acaba de aceptar.
+5. **Los campos con concepto canónico NO se pisan**: conservan su etiqueta del canónico, que es la
    buena. El mapa se indexa por CLAVE (`campo:p1_AAAA`), no por nombre — indexarlo mal habría sido
    un no-op silencioso, con el modelo viendo el nombre crudo y todos los contadores en verde.
 
-⚠️ **Quedan 3 que la hoja no explica ni con su renglón** (`p1_CAUSA`, `p1_padecimiento`,
-`p2_Cual`): necesitan que alguien MIRE la hoja impresa y corrija el mapa a mano. Eso es
+⚠️ **Quedan 7 que la hoja no explica ni con su renglón** (`p1_Especifique`, `p1_AAAA`,
+`p1_y_cantidad_2`, `p1_padecimiento`, `p1_CAUSA`, `p2_Cual`, `p2_car_procedimiento`):
+necesitan que alguien MIRE la hoja impresa y corrija el mapa a mano. **Eran "3" mientras dos de
+ellas mentían** — quitar las falsas SUBE el conteo, y eso es lo correcto. Eso es
 **la pantalla de revisión que 02-PLAN §3 pidió desde el principio**, sólo que en forma de un
 `Record<string, string>` en el dict — y las correcciones a mano sobreviven a regenerar el PDF
 mientras el nombre del campo no cambie.

@@ -633,16 +633,6 @@ function resumen() {
 // campos — el caso PLANO
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** `p1_Fecha_Diabetes_Mellitus` → `Diabetes Mellitus`. Sólo deshace el slug. */
-function etiquetaLegible(nombre: string): string {
-  return nombre
-    .replace(/^p\d+_/, '')
-    .replace(/^(Fecha|Importe)_?/, '')
-    .replace(/_/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 async function ponerCampos(entrada: string, salida: string) {
   const bytes = new Uint8Array(await readFile(entrada));
   const antes = await PDFDocument.load(bytes, SIN_TOCAR);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
-import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
+import { dictParaRender, formatoDe , etiquetasPorClave } from '@/lib/informe-medico/formatos';
 import { geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { etiquetaCanonica } from '@/lib/informe-medico/canonical';
 
@@ -30,12 +30,14 @@ export async function GET(
     }
 
     const dict = dictParaRender(formato, form.fieldDict);
+    const etiquetasDelFormato = etiquetasPorClave(formato);
     const geo = await geometriaCacheada(formato, dict, form.updatedAt.toISOString());
     if (!geo) return NextResponse.json({ error: 'No se pudo leer el formato' }, { status: 500 });
 
     return NextResponse.json({
       paginas: geo.paginas,
-      cajas: geo.cajas.map((c) => ({ ...c, etiqueta: etiquetaCanonica(c.clave) })),
+      // Mismas etiquetas que el chat y que la lista de campos.
+      cajas: geo.cajas.map((c) => ({ ...c, etiqueta: etiquetasDelFormato[c.clave] ?? etiquetaCanonica(c.clave) })),
       // Se devuelve, no se calla: un campo del diccionario que no se pudo ubicar
       // es un blanco que el visor NO va a dibujar, y la hoja se vería completa.
       sinUbicar: geo.sinUbicar,

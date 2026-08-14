@@ -104,8 +104,18 @@ export const DICT_ALLIANZ: FieldDict = {
  * la pantalla de revisión que 02-PLAN §3 siempre pidió— y las correcciones
  * sobreviven a regenerar el PDF mientras el nombre no cambie.
  *
- * ⚠️ Quedan tres que la hoja no explica ni con su renglón: `p1_CAUSA`,
- * `p1_padecimiento` y `p2_Cual`. Necesitan que alguien MIRE la hoja impresa.
+ * 🔴 **Quedan SIETE que la hoja no explica ni con su renglón** y que necesitan
+ * que alguien MIRE la hoja impresa: `p1_Especifique`, `p1_AAAA`,
+ * `p1_y_cantidad_2`, `p1_padecimiento`, `p1_CAUSA`, `p2_Cual` y
+ * `p2_car_procedimiento`.
+ *
+ * ⚠️ Eran "tres" hasta que el `/code-review` del 2026-08-14 encontró que dos de
+ * las etiquetas "resueltas" eran **FALSAS**: `p1_AAAA` decía
+ * *"Diabetes Mellitus — AAAA"* cuando el hueco está en la mitad de
+ * *Hipertensivos* del mismo renglón. Se antepone la pregunta del renglón SÓLO
+ * si el renglón tiene UNA; con dos o más es una rejilla de columnas y la de más
+ * a la izquierda es la de OTRA columna. Un rótulo pobre se ignora, uno falso se
+ * obedece.
  */
 export const ETIQUETAS_ALLIANZ: Record<string, string> = {
   "p1_Apellido_Paterno": "Apellido Paterno",
@@ -116,12 +126,12 @@ export const ETIQUETAS_ALLIANZ: Record<string, string> = {
   "p1_Cual": "Referido por otro médico o unidad: — ¿Cuál?",
   "p1_Antecedentes_Heredo-Familiares": "Antecedentes Heredo-Familiares:",
   "p1_Antecedentes_Heredo-Familiares_2": "Antecedentes Heredo-Familiares:",
-  "p1_Especifique": "Neurológicas — Especifique",
-  "p1_AAAA": "Diabetes Mellitus — AAAA",
+  "p1_Especifique": "Especifique",
+  "p1_AAAA": "AAAA",
   "p1_Mencione_cirugias_realizadas": "Mencione cirugías realizadas",
   "p1_Indique_motivo_de_hospitalizacion_no_quirurg": "Indique motivo de hospitalización (no quirúrgica)",
   "p1_y_cantidad": "¿Consume o ha consumido bebidas alcohólicas? especificar tipo — y cantidad)",
-  "p1_y_cantidad_2": "¿Consume o ha consumido algún tipo de drogas? — y cantidad)",
+  "p1_y_cantidad_2": "y cantidad)",
   "p1_FUM": "FUM",
   "p1_No_de_Embarazos": "No. de Embarazo(s):",
   "p1_Partos": "Parto(s):",

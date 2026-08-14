@@ -517,12 +517,34 @@ const ETIQUETA_GENERICA =
  * antepone la pregunta que manda en el renglón.
  */
 function etiquetaLargaDe(label: string | null, x: number, y: number, textos: Texto[]): string | null {
-  if (!label) return null;
+  if (!label) return label;
   if (!ETIQUETA_GENERICA.test(label.trim())) return label;
-  const pregunta = textos
-    .filter((t) => Math.abs(t.y - y) <= 6 && t.x + t.w <= x + 4 && t.s.trim() !== label.trim())
-    .sort((a, b) => a.x - b.x)[0];
-  return pregunta ? `${pregunta.s} — ${label}` : label;
+
+  // Candidatos a "pregunta que manda en el renglón": lo que hay a la izquierda
+  // que no sea una guía de fecha, ni una opción genérica, ni la etiqueta misma.
+  const candidatos = textos
+    .filter((t) => {
+      if (Math.abs(t.y - y) > 6) return false;
+      if (t.x + t.w > x + 4) return false;
+      const s = t.s.trim();
+      return s !== label.trim() && s !== '' &&
+        !GUIA_DE_FECHA_SUELTA.test(s) && !ETIQUETA_GENERICA.test(s);
+    })
+    .sort((a, b) => a.x - b.x);
+
+  // 🔴 SÓLO se antepone si el renglón tiene UNA pregunta. Con dos o más, el
+  //    renglón es una REJILLA de columnas y el texto de más a la izquierda es
+  //    el de OTRA columna.
+  //
+  //    Medido en el Allianz real, fila y≈351:
+  //      [24]Diabetes Mellitus [DD MM AAAA]  [231]Hipertensivos [DD MM AAAA]  [429]____
+  //    El hueco de x=429 está en la mitad derecha y se rotulaba
+  //    **"Diabetes Mellitus — AAAA"**: le decía al modelo que escribiera el año
+  //    de la diabetes en el blanco de al lado de hipertensivos. Un rótulo FALSO
+  //    se obedece; uno pobre se ignora. Con dos candidatos no se inventa nada y
+  //    se deja la etiqueta pelona, que es honesta.
+  if (candidatos.length !== 1) return label;
+  return `${candidatos[0].s} — ${label}`;
 }
 
 export interface ResultadoAltaFormato {

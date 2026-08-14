@@ -3,7 +3,7 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { etiquetaCanonica } from '@/lib/informe-medico/canonical';
-import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
+import { dictParaRender, formatoDe , etiquetasPorClave } from '@/lib/informe-medico/formatos';
 import { clavesDelInforme, geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { cargarPrefill } from '@/lib/informe-medico/cargar-prefill';
 import {
@@ -78,6 +78,7 @@ export async function GET(
     if (!report) return NextResponse.json({ error: 'Informe no encontrado' }, { status: 404 });
 
     const formato = formatoDe(report.form);
+    const etiquetasFormato = formato ? etiquetasPorClave(formato) : {};
     const answers = leerAnswers(report.answers);
 
     // Los campos llenables: la unión de la hoja, el diccionario y lo ya guardado
@@ -138,7 +139,10 @@ export async function GET(
       // descargado.
       campos: claves.map((clave) => ({
         clave,
-        etiqueta: etiquetaCanonica(clave),
+        // 🔴 Las MISMAS etiquetas que ve el asistente. Si la lista dijera
+        //    `p1_Fecha_Diabetes_Mellitus` y el chat "Fecha — Diabetes Mellitus",
+        //    el doctor no encontraría el renglón que acaba de aceptar.
+        etiqueta: etiquetasFormato[clave] ?? etiquetaCanonica(clave),
         valor: answers[clave] ?? { value: '', source: null, origin: 'empty' },
       })),
       avisos,

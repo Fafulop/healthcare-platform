@@ -1550,11 +1550,10 @@ del texto vecino, así que al modelo le llegaba `campo:p1_AAAA`, `campo:p1_y_can
 fechas de AXA no aterrizaban (`06-AGENTE` §12).
 
 ⇒ `FormatoEnRepo.etiquetas` (`nombre → lo que dice la hoja`), generado por `alta-formato campos` y
-guardado en `dicts/allianz.ts`. **61 ilegibles → 1.** Ejemplos:
+guardado en `dicts/allianz.ts`. **61 ilegibles → 7.** Ejemplos:
 
 ```
 campo:p1_Cual         → "Referido por otro médico o unidad: — ¿Cuál?"
-campo:p1_AAAA         → "Diabetes Mellitus — AAAA"
 campo:p3_Importe_...  → "Importe — Cirujano"
 ```
 
@@ -1566,8 +1565,19 @@ canónico no se pisan.
 como se escribe— habría sido un **no-op silencioso**: el modelo seguiría viendo el nombre crudo y
 todos los contadores en verde. Se cazó antes de shipear porque se midió el catálogo, no el código.
 
-🔴 **Quedan 3 que ni con su renglón se entienden** (`p1_CAUSA`, `p1_padecimiento`, `p2_Cual`):
-hay que MIRAR la hoja impresa y corregirlos a mano en `ETIQUETAS_ALLIANZ`.
+🔴 **Quedan 7 que ni con su renglón se entienden** (`p1_Especifique`, `p1_AAAA`,
+`p1_y_cantidad_2`, `p1_padecimiento`, `p1_CAUSA`, `p2_Cual`, `p2_car_procedimiento`): hay que
+MIRAR la hoja impresa y corregirlos a mano en `ETIQUETAS_ALLIANZ`.
+
+🔴 **Y el `/code-review` encontró que DOS de las "resueltas" eran FALSAS** — se shipearon así.
+`p1_AAAA` decía *"Diabetes Mellitus — AAAA"* y el hueco está en la mitad de *Hipertensivos* del
+mismo renglón: le habría dicho al modelo que escribiera el año de la diabetes en el blanco de la
+hipertensión. La causa: se anteponía el texto **más a la izquierda** del renglón, sin ver que un
+renglón con DOS preguntas es una rejilla de columnas. Ahora sólo se antepone si hay UNA.
+
+🔎 **Es la tercera vez hoy con la misma forma**, y ya con nombre propio: un rótulo pobre se ignora,
+uno FALSO se obedece. Pasó con `Mts.`, con `p2_RFC` en el bloque del médico, y ahora con esto —
+las tres veces intentando ser útil derivando algo de la geometría.
 
 ## Lo siguiente
 

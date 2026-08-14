@@ -157,7 +157,7 @@ export async function POST(
 
     // La hoja ENTERA, no una página: el agente sólo puede decir "qué falta" si la
     // ve completa. Medido: los 255 campos de AXA son ~3,800 tokens (prompt-chat).
-    const campos = camposDictables(geo, null, { ...etiquetasPorClave(formato), ...contexto });
+    const campos = camposDictables(geo, null, { ...contexto, ...etiquetasPorClave(formato) });
     if (campos.length === 0) {
       return NextResponse.json({ error: 'Este formato no tiene campos que se puedan llenar' }, { status: 400 });
     }

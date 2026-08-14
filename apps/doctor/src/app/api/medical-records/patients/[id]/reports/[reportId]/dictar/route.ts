@@ -125,7 +125,7 @@ export async function POST(
       dict,
       () => leerPdfBase(formato)
     );
-    const campos = camposDictables(geo, pagina, { ...etiquetasPorClave(formato), ...contexto });
+    const campos = camposDictables(geo, pagina, { ...contexto, ...etiquetasPorClave(formato) });
     if (campos.length === 0) {
       return NextResponse.json({ error: 'Esta página no tiene campos que se puedan dictar' }, { status: 400 });
     }
