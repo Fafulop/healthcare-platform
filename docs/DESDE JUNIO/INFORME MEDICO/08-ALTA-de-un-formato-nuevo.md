@@ -166,7 +166,7 @@ hoja verse mal en un navegador al 130%.
 |---|---|---|
 | **AXA** | ✅ ya trae 277 campos | 🟢 **EN PROD y funcionando** |
 | **Allianz** | ✅ bajado del portal de Allianz el 2026-08-14 · **PLANO** (0 campos) | 🟢 **EN PROD**, poco probado a mano |
-| **GNP** | ✅ bajado de `gnp.com.mx` el 2026-08-15 · ya trae **62 campos** (55 texto + **7 radios**) | 🟡 **construido y verificado con el motor; sin sembrar la fila y SIN MIRAR** |
+| **GNP** | ✅ bajado de `gnp.com.mx` el 2026-08-15 · ya trae **62 campos** (55 texto + **7 radios**) | 🟢 **EN PROD y probado por el usuario** (`d51d570c`) |
 
 ### Allianz — lo que quedó (2026-08-14)
 

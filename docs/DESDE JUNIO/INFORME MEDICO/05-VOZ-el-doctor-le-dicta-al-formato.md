@@ -380,4 +380,6 @@ cambiado en silencio quién puede dictar en NOTAS y CONSULTAS, que nadie decidi�
   inventa: ése es el punto.
 - **Las casillas** (22 campos / 49 recuadros en AXA, grupos excluyentes) no entran en v1 del
   dictado: primero texto.
-- **GNP** sigue bloqueado por la pregunta abierta #0 — cuál formato rige.
+- ~~**GNP** sigue bloqueado por la pregunta abierta #0 — cuál formato rige.~~
+  ✅ **RESUELTO 2026-08-15: rige el OFICIAL**, y ya está EN PROD
+  ([`03-FORMATOS`](03-FORMATOS-procedencia-y-versiones.md) §3).

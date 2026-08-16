@@ -39,6 +39,19 @@ Las cuatro **clínicas de cabecera** son oro para un informe de aseguradora: ale
 medicación habitual salen en casi todos los formatos y aquí están como texto plano, sin tocar el
 esquema variable de la consulta.
 
+### 🔴 El nombre del MÉDICO también es fuente A, y NO se puede partir a ojo
+
+Los formatos piden al médico tratante, y GNP además **partido** en paterno / materno / nombres.
+`Doctor` guarda **dos** columnas y en prod se usan de dos maneras incompatibles (medido sobre los
+11 doctores, 2026-08-15): a veces `doctorFullName` trae el nombre completo, a veces **sólo los
+nombres de pila** con los apellidos en `lastName`, y **4 de 11 tienen `lastName` vacío**.
+
+⇒ Los apellidos salen de `lastName`; los nombres, de lo que sobra de `doctorFullName` sin el
+título. **Si `lastName` está vacío, los tres campos quedan VACÍOS y avisados** — es la regla del §4
+aplicada al médico: sin fuente no se adivina, y menos en la casilla que identifica a quien firma.
+Partir el nombre completo daba `paterno = "Michelle"`. Detalle en
+[`04-MAPEO`](04-MAPEO-expediente-a-formato.md) §4a-bis.
+
 ### 🔴 La edad: hay CUATRO implementaciones y **tres están mal**
 
 La edad no es una columna: se calcula de `dateOfBirth`. En el repo hay **cuatro**:

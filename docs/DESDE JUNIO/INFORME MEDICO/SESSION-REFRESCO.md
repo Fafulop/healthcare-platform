@@ -42,19 +42,20 @@ campos de los tres formatos imprimen.
 
 # ⏱️ 2026-08-15: la TERCERA aseguradora (GNP)
 
-**Estado: construido y verificado con el motor real. NADA desplegado, NADA en la BD, NADA
-commiteado.** El trabajo está en el árbol de trabajo, con `type-check` ✅ y los **5 gates** ✅.
+> ✅ **CERRADO: GNP está EN PROD** (`d51d570c`, deploy SUCCESS) y el usuario lo probó —
+> *"it run and it's fine, looks very good"*. La fila de `insurance_forms` se aplicó ANTES del push
+> y se verificó leyéndola de vuelta (20 entradas idénticas al repo, acentos intactos, los 22
+> informes existentes intactos). Lo de abajo se conserva como bitácora.
 
-## Lo primero
+## Lo que quedó abierto de GNP
 
-1. 🔴 **Abrir `Downloads/gnp-MAPA-de-campos.pdf` y `Downloads/gnp-DEMO-todo-lleno.pdf`.** Son las 2
-   páginas de GNP con cada campo rotulado y con todo lleno por el motor real (55/55 rotulados ·
-   62/62 llenos · 0 problemas · 0 campos vivos tras aplanar). **Nadie las ha visto.**
-2. 🔴 **Aplicar `seed-formato-gnp.sql` a prod** (`prisma db execute`, JAMÁS `db push`) **ANTES** del
-   push. Sin esa fila el dropdown no ofrece GNP: `formatoDe()` empata contra la BD.
-3. 🔴 **Decidir `clinico.tratamiento`**: GNP tiene UN campo `Tratamiento` y no se sabe, sin ver la
+1. 🔴 **Decidir `clinico.tratamiento`**: GNP tiene UN campo `Tratamiento` y no se sabe, sin ver la
    hoja, si pregunta por el tratamiento DADO o el PROPUESTO. Se dejó SIN mapear a propósito — en AXA
    equivocarse ahí habría dicho algo falso.
+2. **`paciente.sexo` no se mapea al radio `Genero`**: el canónico entrega `"Masculino"` y el campo
+   pide su valor de exportación (`M`). Empatarlos pide una tabla de equivalencias por formato que
+   hoy no existe, y aproximar en un grupo excluyente está prohibido. El médico lo marca de un clic
+   — y el ASISTENTE sí puede ponerlo, porque `Genero` está entre los 5 grupos que ve.
 
 ## Qué se hizo
 
@@ -207,7 +208,8 @@ Todo lo de abajo está bloqueado en mirar la hoja impresa. Nada es difícil; nad
    tratamiento, exploración física, RFC, fecha del informe y hospital.
 4. **NADIE ha visto las 3 páginas de Allianz renderizadas en el navegador** con los 87 campos.
    Se revisó el mapa en PDF, que no es lo mismo que el visor pintando cajas sobre un lienzo.
-5. **GNP sigue bloqueado en el usuario**: ¿el formato de Eleonor (3 págs) o el oficial (2 págs)?
+5. ~~**GNP sigue bloqueado en el usuario**: ¿el de Eleonor (3 págs) o el oficial (2 págs)?~~
+   ✅ **RESUELTO 2026-08-15: el OFICIAL, y ya está EN PROD.**
 
 Para 1, 2 y 4 hay dos PDFs recién generados en `Downloads/`:
 `allianz-MAPA-de-campos.pdf` (cada campo rotulado con su nombre) y
@@ -1514,7 +1516,7 @@ del siniestro— pero hay que **verificar el `TZ` del contenedor** antes de emit
 
 ### Bloqueado por el usuario
 
-- **GNP**: ¿cuál formato rige, el de Eleonor (3 págs) o el oficial (2 págs)?
+- ~~**GNP**: ¿cuál formato rige?~~ ✅ RESUELTO 2026-08-15: el OFICIAL, y EN PROD.
 
 ## Lo siguiente
 
@@ -1547,7 +1549,7 @@ falta otra vez, se reescriben en 5 minutos.
 
 | # | Pregunta | Dónde |
 |---|---|---|
-| 0 | ⚠️ **GNP: ¿cuál formato rige** — el de Eleonor (3 pág) o el que publica GNP (2 pág)? Se arranca con el oficial, pero conviene confirmarlo | [`03-FORMATOS`](03-FORMATOS-procedencia-y-versiones.md) §3 |
+| ~~0~~ | ~~**GNP: ¿cuál formato rige?**~~ ✅ **RESUELTO 2026-08-15: el OFICIAL, y EN PROD** | [`03-FORMATOS`](03-FORMATOS-procedencia-y-versiones.md) §3 |
 | ~~0b~~ | ~~¿Qué empresa dio estos PDFs?~~ **RESUELTO: Eleonor (`eleonor.mx`)**, de una cuenta de doctor real | [`03-FORMATOS`](03-FORMATOS-procedencia-y-versiones.md) §0 |
 | 1 | ¿Cuántas aseguradoras/formatos son en total? v1 arranca con 3 por decisión del usuario | [`03-FORMATOS`](03-FORMATOS-procedencia-y-versiones.md) §0 |
 | 2 | ¿Quién da de alta un formato — admin de la plataforma o cada doctor? | [`02-PLAN`](02-PLAN-el-formato-y-los-pasos.md) §4 |

@@ -29,7 +29,11 @@ Nada se "edita en PDF".
 |---|---|---|---|---|---|
 | **Allianz México** — Informe Médico | 3 | **126** (77 texto · 33 casilla · 16 s/tipo) | ✅ ~5,500 chars | 0 | No / No |
 | **AXA Seguros** — GMM Informe Médico | 6 | **326** (264 texto · 45 casilla · 17 s/tipo) | ✅ ~8,500 chars | 0 | No / No |
-| **GNP** — Informe médico GM | 3 | **132** (68 texto · 43 casilla · 3 radio · 18 s/tipo) | ✅ ~5,700 chars | 0 | No / No |
+| **GNP** — Informe médico GM ⚠️ **el de ELEONOR** | 3 | **132** (68 texto · 43 casilla · 3 radio · 18 s/tipo) | ✅ ~5,700 chars | 0 | No / No |
+
+⚠️ **El renglón de GNP es de otro documento.** El OFICIAL tiene **2 páginas y 62 campos**
+(55 texto + **7 grupos de radio**), mide 684×864 —carta con rebase de preprensa— y su página 1
+lleva una capa APAGADA con el arte de la página 2 (03-FORMATOS §3).
 
 Los tres: **sin cifrar, sin XFA, sin restricciones de permisos, sin rotación, tamaño carta**.
 
@@ -66,8 +70,23 @@ niveles distintos, y esto define el único trabajo manual que queda:
 | Nivel | Formato | Ejemplos de nombre | Qué hace falta |
 |---|---|---|---|
 | 🟢 **Auto-descriptivo** | **AXA** | `DiagnósticoRow1` · `Fecha de diagnóstico ddmmaaaaRow1` · `Tratamiento recibidoRow1` | Casi nada. El nombre ES la etiqueta |
+| 🟢 **Auto-descriptivo** | **GNP** (el OFICIAL) | `Apellido paterno` · `Diagnóstico Definitivo` · `Cédula profesional` | Casi nada. **No necesita mapa de etiquetas** |
 | 🟡 **Ambiguo** | **Allianz** | `Reembolso` · `Congénito` · `Agudo` · pero también `Si`, `No_2`, `Si_3`, `No_4` | Las parejas Sí/No no dicen a QUÉ pregunta responden |
-| 🔴 **Puramente posicional** | **GNP** | `P1_1` · `P1_7` · `P2_15` · `P2_16` | Cero semántica. Todo hay que derivarlo |
+| ~~🔴 Puramente posicional~~ | ~~GNP~~ | ~~`P1_1` · `P1_7` · `P2_15`~~ | 🔴 **FALSO — ver abajo** |
+
+> 🔴 **CORRECCIÓN (2026-08-15): lo de `P1_7` era el PDF de ELEONOR, no el de GNP.** Este documento
+> clasificaba a GNP como el formato caro —*"cero semántica, todo hay que derivarlo"*— y por eso
+> parecía el que más trabajo pedía. Al bajar el **oficial** de `gnp.com.mx` resultó que sus nombres
+> los puso la aseguradora y son tan buenos como los de AXA. GNP acabó siendo el diccionario **más
+> barato de los tres** (20 entradas, sin mapa de etiquetas).
+>
+> 🔎 La lección, que ya se pagó dos veces: **una propiedad medida sobre el PDF de un tercero no es
+> una propiedad del formato.** Todo lo que este §3 y la tabla del §2 dicen de GNP salió del archivo
+> de Eleonor; lo que vale está en [`03-FORMATOS`](03-FORMATOS-procedencia-y-versiones.md) §3.
+>
+> ⚠️ Lo caro de GNP no estuvo en el diccionario sino en el MOTOR: 7 grupos de radio, 4 rects
+> invertidos, texto en una capa apagada y nombres de opción escapados
+> ([`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §7).
 
 ### Cómo se resuelve barato
 
@@ -184,7 +203,7 @@ propio texto que **no aceptan tachaduras ni enmendaduras**.
 | **0** | ✅ **HECHO** — medir los PDFs reales | Descubrió que son rellenables y borró el paso más caro |
 | **1** | ✅ **HECHO 2026-08-08** — tablas `insurance_forms` + `medical_reports` EN PROD (SQL manual + `prisma db execute`) | Todo lo demás necesita dónde guardar |
 | **2** | `pdf-lib`: llenar por nombre + `flatten`, contra **AXA** (el de nombres más limpios) | Prueba el motor de salida en el caso más fácil |
-| **3** | Derivar el diccionario por cercanía + pantalla de revisión (admin) | Convierte GNP (`P1_7`) en algo mapeable |
+| **3** | ✅ **HECHO** — derivar por cercanía. Vive en `alta-formato.ts` y en `etiquetas-de-la-hoja.ts`; la "pantalla de revisión" acabó siendo el `Record<string,string>` de etiquetas del dict | Hizo falta para el Allianz PLANO (61 nombres ilegibles → 7), **no para GNP**: su oficial se explica solo |
 | **4** | Pre-llenado **determinista**: fuentes A + B1 + B2 | Sin LLM. La mayor parte del valor, lo más barato |
 | **5** | Pantalla del doctor: dropdown de formato, formulario HTML, procedencia visible, exportar | Ya hay qué mostrar y qué pre-llenar |
 | **6** | LLM sobre `customData` (B3) + voz | Lo último: es lo único que puede equivocarse |
@@ -201,11 +220,12 @@ la funcionalidad **ya sirve** aunque el 6 nunca llegue.
 | Riesgo | Mitigación |
 |---|---|
 | Un formato futuro SÍ es escaneo plano | Entonces vuelve el estampado por coordenadas **para ese formato**. El diseño lo aísla: cambia el renderer, no el resto |
-| Nombres de campo sin semántica (GNP) | Derivación por cercanía + revisión humana (§3) |
+| Nombres de campo sin semántica (los formatos PLANOS, caso Allianz — **no GNP**) | Derivación por cercanía + corrección a mano en el dict (§3) |
+| **Tipos de campo que el motor no conocía** | Aparecen con cada aseguradora nueva: GNP trajo RADIOS, rects invertidos, capas apagadas y nombres escapados. `alta-formato inspeccionar` los detecta ahora ([`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §7) |
 | El PDF se entrega editable | `flatten()` obligatorio antes de entregar (§5) |
 | La aseguradora cambia el formato | Versionado (§4) |
 | El doctor confía en el pre-llenado y firma sin leer | Procedencia visible ([`01-FUENTES`](01-FUENTES-de-donde-sale-cada-campo.md) §4) |
-| El texto no cabe en el campo | El widget tiene ancho; auto-ajuste de tamaño, nunca recorte silencioso |
+| El texto no cabe en el campo | pdf-lib mide y ENCOGE solo (nunca recorta mientras el tamaño esté en automático); lo que queda ilegible se REPORTA. ⚠️ Y al revés: una palabra corta en una caja grande salía a 56 pt — se acota a 11 pt **bajando** lo que pdf-lib calculó, jamás fijando un tamaño propio ([`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §7c) |
 | Acentos rotos al escribir | Los formatos son en español (`Diagnóstico`, `Programación`). Verificar la codificación de fuente al llenar — es el bug clásico de pdf-lib con caracteres no-WinAnsi |
 
 ## 8. Lo que hay que probar con un clic, no con type-check

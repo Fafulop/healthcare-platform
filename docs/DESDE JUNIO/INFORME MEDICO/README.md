@@ -9,7 +9,7 @@ El doctor elige el formato de una aseguradora de una lista, el sistema **lo pre-
 ya sabe del paciente y de la consulta**, el doctor corrige (tecleando o hablándole al LLM), y sale
 un **PDF idéntico al oficial de la aseguradora** para descargar o mandarle al paciente.
 
-## ✅ Estado (2026-08-15): **EN PROD con DOS aseguradoras; la TERCERA construida**
+## ✅ Estado (2026-08-16): **EN PROD con las TRES aseguradoras**
 
 | | |
 |---|---|
@@ -19,7 +19,7 @@ un **PDF idéntico al oficial de la aseguradora** para descargar o mandarle al p
 | Chat sobre la hoja · informe a nivel PACIENTE con fuentes elegidas | ✅ **EN PROD** |
 | **AXA** — GMM Informe Médico (277 campos, el oficial ya venía rellenable) | ✅ **EN PROD y en uso** |
 | **Allianz** — GMM Informe Médico (oficial PLANO ⇒ 87 campos puestos por nosotros) | ✅ **EN PROD**, poco probado a mano |
-| **GNP** — Informe Médico GMM (oficial, 62 campos: 55 texto + **7 radios**) | 🟡 **construido y verificado con el motor**; falta sembrar la fila, desplegar y MIRARLO |
+| **GNP** — Informe Médico GMM (oficial, 62 campos: 55 texto + **7 radios**) | ✅ **EN PROD y probado por el usuario** (`d51d570c`, 2026-08-15) |
 
 🔴 **Y GNP obligó a tocar el motor**, que hasta ahora sólo sabía de texto y casillas: **grupos de
 RADIO** (7 preguntas de la hoja, incluido el sexo), **rects invertidos** (4 widgets con alto
@@ -30,6 +30,18 @@ escapados** (`Opci#F3n2`). Las cuatro dan una hoja que se ve normal y ningún ga
 ⚠️ De paso salió que **AXA y Allianz imprimían el nombre del médico incompleto** para los doctores
 cuyos apellidos viven en `Doctor.lastName` (3 de 11 en prod). Corregido con una sola regla para las
 tres aseguradoras.
+
+### 🔤 El tamaño de letra del PDF — `2cbd2be1` (2026-08-16)
+
+Una palabra corta en una caja grande se imprimía **ENORME** (`Migraña` a 56 pt en GNP). Se acota a
+**11 pt**, pero **bajando lo que pdf-lib ya calculó**, nunca fijando un tamaño propio: con el
+tamaño en automático pdf-lib mide y encoge hasta que quepa —chico pero COMPLETO—, y en cuanto se
+fija uno **deja de comprobar** y lo que sobra se recorta sin aviso. Detalle en
+[`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §7c.
+
+🔴 **Y así se descubrió que `Día_2` y `Día_3` del AXA oficial NUNCA habían impreso nada** — vienen
+con un tamaño fijo de fábrica y un campo `comb` con tamaño fijo no dibuja. Son 2 de las 7 cajas de
+fecha de la hoja que más se usa.
 
 👉 **Para agregar la aseguradora #3, el documento es
 [`08-ALTA-de-un-formato-nuevo.md`](08-ALTA-de-un-formato-nuevo.md)**: las 4 piezas que hay que
@@ -71,7 +83,7 @@ editar**. Detalle en [`SESSION-REFRESCO`](SESSION-REFRESCO.md).
 |---|---|
 | 👉 [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | **EMPIEZA AQUÍ** — estado vivo, decisiones tomadas y las preguntas abiertas |
 | [`01-FUENTES-de-donde-sale-cada-campo.md`](01-FUENTES-de-donde-sale-cada-campo.md) | **El documento importante.** De dónde sale cada valor, y por qué la consulta NO tiene un esquema fijo |
-| [`02-PLAN-el-formato-y-los-pasos.md`](02-PLAN-el-formato-y-los-pasos.md) | Qué se midió en los PDFs reales (§2), el diccionario de campos (§3), las tablas y los 7 pasos |
+| [`02-PLAN-el-formato-y-los-pasos.md`](02-PLAN-el-formato-y-los-pasos.md) | Los 7 pasos y las tablas. ⚠️ Sus §2 y §3 midieron los PDFs de **Eleonor**: lo que dicen de GNP es FALSO y está corregido en su sitio |
 | [`03-FORMATOS-procedencia-y-versiones.md`](03-FORMATOS-procedencia-y-versiones.md) | **De dónde bajar el PDF y por qué el del tercero no sirve** — oficial vs. intermediario, formato por formato |
 | [`04-MAPEO-expediente-a-formato.md`](04-MAPEO-expediente-a-formato.md) | Qué columna llena qué campo de cada formato · el **canónico** intermedio · **lo que NO podemos llenar** |
 | [`05-VOZ-el-doctor-le-dicta-al-formato.md`](05-VOZ-el-doctor-le-dicta-al-formato.md) | El dictado contra la hoja. **Superado por el chat** (06), se conserva por sus reglas |

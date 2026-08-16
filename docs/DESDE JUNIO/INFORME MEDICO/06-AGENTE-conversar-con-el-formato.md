@@ -403,3 +403,46 @@ que se quita es que las proponga un modelo.
 > 🔎 **Lección:** derivar el catálogo *de la hoja* lo hizo COMPLETO, y completo incluía cosas que
 > ningún agente debe firmar. Al automatizar "qué campos existen" hay que decidir aparte **qué
 > campos son suyos** — no son la misma pregunta.
+
+---
+
+## 13. El chat con la TERCERA aseguradora — GNP (2026-08-15)
+
+Pregunta del usuario al cerrar GNP: *"¿el formato de GNP está mapeado para que el LLM lo entienda
+como AXA y Allianz?"*. Se midió el catálogo REAL que recibe el modelo, no el diccionario:
+
+| | AXA | Allianz | **GNP** |
+|---|---|---|---|
+| Campos de texto ofrecidos | 255 | 73 | **55** |
+| Con el rótulo ILEGIBLE (nombre crudo y opaco) | 0 | 0 | **1** (`CPT`) |
+| Grupos de opción que el asistente puede marcar | 13 de 22 | 12 de 14 | **5 de 7** |
+| ¿Necesitó mapa de `etiquetas` a mano? | no | **sí, 61 de 73** | **no** |
+
+GNP no lo necesita por lo mismo que AXA: **los nombres los puso la aseguradora**
+(`Diagnóstico Definitivo`, `Cédula profesional`). Allianz sí, porque los inventamos nosotros.
+
+### 🔴 Los RADIOS entran al catálogo como un grupo de casillas más
+
+Las 7 preguntas de opción de GNP se ofrecen con la MISMA forma que las casillas de AXA: el modelo
+devuelve la **etiqueta impresa** (`Enfermedad`) y el servidor la resuelve contra el on-state real
+(`/Opción2`). Nunca al revés — si el modelo pudiera mandar el on-state, un `/Opción2` inventado
+marcaría una opción que nadie eligió.
+
+**Verificado con una llamada REAL a gpt-4o** (~3,055 tokens de entrada, la mitad que AXA), con un
+mensaje clínico corriente: **9 colocaciones, 0 descartadas** — 5 campos de texto y 4 grupos
+(`Causa atención → /Opción2`, `Tipo de Trámite → /Opción1`, `Estancia → /Opción2`,
+`Tipo padecimiento → /Opción2`), y preguntó por lo que no podía saber (nombre, fecha de
+nacimiento, póliza, hospital) en vez de inventarlo.
+
+⚠️ **Dos grupos quedan FUERA del alcance del agente** (`Relación otro padecimiento` y
+`Complicaciones`): son `Sí | No` pelados, sin pregunta derivable. Es la regla 3 de
+`casillasParaElAgente()`, la misma que bloquea `Sí_2` en AXA — sin la pregunta, un `Sí` es
+indistinguible entre grupos y el servidor aceptaría el equivocado. Los marca el doctor.
+
+💡 Y al revés: **`Genero` (M | F) SÍ lo ve el asistente**, así que aunque el pre-llenado no puede
+poner el sexo —el canónico dice `"Masculino"` y el campo pide `M`— basta con decírselo al chat.
+
+⚠️ **Un rótulo que conviene corregir:** el modelo escribió el diagnóstico también en
+`Padecimiento relacionado`, que en la hoja significa *otro* padecimiento distinto con el que se
+relaciona. El nombre del campo no lo dice. Es la forma leve de *un rótulo pobre se obedece mal*, y
+se arregla con una línea de `ETIQUETAS_GNP` — pendiente.
