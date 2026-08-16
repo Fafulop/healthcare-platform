@@ -2,7 +2,45 @@
 
 ---
 
-# ⏱️ EMPIEZA AQUÍ — 2026-08-15: la TERCERA aseguradora (GNP)
+# ⏱️ EMPIEZA AQUÍ — 2026-08-16: el TAMAÑO DE LETRA del PDF
+
+**GNP ya está EN PROD y probado por el usuario** (`d51d570c`, deploy SUCCESS): *"it run and it's
+fine, looks very good"*. Lo de abajo (2026-08-15) es el historial de esa sesión.
+
+**Sin commitear:** el arreglo del tamaño de letra. `type-check` ✅ · 5 gates ✅.
+
+## Qué reportó el usuario
+
+*"Escribo `Migraña` en una caja grande y en el PDF sale una palabra enorme."* Cierto: medido,
+**56 pt** en `Diagnóstico Definitivo` de GNP y 59 pt en `Antecedentes No Patológicos`. `pdf-lib`
+deja los campos en tamaño AUTOMÁTICO y estira el texto hasta llenar el recuadro.
+
+## 🔴 Y el arreglo obvio era PEOR que el problema
+
+Estimar el tamaño y fijarlo **pierde texto**: con `0` (automático) pdf-lib mide las glifos y
+encoge hasta que quepa —chico pero COMPLETO—, y con un tamaño fijo **no comprueba nada** y lo que
+sobra se dibuja fuera del recorte y desaparece. Lo cazó el `/code-review`.
+
+⇒ La regla que quedó: **no calcular, sólo BAJAR lo que pdf-lib ya calculó** (1ª pasada mide, se
+acota a 11 pt, 2ª pasada dibuja). Seguro por construcción: sólo se reduce. Detalle y las tres
+trampas de no-op en [`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §7c.
+
+Medido en GNP: 3 chars → **11 pt** (antes 56) · 308 → 11 pt · **791 → 7 pt y completo**.
+
+## 🔴🔴 Y de paso: DOS fechas de AXA no imprimían NADA, desde siempre
+
+Un campo `comb` con tamaño FIJO no dibuja nada en pdf-lib. `Día_2` y `Día_3` del AXA oficial ya
+vienen con `/Helv 10 Tf` de fábrica ⇒ **nunca han impreso, con ningún valor** — 2 de las 7 cajas
+de fecha de la hoja que más se usa. Ahora se fuerzan a automático y salen.
+
+🔎 **La lección de método:** mi primer arreglo llevaba `llenados=4 · problemas=0 · ilegibles=0` y
+había BORRADO la fecha de la hoja. Los contadores cuentan lo que se intentó escribir, no lo que se
+imprimió. Ahora hay una comprobación que llena todo, aplana y **lee el PDF de vuelta**: los 383
+campos de los tres formatos imprimen.
+
+---
+
+# ⏱️ 2026-08-15: la TERCERA aseguradora (GNP)
 
 **Estado: construido y verificado con el motor real. NADA desplegado, NADA en la BD, NADA
 commiteado.** El trabajo está en el árbol de trabajo, con `type-check` ✅ y los **5 gates** ✅.

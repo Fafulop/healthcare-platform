@@ -26,7 +26,7 @@ import {
   type PDFForm,
 } from 'pdf-lib';
 import { nombrePdfDe, type Answers, type FieldDict } from './types';
-import { capacidadDeCaja } from './capacidad';
+import { capacidadDeCaja, PT_MAXIMO } from './capacidad';
 import { empataOpcion, onStateDelWidget, rectDelWidget } from './geometria-formato';
 import { caracteresNoImprimibles } from './winansi';
 
@@ -230,6 +230,9 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
       continue;
     }
     llenados++;
+    // Los `comb` van SIEMPRE en automático: con un tamaño fijo pdf-lib no dibuja
+    // NADA, y dos campos de AXA ya vienen así de fábrica (ver la función).
+    if (field.isCombed()) forzarTamanoAutomatico(field);
 
     // 🔴 `pdf-lib` no recorta: encoge la letra hasta 3 pt y desborda. El valor SÍ
     // se escribe (borrarlo sería perder lo que tecleó el médico), pero se reporta
@@ -256,6 +259,112 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
     }
   }
   return { omitidos, ilegibles, llenados };
+}
+
+/**
+ * 🔴🔴 EL TOPE DE TAMAÑO DE LETRA — y por qué se hace en DOS pasadas.
+ *
+ * El problema: `pdf-lib` deja los campos en tamaño AUTOMÁTICO y su generador
+ * estira el texto hasta llenar el recuadro. Medido en el GNP oficial, la palabra
+ * `Migraña` en la caja de `Diagnóstico Definitivo` (407×64) salía a **56 pt**.
+ *
+ * 🔴 Lo que NO se puede hacer es estimar el tamaño uno mismo y fijarlo. Con el
+ * tamaño en `0`, `layoutMultilineText`/`layoutSinglelineText` **miden las
+ * glifos de verdad y encogen hasta que quepa**: sale chiquito, pero **completo**.
+ * En cuanto se fija un tamaño, esas funciones **no comprueban nada** y lo que
+ * sobra se dibuja fuera del recorte del widget y **desaparece sin aviso**. Una
+ * estimación optimista (ancho medio 0.5 em, sin contar el borde ni el ajuste por
+ * palabras) convierte "se lee chico" en "falta media frase" — en un documento
+ * médico-legal, exactamente al revés de lo que queremos.
+ *
+ * ⇒ La regla segura: **NO calcular; sólo BAJAR lo que pdf-lib ya calculó.**
+ *
+ *   1ª pasada: `updateFieldAppearances()` — pdf-lib mide y escribe en el `/DA`
+ *              de cada campo el tamaño que SÍ cabe.
+ *   se lee ese tamaño; si supera `PT_MAXIMO`, se baja a `PT_MAXIMO`.
+ *   2ª pasada: la que hace `flatten()` — dibuja con el tamaño ya acotado.
+ *
+ * Es seguro **por construcción**: sólo se reduce, y un texto que cabe a 20 pt
+ * cabe a 11 (menos ancho por línea y menos líneas). Nunca se sube nada, así que
+ * es imposible provocar un recorte.
+ */
+function acotarTamanosDeLetra(form: PDFForm) {
+  for (const field of form.getFields()) {
+    if (!(field instanceof PDFTextField)) continue;
+    // Los `comb` van SIEMPRE en automático (ver `forzarTamanoAutomatico`).
+    if (field.isCombed()) continue;
+
+    // ⚠️ El tamaño puede vivir en el WIDGET y no en el campo: pdf-lib resuelve
+    // `widgetFontSize ?? fieldFontSize` y **el widget no hereda del padre**. Si
+    // sólo se acotara el campo, un widget con `/DA` propio ganaría y el tope
+    // sería un no-op silencioso.
+    const objetivos: Array<{ leer: () => string | undefined; escribir: (da: string) => void }> = [];
+    for (const w of field.acroField.getWidgets()) {
+      if (w.getDefaultAppearance()) {
+        objetivos.push({ leer: () => w.getDefaultAppearance() ?? undefined, escribir: (da) => w.setDefaultAppearance(da) });
+      }
+    }
+    if (objetivos.length === 0) {
+      objetivos.push({
+        leer: () => field.acroField.getDefaultAppearance() ?? undefined,
+        escribir: (da) => field.acroField.setDefaultAppearance(da),
+      });
+    }
+
+    for (const o of objetivos) {
+      const da = o.leer();
+      if (!da) continue;
+      const m = /(\/[^\s]+\s+)([\d.]+)(\s+Tf)/.exec(da);
+      if (!m) continue;
+      const actual = Number(m[2]);
+      // `0` es automático: ya se resolvió en la 1ª pasada, y si sigue en 0 es que
+      // el campo está vacío. Nada que acotar.
+      if (!(actual > PT_MAXIMO)) continue;
+      try {
+        o.escribir(da.replace(m[0], `${m[1]}${PT_MAXIMO}${m[3]}`));
+        // 🔴 Sin esto el tope es un NO-OP silencioso. La 1ª pasada ya dejó
+        // GENERADO el stream de apariencia a 56 pt, y tanto `flatten()` como
+        // `updateFieldAppearances()` sólo REGENERAN los campos marcados como
+        // sucios: el `/DA` decía 11 y la hoja seguía imprimiendo 56.
+        form.markFieldAsDirty(field.ref);
+      } catch {
+        // Nunca se tumba el documento por un tamaño de letra.
+      }
+    }
+  }
+}
+
+
+/**
+ * Pone el tamaño de letra en AUTOMÁTICO (`0 Tf`) conservando la fuente.
+ *
+ * 🔴🔴 Es OBLIGATORIO en los campos `comb`, y costó caro descubrirlo. Un comb
+ * reparte los caracteres en `maxLength` celdas de ancho fijo y `pdf-lib` calcula
+ * él mismo el tamaño; con uno FIJO su generador **no dibuja nada**: el valor
+ * sigue en el `/V` —`getText()` lo devuelve— pero el PDF aplanado sale VACÍO ahí.
+ *
+ * Y no basta con no tocarlos: **dos campos del AXA oficial ya vienen con tamaño
+ * fijo de fábrica** (`Día_2` y `Día_3`, `/Helv 10 Tf`) y por eso **nunca han
+ * impreso nada, con ningún valor, desde que existe la funcionalidad** — 2 de las
+ * 7 cajas de fecha de la hoja que más se usa. Verificado: con `0 Tf` imprimen.
+ */
+function forzarTamanoAutomatico(field: PDFTextField) {
+  for (const objetivo of [
+    ...field.acroField.getWidgets().filter((w) => w.getDefaultAppearance()),
+    field.acroField,
+  ]) {
+    const da = objetivo.getDefaultAppearance();
+    if (!da) continue;
+    // `/Helv 10 Tf 0 g` -> `/Helv 0 Tf 0 g`. Se conserva la FUENTE del formato:
+    // es la que su `/DR` declara.
+    const auto = da.replace(/(\/[^\s]+\s+)[\d.]+(\s+Tf)/, '$10$2');
+    if (auto === da) continue;
+    try {
+      objetivo.setDefaultAppearance(auto);
+    } catch {
+      // Nunca se tumba el documento por un tamaño de letra.
+    }
+  }
 }
 
 /**
@@ -393,7 +502,13 @@ export async function renderFinal(
   const form = pdf.getForm();
   const { omitidos, ilegibles, llenados } = aplicarRespuestas(form, answers, dict);
 
-  // 🔴 Sin esto el informe llega EDITABLE a la aseguradora.
+  // 1ª pasada: pdf-lib mide y deja en cada `/DA` el tamaño que SÍ cabe; luego se
+  // acota lo que salga gigante. Ver `acotarTamanosDeLetra`.
+  form.updateFieldAppearances();
+  acotarTamanosDeLetra(form);
+
+  // 🔴 Sin esto el informe llega EDITABLE a la aseguradora. (Y de paso hace la
+  // 2ª pasada de apariencias, ya con los tamaños acotados.)
   form.flatten();
 
   return { pdf: await pdf.save(), llenados, omitidos, problemas: soloProblemas(omitidos), ilegibles, widgetsSinPagina: 0 };
@@ -420,6 +535,13 @@ export async function renderBorrador(
   const pdf = await PDFDocument.load(pdfBase);
   const form = pdf.getForm();
   const { omitidos, ilegibles, llenados } = aplicarRespuestas(form, answers, dict);
+
+  // El MISMO tope que el final: el borrador es la superficie de revisión, y si
+  // enseñara la palabra a 56 pt y el final a 11 el doctor estaría revisando una
+  // hoja distinta de la que se manda.
+  form.updateFieldAppearances();
+  acotarTamanosDeLetra(form);
+  form.updateFieldAppearances();
 
   const pages = pdf.getPages();
   const font = await pdf.embedFont(StandardFonts.HelveticaBold);

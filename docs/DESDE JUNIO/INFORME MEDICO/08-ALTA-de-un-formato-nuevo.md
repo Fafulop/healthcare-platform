@@ -336,6 +336,65 @@ revisión: `mapa` no rotulaba 15 campos (el nombre no cabía en su `maxLength`, 
 reportaba *"3 problemas"* en una hoja sana. Un contador que nunca da cero enseña a ignorarlo.
 Los dos arreglados: **55/55 rotulados y 62/62 llenos con 0 problemas**.
 
+## 7c. 🔴 EL TAMAÑO DE LETRA: por qué NO se calcula, se ACOTA (2026-08-16)
+
+Reporte del usuario: *"escribo `Migraña` en una caja grande y en el PDF sale una palabra
+enorme"*. Cierto y medido — `Diagnóstico Definitivo` de GNP (407×64) imprimía esa palabra a
+**56 pt**, y `Antecedentes No Patológicos` a 59 pt. `pdf-lib` deja los campos en tamaño
+**automático** y su generador estira el texto hasta llenar el recuadro; en una caja de una línea
+no se nota porque el alto lo acota (11–12 pt), en una multilínea sí.
+
+🔴 **Y el arreglo obvio —estimar el tamaño y fijarlo— es PEOR que el problema.** Con el tamaño en
+`0`, `layoutMultilineText`/`layoutSinglelineText` **miden las glifos de verdad y encogen hasta que
+quepa**: sale chico pero **completo**. En cuanto se fija un tamaño, esas funciones **no comprueban
+nada** y lo que sobra se dibuja fuera del recorte del widget y **desaparece sin aviso**. Una
+estimación optimista (ancho medio 0.5 em, sin descontar el borde ni el ajuste por palabras)
+convierte *"se lee chico"* en *"falta media frase"* — al revés de lo que hace falta en un
+documento médico-legal. Lo cazó el `/code-review` con el cálculo del ancho real de Helvetica.
+
+⇒ **La regla: no calcular, sólo BAJAR lo que pdf-lib ya calculó.**
+
+```
+1ª pasada  updateFieldAppearances()  → pdf-lib mide y escribe en el /DA el tamaño que SÍ cabe
+           acotarTamanosDeLetra()    → si supera PT_MAXIMO (11), se baja a 11
+2ª pasada  flatten()                 → dibuja con el tamaño ya acotado
+```
+
+Es seguro **por construcción**: sólo se reduce, y lo que cabe a 20 pt cabe a 11. Medido en GNP:
+3 caracteres → 11 pt (antes 56) · 308 → 11 pt · **791 → 7 pt y completo** (por debajo del tope, no
+se toca). Cero texto perdido de más frente a HEAD, en los tres formatos.
+
+⚠️ **Tres trampas dentro de la trampa**, y las tres daban un no-op silencioso:
+
+1. **Hay que marcar el campo como SUCIO** (`form.markFieldAsDirty`). La 1ª pasada ya dejó generado
+   el stream de apariencia a 56 pt, y `flatten()` sólo regenera lo sucio: el `/DA` decía 11 y la
+   hoja seguía imprimiendo 56.
+2. **El tamaño puede vivir en el WIDGET**, no en el campo: pdf-lib resuelve
+   `widgetFontSize ?? fieldFontSize` y **el widget no hereda del padre**.
+3. **Los campos `comb` van SIEMPRE en automático** — abajo.
+
+### 🔴🔴 Y así salió que DOS fechas de AXA no imprimían NADA, desde siempre
+
+Un campo `comb` reparte los caracteres en `maxLength` celdas y pdf-lib calcula él mismo el tamaño.
+**Con uno fijo, su generador no dibuja nada**: el valor sigue en el `/V` —`getText()` lo
+devuelve— y el PDF aplanado sale VACÍO ahí, con `llenados` y `problemas` diciendo que todo bien.
+
+Son **14 campos entre AXA y GNP y son TODAS las fechas** (y los teléfonos). Al probarlo salió que
+**`Día_2` y `Día_3` del AXA oficial ya vienen con `/Helv 10 Tf` de fábrica**, así que **nunca han
+impreso nada, con ningún valor, desde que existe la funcionalidad** — 2 de las 7 cajas de fecha de
+la hoja que más se usa. Se fuerzan a `0 Tf` y desde entonces imprimen.
+
+> 🔎 **La lección, y es de método:** el arreglo llevaba `llenados=4 · problemas=0 · ilegibles=0` y
+> había borrado la fecha de la hoja. Los contadores cuentan lo que se INTENTÓ escribir, no lo que
+> se IMPRIMIÓ. Para esto hace falta la comprobación que ahora existe: llenar todos los campos,
+> aplanar, **leer el PDF de vuelta** y exigir que cada valor aparezca.
+
+⚠️ **Pendiente conocido (PRE-EXISTENTE, no lo introduce esto):** con texto muy largo pdf-lib deja
+de encoger en un mínimo y recorta. Medido con valores de 180 caracteres: AXA pierde 21 campos y
+los **avisa los 21**; Allianz pierde 14 y **calla 2** (`p2_Senale_los_resultados_de_examenes_de_
+laborat_2`, `p2_Hubo_complicaciones`), porque el aviso usa la misma estimación de 0.5 em que es
+optimista. Ahí la estimación es SEGURA —sólo decide si avisar— pero conviene afinarla.
+
 ## 7b. 🔴 En un formato PLANO, las ETIQUETAS son una pieza aparte del diccionario
 
 Ésta es la diferencia de fondo entre AXA y Allianz, y hay que tenerla presente en cada formato

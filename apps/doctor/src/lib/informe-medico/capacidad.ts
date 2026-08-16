@@ -24,6 +24,13 @@
 export const PT_MINIMO_LEGIBLE = 6;
 
 /**
+ * Tope de tamaño de letra al imprimir. Ver `acotarTamanosDeLetra` en
+ * `render-pdf.ts`: sin él, una palabra corta en una caja grande sale a 56 pt.
+ * 11 pt es lo que ya producían las cajas de una línea.
+ */
+export const PT_MAXIMO = 11;
+
+/**
  * Ancho medio de un carácter como fracción del tamaño de letra, en Helvetica.
  * 0.5 es el promedio habitual para minúsculas y dígitos; los formatos usan
  * Helvetica/Arial, así que sirve para dimensionar.
