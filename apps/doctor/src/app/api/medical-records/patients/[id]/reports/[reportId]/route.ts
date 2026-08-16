@@ -6,6 +6,7 @@ import { etiquetaCanonica } from '@/lib/informe-medico/canonical';
 import { dictParaRender, formatoDe , etiquetasPorClave } from '@/lib/informe-medico/formatos';
 import { clavesDelInforme, geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { cargarPrefill } from '@/lib/informe-medico/cargar-prefill';
+import { avisosDelFormato } from '@/lib/informe-medico/prefill';
 import {
   leerFuentes, leerFuentesPedidas, resolverFuentesElegidas, tituloDeAncla,
 } from '@/lib/informe-medico/contexto-clinico';
@@ -101,7 +102,13 @@ export async function GET(
     let avisos: unknown[] = [];
     if (report.encounterId) {
       try {
-        avisos = (await cargarPrefill({ doctorId, patientId, encounterId: report.encounterId })).avisos;
+        const recalculados = (await cargarPrefill({ doctorId, patientId, encounterId: report.encounterId })).avisos;
+        // Sólo los que ESTA hoja puede atender: AXA y Allianz no tienen casillas
+        // de apellido del médico, y avisar ahí manda a buscar un campo que no
+        // existe — en todos los informes, hasta que nadie lee la barra.
+        avisos = formato
+          ? avisosDelFormato(recalculados, dictParaRender(formato, report.form.fieldDict))
+          : recalculados;
       } catch {
         // Si la consulta ya no se puede leer, el informe se sigue mostrando: los
         // avisos son una ayuda, no un requisito para abrir lo ya guardado.

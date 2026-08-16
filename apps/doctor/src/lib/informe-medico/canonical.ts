@@ -70,6 +70,13 @@ export const CAMPOS_CANONICOS = {
 
   // ── El médico ─────────────────────────────────────────────────────────────
   'medico.nombre': 'Nombre del médico',
+  // GNP pide el nombre del médico PARTIDO en tres, igual que el del paciente.
+  // Se componen de `doctorFullName` + `lastName`, y quedan VACÍOS cuando la
+  // ficha no trae apellidos — nunca se parte el nombre completo a ojo, porque
+  // en prod ese campo a veces trae sólo los nombres de pila (`Dr. David`).
+  'medico.apellidoPaterno': 'Apellido paterno del médico',
+  'medico.apellidoMaterno': 'Apellido materno del médico',
+  'medico.nombres': 'Nombre(s) del médico',
   'medico.especialidad': 'Especialidad',
   'medico.cedulaProfesional': 'Cédula profesional',
   'medico.cedulaEspecialidad': 'Cédula de especialidad',

@@ -22,7 +22,16 @@
  * ⚠️ El PDF que sale de aquí YA NO es el oficial byte a byte. Se marca con
  * `insurance_forms.fields_added_by_us = true`.
  */
-import { PDFDocument, PDFName, type PDFDict } from 'pdf-lib';
+import {
+  decodePDFRawStream,
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFRawStream,
+  PDFRef,
+  type PDFPageLeaf,
+} from 'pdf-lib';
 import type { FieldDict } from './types';
 
 // pdfjs se carga dinámicamente: es pesado y sólo se usa al dar de alta un formato.
@@ -81,13 +90,17 @@ export interface GeometriaPagina {
  */
 export async function geometriaDelPdf(pdfBase: Uint8Array): Promise<GeometriaPagina[]> {
   const { getDocument, OPS } = await getPdfjs();
+  const visibles = await visibilidadDeBloquesOc(pdfBase);
   const tarea = getDocument({ data: new Uint8Array(pdfBase) });
   const doc = await tarea.promise;
   try {
     const salida: GeometriaPagina[] = [];
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p);
-      const contenido = await page.getTextContent();
+      // `includeMarkedContent` para poder DESCARTAR lo que no se ve. Sin la
+      // bandera, los marcadores no vienen y no hay forma de distinguirlo.
+      const crudo = await page.getTextContent({ includeMarkedContent: true });
+      const contenido = { items: soloVisible(crudo.items, visibles[p - 1] ?? []) };
       salida.push({
         pagina: p,
         ancho: page.getViewport({ scale: 1 }).width,
@@ -100,6 +113,67 @@ export async function geometriaDelPdf(pdfBase: Uint8Array): Promise<GeometriaPag
   } finally {
     await doc.destroy();
   }
+}
+
+/**
+ * 🔴 Deja fuera el texto que está en una CAPA APAGADA.
+ *
+ * El GNP oficial es un archivo de preprensa con tres capas (`Frente`, `Reverso`,
+ * `REGISTROS`) y su página 1 lleva dentro una copia COMPLETA e invisible del
+ * arte de la página 2 — mismas cadenas, mismas coordenadas. Medido: 245 items
+ * de texto de los que sólo 126 se ven.
+ *
+ * `getTextContent()` no sabe de visibilidad: devuelve las dos capas mezcladas.
+ * Y como las etiquetas de esta funcionalidad se deducen por CERCANÍA, derivar
+ * sobre esa mezcla produce rótulos tomados de un texto que el médico no tiene
+ * delante — la falla que en esta carpeta ya tiene nombre: *un rótulo pobre se
+ * ignora, uno FALSO se obedece*.
+ *
+ * ⚠️ Se emparejan por ORDEN: el n-ésimo `beginMarkedContentProps` con tag `OC`
+ * es el n-ésimo `/OC /MCn BDC` del content stream. Los dos salen del MISMO
+ * stream y en el mismo orden, así que la correspondencia se sostiene; lo que no
+ * se puede es pedirle el id a pdf.js, que lo devuelve `null` en este archivo.
+ */
+function soloVisible(items: unknown[], visibilidad: boolean[]): unknown[] {
+  // Sin capas, o con todas encendidas: no se filtra nada. ⚠️ **Allianz SÍ tiene
+  // capas** (4 OCGs de Illustrator) — lo que no tiene es ninguna en `/OFF`, así
+  // que pasa por aquí y sale intacto. AXA no tiene `/OCProperties`.
+  if (visibilidad.length === 0 || visibilidad.every(Boolean)) return items;
+  // 🔴 GUARDA: el emparejamiento es POSICIONAL, así que sólo vale si los dos
+  // lados cuentan lo mismo. pdf.js emite bloques `/OC` que este lado no ve —los
+  // que van dentro de un Form XObject, y los `/OC <</Type/OCMD …>> BDC` con el
+  // diccionario en línea— y con un solo bloque de diferencia TODAS las banderas
+  // se recorren: se tira texto visible o se conserva el oculto, en silencio y
+  // produciendo justo las etiquetas falsas que esto existe para evitar.
+  //
+  // Si no cuadra se falla ABIERTO (no se filtra nada), que es como se comportaba
+  // antes de que existiera el filtro: una hoja con etiquetas de más es peor que
+  // una con etiquetas de otra página, pero mucho mejor que una con las
+  // equivocadas y sin señal.
+  const bloquesOc = items.filter(
+    (it) =>
+      (it as { type?: string }).type === 'beginMarkedContentProps' &&
+      (it as { tag?: string }).tag === 'OC'
+  ).length;
+  if (bloquesOc !== visibilidad.length) return items;
+
+  const salida: unknown[] = [];
+  const pila: boolean[] = [];
+  let siguiente = 0;
+  for (const it of items) {
+    const tipo = (it as { type?: string }).type;
+    if (tipo === 'beginMarkedContentProps' || tipo === 'beginMarkedContent') {
+      // Sólo los bloques de contenido OPCIONAL cuentan para el emparejamiento;
+      // un `/Span BDC` cualquiera no consume una posición de la lista.
+      const esOc = (it as { tag?: string }).tag === 'OC';
+      pila.push(esOc ? (visibilidad[siguiente++] ?? true) : (pila[pila.length - 1] ?? true));
+      continue;
+    }
+    if (tipo === 'endMarkedContent') { pila.pop(); continue; }
+    if (pila.length > 0 && pila[pila.length - 1] === false) continue;
+    salida.push(it);
+  }
+  return salida;
 }
 
 /**
@@ -197,6 +271,132 @@ function reglasDeOperadores(
     if (r.w > u.w || (r.w === u.w && r.y < u.y)) unicas[gemela] = r;
   }
   return unicas;
+}
+
+/**
+ * Las capas de contenido opcional del PDF y si están encendidas.
+ *
+ * Sólo para el reporte de alta: un formato con una capa APAGADA lleva texto que
+ * existe en el archivo y no se ve, y eso cambia cómo hay que leer la hoja
+ * (03-FORMATOS §3). Un PDF sin capas devuelve `[]`.
+ */
+export async function capasDelPdf(
+  pdfBase: Uint8Array
+): Promise<Array<{ nombre: string; visible: boolean }>> {
+  try {
+    const pdf = await PDFDocument.load(new Uint8Array(pdfBase), { updateMetadata: false });
+    const ocProps = pdf.catalog.lookupMaybe(PDFName.of('OCProperties'), PDFDict);
+    if (!ocProps) return [];
+    const grupos = ocProps.lookupMaybe(PDFName.of('OCGs'), PDFArray);
+    const d = ocProps.lookupMaybe(PDFName.of('D'), PDFDict);
+    const baseApagado = d?.get(PDFName.of('BaseState'))?.toString() === '/OFF';
+    const refs = (clave: string): Set<string> => {
+      const arr = d?.lookupMaybe(PDFName.of(clave), PDFArray);
+      const s = new Set<string>();
+      if (!arr) return s;
+      for (let i = 0; i < arr.size(); i++) {
+        const r = arr.get(i);
+        if (r instanceof PDFRef) s.add(r.toString());
+      }
+      return s;
+    };
+    const apagados = refs('OFF');
+    const encendidos = refs('ON');
+
+    const salida: Array<{ nombre: string; visible: boolean }> = [];
+    for (let i = 0; i < (grupos?.size() ?? 0); i++) {
+      const ref = grupos!.get(i);
+      const dict = ref instanceof PDFRef ? pdf.context.lookup(ref) : ref;
+      const nombre =
+        dict instanceof PDFDict ? String(dict.get(PDFName.of('Name'))).replace(/^\(|\)$/g, '') : '?';
+      const clave = ref instanceof PDFRef ? ref.toString() : '';
+      const visible = apagados.has(clave) ? false : baseApagado ? encendidos.has(clave) : true;
+      salida.push({ nombre, visible });
+    }
+    return salida;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Por página y en el orden del content stream, si cada bloque `/OC … BDC` se ve.
+ *
+ * Un arreglo VACÍO para una página significa "no hay capas" — el caso de AXA y
+ * de Allianz, donde nada se filtra y el comportamiento no cambia.
+ *
+ * La visibilidad sale del `/OCProperties /D` del catálogo: `/OFF` lista los
+ * grupos apagados, y `/BaseState /OFF` invierte el default (entonces manda
+ * `/ON`). Se resuelve con pdf-lib porque pdf.js no expone el id del grupo en el
+ * texto extraído.
+ */
+async function visibilidadDeBloquesOc(pdfBase: Uint8Array): Promise<boolean[][]> {
+  try {
+    const pdf = await PDFDocument.load(new Uint8Array(pdfBase), { updateMetadata: false });
+    const ocProps = pdf.catalog.lookupMaybe(PDFName.of('OCProperties'), PDFDict);
+    if (!ocProps) return [];
+    const d = ocProps.lookupMaybe(PDFName.of('D'), PDFDict);
+    const baseApagado = d?.get(PDFName.of('BaseState'))?.toString() === '/OFF';
+
+    const listado = (clave: string): Set<string> => {
+      const arr = d?.lookupMaybe(PDFName.of(clave), PDFArray);
+      const s = new Set<string>();
+      if (!arr) return s;
+      for (let i = 0; i < arr.size(); i++) {
+        const ref = arr.get(i);
+        if (ref instanceof PDFRef) s.add(ref.toString());
+      }
+      return s;
+    };
+    const apagados = listado('OFF');
+    const encendidos = listado('ON');
+
+    return pdf.getPages().map((page) => {
+      const props = page.node.Resources()?.lookupMaybe(PDFName.of('Properties'), PDFDict);
+      if (!props) return [];
+      // `/MC0 -> ref del OCG`, para traducir el nombre que aparece en el stream.
+      const refDe = new Map<string, string>();
+      for (const clave of props.keys()) {
+        const v = props.get(clave);
+        if (v instanceof PDFRef) refDe.set(clave.asString(), v.toString());
+      }
+      const stream = contenidoDeLaPagina(pdf, page);
+      const orden = [...stream.matchAll(/\/OC\s*(\/[^\s/[\]<>]+)\s*BDC/g)].map((m) => m[1]);
+      return orden.map((nombre) => {
+        const ref = refDe.get(nombre);
+        if (!ref) return true;                        // no se pudo resolver: no se oculta nada
+        if (apagados.has(ref)) return false;
+        if (baseApagado) return encendidos.has(ref);
+        return true;
+      });
+    });
+  } catch {
+    // Un PDF que no se deja inspeccionar no debe dejar sin etiquetas al formato:
+    // se sigue como si no hubiera capas, que es lo que pasaba antes.
+    return [];
+  }
+}
+
+/** El content stream de una página, ya descomprimido. Puede venir en varios. */
+function contenidoDeLaPagina(pdf: PDFDocument, page: { node: PDFPageLeaf }): string {
+  const contents = page.node.get(PDFName.of('Contents'));
+  const streams: PDFRawStream[] = [];
+  const agregar = (o: unknown) => {
+    const v = o instanceof PDFRef ? pdf.context.lookup(o) : o;
+    if (v instanceof PDFRawStream) streams.push(v);
+  };
+  const resuelto = contents instanceof PDFRef ? pdf.context.lookup(contents) : contents;
+  if (resuelto instanceof PDFArray) {
+    for (let i = 0; i < resuelto.size(); i++) agregar(resuelto.get(i));
+  } else {
+    agregar(resuelto);
+  }
+  return streams
+    .map((s) => {
+      try { return Buffer.from(decodePDFRawStream(s).decode()).toString('latin1'); }
+      catch { return ''; }
+    })
+    .join('\n');
 }
 
 /** Los fragmentos de texto de una página, con su posición. */

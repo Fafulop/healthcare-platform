@@ -10,7 +10,7 @@
  * está en UN solo lugar (`InformeVisor`). Repartirla es cómo se acaba con la
  * mitad de las cajas volteadas.
  */
-import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
+import { PDFCheckBox, PDFDocument, PDFName, PDFRadioGroup, PDFTextField } from 'pdf-lib';
 import { claveCruda, type FieldDict } from './types';
 
 export interface CajaCampo {
@@ -45,6 +45,9 @@ export interface CajaCampo {
    * campo, y ese valor dice cuál recuadro está marcado. Sin esto, marcar uno
    * marcaba los cuatro y el PDF terminaba con la marca en el primero,
    * independientemente de cuál eligió el doctor.
+   *
+   * En un grupo de RADIO es lo mismo, y el on-state ES el valor de exportación
+   * del recuadro (`Opción2` en GNP): por eso los dos tipos comparten camino.
    */
   onState?: string;
 }
@@ -69,14 +72,64 @@ export interface GeometriaFormato {
  * es `/Off`. Es el valor que hay que ponerle al campo para que se marque ESTE
  * recuadro y no otro del mismo grupo.
  */
-function onStateDe(widget: { getAppearances: () => { normal?: unknown } | undefined }): string | undefined {
-  const normal = widget.getAppearances()?.normal as { dict?: Map<{ asString(): string }, unknown> } | undefined;
+export function onStateDelWidget(
+  widget: { getAppearances: () => { normal?: unknown } | undefined }
+): string | undefined {
+  const normal = widget.getAppearances()?.normal as
+    | { dict?: Map<{ decodeText(): string }, unknown> }
+    | undefined;
   if (!normal?.dict) return undefined;
   for (const k of normal.dict.keys()) {
-    const nombre = k.asString().replace(/^\//, '');
+    // 🔴 `decodeText()` y NO `asString()`. Un nombre del PDF escapa todo byte
+    // fuera del ASCII imprimible, así que `Opción2` se guarda como `Opci#F3n2` y
+    // `Sí` como `S#ED`. `asString()` devuelve ese literal escapado; el
+    // `getOptions()` de un grupo de radio devuelve el texto ya decodificado.
+    // Mezclarlos hace que el valor que guarda el visor no empate con ninguna
+    // opción y la elección del médico se DESCARTE en silencio — medido sobre el
+    // GNP oficial, cuyas 6 preguntas con acento fallaban todas.
+    const nombre = k.decodeText();
     if (nombre !== 'Off') return nombre;
   }
   return undefined;
+}
+
+// `empataOpcion` vive en `types.ts`, que NO importa pdf-lib: el visor es un
+// componente de cliente y también tiene que empatar. Se re-exporta desde aquí
+// porque es donde se lee el on-state, y así los dos van juntos.
+export { empataOpcion } from './types';
+
+/**
+ * El rectángulo de un widget, SIEMPRE con ancho y alto positivos.
+ *
+ * 🔴 Un `/Rect` del PDF se declara con DOS esquinas opuestas y el spec no exige
+ * ningún orden: `[x1 y1 x2 y2]` con `y2 < y1` es perfectamente válido y describe
+ * la misma caja. `pdf-lib` resta sin normalizar, así que devuelve **alto
+ * negativo** — y entonces:
+ *
+ *   · el visor calcula `top = altoPagina - y - alto` y baja la caja |alto| pt, y
+ *     le pone un `height` negativo que el navegador descarta ⇒ el campo queda
+ *     invisible o corrido, y el doctor **no puede escribir en él**;
+ *   · `capacidadDeCaja` lo trata como inmensurable y se lo salta ⇒ el campo
+ *     nunca se revisa por legibilidad, en silencio;
+ *   · el borrador pinta su recuadro de color |alto| pt más abajo.
+ *
+ * Medido en el GNP oficial: 4 widgets vienen así, uno de ellos el cuadro de
+ * `Antecedentes perinatales` (318×−56). AXA y Allianz no traen ninguno, que es
+ * por lo que nunca se había visto.
+ */
+export function rectDelWidget(widget: { getRectangle: () => { x: number; y: number; width: number; height: number } }): {
+  x: number;
+  y: number;
+  ancho: number;
+  alto: number;
+} {
+  const r = widget.getRectangle();
+  return {
+    x: Math.min(r.x, r.x + r.width),
+    y: Math.min(r.y, r.y + r.height),
+    ancho: Math.abs(r.width),
+    alto: Math.abs(r.height),
+  };
 }
 
 export async function geometriaDelFormato(
@@ -146,8 +199,17 @@ export async function geometriaDelFormato(
     const clave = canonicaDe.get(nombrePdf) ?? claveCruda(nombrePdf);
 
     const esTexto = field instanceof PDFTextField;
-    const esCasilla = field instanceof PDFCheckBox;
-    // Radios y firmas se quedan fuera a propósito; sólo se avisan si alguien los
+    // 🔴 Un grupo de RADIO se dibuja igual que uno de casillas y se comporta
+    // igual para el doctor: N recuadros, uno solo encendido, y el valor guardado
+    // es el estado de exportación del recuadro elegido. Como la forma es la
+    // misma, el visor, el catálogo del asistente y la procedencia funcionan sin
+    // aprender nada nuevo — que es exactamente lo que se hizo con las casillas
+    // dibujadas de Allianz (08-ALTA §7).
+    //
+    // Antes se excluían "a propósito", y en GNP eso dejaba 7 preguntas sin un
+    // solo recuadro donde contestar, incluido el sexo del paciente.
+    const esCasilla = field instanceof PDFCheckBox || field instanceof PDFRadioGroup;
+    // Las firmas y los botones sí se quedan fuera; sólo se avisan si alguien los
     // mapeó en el diccionario, porque entonces sí se esperaba llenarlos.
     if (!esTexto && !esCasilla) {
       if (canonicaDe.has(nombrePdf)) sinUbicar.push({ clave, nombrePdf, motivo: 'tipo-no-soportado' });
@@ -177,21 +239,21 @@ export async function geometriaDelFormato(
         continue;
       }
 
-      const r = widget.getRectangle();
+      const r = rectDelWidget(widget);
       cajas.push({
         clave,
         nombrePdf,
         pagina,
         x: r.x,
         y: r.y,
-        ancho: r.width,
-        alto: r.height,
+        ancho: r.ancho,
+        alto: r.alto,
         tipo: esTexto ? 'texto' : 'casilla',
         multilinea: esTexto ? (field as PDFTextField).isMultiline() : false,
         ...(esTexto && (field as PDFTextField).getMaxLength() !== undefined
           ? { maxLength: (field as PDFTextField).getMaxLength() }
           : {}),
-        ...(esCasilla ? { onState: onStateDe(widget) } : {}),
+        ...(esCasilla ? { onState: onStateDelWidget(widget) } : {}),
       });
     }
   }

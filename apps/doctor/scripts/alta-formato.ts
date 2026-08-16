@@ -45,17 +45,17 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
+import { PDFCheckBox, PDFDocument, PDFRadioGroup, PDFTextField } from 'pdf-lib';
 import { CAMPOS_CANONICOS, type CampoCanonico } from '../src/lib/informe-medico/canonical';
 import { capacidadDeCaja } from '../src/lib/informe-medico/capacidad';
 import { caracteresNoImprimibles } from '../src/lib/informe-medico/winansi';
-import { geometriaDelFormato } from '../src/lib/informe-medico/geometria-formato';
+import { geometriaDelFormato, onStateDelWidget } from '../src/lib/informe-medico/geometria-formato';
 import {
   casillasParaElAgente,
   etiquetasDeLaHoja,
   type GrupoCasillas,
 } from '../src/lib/informe-medico/etiquetas-de-la-hoja';
-import { agregarCamposAFormatoPlano } from '../src/lib/informe-medico/add-fields';
+import { agregarCamposAFormatoPlano, capasDelPdf } from '../src/lib/informe-medico/add-fields';
 import { claveFormato, FORMATOS } from '../src/lib/informe-medico/formatos';
 import { claveCruda, nombrePdfDeClaveCruda, esClaveCruda } from '../src/lib/informe-medico/types';
 import { renderFinal } from '../src/lib/informe-medico/render-pdf';
@@ -432,14 +432,51 @@ async function inspeccionar(ruta: string) {
 
   const texto = campos.filter((c) => c instanceof PDFTextField) as PDFTextField[];
   const casillas = campos.filter((c) => c instanceof PDFCheckBox) as PDFCheckBox[];
-  const otros = campos.filter((c) => !(c instanceof PDFTextField) && !(c instanceof PDFCheckBox));
-  linea(`  total: ${campos.length}  ·  texto: ${texto.length}  ·  casilla: ${casillas.length}  ·  otros: ${otros.length}`);
+  // Los RADIOS son grupos de opciones excluyentes igual que las casillas, y desde
+  // GNP (2026-08-15) el motor los llena. Contarlos con las firmas y los botones
+  // decía que 7 preguntas de la hoja no se podían contestar, y ya no es cierto.
+  const radios = campos.filter((c) => c instanceof PDFRadioGroup) as PDFRadioGroup[];
+  const otros = campos.filter(
+    (c) => !(c instanceof PDFTextField) && !(c instanceof PDFCheckBox) && !(c instanceof PDFRadioGroup)
+  );
+  linea(
+    `  total: ${campos.length}  ·  texto: ${texto.length}  ·  casilla: ${casillas.length}` +
+      `  ·  radio: ${radios.length}  ·  otros: ${otros.length}`
+  );
   if (otros.length > 0) {
     ojo(
-      `${otros.length} campos que no son texto ni casilla (firmas, botones, radios). ` +
+      `${otros.length} campos que no son texto, casilla ni radio (firmas, botones). ` +
         'El motor NO los llena; sólo se avisan si el diccionario los nombra.'
     );
     for (const o of otros.slice(0, 10)) linea(`      ${o.constructor.name}  ${o.getName()}`);
+  }
+
+  // 🔴 `/Rect` invertido. El spec permite declararlo con las esquinas en
+  // cualquier orden y pdf-lib resta sin normalizar: un alto negativo deja la caja
+  // sin altura y corrida en el visor — es decir, un campo que NO SE PUEDE
+  // ESCRIBIR, sin ningún error. GNP traía 4.
+  let invertidos = 0;
+  for (const c of campos) {
+    for (const w of c.acroField.getWidgets()) {
+      const r = w.getRectangle();
+      if (r.width < 0 || r.height < 0) invertidos++;
+    }
+  }
+  if (invertidos > 0) {
+    linea(`  ℹ️  ${invertidos} widgets traen el /Rect invertido — normalizados por rectDelWidget().`);
+  }
+
+  // 🔴 Capas de contenido opcional. Si hay texto en una capa apagada, las
+  // etiquetas por vecindad se derivarían de algo que el médico no ve.
+  const capas = await capasDelPdf(bytes);
+  if (capas.length > 0) {
+    linea(`  ℹ️  capas de contenido opcional: ${capas.map((c) => `${c.nombre}${c.visible ? '' : ' (APAGADA)'}`).join(' · ')}`);
+    if (capas.some((c) => !c.visible)) {
+      ojo(
+        'Hay capas APAGADAS: su texto existe en el archivo y NO se ve. La derivación ' +
+          'de etiquetas ya lo filtra; no lo deshagas leyendo el texto por tu cuenta.'
+      );
+    }
   }
 
   // El diccionario vacío hace que TODO salga como campo crudo, que es justo lo
@@ -470,7 +507,11 @@ async function inspeccionar(ruta: string) {
     ojo(`${conMax.length} campos declaran \`maxLength\`:`);
     for (const c of conMax.slice(0, 20)) {
       const nombre = esClaveCruda(c.clave) ? nombrePdfDeClaveCruda(c.clave) : c.clave;
-      const fecha = c.maxLength !== undefined && c.maxLength <= 10;
+      // La pista sólo se da cuando el campo DICE que es una fecha. Antes bastaba
+      // con `maxLength <= 10` y entonces `Teléfono Médico` salía rotulado
+      // "¿fecha sin separadores?": una pista falsa sobre qué escribir ahí, que es
+      // justo el modo de falla que esta carpeta persigue.
+      const fecha = /fecha|dd\s*mm|aaaa/i.test(nombre);
       linea(`      max=${String(c.maxLength).padStart(3)}  p${c.pagina + 1}  ${nombre}${fecha ? '   ← ¿fecha sin separadores?' : ''}`);
     }
     if (conMax.length > 20) linea(`      … y ${conMax.length - 20} más`);
@@ -480,13 +521,21 @@ async function inspeccionar(ruta: string) {
 
   // 2. Casillas marcadas DE FÁBRICA. La hoja "en blanco" de AXA traía 9, una de
   //    ellas una declaración de facturación del médico.
-  const marcadas = casillas
-    .map((c) => ({ nombre: c.getName(), on: marcadaDeFabrica(c) }))
-    .filter((c): c is { nombre: string; on: string } => c.on !== null);
+  const marcadas = [
+    ...casillas.map((c) => ({ nombre: c.getName(), on: marcadaDeFabrica(c) })),
+    // 🔴 Los RADIOS vienen preseleccionados igual (GNP: `Relación otro
+    // padecimiento = Opción1`) y hasta 2026-08-15 nadie los miraba.
+    //
+    // ⚠️ Se leen con `getSelected()`, que mira el `/V` del grupo — NO con
+    // `isChecked()`: ése compara contra el on-state del PRIMER recuadro y en AXA
+    // encuentra 4 de las 9. Es la misma familia del viejo `check()` que marcaba
+    // la primera opción sin importar cuál eligió el doctor.
+    ...radios.map((r) => ({ nombre: r.getName(), on: r.getSelected() ?? null })),
+  ].filter((c): c is { nombre: string; on: string } => c.on !== null && c.on !== undefined);
   if (marcadas.length > 0) {
     trampas++;
     avisar(
-      `${marcadas.length} casillas vienen MARCADAS de fábrica: ${marcadas
+      `${marcadas.length} opciones vienen MARCADAS de fábrica: ${marcadas
         .map((c) => `${c.nombre}=/${c.on}`)
         .join(', ')}`
     );
@@ -656,16 +705,36 @@ async function mapa(entrada: string, salida: string) {
   const pdf = await PDFDocument.load(new Uint8Array(await readFile(entrada)), SIN_TOCAR);
   const form = pdf.getForm();
   let n = 0;
+  const sinRotular: string[] = [];
   for (const field of form.getFields()) {
+    // Los grupos de opciones no llevan texto: se revisan en el DEMO, que los
+    // marca. Se cuentan aparte para que su ausencia no parezca un fallo.
+    if (field instanceof PDFCheckBox || field instanceof PDFRadioGroup) continue;
+    if (!(field instanceof PDFTextField)) continue;
     try {
-      (field as PDFTextField).setText(field.getName().replace(/^p\d+_/, ''));
-      (field as PDFTextField).setFontSize(7);
+      // 🔴 El nombre se RECORTA al `maxLength` de la caja. Sin esto `setText`
+      // lanza y el `catch` se lo traga: en GNP eran 15 campos —los 8 con tope,
+      // entre ellos las cuatro fechas— que desaparecían del mapa **justo los
+      // que hay que revisar**, y el reporte decía "40 campos" tan tranquilo.
+      const tope = field.getMaxLength();
+      const etiqueta = field.getName().replace(/^p\d+_/, '');
+      field.setText(tope !== undefined ? etiqueta.slice(0, tope) : etiqueta);
+      // 🔴 El tamaño de letra va APARTE y es opcional: `setFontSize` exige que el
+      // campo tenga `/DA`, y 7 campos de GNP —los grandes de antecedentes,
+      // padecimiento y diagnóstico— no lo traen. Junto al `setText` en el mismo
+      // `try`, su excepción borraba del mapa el rótulo que SÍ se había puesto.
+      // (El renderer de verdad nunca llama a `setFontSize`, por eso llena esos
+      // campos sin problema: era un defecto de esta herramienta, no de la hoja.)
+      try { field.setFontSize(7); } catch { /* se queda con su tamaño propio */ }
       n++;
-    } catch { /* las casillas no llevan texto */ }
+    } catch {
+      sinRotular.push(field.getName());
+    }
   }
   form.flatten();
   await writeFile(salida, await pdf.save());
   linea(`${n} campos rotulados con su propio nombre → ${salida}`);
+  if (sinRotular.length > 0) ojo(`${sinRotular.length} no se pudieron rotular: ${sinRotular.join(', ')}`);
   ojo('Ábrelo y compara: ¿lo que dice cada raya es la etiqueta impresa a su lado?');
 }
 
@@ -682,20 +751,21 @@ async function demo(entrada: string, salida: string) {
   const answers: Record<string, { value: string; source: null; origin: 'manual' }> = {};
   for (const f of pdf.getForm().getFields()) {
     const nombre = f.getName();
-    if (f instanceof PDFCheckBox) {
+    // Las casillas y los RADIOS son lo mismo aquí: un grupo de opciones
+    // excluyentes. Si los radios cayeran al relleno de texto, sus 7 grupos
+    // saldrían en blanco en la hoja de demostración y el contador diría
+    // "10 problemas" en un formato sano — que es como se enseña a ignorarlo.
+    if (f instanceof PDFCheckBox || f instanceof PDFRadioGroup) {
       // La ÚLTIMA opción del grupo, no la primera: marcar la primera es
       // precisamente el bug que no se ve si sólo se prueba con la primera.
       const estados = f.acroField.getWidgets()
-        .map((w) => {
-          const normal = w.getAppearances()?.normal;
-          const claves = normal && 'keys' in normal ? [...normal.keys()] : [];
-          return claves.map((k) => k.asString().replace(/^\//, '')).find((k) => k !== 'Off');
-        })
+        .map((w) => onStateDelWidget(w))
         .filter((v): v is string => !!v);
       if (estados.length > 0) answers[claveCruda(nombre)] = { value: estados[estados.length - 1], source: null, origin: 'manual' };
       continue;
     }
-    answers[claveCruda(nombre)] = { value: etiquetaDeRelleno(nombre), source: null, origin: 'manual' };
+    const tope = f instanceof PDFTextField ? f.getMaxLength() : undefined;
+    answers[claveCruda(nombre)] = { value: etiquetaDeRelleno(nombre, tope), source: null, origin: 'manual' };
   }
   const r = await renderFinal(base, answers, {});
   await writeFile(salida, r.pdf);
@@ -708,10 +778,19 @@ async function demo(entrada: string, salida: string) {
 }
 
 /** Un valor de relleno que se reconoce de un vistazo en la hoja. */
-function etiquetaDeRelleno(nombre: string): string {
-  if (/fecha/i.test(nombre)) return '15 03 2019';
-  if (/importe|honorario/i.test(nombre)) return '35,000.00';
-  return nombre.replace(/^p\d+_/, '').replace(/_/g, ' ').slice(0, 40);
+function etiquetaDeRelleno(nombre: string, maxLength?: number): string {
+  const base = /fecha/i.test(nombre)
+    ? '15 03 2019'
+    : /importe|honorario|presupuesto/i.test(nombre)
+      ? '35,000.00'
+      : /tel[eé]fono|celular|fax/i.test(nombre)
+        ? '3312345678'
+        : nombre.replace(/^p\d+_/, '').replace(/_/g, ' ').slice(0, 40);
+  // 🔴 El relleno se recorta al tope DURO de la caja. Sin esto el demo reporta
+  // "3 problemas" en una hoja perfectamente sana —el nombre del campo no cabe en
+  // su propio `maxLength`— y un contador que nunca da cero enseña a ignorarlo,
+  // que es justo lo que este archivo evita en todos lados.
+  return maxLength !== undefined ? base.slice(0, maxLength) : base;
 }
 
 async function ponerCampos(entrada: string, salida: string) {

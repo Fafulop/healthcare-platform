@@ -64,6 +64,9 @@ Cada renglón de esta lista es un bug que ya pasó una vez.
 | Comprobación | De dónde salió |
 |---|---|
 | **¿Se puede LEER el archivo?** 0 operadores ⇒ está roto | Allianz, 2026-08-14 (§5) |
+| **Grupos de RADIO** y qué traen seleccionado de fábrica | GNP, 2026-08-15 (§7) |
+| Widgets con el `/Rect` invertido (alto o ancho negativo) | GNP: 4, uno de ellos no se podía escribir (§7) |
+| Texto en una capa OPCIONAL apagada | GNP: 119 items invisibles sobre la p1 (03-FORMATOS §3) |
 | ¿Es un escaneo? (imágenes y cero texto) | El caso caro de 03-FORMATOS §4 |
 | `Producer` / `Creator` / fechas **sin que pdf-lib los pise** | §4 |
 | Página rotada o con CropBox desplazado | El visor devuelve `cajas: []` y no dibuja nada |
@@ -162,8 +165,8 @@ hoja verse mal en un navegador al 130%.
 | | PDF oficial | Estado |
 |---|---|---|
 | **AXA** | ✅ ya trae 277 campos | 🟢 **EN PROD y funcionando** |
-| **Allianz** | ✅ bajado del portal de Allianz el 2026-08-14 · **PLANO** (0 campos) | 🟡 **construido, sin desplegar y SIN MIRAR** |
-| **GNP** | ⚠️ el de Eleonor (3 pág) y el oficial (2 pág) son documentos **distintos** | ⛔ bloqueado en el usuario: cuál rige |
+| **Allianz** | ✅ bajado del portal de Allianz el 2026-08-14 · **PLANO** (0 campos) | 🟢 **EN PROD**, poco probado a mano |
+| **GNP** | ✅ bajado de `gnp.com.mx` el 2026-08-15 · ya trae **62 campos** (55 texto + **7 radios**) | 🟡 **construido y verificado con el motor; sin sembrar la fila y SIN MIRAR** |
 
 ### Allianz — lo que quedó (2026-08-14)
 
@@ -281,6 +284,57 @@ en las tres.
 ⚠️ **Seis conceptos se dejaron SIN mapear a propósito**, con su razón escrita en `dicts/allianz.ts`:
 `clinico.diagnostico`, `clinico.tratamiento`, `clinico.exploracionFisica`, `paciente.rfc`,
 `informe.fecha` y el hospital.
+
+### GNP — lo que enseñó la tercera aseguradora (2026-08-15)
+
+Salió barata en diccionario y **cara en motor**: fue la primera hoja que trajo cosas que el
+motor nunca había visto. Las cuatro valen para la #4.
+
+**1. 🔴 Grupos de RADIO.** GNP tiene **7** (`Genero`, `Tipo de Trámite`, `Causa atención`,
+`Tipo padecimiento`, `Relación otro padecimiento`, `Complicaciones`, `Estancia`) y el motor sólo
+sabía de texto y casillas — `geometria-formato.ts` los excluía *"a propósito"*. Con eso, 7 preguntas
+de la hoja no tenían dónde contestarse, incluido el sexo del paciente, en un formato cuyo propio
+texto dice **"favor de no dejar preguntas ni espacios sin contestar"**.
+
+Un radio es, para el doctor, lo mismo que un grupo de casillas: N recuadros, uno encendido, y el
+valor guardado es el estado de exportación del elegido. Por eso comparten camino y el visor, la
+procedencia y el catálogo del asistente **no aprendieron nada nuevo** — igual que cuando se
+fabricaron las casillas dibujadas de Allianz (§7).
+
+⚠️ Y traían el mismo regalo que AXA: **`Relación otro padecimiento` viene preseleccionado de
+fábrica** en `Opción1`. Como el apagado sólo miraba `PDFCheckBox`, esa marca sobrevivía al aplanado
+y el informe le afirmaba a la aseguradora una respuesta que el médico nunca dio. **Es el bug de las
+9 casillas de AXA, por la otra puerta** — al agregar un tipo de campo hay que preguntarse también
+qué trae puesto de fábrica.
+
+**2. 🔴 `/Rect` invertido: 4 widgets con ALTO NEGATIVO.** El spec del PDF declara el rectángulo con
+dos esquinas opuestas **en cualquier orden**, y `pdf-lib` resta sin normalizar. El visor calcula
+`top = altoPagina - y - alto`, así que un alto de `-56` baja la caja 56 pt y le pone un `height`
+negativo que el navegador descarta: `Antecedentes perinatales` (318×−56) **no se podía escribir**.
+De paso, `capacidadDeCaja` los trataba como inmensurables y se los saltaba, así que esos campos
+nunca se revisaban por legibilidad. Un solo `rectDelWidget()` compartido lo cierra. AXA y Allianz no
+traen ninguno: por eso nunca se había visto.
+
+**3. 🔴 Texto en una capa APAGADA** — la trampa más fea, en 03-FORMATOS §3. Deducir etiquetas sobre
+un texto invisible es *el rótulo falso* otra vez.
+
+**4. 🔴 El nombre de un campo puede venir ESCAPADO.** Un nombre del PDF escapa lo que no es ASCII
+imprimible: `Opción2` se guarda como `Opci#F3n2` y `Sí` como `S#ED`. `asString()` devuelve el
+literal escapado y `getOptions()` el texto decodificado — mezclarlos hace que el valor que guarda el
+visor **no empate con ninguna opción** y la elección del médico se descarte en silencio. Se lee con
+**`decodeText()`**, y el empate tolera las dos formas porque en prod ya hay un informe que guardó
+`campo:Check Box1 = S#ED`.
+
+> 🔎 **La lección de la tercera:** las dos primeras aseguradoras se parecían más entre sí de lo que
+> nadie notó. Cada formato nuevo no sólo trae un diccionario: trae **una suposición del motor que
+> resulta ser falsa**. Aquí fueron cuatro, y **ninguna la habrían encontrado los gates ni el
+> type-check** — las cuatro dan una hoja que se ve perfectamente normal.
+
+⚠️ **Y dos defectos eran de la HERRAMIENTA, no de la hoja**, lo cual es peor porque falsean la
+revisión: `mapa` no rotulaba 15 campos (el nombre no cabía en su `maxLength`, o el campo no traía
+`/DA` y `setFontSize` lanzaba dentro del mismo `try` que el rótulo) y `demo` no marcaba los radios y
+reportaba *"3 problemas"* en una hoja sana. Un contador que nunca da cero enseña a ignorarlo.
+Los dos arreglados: **55/55 rotulados y 62/62 llenos con 0 problemas**.
 
 ## 7b. 🔴 En un formato PLANO, las ETIQUETAS son una pieza aparte del diccionario
 

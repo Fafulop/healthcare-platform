@@ -12,7 +12,7 @@ import {
   consultasParaModelo, fuentesParaModelo, leerFuentes, PRESUPUESTO_TOKENS_FUENTES,
 } from '@/lib/informe-medico/contexto-clinico';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
-import { leerAnswers, resolverClave, type Answers } from '@/lib/informe-medico/types';
+import { empataOpcion, leerAnswers, resolverClave, type Answers } from '@/lib/informe-medico/types';
 import { transcribirAudio } from '@/lib/voice/transcribir-audio';
 import { promptsSistemaChat } from '@/lib/informe-medico/prompt-chat';
 
@@ -189,7 +189,10 @@ export async function POST(
         ? pendientes[g.clave]
         : (guardadas[g.clave]?.value ?? '');
       if (crudo.trim() === '') continue;
-      const opcion = g.opciones.find((o) => o.onState === crudo);
+      // `empataOpcion` y no `===`: un informe que guardó el on-state ESCAPADO
+      // (`S#ED`) no empataría, y al modelo se le entregaría `S#ED` como "lo que
+      // ya está contestado" — que es exactamente lo que estas líneas evitan.
+      const opcion = g.opciones.find((o) => empataOpcion(crudo, o.onState));
       yaLleno.push({
         clave: g.clave,
         etiqueta: g.pregunta ?? g.clave,

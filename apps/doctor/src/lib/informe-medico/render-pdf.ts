@@ -27,6 +27,7 @@ import {
 } from 'pdf-lib';
 import { nombrePdfDe, type Answers, type FieldDict } from './types';
 import { capacidadDeCaja } from './capacidad';
+import { empataOpcion, onStateDelWidget, rectDelWidget } from './geometria-formato';
 import { caracteresNoImprimibles } from './winansi';
 
 /** Azul: aquí SE PUEDE escribir (campo vacío). */
@@ -45,6 +46,7 @@ export interface CampoOmitido {
     | 'caracteres-no-imprimibles'
     | 'no-cabe-en-el-campo'          // supera el `maxLength` DURO del PDF
     | 'rechazado-por-el-pdf'         // `setText` lanzó por cualquier otra razón
+    | 'opcion-no-existe'             // grupo de radio: el valor no es una de sus opciones
     | 'no-cabe';                     // SÍ se escribió, pero en letra ilegible
   /** Sólo para `caracteres-no-imprimibles`: qué hay que quitar. */
   caracteres?: string[];
@@ -53,7 +55,7 @@ export interface CampoOmitido {
   /** Sólo para `no-cabe-en-el-campo`: el tope del PDF y el largo del valor. */
   tope?: number;
   largo?: number;
-  /** Sólo para `rechazado-por-el-pdf`: lo que dijo pdf-lib. */
+  /** `rechazado-por-el-pdf`: lo que dijo pdf-lib. `opcion-no-existe`: el valor. */
   detalle?: string;
 }
 
@@ -103,7 +105,7 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
     // DESMARCAR: si el PDF base la trae marcada por default, saltarse el vacío
     // dejaría el informe final afirmando algo que el doctor destildó. La casilla
     // se resuelve abajo; para texto, seguir de largo.
-    if (vacia && !esPosibleCasilla(form, nombrePdf)) continue;
+    if (vacia && !esPosibleOpcion(form, nombrePdf)) continue;
 
     if (nombrePdf === null) {
       // ⚠️ Esto es NORMAL, no una falla: el pre-llenado produce ~46 valores
@@ -134,9 +136,52 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
       continue;
     }
 
+    // 🔴 Un grupo de RADIO es lo mismo que un grupo de casillas para el doctor
+    // —una pregunta con opciones excluyentes— pero el PDF lo modela aparte y
+    // pdf-lib expone otra API. GNP trae 7 (`Genero`, `Tipo de Trámite`,
+    // `Causa atención`…) y sin esto la hoja se queda con 7 preguntas que nadie
+    // puede contestar, incluido el sexo del paciente.
+    //
+    // El valor guardado es el de exportación del PDF (`Opción2`), igual que en
+    // las casillas se guarda el on-state: así el JSON dice cuál opción se eligió
+    // y no hace falta inventar un mapa aparte.
+    if (field instanceof PDFRadioGroup) {
+      if (vacia) {
+        field.clear();
+        continue;
+      }
+      // 🔴 Si el valor no empata con ninguna opción NO se aproxima la más
+      // parecida. En un grupo excluyente eso es afirmarle a la aseguradora algo
+      // que el médico no eligió — la misma regla que ya rige para las etiquetas
+      // que el modelo devuelve (06-AGENTE §12).
+      const elegida = field.getOptions().find((o) => empataOpcion(respuesta.value, o));
+      if (elegida === undefined) {
+        // 🔴 Y se APAGA antes de reportarlo. `normalizarCasillas` no lo tocó
+        // —el campo tiene respuesta, así que cuenta como "contestado"— y si
+        // además se sale por aquí sin limpiar, lo que sobrevive al aplanado es
+        // la preselección DE FÁBRICA del PDF. Medido en el GNP oficial: un valor
+        // que no empata dejaba `Relación otro padecimiento = Opción1`, o sea la
+        // hoja afirmándole a la aseguradora un "Sí" que nadie contestó — el bug
+        // que este mismo cambio venía a cerrar, por una tercera puerta.
+        field.clear();
+        omitidos.push({ campoCanonico, nombrePdf, motivo: 'opcion-no-existe', detalle: respuesta.value });
+        continue;
+      }
+      try {
+        field.select(elegida);
+        llenados++;
+      } catch (e) {
+        omitidos.push({
+          campoCanonico, nombrePdf, motivo: 'rechazado-por-el-pdf',
+          detalle: e instanceof Error ? e.message : String(e),
+        });
+      }
+      continue;
+    }
+
     if (!(field instanceof PDFTextField)) {
-      // Existe, pero es radio o firma. Antes esto caía en el mismo saco que
-      // "no existe" y el diagnóstico salía equivocado.
+      // Existe, pero es una firma o un botón. Antes esto caía en el mismo saco
+      // que "no existe" y el diagnóstico salía equivocado.
       omitidos.push({ campoCanonico, nombrePdf, motivo: 'no-es-de-texto' });
       continue;
     }
@@ -201,8 +246,8 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
     // contaran, su `sobran: 0` ganaría y callaría al campo entero.
     let peor: { excede: boolean; sobran: number } | null = null;
     for (const w of field.acroField.getWidgets()) {
-      const r = w.getRectangle();
-      const cap = capacidadDeCaja(r.width, r.height, field.isMultiline(), respuesta.value.length);
+      const r = rectDelWidget(w);
+      const cap = capacidadDeCaja(r.ancho, r.alto, field.isMultiline(), respuesta.value.length);
       if (!Number.isFinite(cap.maximo)) continue;
       if (!peor || cap.sobran > peor.sobran) peor = cap;
     }
@@ -236,15 +281,24 @@ function normalizarCasillas(form: PDFForm, answers: Answers, dict: FieldDict) {
   }
 
   for (const field of form.getFields()) {
-    if (!(field instanceof PDFCheckBox)) continue;
+    const esCasilla = field instanceof PDFCheckBox;
+    // 🔴 Los RADIOS vienen de fábrica igual que las casillas: el GNP oficial
+    // trae `Relación otro padecimiento` preseleccionado en `Opción1`. Como el
+    // apagado sólo miraba `PDFCheckBox`, esa marca sobrevivía al aplanado y el
+    // informe le afirmaba a la aseguradora una respuesta que el médico nunca
+    // dio — el mismo bug de las 9 casillas de AXA, por la otra puerta.
+    const esRadio = field instanceof PDFRadioGroup;
+    if (!esCasilla && !esRadio) continue;
     if (contestados.has(field.getName())) continue;
-    // `uncheck()` y no tocar el dict a mano: marca el campo como sucio, y eso
-    // hace que `flatten()` le regenere una apariencia /Off. Varias casillas de
-    // AXA no traen apariencia /Off propia y, sin regenerarla, aplanar truena.
+    // `uncheck()`/`clear()` y no tocar el dict a mano: marcan el campo como
+    // sucio, y eso hace que `flatten()` le regenere una apariencia /Off. Varias
+    // casillas de AXA no traen apariencia /Off propia y, sin regenerarla,
+    // aplanar truena.
     try {
-      field.uncheck();
+      if (esCasilla) field.uncheck();
+      else field.clear();
     } catch {
-      // Una casilla que no se deja apagar no debe tumbar el informe entero.
+      // Una opción que no se deja apagar no debe tumbar el informe entero.
     }
   }
 }
@@ -262,35 +316,38 @@ function normalizarCasillas(form: PDFForm, answers: Answers, dict: FieldDict) {
  * perder la respuesta.
  */
 function marcarOpcion(field: PDFCheckBox, valor: string) {
-  const buscado = valor.trim();
   const widgets = field.acroField.getWidgets();
-  const estados = widgets.map((w) => {
-    const normal = w.getAppearances()?.normal as { dict?: Map<{ asString(): string }, unknown> } | undefined;
-    if (!normal?.dict) return undefined;
-    for (const k of normal.dict.keys()) {
-      const n = k.asString().replace(/^\//, '');
-      if (n !== 'Off') return n;
-    }
-    return undefined;
-  });
+  const estados = widgets.map((w) => onStateDelWidget(w));
 
-  if (!estados.includes(buscado)) {
+  // El on-state elegido, tolerando que un informe viejo haya guardado el nombre
+  // ESCAPADO del PDF (`S#ED`) en vez del texto (`Sí`).
+  const elegido = estados.find((e) => e !== undefined && empataOpcion(valor, e));
+  if (elegido === undefined) {
     field.check();
     return;
   }
 
-  const on = PDFName.of(buscado);
+  const on = PDFName.of(elegido);
   field.acroField.dict.set(PDFName.of('V'), on);
   widgets.forEach((w, i) => {
-    w.dict.set(PDFName.of('AS'), estados[i] === buscado ? on : PDFName.of('Off'));
+    w.dict.set(PDFName.of('AS'), estados[i] === elegido ? on : PDFName.of('Off'));
   });
 }
 
-/** ¿Ese nombre corresponde a una casilla de este formato? Barato y sin tirar. */
-function esPosibleCasilla(form: PDFForm, nombrePdf: string | null): boolean {
+/**
+ * ¿Ese nombre es un campo de OPCIONES (casilla o radio) de este formato?
+ * Barato y sin tirar.
+ *
+ * Importa para el valor VACÍO: en un campo de texto no escribir nada da igual,
+ * pero una opción hay que poder DESMARCARLA. Si el vacío se saltara, una opción
+ * que el PDF trae puesta de fábrica y el doctor destildó saldría marcada en el
+ * informe final.
+ */
+function esPosibleOpcion(form: PDFForm, nombrePdf: string | null): boolean {
   if (nombrePdf === null) return false;
   try {
-    return form.getField(nombrePdf) instanceof PDFCheckBox;
+    const f = form.getField(nombrePdf);
+    return f instanceof PDFCheckBox || f instanceof PDFRadioGroup;
   } catch {
     return false;
   }
@@ -374,7 +431,7 @@ export async function renderBorrador(
     field.enableReadOnly();
 
     for (const widget of field.acroField.getWidgets()) {
-      const r = widget.getRectangle();
+      const r = rectDelWidget(widget);
       // `/P` es OPCIONAL en el spec y muchos generadores no lo ponen. Cuando
       // falta hay que buscar la página que referencia al widget — es lo que
       // hace `flatten()` por dentro, y por eso el FINAL sí funciona en PDFs
@@ -393,8 +450,8 @@ export async function renderBorrador(
       page.drawRectangle({
         x: r.x,
         y: r.y,
-        width: r.width,
-        height: r.height,
+        width: r.ancho,
+        height: r.alto,
         color: lleno ? COLOR_LLENO : COLOR_VACIO,
         opacity: 0.55,
         borderWidth: 0,

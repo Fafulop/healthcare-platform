@@ -24,9 +24,10 @@
  *   Consultorio_2 → Consultorio · Hospital · Gabinete · Otro
  *   Sí_3          → "¿Es cáncer?"  Sí · No
  */
-import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
+import { PDFCheckBox, PDFDocument, PDFRadioGroup, PDFTextField } from 'pdf-lib';
 import { geometriaDelPdf, type Texto } from './add-fields';
 import { claveCruda, type FieldDict } from './types';
+import { onStateDelWidget, rectDelWidget } from './geometria-formato';
 
 /** Una opción de un grupo de casillas: qué dice en la hoja y su on-state. */
 export interface OpcionCasilla {
@@ -115,6 +116,25 @@ function preguntaDeLaCaja(textos: Texto[], x: number, w: number, y: number): str
     if (encima) return `${encima.s.trim()} ${mejor.s.trim()}`;
   }
   return mejor.s.trim();
+}
+
+/**
+ * 🔴 ¿Es el TÍTULO de una sección y no una pregunta?
+ *
+ * Estas hojas rotulan sus bloques en VERSALES —`FICHA DE IDENTIFICACIÓN`,
+ * `TRÁMITE`, `HISTORIA CLÍNICA`, `DATOS DEL HOSPITAL`— y un título así puede
+ * quedar a la izquierda del primer recuadro de un grupo. Medido en GNP: el
+ * grupo `Causa atención` (Embarazo · Enfermedad · Accidente) tomaba
+ * **"IDENTIFICACIÓN"** como su pregunta.
+ *
+ * No es una etiqueta pobre, es una FALSA: le dice al modelo que ese grupo
+ * pregunta algo que no pregunta. Y en esta carpeta la regla ya está pagada tres
+ * veces — cuando no se puede saber, la etiqueta se deja pelona y quien mire la
+ * hoja la corrige.
+ */
+function esEncabezadoDeSeccion(texto: string): boolean {
+  const letras = texto.replace(/[^\p{L}]/gu, '');
+  return letras.length >= 4 && letras === letras.toUpperCase();
 }
 
 /** Limpia el relleno de puntos y guiones bajos con el que los formatos dibujan las rayas. */
@@ -263,7 +283,11 @@ export async function etiquetasDeLaHoja(
     const nombrePdf = field.getName();
     const clave = canonicaDe.get(nombrePdf) ?? claveCruda(nombrePdf);
     const esTexto = field instanceof PDFTextField;
-    const esCasilla = field instanceof PDFCheckBox;
+    // Un grupo de RADIO es un grupo de opciones excluyentes igual que uno de
+    // casillas, y sus nombres de opción son tan opacos como los on-states de
+    // AXA: GNP las llama `Opción1`…`Opción4`. Nadie —ni el modelo ni una
+    // persona— puede elegir "Opción3" sin el texto impreso al lado.
+    const esCasilla = field instanceof PDFCheckBox || field instanceof PDFRadioGroup;
     if (!esTexto && !esCasilla) continue;
 
     /** Los recuadros con su posición: la pregunta se decide DESPUÉS, con todos. */
@@ -281,30 +305,23 @@ export async function etiquetasDeLaHoja(
       }
       if (pagina < 0) continue;
 
-      const r = widget.getRectangle();
+      const r = rectDelWidget(widget);
       const textos = geo[pagina]?.textos ?? [];
 
       if (esTexto) {
         // Sólo si el nombre no dice nada: si no, se conserva el nombre.
         if (!esOpaco(nombrePdf)) continue;
-        const p = preguntaDeLaCaja(textos, r.x, r.width, r.y);
+        const p = preguntaDeLaCaja(textos, r.x, r.ancho, r.y);
         if (p) contexto[clave] = limpiar(p);
         continue;
       }
 
-      // ── Casillas ────────────────────────────────────────────────────────
+      // ── Casillas y radios ───────────────────────────────────────────────
       paginaGrupo = pagina + 1;
-      const normal = widget.getAppearances()?.normal as { dict?: Map<{ asString(): string }, unknown> } | undefined;
-      let onState: string | undefined;
-      if (normal?.dict) {
-        for (const k of normal.dict.keys()) {
-          const n = k.asString().replace(/^\//, '');
-          if (n !== 'Off') { onState = n; break; }
-        }
-      }
+      const onState = onStateDelWidget(widget);
       if (!onState) continue;   // un recuadro sin on-state no se puede marcar
 
-      const der = aLaDerecha(textos, r.x, r.width, r.y, 170);
+      const der = aLaDerecha(textos, r.x, r.ancho, r.y, 170);
       const etiqueta = der ? limpiar(der.s) : '';
       // Sin etiqueta el recuadro no se ofrece: marcar "la opción 3" a ciegas en
       // un documento médico-legal es exactamente lo que no se va a hacer.
@@ -322,7 +339,19 @@ export async function etiquetasDeLaHoja(
       const etiquetas = new Set(crudas.map((o) => o.etiqueta));
       const izq = aLaIzquierda(geo[primero.pagina]?.textos ?? [], primero.x, primero.y, 220);
       const texto = izq ? limpiar(izq.s) : '';
-      const pregunta = texto.length > 3 && !etiquetas.has(texto) ? texto : null;
+      // 🔴 Un encabezado se descarta… SALVO que suene a consentimiento o
+      // facturación. `casillasParaElAgente` decide qué puede proponer el modelo
+      // buscando esas palabras en `pregunta + clave + opciones`: si se le quita
+      // la pregunta, un grupo rotulado **"CONSENTIMIENTO INFORMADO"** en
+      // versales —con opciones que no son `Sí`/`No`, así que tampoco lo atrapa
+      // la regla 3— se volvería proponible por un modelo. Es exactamente el
+      // `Sí acepto` del 2026-08-10 entrando por una puerta nueva, y prefiero un
+      // rótulo feo a un guardarraíl con un hueco.
+      const util =
+        texto.length > 3 &&
+        !etiquetas.has(texto) &&
+        (!esEncabezadoDeSeccion(texto) || CONSENTIMIENTO_O_FACTURACION.test(texto));
+      const pregunta = util ? texto : null;
 
       casillas.push({
         clave, nombrePdf, pagina: paginaGrupo, pregunta,

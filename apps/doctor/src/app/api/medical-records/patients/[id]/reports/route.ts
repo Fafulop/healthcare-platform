@@ -3,7 +3,8 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { cargarPrefill, DatosDelInformeNoEncontrados } from '@/lib/informe-medico/cargar-prefill';
-import { formatoDe } from '@/lib/informe-medico/formatos';
+import { avisosDelFormato } from '@/lib/informe-medico/prefill';
+import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
 import { leerFuentesPedidas, resolverFuentesElegidas } from '@/lib/informe-medico/contexto-clinico';
 
 // GET /api/medical-records/patients/:id/reports?encounterId=...
@@ -48,7 +49,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Formato no encontrado o inactivo' }, { status: 404 });
     }
     // Sin diccionario en este build el informe saldría en blanco pareciendo bien.
-    if (!formatoDe(form)) {
+    const formato = formatoDe(form);
+    if (!formato) {
       return NextResponse.json(
         { error: `Este build no sabe generar "${form.insurer} — ${form.name}" versión ${form.version}` },
         { status: 409 }
@@ -69,7 +71,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       fuentesDescartadas = resuelto.descartadas;
     }
 
-    const { answers, avisos } = await cargarPrefill({ doctorId, patientId, encounterId });
+    const { answers, avisos: todos } = await cargarPrefill({ doctorId, patientId, encounterId });
+    // Sólo los avisos que ESTA hoja puede atender — ver `avisosDelFormato`.
+    const avisos = avisosDelFormato(todos, dictParaRender(formato, form.fieldDict));
 
     const report = await prisma.medicalReport.create({
       data: {

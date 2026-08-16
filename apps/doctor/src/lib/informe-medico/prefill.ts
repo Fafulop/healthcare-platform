@@ -19,7 +19,7 @@ import { claveMedicamento, MAX_MEDICAMENTOS, type CampoMedicamento } from './can
 // que lee el modelo y con las etiquetas del panel. El FORMATO (`dd/mm/aaaa` con
 // ceros) se queda aquí. Este import no rompe la pureza: el módulo no toca Prisma.
 import { partesDelDiaDeFuente, partesDelDiaEnMexico } from './fechas-de-fuente';
-import type { Answers, AnswerValue } from './types';
+import type { Answers, AnswerValue, FieldDict } from './types';
 
 /** Lo que Prisma devuelve para una columna `Decimal` (o un número ya convertido). */
 type Decimalish = number | string | { toString(): string } | null | undefined;
@@ -60,6 +60,11 @@ export interface ConsultaInforme {
 
 export interface MedicoInforme {
   doctorFullName: string;
+  /**
+   * Los apellidos. Columna aparte de `doctorFullName` y **la única fuente
+   * confiable** de ellos: ver `nombreDelMedico()`. Puede venir vacía.
+   */
+  lastName?: string | null;
   primarySpecialty?: string | null;
   cedulaProfesional?: string | null;
   /** `[{ titulo, cedula }]` — GNP y AXA piden la de especialidad por separado. */
@@ -98,9 +103,45 @@ export interface ResultadoPrefill {
 
 export type AvisoPrefill =
   | { tipo: 'medicamentos-truncados'; total: number; escritos: number }
-  | { tipo: 'apellido-heuristico'; lastName: string; paterno: string; materno: string }
-  | { tipo: 'apellido-unico'; lastName: string }
-  | { tipo: 'sexo-desconocido'; valor: string };
+  | { tipo: 'apellido-heuristico'; de: DeQuien; lastName: string; paterno: string; materno: string }
+  | { tipo: 'apellido-unico'; de: DeQuien; lastName: string }
+  | { tipo: 'sexo-desconocido'; valor: string }
+  | { tipo: 'medico-sin-apellidos'; doctorFullName: string }
+  | { tipo: 'medico-nombre-ambiguo'; doctorFullName: string; lastName: string };
+
+/** De quién es el apellido que se partió a ojo. Los dos avisos aplican a los dos. */
+export type DeQuien = 'paciente' | 'medico';
+
+/** Los campos canónicos del nombre PARTIDO del médico. Hoy sólo GNP los pide. */
+const CAMPOS_NOMBRE_MEDICO = [
+  'medico.apellidoPaterno',
+  'medico.apellidoMaterno',
+  'medico.nombres',
+] as const;
+
+/**
+ * 🔴 Los avisos que ESTE formato puede hacer accionables.
+ *
+ * `construirPrefillDeterminista` es agnóstico de la aseguradora —es lo que
+ * permite que sea una función pura— así que produce los avisos del nombre del
+ * médico siempre. Pero AXA y Allianz **no tienen casillas de apellido del
+ * médico**: enseñarle ahí *"escríbelas aquí"* manda al doctor a buscar un campo
+ * que no existe en su hoja, y encima en TODOS sus informes.
+ *
+ * Un aviso que sale siempre y no se puede atender es un contador que nunca da
+ * cero: enseña a ignorar la barra de avisos, y entonces deja de servir para los
+ * que sí importan (`medicamentos-truncados`). Misma regla que ya rige para
+ * `sin-campo-en-el-formato` en el renderer.
+ */
+export function avisosDelFormato(avisos: AvisoPrefill[], dict: FieldDict): AvisoPrefill[] {
+  const pideNombrePartido = CAMPOS_NOMBRE_MEDICO.some((c) => dict[c] !== undefined);
+  if (pideNombrePartido) return avisos;
+  return avisos.filter(
+    (a) =>
+      !(a.tipo === 'medico-sin-apellidos' || a.tipo === 'medico-nombre-ambiguo') &&
+      !((a.tipo === 'apellido-heuristico' || a.tipo === 'apellido-unico') && a.de === 'medico')
+  );
+}
 
 const SEXO: Record<string, string> = { male: 'Masculino', female: 'Femenino', other: 'Otro' };
 
@@ -204,15 +245,100 @@ function fechaDeHoy(ahora = new Date()): string | null {
  * `deterministic`: el conjunto de `origin` está CERRADO en tres lugares que ya
  * shipearon y un sexto valor rompería cualquier `switch` de la UI en silencio.
  */
-function partirApellidos(lastName: string): { paterno: string; materno: string; aviso: AvisoPrefill | null } {
+function partirApellidos(
+  lastName: string,
+  de: DeQuien = 'paciente'
+): { paterno: string; materno: string; aviso: AvisoPrefill | null } {
   const limpio = lastName.trim().replace(/\s+/g, ' ');
   const corte = limpio.lastIndexOf(' ');
   if (corte === -1) {
-    return { paterno: limpio, materno: '', aviso: { tipo: 'apellido-unico', lastName: limpio } };
+    return { paterno: limpio, materno: '', aviso: { tipo: 'apellido-unico', de, lastName: limpio } };
   }
   const paterno = limpio.slice(0, corte);
   const materno = limpio.slice(corte + 1);
-  return { paterno, materno, aviso: { tipo: 'apellido-heuristico', lastName: limpio, paterno, materno } };
+  return { paterno, materno, aviso: { tipo: 'apellido-heuristico', de, lastName: limpio, paterno, materno } };
+}
+
+/** Para comparar nombres sin que un acento o una mayúscula decidan. */
+function plano(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * 🔴 EL NOMBRE DEL MÉDICO, que NO se puede partir a ojo.
+ *
+ * `Doctor` guarda dos columnas y en prod se usan de dos maneras incompatibles
+ * (medido sobre los 11 doctores, 2026-08-15):
+ *
+ * | `doctorFullName` | `lastName` | qué es |
+ * |---|---|---|
+ * | `Dra. Adriana Michelle` | `Treviño Figueroa` | el "full name" trae SÓLO los nombres de pila |
+ * | `Dr. Gerardo Lopez Fafutis` | `Lopez Fafutis` | el "full name" trae todo y `lastName` repite |
+ * | `Dra. Pamela Hernandez Arriaga` | *(vacío)* | **no hay apellidos que valgan** (4 de 11) |
+ *
+ * Partir `doctorFullName` por el último espacio —como se hace con el paciente—
+ * daría `paterno = "Michelle"` y `paterno = "David"`: un nombre de pila impreso
+ * en la casilla del apellido del médico que FIRMA el documento.
+ *
+ * ⇒ Los apellidos salen de `lastName` y los nombres de lo que sobra; cuando
+ * `lastName` viene vacío los tres campos quedan **vacíos y avisados**, que es la
+ * regla de esta carpeta: sin fuente, no se adivina.
+ *
+ * Y `completo` arregla de paso lo que AXA y Allianz ya imprimían mal: cuando el
+ * "full name" no incluye los apellidos, se le AGREGAN — el título se conserva
+ * porque en una hoja médica va bien.
+ */
+export function nombreDelMedico(
+  doctorFullName: string,
+  lastName: string | null | undefined
+): { completo: string; nombres: string; paterno: string; materno: string; avisos: AvisoPrefill[] } {
+  const avisos: AvisoPrefill[] = [];
+  const limpio = (doctorFullName ?? '').trim().replace(/\s+/g, ' ');
+  const sinTitulo = limpio.replace(/^(dr|dra|doctor|doctora|lic|mtro|mtra)\.?\s+/i, '').trim();
+  const apellidos = (lastName ?? '').trim().replace(/\s+/g, ' ');
+
+  if (apellidos === '') {
+    // No hay de dónde: ni partiendo ni adivinando. Se avisa y se deja vacío.
+    avisos.push({ tipo: 'medico-sin-apellidos', doctorFullName: limpio });
+    return { completo: limpio, nombres: '', paterno: '', materno: '', avisos };
+  }
+
+  const { paterno, materno, aviso } = partirApellidos(apellidos, 'medico');
+  if (aviso) avisos.push(aviso);
+
+  // ¿El "full name" ya trae los apellidos, o sólo los nombres de pila?
+  //
+  // ⚠️ Se compara por PALABRAS, no por caracteres: un `endsWith` de texto hace
+  // que `fffffffff` "contenga" el apellido `ff` y le recorte dos letras al
+  // nombre. Los apellidos son palabras completas o no son.
+  const palabras = sinTitulo.split(' ').filter((p) => p !== '');
+  const palabrasApellido = apellidos.split(' ').filter((p) => p !== '');
+  const cola = palabras.slice(-palabrasApellido.length);
+  const yaLosTrae =
+    palabras.length >= palabrasApellido.length &&
+    plano(cola.join(' ')) === plano(palabrasApellido.join(' '));
+
+  // 🔴 El caso de en medio: el "full name" trae ALGUNO de los apellidos pero no
+  // todos (`Dra. Adriana Michelle Treviño` + `Treviño Figueroa`, o
+  // `Dr. Gerardo Lopez Fafutis` + `Lopez`). Ahí no se puede ni recortar ni
+  // agregar: agregar imprime `… Treviño Treviño Figueroa` en la línea de la
+  // FIRMA, y recortar por longitud parte el nombre por donde no es.
+  //
+  // Los apellidos sí se saben (salen de `lastName`); lo que no se sabe son los
+  // nombres de pila, así que se dejan vacíos y se avisa. Es la misma regla de
+  // siempre: sin fuente confiable no se adivina, y menos en el campo con el que
+  // la aseguradora identifica a quien firma.
+  const solapaParcial =
+    !yaLosTrae && palabrasApellido.some((a) => palabras.some((p) => plano(p) === plano(a)));
+  if (solapaParcial) {
+    avisos.push({ tipo: 'medico-nombre-ambiguo', doctorFullName: limpio, lastName: apellidos });
+    return { completo: limpio, nombres: '', paterno, materno, avisos };
+  }
+
+  const nombres = yaLosTrae ? palabras.slice(0, palabras.length - palabrasApellido.length).join(' ') : sinTitulo;
+  const completo = yaLosTrae ? limpio : `${limpio} ${apellidos}`.trim();
+
+  return { completo, nombres, paterno, materno, avisos };
 }
 
 /** La cédula de especialidad sale de `prescriptionCredentials`: `[{ titulo, cedula }]`. */
@@ -311,7 +437,12 @@ export function construirPrefillDeterminista(entrada: EntradaPrefill): Resultado
   answers['clinico.tratamiento'] = det(c.plan, 'encounter.plan');
 
   // ── El médico ─────────────────────────────────────────────────────────────
-  answers['medico.nombre'] = det(m.doctorFullName, 'doctor.doctorFullName');
+  const nm = nombreDelMedico(m.doctorFullName, m.lastName);
+  avisos.push(...nm.avisos);
+  answers['medico.nombre'] = det(nm.completo, 'doctor.doctorFullName + doctor.lastName');
+  answers['medico.apellidoPaterno'] = det(nm.paterno, 'doctor.lastName (partido a ojo)');
+  answers['medico.apellidoMaterno'] = det(nm.materno, 'doctor.lastName (partido a ojo)');
+  answers['medico.nombres'] = det(nm.nombres, 'doctor.doctorFullName sin los apellidos');
   answers['medico.especialidad'] = det(m.primarySpecialty, 'doctor.primarySpecialty');
   answers['medico.cedulaProfesional'] = det(m.cedulaProfesional, 'doctor.cedulaProfesional');
   answers['medico.cedulaEspecialidad'] = det(

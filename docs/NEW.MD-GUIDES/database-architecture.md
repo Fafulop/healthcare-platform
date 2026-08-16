@@ -303,9 +303,23 @@ Currently affected:
   medical_records.patients(id, doctor_id)` (booking→patient tenancy enforcement, 2026-07-07).
   Prisma can't model it (shared `doctorId` scalar + column-list `SET NULL`), so `db push`
   reverts it to the old single-column FK without any warning.
+- `create-informe-medico.sql` — **TRES cosas** del módulo de informe médico (2026-08-08), las
+  tres comentadas también en `schema.prisma`:
+  1. la **FK compuesta** `medical_reports(patient_id, doctor_id) → patients(id, doctor_id)`
+     (mismo patrón que la de `bookings`: sin ella nada impide a nivel BD que un informe
+     apunte al paciente de OTRO doctor, y de ahí sale un PDF con PHI ajena);
+  2. el **índice único parcial** `UNIQUE (insurer, name) WHERE is_active` en
+     `insurance_forms` — sin él pueden quedar dos versiones activas del mismo formato y el
+     dropdown ofrece la obsoleta, que es justo el rechazo que esa funcionalidad evita;
+  3. la FK **`NO ACTION DEFERRABLE INITIALLY DEFERRED`** de `medical_reports.encounter_id`.
+     🔴 Sin el `DEFERRABLE`, **borrar un paciente TRUENA** (probado contra prod con rollback):
+     el borrado dispara sus dos cascades en un orden que no controlamos y la comprobación
+     protesta aunque el informe se fuera a borrar de todos modos.
 
-(CHECK constraints and partial indexes from other `.sql` migrations are NOT dropped —
-Prisma ignores constructs it doesn't model. Plain FKs it DOES model, hence this list.)
+(CHECK constraints y los índices parciales normales de otros `.sql` NO se caen — Prisma ignora
+lo que no modela. Las FK planas SÍ las modela, de ahí esta lista. El índice parcial de
+`insurance_forms` está aquí porque Prisma **sí** modela un `@@unique(insurer, name)` y al
+sincronizar lo reescribiría SIN el `WHERE is_active`.)
 
 **Get the Railway public URL from:**
 - `packages/database/.env` → `LLM_DATABASE_URL`

@@ -102,6 +102,7 @@ Todo esto es copia directa. **Sin LLM** ([`01-FUENTES`](01-FUENTES-de-donde-sale
 | `medico.especialidad` | `Doctor.primarySpecialty` | |
 | `medico.cedulaProfesional` | `Doctor.cedulaProfesional` | |
 | `medico.cedulaEspecialidad` | `Doctor.prescriptionCredentials` (JSON `[{titulo, cedula}]`) | GNP pide las dos por separado |
+| `medico.apellidoPaterno` / `apellidoMaterno` / `nombres` | `Doctor.lastName` + `Doctor.doctorFullName` | 🔴 **NO se parte `doctorFullName`.** Ver abajo |
 | `medico.telefono` | `Doctor.clinicPhone` | |
 | `medico.email` | `Doctor.user.email` | |
 | ~~`hospital.nombre` / `ciudad`~~ | — | 🔴 **NO es determinista: no hay camino.** Ver §3 |
@@ -176,6 +177,27 @@ shipearon (01-FUENTES §4, el comentario del `.sql` y el de `MedicalReport.answe
 > 💡 A futuro conviene columnas separadas en `Patient`, pero eso es una migración con backfill de
 > pacientes existentes — fuera de v1.
 
+### a-bis) 🔴 El nombre del MÉDICO tampoco se puede partir a ojo (2026-08-15)
+
+GNP pide apellido paterno / materno / nombres del médico por separado, igual que del paciente. La
+tentación es aplicar la misma heurística de §4a a `doctorFullName`. **Medido contra los 11 doctores
+de prod, sería un desastre:** esa columna se usa de dos maneras incompatibles.
+
+| `doctorFullName` | `lastName` | qué pasa si se parte el "full name" |
+|---|---|---|
+| `Dra. Adriana Michelle` | `Treviño Figueroa` | `paterno = "Michelle"` ❌ (es un nombre de pila) |
+| `Dr. David` | `Salazar Vela` | `paterno = "David"` ❌ |
+| `Dr. Gerardo Lopez Fafutis` | `Lopez Fafutis` | correcto por casualidad |
+| `Dra. Pamela Hernandez Arriaga` | *(vacío)* | **no hay apellidos que valgan** — 4 de 11 |
+
+⇒ Los apellidos salen de **`lastName`** y los nombres de lo que sobra de `doctorFullName` sin el
+título; **cuando `lastName` viene vacío los tres campos quedan VACÍOS y avisados**. Es la regla de
+[`01-FUENTES`](01-FUENTES-de-donde-sale-cada-campo.md) §4 aplicada al médico: sin fuente no se
+adivina, y menos en la casilla que identifica a quien firma.
+
+⚠️ **Y arregló un bug vivo:** `medico.nombre` era `doctorFullName` a secas, así que AXA y Allianz
+imprimían el nombre del médico **sin apellido** para los 3 doctores cuya ficha los guarda aparte.
+
 ### b) Fechas partidas en DD / MM / AAAA
 
 AXA y Allianz tienen casillas separadas (`Día`, y en Allianz reglas bajo `DD`, `MM`, `AAAA`). El
@@ -207,6 +229,14 @@ OFICIALES: AXA trae 45 recuadros (22 grupos) de 277 campos.
 
 Y ya no se dejan para el final: en los dos formatos las casillas están resueltas, con la
 salvedad de qué grupos puede tocar el asistente (`casillasParaElAgente`).
+
+> ✅ **AMPLIADO 2026-08-15 con GNP: también los grupos de RADIO.** GNP no trae ni una casilla —
+> trae **7 grupos de radio** (`Genero`, `Tipo de Trámite`, `Causa atención`, `Tipo padecimiento`,
+> `Relación otro padecimiento`, `Complicaciones`, `Estancia`) con 19 recuadros. Son el mismo
+> concepto que un grupo de casillas y comparten camino en todo el motor; sus opciones se llaman
+> `Opción1`…`Opción4`, tan opacas como los on-states de AXA, y se rotulan con el mismo motor de
+> vecindad: **19 de 19**. El asistente ve **5 de 7** (se bloquean los dos `Sí`/`No` sin pregunta
+> derivable, por la misma regla que bloquea `Sí_2` en AXA).
 
 ## 5. Por dónde empezar
 

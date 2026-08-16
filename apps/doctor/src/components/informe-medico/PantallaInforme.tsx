@@ -70,9 +70,13 @@ const ESTILO_ORIGEN: Record<string, { chip: string; texto: string }> = {
 function textoAviso(a: Aviso): string {
   switch (a.tipo) {
     case 'apellido-heuristico':
-      return `El apellido se partió a ojo: "${a.paterno}" / "${a.materno}". Corrígelo si está mal — el expediente los guarda juntos.`;
+      return `El apellido ${a.de === 'medico' ? 'del médico' : 'del paciente'} se partió a ojo: "${a.paterno}" / "${a.materno}". Corrígelo si está mal — el expediente los guarda juntos.`;
     case 'apellido-unico':
-      return `"${a.lastName}" es un solo apellido: el materno quedó vacío.`;
+      return `"${a.lastName}" es un solo apellido: el materno ${a.de === 'medico' ? 'del médico ' : ''}quedó vacío.`;
+    case 'medico-nombre-ambiguo':
+      return `Tu nombre ("${a.doctorFullName}") y tus apellidos ("${a.lastName}") se traslapan a medias, así que no se pudo separar el nombre de pila sin arriesgar a imprimirlo mal. Los apellidos sí se pusieron; escribe tus nombres a mano.`;
+    case 'medico-sin-apellidos':
+      return `Tu perfil no tiene apellidos en su propio campo ("${a.doctorFullName}" está completo en uno solo), así que las casillas de apellido paterno y materno del médico se dejaron VACÍAS en vez de partir el nombre a ojo. Escríbelas aquí, o sepáralas en tu perfil.`;
     case 'sexo-desconocido':
       return `El sexo del paciente ("${a.valor}") no es masculino/femenino/otro, así que se dejó vacío.`;
     case 'medicamentos-truncados':

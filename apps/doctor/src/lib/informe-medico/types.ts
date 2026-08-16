@@ -97,6 +97,34 @@ export function resolverClave(devuelta: string, validas: ReadonlySet<string>): s
   return null;
 }
 
+/**
+ * `S#ED` → `Sí`. Un nombre del PDF escapa como `#XX` todo byte que no sea ASCII
+ * imprimible, y los bytes 0x80–0xFF son Latin-1, que coincide con los primeros
+ * 256 puntos de código Unicode.
+ */
+function decodificarNombrePdf(s: string): string {
+  return s.replace(/#([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+/**
+ * ¿El valor guardado corresponde a ESTA opción de un grupo excluyente?
+ *
+ * 🔴 Vive aquí —y no en `geometria-formato.ts`, que importa `pdf-lib`— porque el
+ * VISOR también tiene que empatar, y es un componente de cliente. Tener dos
+ * comparaciones es cómo el visor pinta una casilla vacía mientras el renderer la
+ * marca: el doctor la da por no contestada y el PDF sale afirmándola.
+ *
+ * Tolerante a propósito, igual que `resolverClave` con el prefijo `campo:`: hoy
+ * se guarda el texto decodificado (`Sí`, `Opción2`), pero en prod hay un informe
+ * que guardó el nombre ESCAPADO (`campo:Check Box1 = S#ED`) porque así lo leía
+ * la versión anterior. Sin la tolerancia ese valor deja de empatar y cae en el
+ * `check()` de respaldo, que marca el PRIMER recuadro del grupo.
+ */
+export function empataOpcion(valorGuardado: string, onState: string): boolean {
+  const v = valorGuardado.trim();
+  return v === onState || decodificarNombrePdf(v) === onState;
+}
+
 /** `campo:Código ICD` → `Código ICD`. */
 export function nombrePdfDeClaveCruda(clave: string): string {
   return clave.slice(PREFIJO_CRUDO.length);

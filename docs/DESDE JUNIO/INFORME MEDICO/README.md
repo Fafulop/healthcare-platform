@@ -9,7 +9,7 @@ El doctor elige el formato de una aseguradora de una lista, el sistema **lo pre-
 ya sabe del paciente y de la consulta**, el doctor corrige (tecleando o hablándole al LLM), y sale
 un **PDF idéntico al oficial de la aseguradora** para descargar o mandarle al paciente.
 
-## ✅ Estado (2026-08-14): **EN PROD, con DOS aseguradoras**
+## ✅ Estado (2026-08-15): **EN PROD con DOS aseguradoras; la TERCERA construida**
 
 | | |
 |---|---|
@@ -19,7 +19,17 @@ un **PDF idéntico al oficial de la aseguradora** para descargar o mandarle al p
 | Chat sobre la hoja · informe a nivel PACIENTE con fuentes elegidas | ✅ **EN PROD** |
 | **AXA** — GMM Informe Médico (277 campos, el oficial ya venía rellenable) | ✅ **EN PROD y en uso** |
 | **Allianz** — GMM Informe Médico (oficial PLANO ⇒ 87 campos puestos por nosotros) | ✅ **EN PROD**, poco probado a mano |
-| **GNP** | ⛔ bloqueado: falta decidir cuál formato rige |
+| **GNP** — Informe Médico GMM (oficial, 62 campos: 55 texto + **7 radios**) | 🟡 **construido y verificado con el motor**; falta sembrar la fila, desplegar y MIRARLO |
+
+🔴 **Y GNP obligó a tocar el motor**, que hasta ahora sólo sabía de texto y casillas: **grupos de
+RADIO** (7 preguntas de la hoja, incluido el sexo), **rects invertidos** (4 widgets con alto
+negativo — uno no se podía escribir), **texto en una capa apagada** y **nombres de opción
+escapados** (`Opci#F3n2`). Las cuatro dan una hoja que se ve normal y ningún gate las alcanza:
+[`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §7.
+
+⚠️ De paso salió que **AXA y Allianz imprimían el nombre del médico incompleto** para los doctores
+cuyos apellidos viven en `Doctor.lastName` (3 de 11 en prod). Corregido con una sola regla para las
+tres aseguradoras.
 
 👉 **Para agregar la aseguradora #3, el documento es
 [`08-ALTA-de-un-formato-nuevo.md`](08-ALTA-de-un-formato-nuevo.md)**: las 4 piezas que hay que
@@ -44,7 +54,7 @@ Comparados contra el sitio oficial de cada aseguradora
 | | Veredicto |
 |---|---|
 | **AXA** | ✅ Mismo documento. **El oficial ya es rellenable** (277 campos) — usar ése |
-| **GNP** | ⚠️ El del tercero (3 pág) y el oficial (2 pág) son **documentos distintos**. Hay que preguntar cuál rige |
+| **GNP** | ⚠️ El del tercero (3 pág) y el oficial (2 pág) son **documentos distintos**. ✅ **Resuelto 2026-08-15: rige el oficial** |
 | **Allianz** | 🔴 El del tercero es de **2016**; el oficial es de **2023**. Y el oficial es **plano** |
 
 ⇒ **DECIDIDO: el PDF base se baja del dominio de la aseguradora.** v1 arranca con estas 3.

@@ -19,6 +19,7 @@ import { Loader2, AlertTriangle } from 'lucide-react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
 import { capacidadDeCaja } from '@/lib/informe-medico/capacidad';
+import { empataOpcion } from '@/lib/informe-medico/types';
 
 export interface Caja {
   clave: string;
@@ -304,7 +305,13 @@ export default function InformeVisor({ formId, valores, soloLectura, onEditar, o
                 const guardado = (valores[c.clave]?.value ?? '').trim();
                 // Un grupo es EXCLUYENTE: el PDF guarda un valor por campo. Si
                 // el valor es el on-state de otro recuadro, éste va apagado.
-                const marcada = c.onState ? guardado === c.onState : guardado !== '';
+                // 🔴 `empataOpcion` y NO `===`: desde que el on-state se lee
+                // decodificado (`Sí`, `Opción2`), un informe viejo que guardó el
+                // nombre ESCAPADO (`S#ED`) dejaría de empatar AQUÍ mientras el
+                // renderer —que sí tolera las dos formas— lo sigue marcando. El
+                // visor pintaría la casilla VACÍA, el doctor la daría por no
+                // contestada, y el PDF que recibe la aseguradora saldría marcado.
+                const marcada = c.onState ? empataOpcion(guardado, c.onState) : guardado !== '';
                 return (
                   <input
                     key={`${c.clave}-${c.x}-${c.y}`}

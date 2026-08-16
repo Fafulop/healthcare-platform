@@ -25,10 +25,11 @@
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { PDFCheckBox, PDFDocument } from 'pdf-lib';
+import { PDFCheckBox, PDFDocument, PDFRadioGroup } from 'pdf-lib';
 import { claveCruda, type FieldDict } from '../types';
 import { DICT_AXA } from '../dicts/axa';
 import { DICT_ALLIANZ, ETIQUETAS_ALLIANZ } from '../dicts/allianz';
+import { DICT_GNP } from '../dicts/gnp';
 
 export interface FormatoEnRepo {
   insurer: string;
@@ -86,6 +87,27 @@ export const FORMATOS: FormatoEnRepo[] = [
     // Allianz byte a byte y la fila lo declara (03-FORMATOS §5).
     camposPropios: true,
   },
+  {
+    insurer: 'GNP',
+    name: 'Informe Médico GMM',
+    // La clave impresa en la propia hoja, al pie de la p1: `402087SCinfmed_0217`
+    // (febrero 2017). Es lo mismo que hace AXA con `AI-346 FEBRERO 2022`, y por
+    // eso no se usa la fecha del PDF.
+    version: '402087SCinfmed_0217',
+    sourceUrl:
+      'https://www.gnp.com.mx/content/dam/pp/mx/es/footer/blue-navigation/asistencia-y-contacto/servicios-en-linea/que-hacer-en-caso-de-siniestro/gastos-medicos-mayores/Informe-Medico-GMM-GNP.pdf',
+    archivo: 'gnp-informe-medico-gmm-0217.pdf',
+    dict: DICT_GNP,
+    // El oficial YA trae sus 62 campos (55 de texto + 7 grupos de radio) puestos
+    // por Adobe: el archivo es el de GNP byte a byte y no le agregamos nada.
+    //
+    // ⚠️ Es un archivo de PREPRENSA: mide 684×864 (carta + 36 pt de rebase),
+    // trae marcas de registro en una capa encendida, y su página 1 lleva dentro
+    // una copia INVISIBLE del arte de la página 2. Lo primero es cosmético y se
+    // deja como GNP lo publica (03-FORMATOS §5); lo último obligó a filtrar por
+    // capa antes de deducir cualquier etiqueta (`add-fields.ts`).
+    camposPropios: false,
+  },
 ];
 
 /** La clave compuesta con la que se empata una fila de `insurance_forms`. */
@@ -130,6 +152,13 @@ export async function leerPdfBaseParaVisor(formato: FormatoEnRepo): Promise<Uint
     for (const field of form.getFields()) {
       if (field instanceof PDFCheckBox) {
         try { field.uncheck(); } catch { /* una casilla terca no debe tumbar el visor */ }
+      }
+      // Y los RADIOS igual: el GNP oficial trae `Relación otro padecimiento`
+      // preseleccionado. pdf.js dibuja la apariencia guardada, así que esa marca
+      // saldría pintada en el lienzo debajo de un recuadro HTML vacío — visible,
+      // imposible de desmarcar, y para la app nunca estuvo marcada.
+      if (field instanceof PDFRadioGroup) {
+        try { field.clear(); } catch { /* idem */ }
       }
     }
     form.updateFieldAppearances();

@@ -2,7 +2,138 @@
 
 ---
 
-# ⏱️ EMPIEZA AQUÍ — cierre del 2026-08-14
+# ⏱️ EMPIEZA AQUÍ — 2026-08-15: la TERCERA aseguradora (GNP)
+
+**Estado: construido y verificado con el motor real. NADA desplegado, NADA en la BD, NADA
+commiteado.** El trabajo está en el árbol de trabajo, con `type-check` ✅ y los **5 gates** ✅.
+
+## Lo primero
+
+1. 🔴 **Abrir `Downloads/gnp-MAPA-de-campos.pdf` y `Downloads/gnp-DEMO-todo-lleno.pdf`.** Son las 2
+   páginas de GNP con cada campo rotulado y con todo lleno por el motor real (55/55 rotulados ·
+   62/62 llenos · 0 problemas · 0 campos vivos tras aplanar). **Nadie las ha visto.**
+2. 🔴 **Aplicar `seed-formato-gnp.sql` a prod** (`prisma db execute`, JAMÁS `db push`) **ANTES** del
+   push. Sin esa fila el dropdown no ofrece GNP: `formatoDe()` empata contra la BD.
+3. 🔴 **Decidir `clinico.tratamiento`**: GNP tiene UN campo `Tratamiento` y no se sabe, sin ver la
+   hoja, si pregunta por el tratamiento DADO o el PROPUESTO. Se dejó SIN mapear a propósito — en AXA
+   equivocarse ahí habría dicho algo falso.
+
+## Qué se hizo
+
+**El PDF es el OFICIAL de `gnp.com.mx`** (`Producer: Adobe PDF library 15.00`, leído con
+`updateMetadata: false`), versión impresa en la hoja **`402087SCinfmed_0217`**. Con eso se cierra la
+pregunta #0 que llevaba una semana bloqueando esta aseguradora.
+
+| | |
+|---|---|
+| Campos | **62** — 55 de texto + **7 grupos de radio** (19 recuadros) |
+| Diccionario | **20 entradas**, todas verificadas contra la hoja · 0 inválidas |
+| Pre-llenado real | 19 de 20 escritos · **0 problemas · 0 ilegibles · 0 campos vivos** tras aplanar |
+| Etiquetas de los radios | **7 grupos y 19/19 opciones**, derivadas del texto impreso |
+| Al asistente | **5 de 7 grupos** (se bloquean los dos `Sí/No` sin pregunta) |
+
+🎉 **Y GNP salió BARATO en diccionario**: 02-PLAN §3 lo daba por 🔴 *"puramente posicional, `P1_7`,
+cero semántica"* — **eso era el PDF de Eleonor**. El oficial tiene nombres tan buenos como los de
+AXA, así que no necesita mapa de `etiquetas` y la "pantalla de revisión" se cae casi entera.
+
+## 🔴 Lo caro fue el MOTOR: cuatro suposiciones que resultaron falsas
+
+Ninguna la habrían encontrado los gates ni el type-check, y las cuatro producen una hoja que se ve
+perfectamente normal. Detalle en [`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §7.
+
+1. **Grupos de RADIO** — el motor sólo sabía de texto y casillas (`geometria-formato.ts` los
+   excluía *"a propósito"*). Eran **7 preguntas sin dónde contestarse**, incluido el sexo, en una
+   hoja que dice *"favor de no dejar preguntas ni espacios sin contestar"*. Ahora comparten camino
+   con las casillas: mismo visor, misma procedencia, mismo catálogo del asistente.
+   ⚠️ Y traían el regalo de AXA: **`Relación otro padecimiento` viene preseleccionado de fábrica**
+   y el apagado sólo miraba `PDFCheckBox` ⇒ el PDF aplanado afirmaba una respuesta que nadie dio.
+2. **4 widgets con el `/Rect` INVERTIDO** (alto negativo). El visor los dibujaba sin altura y 56 pt
+   más abajo: `Antecedentes perinatales` **no se podía escribir**, y `capacidadDeCaja` se los
+   saltaba como "inmensurables", así que nunca se revisaban por legibilidad.
+3. **Texto en una capa APAGADA**: la p1 lleva una copia INVISIBLE del arte de la p2, en las mismas
+   coordenadas (245 items de texto, 126 visibles). Deducir etiquetas ahí es *el rótulo falso*
+   servido en bandeja. `geometriaDelPdf()` ahora filtra por capa.
+4. **Los nombres de opción vienen ESCAPADOS**: `Opción2` se guarda como `Opci#F3n2`. `asString()`
+   da el literal escapado y `getOptions()` el texto — mezclarlos descartaba **en silencio** la
+   opción que eligió el médico. Se lee con `decodeText()` y el empate tolera las dos formas, porque
+   en prod hay un informe que guardó `campo:Check Box1 = S#ED`.
+
+## 🔴 Y un bug VIVO que destapó, en AXA y Allianz
+
+`medico.nombre` salía de `doctorFullName` a secas. Medido contra los **11 doctores de prod**: esa
+columna se usa de dos maneras incompatibles —a veces trae el nombre completo, a veces **sólo los
+nombres de pila** con los apellidos en `Doctor.lastName`, y **4 de 11 tienen `lastName` vacío**.
+
+⇒ Para *Adriana Michelle*, *David* y *Quebradita*, **los informes de AXA y Allianz se están
+generando hoy con el nombre del médico SIN APELLIDO**, en la casilla con la que la aseguradora
+identifica a quien trató al paciente.
+
+`nombreDelMedico()` compone desde las dos columnas, quita el título y deja los tres campos **vacíos
+y avisados** cuando no hay apellidos — nunca parte el nombre completo a ojo, porque eso daba
+`paterno = "Michelle"` y `paterno = "David"`.
+
+⚠️ **Lo que NO se hizo:** `paciente.sexo` no se mapea al radio `Genero`. El canónico entrega
+`"Masculino"` y el radio pide su valor de exportación (`M`); empatarlos pide una tabla de
+equivalencias por formato que hoy no existe, y aproximar en un grupo excluyente está prohibido. El
+médico lo marca de un clic.
+
+## 🔴 El `/code-review` — 7 hallazgos, y el peor era el bug que este cambio venía a cerrar
+
+Corrido ANTES de sembrar y de empujar. Los cinco que se arreglaron, todos **verificados
+ejecutándose**, no leyendo el código:
+
+1. **🔴 Un radio con un valor que no empata conservaba la preselección DE FÁBRICA.**
+   `normalizarCasillas` no lo apagaba —el campo tiene respuesta, así que cuenta como
+   "contestado"— y la rama del radio se salía reportando `opcion-no-existe` sin limpiar. Resultado
+   medido sobre el GNP real: la hoja aplanada salía con `Relación otro padecimiento = Opción1`,
+   o sea un **"Sí" que nadie contestó**. Es la MISMA falla que el cambio venía a cerrar, por una
+   tercera puerta. Ahora se hace `clear()` antes de reportar.
+2. **🔴 El VISOR no empataba igual que el renderer.** Al pasar el on-state a decodificado (`Sí`),
+   el visor —que comparaba con `===`— pintaría **vacía** la casilla del informe que en prod guardó
+   `S#ED`, mientras el renderer la marca. El doctor la da por no contestada y el PDF sale
+   afirmándola. `empataOpcion` se movió a `types.ts` (que NO importa pdf-lib, porque el visor es
+   cliente) y ahora la usan las dos superficies. Misma corrección en el endpoint del chat, que le
+   estaba pasando `S#ED` al modelo como "lo ya contestado".
+3. **🔴 El nombre del médico con solapamiento PARCIAL.** `Dr. Gerardo Lopez Fafutis` + `lastName
+   Lopez` daba `"… Fafutis Lopez"` en la línea de la FIRMA. Ahora ese caso no compone: los
+   apellidos se ponen (salen de `lastName`, que es confiable), los nombres se dejan vacíos y se
+   avisa.
+4. **🔴 Los avisos del nombre del médico salían en AXA y Allianz**, que no tienen esas casillas —
+   *"escríbelas aquí"* apuntando a un campo que no existe, en TODOS los informes. Es el contador
+   que nunca da cero. `avisosDelFormato()` los filtra por el diccionario de la hoja.
+5. **🔴 `esEncabezadoDeSeccion` le abría un hueco al guardarraíl del agente.**
+   `casillasParaElAgente` busca `autoriz|acepto|consent|…` en `pregunta + clave + opciones`;
+   anular una pregunta en VERSALES quitaba de ahí un `CONSENTIMIENTO INFORMADO` y el grupo se
+   volvía proponible por un modelo. Ahora un encabezado se conserva si suena a consentimiento.
+
+Y dos que se **anotaron sin arreglar**, los dos latentes y con su razón:
+
+- **El emparejamiento de capas es POSICIONAL** y no ve los bloques `/OC` que viven dentro de un
+  Form XObject ni los `/OC <</Type/OCMD …>>` en línea. Ninguno de los 3 formatos los trae (medido:
+  0 `Do`, 0 dicts en línea), pero un desfase de uno filtraría la capa EQUIVOCADA en silencio ⇒ se
+  agregó una **guarda que compara los dos conteos y falla ABIERTO** si no cuadran.
+- **Las `reglas` (rayas) NO se filtran por capa**, sólo los textos y los recuadros: el operator
+  list se lee aparte. Hoy no muerde porque ningún formato es plano **y** con capas apagadas a la
+  vez — pero el siguiente que lo sea pondría campos escribibles sobre arte invisible. Anotado aquí
+  a propósito, sin arreglar a medias.
+
+> 🔎 **Y una afirmación mía era falsa:** los comentarios decían *"un formato sin capas —AXA,
+> Allianz— no cambia en nada"*. **Allianz SÍ tiene capas** (4 OCGs de Illustrator); lo que no tiene
+> es ninguna apagada. Corregido en el código y aquí.
+
+## Lo que se verificó, y lo que eso NO cubre
+
+`type-check` ✅ · **5 gates** ✅ · AXA y Allianz **idénticos** tras cada paso (277/255/22 con 13 de
+22 al asistente · 87/73/14 con 12 de 14 · los dos aplanan a 0 campos vivos) · el valor de LEGADO
+`S#ED` sigue marcando la casilla correcta · una opción inventada se DESCARTA en vez de aproximarse.
+
+🔴 **Nada de esto es el CLIC.** Nadie ha abierto GNP en el visor, ni ha marcado un radio en la
+pantalla, ni ha bajado un informe de GNP. Y la lección del 08-14 sigue vigente: **los 4 bugs reales
+de Allianz los encontró el usuario usando la pantalla, con todos los contadores en verde.**
+
+---
+
+# ⏱️ 2026-08-14 — cierre
 
 **Nada a medias. Todo commiteado, pusheado, desplegado (SUCCESS) y verificado dentro del
 contenedor.** `main` == `origin/main` == `ffb735a5` (+ el commit de cierre).
