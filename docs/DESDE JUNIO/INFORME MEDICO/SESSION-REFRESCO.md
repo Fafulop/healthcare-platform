@@ -1,13 +1,125 @@
 # 🔄 SESSION-REFRESCO — INFORME MÉDICO
 
+> **Handoff canónico de esta carpeta.** Lee sólo el bloque **EMPIEZA AQUÍ** de aquí abajo: trae el
+> estado, lo que sigue abierto y cómo comprobar que nada se rompió. Todo lo que viene después son
+> **bitácoras por sesión, de la más nueva a la más vieja** — sirven para entender *por qué* algo
+> es como es, no para saber dónde estamos.
+
 ---
 
-# ⏱️ EMPIEZA AQUÍ — 2026-08-16: el TAMAÑO DE LETRA del PDF
+# ⏱️ EMPIEZA AQUÍ — cierre del 2026-08-16
 
-**GNP ya está EN PROD y probado por el usuario** (`d51d570c`, deploy SUCCESS): *"it run and it's
-fine, looks very good"*. Lo de abajo (2026-08-15) es el historial de esa sesión.
+**Nada a medias. Todo commiteado, pusheado y desplegado (SUCCESS).**
+`main` == `origin/main` == **`5788823f`**.
 
-**Sin commitear:** el arreglo del tamaño de letra. `type-check` ✅ · 5 gates ✅.
+## El estado, en una tabla
+
+| | |
+|---|---|
+| **AXA** · GMM Informe Médico `AI-346 FEBRERO 2022` | 🟢 EN PROD y **en uso diario** · 277 campos (255 texto · 22 grupos, 13 al asistente) |
+| **Allianz** · GMM Informe Médico `FEBRERO 2023` | 🟢 EN PROD · oficial PLANO ⇒ 87 campos que le pusimos nosotros (73 texto · 14 grupos, 12 al asistente) |
+| **GNP** · Informe Médico GMM `402087SCinfmed_0217` | 🟢 EN PROD y **probado por el usuario** · 62 campos (55 texto · **7 radios**, 5 al asistente) |
+| Motor, pantalla, visor, chat, informe a nivel paciente | 🟢 EN PROD desde el 11-08 |
+
+Los tres commits de estas dos sesiones: `d51d570c` (GNP) · `2cbd2be1` (tamaño de letra) ·
+`5788823f` (docs). Sólo se mueve `@healthcare/doctor`; los otros tres servicios salen `SKIPPED`.
+
+## 🔴 LO QUE SIGUE ABIERTO — la lista para la próxima sesión
+
+Ninguna es difícil; **las dos primeras necesitan OJOS sobre la hoja impresa, no código.**
+
+1. 🔴 **`clinico.tratamiento` de GNP, SIN mapear.** La hoja tiene UN campo `Tratamiento` y no se
+   sabe, sin mirarla, si pregunta por el tratamiento **DADO** o el **PROPUESTO**. `plan` es el
+   propuesto; en AXA equivocarse ahí habría dicho algo falso, así que se dejó vacío a propósito
+   (razón escrita en `dicts/gnp.ts`). Se cierra con una línea en el dict.
+2. 🔴 **`Padecimiento relacionado` de GNP induce al modelo a repetir el diagnóstico.** En la hoja
+   significa *otro* padecimiento distinto con el que se relaciona, y el nombre del campo no lo
+   dice. Visto en una llamada real. Se arregla con **una línea de `ETIQUETAS_GNP`** (el mapa
+   `nombre → lo que dice la hoja`, como el de Allianz) — y hay que **volver a llamar al modelo**
+   para comprobar que cambia la conducta, no basta con escribirlo.
+3. **`paciente.sexo` no llega al radio `Genero`**: el canónico entrega `"Masculino"` y el campo
+   pide su valor de exportación (`M`). Empatarlos pide una tabla de equivalencias por formato que
+   hoy no existe, y aproximar en un grupo excluyente está PROHIBIDO. Hoy lo marca el doctor de un
+   clic, o se lo dice al chat (`Genero` sí está entre los 5 grupos que el asistente ve).
+4. **Las 7 etiquetas de Allianz que la hoja no explica** (`p1_Especifique`, `p1_AAAA`,
+   `p1_y_cantidad_2`, `p1_padecimiento`, `p1_CAUSA`, `p2_Cual`, `p2_car_procedimiento`) **y las 4
+   de AXA de la misma clase** (`Cuál`, `Días`, `Hasta`, `Total`). Una línea cada una.
+5. **Los 6 conceptos de Allianz SIN mapear** (razón en `dicts/allianz.ts`): diagnóstico,
+   tratamiento, exploración física, RFC, fecha del informe y hospital.
+6. ⚠️ **PRE-EXISTENTE, no lo introdujo nada de esto:** con texto muy largo pdf-lib deja de encoger
+   y RECORTA. Medido con valores de 180 caracteres: AXA pierde 21 campos y **los avisa los 21**;
+   Allianz pierde 14 y **CALLA 2** (`p2_Senale_los_resultados_de_examenes_de_laborat_2`,
+   `p2_Hubo_complicaciones`), porque el aviso usa una estimación de 0.5 em que es optimista. Ahí
+   estimar es SEGURO —sólo decide si avisar— pero conviene afinarlo (08-ALTA §7c).
+7. **Deuda vieja que sigue viva:** `informe.fecha` se calcula al CREAR y se congela, así que un
+   borrador creado el 1 y emitido el 20 imprime `01/08` (**DIFERIDO por el usuario**);
+   `/api/…/dictar` es un endpoint LLM vivo **sin UI que lo llame**; y el autoguardado al salir del
+   campo **ya no existe** (1B) sin que nadie decidiera si se quiere así.
+
+## 🔴 Lo que NADIE ha visto con los ojos
+
+Es lo único que de verdad falta, y sólo lo puede hacer el usuario:
+
+- **Las 3 páginas de Allianz renderizadas en el navegador** con sus 87 campos — pendiente desde el
+  08-08. Se revisó el MAPA en PDF, que no es lo mismo que el visor pintando cajas sobre un lienzo.
+- **Las 2 fechas de AXA que acaban de empezar a imprimir** (`Día_2`, `Día_3`). Se verificaron
+  leyendo el PDF por código, no en pantalla.
+- **Un informe de GNP de punta a punta**: marcar un radio que NO sea el primero de su grupo,
+  Guardar, bajar borrador y final.
+
+## Cómo se verifica que nada se rompió (todo en local, sin desplegar)
+
+```bash
+cd apps/doctor && npx tsc --noEmit          # los scripts/ SÍ entran
+cd ../.. && pnpm gates                      # los 5
+cd apps/doctor
+npx tsx scripts/alta-formato.ts inspeccionar public/formatos/axa-gmm-informe-medico-2022-02.pdf
+#   → 277 campos · 22 grupos · 13 al asistente     (AXA es el ORÁCULO)
+npx tsx scripts/alta-formato.ts inspeccionar public/formatos/allianz-gmm-informe-medico-2023-02.pdf
+#   → 87 campos · 14 grupos · 12 al asistente
+npx tsx scripts/alta-formato.ts inspeccionar public/formatos/gnp-informe-medico-gmm-0217.pdf
+#   → 62 campos (55 texto · 7 radios) · 5 al asistente · avisa 1 opción de fábrica,
+#     4 rects invertidos y la capa APAGADA
+npx tsx scripts/alta-formato.ts demo <cualquiera> /tmp/x.pdf
+#   → llenados == respuestas · 0 problemas · 0 campos vivos tras flatten
+```
+
+🔴 **Y la comprobación que ningún contador da:** llenar todos los campos, aplanar y **LEER EL PDF
+DE VUELTA** exigiendo que cada valor aparezca. Es la única que caza el texto que se escribió y no
+se imprimió — hoy pasan los **383 campos** de los tres formatos. Se rehace en 5 minutos con un
+script de scratchpad; no está en el repo.
+
+⚠️ Hay `OPENAI_API_KEY` en `apps/doctor/.env.local`: **se puede llamar al modelo DE VERDAD** desde
+un script, sin desplegar. Es lo que destapó el bug del prefijo `campo:` tras dos sesiones en verde,
+y lo que confirmó que GNP le llega bien al asistente. Un contrato con un LLM no se verifica
+leyendo el prompt.
+
+## Lo que NO se re-litiga
+
+- El PDF es una **SALIDA**, nunca la superficie de captura.
+- Un campo **sin fuente se queda VACÍO y marcado**. Nunca se adivina.
+- Nada se guarda hasta **Guardar** (1B); se descarta campo por campo (2B).
+- El informe es un flujo **CONTENIDO**, no un módulo del asistente.
+- El PDF base sale del **dominio de la aseguradora** (03-FORMATOS §5).
+- `prisma db push` **REVIERTE** 3 cosas que viven sólo en prod (FK compuesta, índice único parcial
+  y la FK `DEFERRABLE` sin la cual **borrar un paciente truena**). SQL manual + `prisma db execute`
+  con la URL **pública** — nunca `railway run` para esto (`NEW.MD-GUIDES/database-architecture.md`).
+- En un grupo excluyente **no se aproxima "la opción más parecida"**: si no empata, se descarta.
+
+## 🔎 Las tres lecciones que más se han repetido aquí
+
+1. **Un rótulo pobre se ignora; uno FALSO se obedece.** Pasó con `Mts.` sobre la tensión arterial,
+   con `p2_RFC` del bloque del médico, con `"Diabetes Mellitus — AAAA"` en el blanco de
+   hipertensión, y con `IDENTIFICACIÓN` como pregunta de un grupo de GNP. Cuando no se pueda
+   saber, **la etiqueta se deja pelona** y quien mire la hoja la corrige.
+2. **Los contadores cuentan lo que se INTENTÓ, no lo que se IMPRIMIÓ.** El arreglo del tamaño de
+   letra llevaba `llenados=4 · problemas=0 · ilegibles=0` y había borrado la fecha de la hoja.
+3. **Una propiedad medida sobre el PDF de un TERCERO no es una propiedad del formato.** Por eso
+   02-PLAN §3 tildó a GNP de "puramente posicional" durante una semana, y era falso.
+
+---
+
+# 🗒️ 2026-08-16 — el TAMAÑO DE LETRA del PDF (bitácora)
 
 ## Qué reportó el usuario
 
@@ -40,7 +152,7 @@ campos de los tres formatos imprimen.
 
 ---
 
-# ⏱️ 2026-08-15: la TERCERA aseguradora (GNP)
+# 🗒️ 2026-08-15 — la TERCERA aseguradora, GNP (bitácora)
 
 > ✅ **CERRADO: GNP está EN PROD** (`d51d570c`, deploy SUCCESS) y el usuario lo probó —
 > *"it run and it's fine, looks very good"*. La fila de `insurance_forms` se aplicó ANTES del push
@@ -172,7 +284,7 @@ de Allianz los encontró el usuario usando la pantalla, con todos los contadores
 
 ---
 
-# ⏱️ 2026-08-14 — cierre
+# 🗒️ 2026-08-14 — Allianz, la segunda (bitácora)
 
 **Nada a medias. Todo commiteado, pusheado, desplegado (SUCCESS) y verificado dentro del
 contenedor.** `main` == `origin/main` == `ffb735a5` (+ el commit de cierre).
