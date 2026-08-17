@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Carrusel de navegación pegado arriba: en una página de 7 bandas + planes +
- * FAQ, es la única forma de moverse sin scrollear a ciegas.
+ * Carrusel de navegación pegado arriba: en una página de recorrido + 9 bandas
+ * + precio + FAQ, es la única forma de moverse sin scrollear a ciegas.
  *
- * POR QUÉ CARRUSEL Y NO UNA BARRA NORMAL: son 9 destinos y una de las
+ * POR QUÉ CARRUSEL Y NO UNA BARRA NORMAL: son 12 destinos y una de las
  * etiquetas es "Administración fiscal". En un teléfono no caben; si se dejan
  * envolver, la barra crece a tres renglones y se come la pantalla. Aquí el
  * contenedor scrollea en horizontal y la pastilla activa se trae sola al

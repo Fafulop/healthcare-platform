@@ -1,26 +1,41 @@
 /**
- * Contenido de la home — capacidades del producto y los dos planes.
+ * Contenido de la home — el recorrido del paciente, las capacidades del
+ * producto y el precio.
  *
- * ⚠️ FUENTE DE VERDAD del reparto por plan: `TIER_EXCLUDED_KEYS` en
- * `packages/database/src/permissions.ts` (tiers CORE/FULL) y el diseño en
- * `docs/DESDE JUNIO/TIERS/`. Este archivo NO importa ese paquete a propósito:
- * `@healthcare/public` no depende de `@healthcare/database` y agregarlo
- * arrastraría Prisma al sitio público. Cada `permissionKey` de abajo es la key
- * real, para que la correspondencia sea verificable a ojo:
+ * ⚠️ AQUÍ YA NO HAY PLANES. Desde el 2026-08-17 se vende UN SOLO plan con todo
+ * incluido a $550 + IVA al mes. Antes este archivo espejaba a mano el reparto
+ * CORE/FULL de `TIER_EXCLUDED_KEYS` (`packages/database/src/permissions.ts`) y
+ * marcaba con `fullOnly` lo que el plan Esencial no traía. Eso se borró.
  *
- *   CORE excluye: facturacion · sat · conciliacion · ventas · compras · productos
+ * Lo que NO cambió es el código: los tiers CORE/FULL siguen vivos en
+ * `permissions.ts` y el selector de tier sigue en el admin. Hoy es inofensivo
+ * porque todas las cuentas están en FULL, así que "todo incluido" es cierto.
+ * **Si alguien pone una cuenta en CORE, esta página miente** —le vendería
+ * facturación, SAT y conciliación a alguien que verá pantallas bloqueadas—.
+ * Esa es la razón de que la divergencia esté escrita aquí y no deducida: el
+ * siguiente que pase no debe "arreglarla" devolviendo los dos planes.
  *
- * Si cambian los tiers, este archivo se actualiza a mano. Nombres públicos
- * (Esencial/Completo) ≠ nombres internos (CORE/FULL): el mapa vive aquí.
+ * `@healthcare/public` sigue sin depender de `@healthcare/database` a
+ * propósito (arrastraría Prisma al sitio público). Cada `permissionKey` de
+ * abajo es la key real, para que la correspondencia sea verificable a ojo.
  */
-
-export const PLAN_NAMES = {
-  CORE: 'Esencial',
-  FULL: 'Completo',
-} as const;
 
 export const SALES_EMAIL =
   process.env.NEXT_PUBLIC_SALES_EMAIL || 'hola@tusalud.pro';
+
+/* ────────────────────────────── Precio ──────────────────────────────
+   Los números viven aquí como DATOS, no incrustados en el JSX: la página
+   los menciona en el hero, en el bloque de precio y en el FAQ, y así no
+   pueden quedar tres precios distintos en la misma pantalla. */
+export const PRICING = {
+  amount: 550,
+  currency: 'MXN',
+  /** El precio se publica SIN IVA, así que la página está obligada a decirlo. */
+  ivaNote: '+ IVA al mes',
+  includedInvoices: 30,
+  extraInvoicePrice: 1,
+  trialWeeks: 2,
+} as const;
 
 /** Una función del producto, tal como la ve el doctor en su panel. */
 export interface Feature {
@@ -30,8 +45,6 @@ export interface Feature {
   label: string;
   /** Qué hace, en una frase de doctor (no de ingeniero). */
   blurb: string;
-  /** true ⇒ excluida del plan Esencial (CORE). */
-  fullOnly?: boolean;
 }
 
 export interface CapabilityGroup {
@@ -48,22 +61,99 @@ export interface CapabilityGroup {
    * Omitir el campo cuando no haya nada pendiente.
    */
   soon?: string[];
-  features: Feature[];
-  fullOnly?: boolean;
   /**
-   * Color de la capacidad. Desde el 2026-08-01 tiñe ÚNICAMENTE la pastilla de
-   * su icono: el fondo lo pone el campo continuo de la página
-   * (`.velvet-field`), no la sección. Es la última isla de identidad por
-   * capacidad, y es lo que deja distinguir agenda de dinero de un vistazo.
+   * Las secciones REALES del panel del doctor que cubre esta capacidad.
+   * Puede ir VACÍO: `informe` no tiene permiso propio —vive dentro del
+   * expediente—, y duplicar aquí la key `expedientes` la contaría dos veces.
+   * Una capacidad sin features se pinta a ancho completo, sin la tarjeta del
+   * panel.
+   */
+  features: Feature[];
+  /**
+   * Color de la capacidad. Tiñe ÚNICAMENTE la pastilla de su icono: el fondo
+   * lo pone el campo continuo de la página (`.velvet-field`), no la sección.
+   * Es la última isla de identidad por capacidad, y es lo que deja distinguir
+   * agenda de dinero de un vistazo.
    *
    * Sigue sin tocar texto: el ámbar y el cian no dan contraste AA sobre claro.
-   *
-   * (Aquí vivían `wash1`/`wash2`, el mismo color con alfa para el degradado
-   * radial de cada banda. Murieron con los fondos por sección.)
    */
   accent: string;
 }
 
+/* ──────────────────────── El recorrido ────────────────────────
+   La sección de más peso de la página, y la única que cuenta el producto
+   como un HILO y no como un catálogo. Antes esto no existía: la promesa
+   («captúralo una vez») estaba repartida en tres bandas que nunca se
+   tocaban —agenda decía que el paciente agenda solo, dinero decía que el
+   cobro se registra solo, fiscal decía que la factura sale de la cita— y
+   armar el circuito quedaba de tarea del doctor.
+
+   Cada paso es algo que el producto hace HOY. Lo que aún no existe
+   (WhatsApp) se queda en el bloque «Muy pronto» de su capacidad: un
+   recorrido que mezcla lo real con lo prometido deja de ser creíble. */
+export const JOURNEY_STEPS: { n: number; title: string; text: string }[] = [
+  {
+    n: 1,
+    title: 'Se crea la cita',
+    text: 'El paciente agenda solo desde tu perfil público, o la creas tú en segundos. Ahí mismo marcas si va a necesitar factura.',
+  },
+  {
+    n: 2,
+    title: 'Nace su expediente',
+    text: 'Si es paciente nuevo, su expediente se crea ligado a esa cita. No lo abres aparte ni lo buscas después.',
+  },
+  {
+    n: 3,
+    title: 'Documentas la consulta',
+    text: 'Nota escrita o dictada por voz, receta con tu formato y tu firma, estudios y archivos adjuntos. Todo cuelga del mismo paciente, en su línea de tiempo.',
+  },
+  {
+    n: 4,
+    title: 'Sus datos fiscales, una sola vez',
+    text: 'Le mandas un link, el paciente llena sus datos fiscales él mismo y quedan guardados en su expediente. Tú no capturas un solo RFC.',
+  },
+  {
+    n: 5,
+    title: 'Facturas en un clic',
+    text: 'Desde el expediente, la cita ya trae su liga de facturación. Clic, revisas la factura ya armada, clic, timbrada.',
+  },
+  {
+    n: 6,
+    title: 'Le cobras por donde quieras',
+    text: 'Le generas un link de pago con tu propia cuenta de Mercado Pago o de Stripe y lo cobras con tarjeta, transferencia o SPEI. En cuanto el paciente paga, el cobro entra solo. O lo registras en efectivo si te pagó en el consultorio.',
+  },
+  {
+    n: 7,
+    title: 'Todo aterriza en tu flujo de dinero',
+    text: 'El cobro y la factura quedan agregados a ese paciente. Siempre sabes cuánto entró, de dónde y de quién.',
+  },
+];
+
+/** El cierre del recorrido: la vuelta es lo que hace que valga la pena. */
+export const JOURNEY_LOOP = {
+  title: 'La siguiente consulta',
+  text: 'Los pasos 2 y 4 ya no existen: el expediente está ahí y sus datos fiscales también. Terminas la consulta, cobras y facturas en un clic.',
+};
+
+/* ──────────────────── La promesa del dinero ────────────────────
+   Vivía como el quinto bullet de la banda `dinero`, donde nadie lo leía.
+   Es de las dos o tres cosas que de verdad frenan a un doctor que va a
+   meter su consultorio a un software, así que sube a franja propia justo
+   después del recorrido. NO lleva `id` de navegación: no es una capacidad
+   y meterla al carrusel diluiría los destinos reales. */
+export const MONEY_PROMISE = {
+  title: 'Tu dinero va de tu paciente a tu cuenta. Punto.',
+  body: 'Conectas tu propia cuenta de Mercado Pago o de Stripe. El pago viaja directo de tu paciente a esa cuenta: nosotros no lo tocamos, no lo retenemos y no dependes de que te lo depositemos después. No hay comisión nuestra sobre lo que cobras, ni saldo que esperar, ni corte que perseguir.',
+  footer: `Nuestro cobro es uno solo y es el de la plataforma: $${PRICING.amount} + IVA al mes.`,
+};
+
+/* ────────────────────────── Capacidades ──────────────────────────
+   El ORDEN es el argumento. Sigue al recorrido —agenda, expediente,
+   informe, facturación, dinero— y sólo después vienen las capacidades
+   que cruzan todo (asistente), las que traen pacientes (presencia) y las
+   que miden (reportes). La administración fiscal avanzada va al final: es
+   real y es fuerte, pero es de quien la necesita, y en medio del hilo
+   rompía la narrativa. */
 export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     id: 'agenda',
@@ -81,6 +171,7 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     ],
     soon: [
       'Recordatorios automáticos a tus pacientes por WhatsApp, y que confirmen si van a venir respondiendo ahí mismo.',
+      'Que el paciente te diga por WhatsApp si va a necesitar factura, sin que se lo preguntes.',
       'Tu itinerario del día y tus avisos, también por WhatsApp.',
     ],
     features: [
@@ -124,6 +215,74 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       },
     ],
   },
+  /**
+   * El informe médico NO tiene permiso propio: vive dentro del expediente
+   * (`/dashboard/medical-records/patients/[id]/informe`), así que `features`
+   * va vacío a propósito y la banda se pinta a ancho completo. Repetir aquí
+   * la key `expedientes` la contaría dos veces en `ALL_FEATURES`.
+   */
+  {
+    id: 'informe',
+    accent: '#0EA5E9',
+    eyebrow: 'Informe médico',
+    title: 'El informe de la aseguradora, sin volver a escribir el caso',
+    lead: 'Tus pacientes asegurados necesitan un informe en el formato exacto de su aseguradora. Ese informe ya está en tu expediente — sólo hay que vaciarlo. Aquí se llena solo, con lo que ya documentaste.',
+    bullets: [
+      'El formato oficial de cada aseguradora — AXA, Allianz y GNP — tal cual lo piden, no una aproximación.',
+      'Se llena con IA a partir del expediente del paciente: sus consultas, sus notas, sus diagnósticos. No vuelves a escribir lo que ya escribiste.',
+      'También puedes dictarlo por voz y dejar que se acomode solo en los campos del formato.',
+      'Todo es editable antes de firmar: tú revisas y corriges lo que quieras, campo por campo.',
+      'Sale en PDF con el formato de la aseguradora, listo para entregar o enviar.',
+    ],
+    features: [],
+  },
+  {
+    id: 'facturacion',
+    accent: '#F59E0B',
+    eyebrow: 'Facturación',
+    title: 'Facturar deja de ser un trámite aparte',
+    lead: 'La factura sale de la cita que la originó, con los datos fiscales que el paciente llenó una sola vez. Tú revisas y timbras.',
+    bullets: [
+      'Facturación CFDI con tu propio sello (CSD), armada desde la cita que la origina — con los datos fiscales que el paciente ya llenó una sola vez.',
+      'Le mandas al paciente un link para que capture él mismo su RFC, su razón social y su uso de CFDI. Quedan guardados en su expediente para siempre.',
+      'Desde el expediente ves qué citas están facturadas y cuáles no, sin cruzar listas a mano.',
+      'El PDF y el XML quedan guardados y se los envías al paciente desde ahí mismo.',
+      'Cada factura timbrada entra sola a tu flujo de dinero, agregada a ese paciente.',
+    ],
+    features: [
+      {
+        permissionKey: 'facturacion',
+        label: 'Facturación',
+        blurb: 'CFDI con tu sello, desde la cita.',
+      },
+    ],
+  },
+  {
+    id: 'dinero',
+    accent: '#EAB308',
+    eyebrow: 'Dinero',
+    title: 'Saber cuánto entró y cuánto salió',
+    lead: 'Todo el dinero de tu consultorio cae en un mismo tablero. Lo que cobras en la consulta, lo que te pagan en línea y lo que bajas del SAT llegan solos; lo demás lo agregas tú.',
+    bullets: [
+      'Un solo tablero de ingresos y egresos: aquí aterriza todo lo que se mueve en tu consultorio, venga de donde venga.',
+      'Terminas una cita y lo que cobraste por ella se registra solo, con el precio del servicio que ya venía de tu agenda — sin capturarlo dos veces.',
+      'Conectas tu cuenta de Mercado Pago o de Stripe y generas links de cobro: tu paciente paga con tarjeta de crédito o débito, transferencia o SPEI —según la cuenta que conectes— y el cobro entra solo en cuanto se paga.',
+      'Los CFDI que bajas del SAT también entran solos: lo que facturaste como ingreso y lo que te facturaron como gasto.',
+      'Y lo que nunca pasó por el sistema lo agregas a mano: un ingreso o un gasto suelto, cuando haga falta.',
+    ],
+    features: [
+      {
+        permissionKey: 'flujo',
+        label: 'Flujo de Dinero',
+        blurb: 'Ingresos y egresos del consultorio.',
+      },
+      {
+        permissionKey: 'pagos',
+        label: 'Pagos',
+        blurb: 'Links de cobro con Mercado Pago y Stripe.',
+      },
+    ],
+  },
   {
     id: 'asistente',
     accent: '#8B5CF6',
@@ -135,7 +294,7 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       'No es solo para preguntar: crea citas, las actualiza y registra lo que haga falta, sin que tengas que encontrar el botón correcto.',
       'Antes de escribir cualquier cosa te enseña exactamente qué va a hacer y espera tu confirmación. Nada se ejecuta a tus espaldas.',
       'Conoce tu agenda, tu expediente y tu dinero — y trabaja sobre tus datos de este momento, no sobre un resumen viejo.',
-      'Incluido en los dos planes, no como un extra que se paga aparte.',
+      'Incluido, no como un extra que se paga aparte.',
     ],
     features: [
       {
@@ -182,92 +341,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       },
     ],
   },
-  {
-    id: 'dinero',
-    accent: '#F59E0B',
-    eyebrow: 'Dinero',
-    title: 'Saber cuánto entró y cuánto salió',
-    lead: 'Todo el dinero de tu consultorio cae en un mismo tablero. Lo que cobras en la consulta, lo que te pagan en línea y lo que bajas del SAT llegan solos; lo demás lo agregas tú.',
-    bullets: [
-      'Un solo tablero de ingresos y egresos: aquí aterriza todo lo que se mueve en tu consultorio, venga de donde venga.',
-      'Terminas una cita y lo que cobraste por ella se registra solo, con el precio del servicio que ya venía de tu agenda — sin capturarlo dos veces.',
-      'Conectas tu cuenta de Mercado Pago o de Stripe y generas links de cobro: tu paciente paga con tarjeta de crédito o débito, transferencia o SPEI —según la cuenta que conectes— y el cobro entra solo en cuanto se paga.',
-      'El dinero nunca pasa por nosotros: va directo de tu paciente a tu cuenta de Mercado Pago o de Stripe. Nosotros no lo tocamos ni lo retenemos.',
-      `Con el plan ${PLAN_NAMES.FULL}, los CFDI que bajas del SAT también entran solos: lo que facturaste como ingreso y lo que te facturaron como gasto.`,
-      'Y lo que nunca pasó por el sistema lo agregas a mano: un ingreso o un gasto suelto, cuando haga falta.',
-    ],
-    features: [
-      {
-        permissionKey: 'flujo',
-        label: 'Flujo de Dinero',
-        blurb: 'Ingresos y egresos del consultorio.',
-      },
-      {
-        permissionKey: 'pagos',
-        label: 'Pagos',
-        blurb: 'Links de cobro con Mercado Pago y Stripe.',
-      },
-    ],
-  },
-  {
-    id: 'fiscal',
-    accent: '#F59E0B',
-    eyebrow: 'Administración fiscal',
-    title: 'La parte que nadie quiere hacer',
-    lead: 'Son dos cosas distintas y las dos viven aquí: facturar tú, y bajar del SAT todo lo que se facturó a tu nombre. De ahí sale, solo, el resumen que tu contador necesita.',
-    fullOnly: true,
-    bullets: [
-      'Facturación CFDI con tu propio sello (CSD), desde la cita que la origina. Incluye 30 facturas al mes, y puedes agregar más si las necesitas.',
-      'Descarga automática de tus CFDI emitidos y recibidos, directo del SAT: tus ingresos y tus gastos con respaldo, sin capturar nada a mano.',
-      'Cada mes se arma solo un resumen de todo lo que facturaste y todo lo que te facturaron — se lo mandas a tu contador y hace la declaración sin perseguirte.',
-      'Sabes cómo vas con el SAT durante el mes, no cuando ya toca declarar.',
-      'Conciliación bancaria: subes el estado de cuenta y lo cruzas contra lo registrado.',
-      'Ventas, compras, cotizaciones y catálogo de productos y servicios.',
-    ],
-    features: [
-      {
-        permissionKey: 'facturacion',
-        label: 'Facturación',
-        blurb: 'CFDI con tu sello, desde la cita.',
-        fullOnly: true,
-      },
-      {
-        permissionKey: 'sat',
-        label: 'Descarga SAT',
-        blurb: 'Tus comprobantes emitidos y recibidos.',
-        fullOnly: true,
-      },
-      {
-        permissionKey: 'conciliacion',
-        label: 'Conciliación Bancaria',
-        blurb: 'El estado de cuenta contra tus registros.',
-        fullOnly: true,
-      },
-      {
-        permissionKey: 'ventas',
-        label: 'Ventas',
-        blurb: 'Ventas, cotizaciones y clientes.',
-        fullOnly: true,
-      },
-      {
-        permissionKey: 'compras',
-        label: 'Compras',
-        blurb: 'Compras y proveedores.',
-        fullOnly: true,
-      },
-      {
-        permissionKey: 'productos',
-        label: 'Productos y Servicios',
-        blurb: 'Tu catálogo, con precios.',
-        fullOnly: true,
-      },
-    ],
-  },
   /**
-   * Reportes va AL FINAL a propósito: mide la agenda, el expediente y el
-   * dinero, así que solo tiene sentido después de haberlos contado. Vivía
-   * dentro del grupo `dinero`, pero dos de sus tres familias de reporte
-   * (citas y actividad clínica) no son de dinero.
+   * Reportes mide la agenda, el expediente y el dinero, así que sólo tiene
+   * sentido después de haberlos contado.
    */
   {
     id: 'reportes',
@@ -288,21 +364,60 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       },
     ],
   },
+  /**
+   * Va AL FINAL: está incluido como todo lo demás, pero es de quien lo
+   * necesita. En medio del recorrido rompía el hilo cita → factura → dinero.
+   */
+  {
+    id: 'fiscal',
+    accent: '#78716C',
+    eyebrow: 'Administración fiscal',
+    title: 'La parte que nadie quiere hacer',
+    lead: 'Bajar del SAT todo lo que se facturó a tu nombre, cuadrarlo contra tu banco y tener listo cada mes el resumen que tu contador necesita.',
+    bullets: [
+      'Descarga automática de tus CFDI emitidos y recibidos, directo del SAT: tus ingresos y tus gastos con respaldo, sin capturar nada a mano.',
+      'Cada mes se arma solo un resumen de todo lo que facturaste y todo lo que te facturaron — se lo mandas a tu contador y hace la declaración sin perseguirte.',
+      'Sabes cómo vas con el SAT durante el mes, no cuando ya toca declarar.',
+      'Conciliación bancaria: subes el estado de cuenta y lo cruzas contra lo registrado.',
+      'Ventas, compras, cotizaciones y catálogo de productos y servicios.',
+    ],
+    features: [
+      {
+        permissionKey: 'sat',
+        label: 'Descarga SAT',
+        blurb: 'Tus comprobantes emitidos y recibidos.',
+      },
+      {
+        permissionKey: 'conciliacion',
+        label: 'Conciliación Bancaria',
+        blurb: 'El estado de cuenta contra tus registros.',
+      },
+      {
+        permissionKey: 'ventas',
+        label: 'Ventas',
+        blurb: 'Ventas, cotizaciones y clientes.',
+      },
+      {
+        permissionKey: 'compras',
+        label: 'Compras',
+        blurb: 'Compras y proveedores.',
+      },
+      {
+        permissionKey: 'productos',
+        label: 'Productos y Servicios',
+        blurb: 'Tu catálogo, con precios.',
+      },
+    ],
+  },
 ];
 
-/** Todas las funciones, aplanadas — el orden es el del panel del doctor. */
+/** Todas las funciones, aplanadas — el orden es el de las bandas. */
 export const ALL_FEATURES: Feature[] = CAPABILITY_GROUPS.flatMap((g) => g.features);
-
-/** Plan Esencial (interno: CORE). */
-export const CORE_FEATURES = ALL_FEATURES.filter((f) => !f.fullOnly);
-
-/** Lo que el plan Completo (interno: FULL) agrega sobre Esencial. */
-export const FULL_ONLY_FEATURES = ALL_FEATURES.filter((f) => f.fullOnly);
 
 /**
  * Hechos de plataforma: ciertos para TODO el producto, así que no caben en
- * ninguna banda de capacidad. Van en una tira compacta justo antes de los
- * planes, que es donde el doctor se pregunta «¿y esto cómo lo uso a diario?».
+ * ninguna banda de capacidad. Van en una tira compacta justo antes del
+ * precio, que es donde el doctor se pregunta «¿y esto cómo lo uso a diario?».
  */
 export const PLATFORM_FACTS: { id: string; title: string; text: string }[] = [
   {
@@ -332,6 +447,10 @@ export const PLATFORM_FACTS: { id: string; title: string; text: string }[] = [
  * dinero y la norma—, y hasta el final las de detalle. Cada respuesta se
  * sostiene en algo que la página ya afirma más arriba; no se contesta aquí
  * nada que el producto no haga.
+ *
+ * Las tres preguntas de planes («¿el asistente está en los dos planes?»,
+ * «¿necesito facturar para usarla?», «¿puedo cambiar de plan?») se borraron
+ * el 2026-08-17: se quedaron sin sujeto al pasar a un solo plan.
  */
 export const FAQ: { q: string; a: string }[] = [
   {
@@ -343,28 +462,24 @@ export const FAQ: { q: string; a: string }[] = [
     a: 'Sí. El expediente está hecho conforme a la NOM-004 y la NOM-024, y con su aviso de privacidad — que es lo que exigen las instituciones de gobierno.',
   },
   {
+    q: '¿Cómo funciona la prueba gratis?',
+    a: `Son ${PRICING.trialWeeks} semanas con todo incluido, sin tarjeta. Al terminar decides si sigues; tu información no se borra si te tomas unos días para pensarlo.`,
+  },
+  {
+    q: `¿Qué pasa si necesito más de ${PRICING.includedInvoices} facturas al mes?`,
+    a: `Nada se detiene. Las facturas de más se timbran normal y se cobran a $${PRICING.extraInvoicePrice} + IVA cada una en tu recibo del mes siguiente. Sólo pagas por las que realmente usaste.`,
+  },
+  {
+    q: '¿Hay costos de instalación o de contrato?',
+    a: `No. Es una sola cuota mensual de $${PRICING.amount} + IVA. No hay implementación que pagar, ni permanencia mínima, ni módulos que se cobren aparte.`,
+  },
+  {
     q: '¿Tengo que instalar algo?',
     a: 'No. Vive en la nube y se usa desde el navegador, así que entras igual desde la computadora del consultorio, tu laptop o tu celular. En el teléfono puedes instalarla desde el mismo navegador y queda como una app más.',
   },
   {
-    q: '¿El asistente de IA está en los dos planes?',
-    a: `Sí. Es parte del plan ${PLAN_NAMES.CORE}, no un extra que se paga aparte. En el plan ${PLAN_NAMES.FULL} además sabe de tus facturas y de lo que bajas del SAT.`,
-  },
-  {
     q: '¿Puede entrar alguien más de mi consultorio?',
     a: 'Sí. Además de la tuya hay una segunda cuenta, con su propio acceso, para quien te apoya — no le prestas tu contraseña. Desde tu cuenta decides función por función qué puede ver y qué puede hacer: tu agenda sí, tu expediente no, por ejemplo.',
-  },
-  {
-    q: '¿Necesito facturar para usar la plataforma?',
-    a: `No. El plan ${PLAN_NAMES.CORE} incluye la agenda, el expediente, los cobros, el flujo de dinero y los reportes. La facturación, la descarga del SAT y la conciliación bancaria son del plan ${PLAN_NAMES.FULL}.`,
-  },
-  {
-    q: '¿Qué pasa si necesito más de 30 facturas al mes?',
-    a: `El plan ${PLAN_NAMES.FULL} incluye 30 facturas al mes. Si tu consultorio necesita más, se agregan — escríbenos y lo ajustamos a tu volumen.`,
-  },
-  {
-    q: '¿Puedo cambiar de plan después?',
-    a: 'Sí. Escríbenos y movemos tu cuenta; tu información no se toca al cambiar de plan — las funciones se activan o se guardan, no se borran.',
   },
   {
     q: '¿Mis pacientes tienen que descargar algo?',
