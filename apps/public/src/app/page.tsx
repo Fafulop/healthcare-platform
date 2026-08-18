@@ -326,132 +326,142 @@ export default function Home() {
       </section>
 
       {/* ─────────────────── Capacidades (el tour) ───────────────────
-          Las bandas YA NO pintan fondo: el color viene del campo continuo de
-          la página. Lo que alterna es el CONTENIDO —el panel cambia de lado
-          según `flip`—, no el fondo. La identidad de cada capacidad vive ahora
-          solo en el color de su pastilla de icono. */}
+          MOLDE (2026-08-17): TEXTO de un lado, TARJETA BLANCA del otro.
+
+          A la izquierda la capacidad se CUENTA —prosa corrida, `group.lead`,
+          un párrafo por entrada— y a la derecha se LISTA: la tarjeta lleva los
+          `bullets`, que son el inventario de funciones. Antes los bullets
+          vivían en la columna de texto y la tarjeta era un mockup falso del
+          panel del doctor —tres puntos grises y todo—, así que la columna
+          izquierda hacía los dos trabajos y la derecha fingía ser una captura.
+
+          El cromo de navegador se fue con el mockup: una tarjeta que lleva una
+          lista no debe disfrazarse de pantalla.
+
+          Las secciones REALES del panel (`group.features`, con su
+          `permissionKey`) no se perdieron: son el pie de la tarjeta, en un
+          renglón. Siguen siendo la correspondencia verificable a ojo entre
+          esta página y los permisos del producto, y de paso le dicen al doctor
+          dónde vive esto cuando entre.
+
+          Las bandas NO pintan fondo: el color viene del campo continuo de la
+          página. Lo que alterna es de qué lado cae la tarjeta. */}
       <section>
         <div>
           {CAPABILITY_GROUPS.map((group, i) => {
             const Icon = GROUP_ICONS[group.id] ?? Sparkles;
             const flip = i % 2 === 1;
-            /* Una capacidad puede no tener secciones propias del panel
-               —`informe` vive DENTRO del expediente y no tiene permiso suyo—.
-               Sin panel no hay dos columnas que balancear: la banda se pinta a
-               ancho completo en vez de dejar media pantalla vacía. */
-            const hasPanel = group.features.length > 0;
 
             return (
               <div key={group.id} id={group.id} className="scroll-mt-24 py-16 sm:py-20">
-                <div
-                  className={`mx-auto grid max-w-6xl items-center gap-10 px-6 lg:gap-16 ${
-                    hasPanel ? 'lg:grid-cols-2' : 'max-w-3xl'
-                  }`}
-                >
-                {/* Texto — entra desde el lado opuesto al panel */}
-                <div
-                  data-reveal={!hasPanel ? 'up' : flip ? 'right' : 'left'}
-                  className={hasPanel && flip ? 'lg:order-2' : undefined}
-                >
-                  <div className="flex items-center gap-3">
-                    {/* La pastilla del icono lleva el color de la sección
-                        mezclado con el navy de marca: identidad por bloque sin
-                        que la marca se pierda. */}
-                    <span
-                      className="flex h-11 w-11 items-center justify-center rounded-[12px] shadow-[var(--shadow-light)]"
-                      style={{
-                        backgroundImage: `linear-gradient(135deg, var(--velvet-indigo) 15%, ${group.accent} 130%)`,
-                      }}
-                    >
-                      <Icon className="h-5 w-5 text-white" />
-                    </span>
-                    <span className="text-sm font-semibold tracking-wide text-[var(--color-neutral-medium)] uppercase">
-                      {group.eyebrow}
-                    </span>
-                  </div>
-
-                  <h2
-                    className="velvet-title mt-5 text-3xl font-bold sm:text-4xl"
-                    style={{ fontFamily: 'var(--font-heading)' }}
+                <div className="mx-auto grid max-w-6xl items-start gap-10 px-6 lg:grid-cols-2 lg:gap-16">
+                  {/* ── Texto: la capacidad contada ── */}
+                  <div
+                    data-reveal={flip ? 'right' : 'left'}
+                    className={flip ? 'lg:order-2' : undefined}
                   >
-                    {group.title}
-                  </h2>
-
-                  <p className="mt-4 text-lg text-[var(--color-neutral-medium)]">{group.lead}</p>
-
-                  <ul data-reveal-stagger className="mt-6 space-y-3">
-                    {group.bullets.map((b) => (
-                      <li key={b} data-reveal="up" className="flex gap-3">
-                        <Check className="mt-1 h-5 w-5 shrink-0 text-[var(--color-success)]" />
-                        <span className="text-[15px] leading-relaxed">{b}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* Lo que viene — bloque APARTE y con su propio icono, para que
-                      no se pueda confundir con lo que ya funciona hoy. El texto
-                      va en gris medio: se lee, pero no compite con los bullets
-                      vivos de arriba. */}
-                  {group.soon && group.soon.length > 0 && (
-                    <div
-                      data-reveal="up"
-                      className="mt-6 rounded-[var(--radius-medium)] border border-dashed border-gray-300 bg-white/60 p-5"
-                    >
-                      <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-[var(--color-neutral-medium)] uppercase">
-                        <Clock className="h-4 w-4" />
-                        Muy pronto
-                      </p>
-                      <ul className="mt-3 space-y-2">
-                        {group.soon.map((s) => (
-                          <li key={s} className="flex gap-3">
-                            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-neutral-medium)]" />
-                            <span className="text-[15px] leading-relaxed text-[var(--color-neutral-medium)]">
-                              {s}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Panel: las secciones REALES del panel del doctor */}
-                {hasPanel && (
-                <div data-reveal={flip ? 'left' : 'right'} className={flip ? 'lg:order-1' : undefined}>
-                  <div className="rounded-[var(--radius-medium)] border border-gray-200 bg-[var(--color-neutral-light)] p-2 shadow-[var(--shadow-medium)]">
-                    <div className="flex items-center gap-1.5 px-3 py-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-                      <span className="ml-2 text-xs text-[var(--color-neutral-medium)]">
-                        Panel del doctor
+                    <div className="flex items-center gap-3">
+                      {/* La pastilla del icono lleva el color de la sección
+                          mezclado con el navy de marca: identidad por bloque
+                          sin que la marca se pierda. */}
+                      <span
+                        className="flex h-11 w-11 items-center justify-center rounded-[12px] shadow-[var(--shadow-light)]"
+                        style={{
+                          backgroundImage: `linear-gradient(135deg, var(--velvet-indigo) 15%, ${group.accent} 130%)`,
+                        }}
+                      >
+                        <Icon className="h-5 w-5 text-white" />
+                      </span>
+                      <span className="text-sm font-semibold tracking-wide text-[var(--color-neutral-medium)] uppercase">
+                        {group.eyebrow}
                       </span>
                     </div>
 
-                    <div className="space-y-2 rounded-[10px] bg-white p-3">
-                      {group.features.map((f) => (
-                        <div
-                          key={f.permissionKey}
-                          className="flex items-start gap-3 rounded-[8px] px-3 py-3 transition-colors hover:bg-[var(--color-neutral-light)]"
+                    <h2
+                      className="velvet-title mt-5 text-3xl font-bold sm:text-4xl"
+                      style={{ fontFamily: 'var(--font-heading)' }}
+                    >
+                      {group.title}
+                    </h2>
+
+                    {/* El primer párrafo va más grande: es el que tiene que
+                        agarrar a quien viene scrolleando. Los siguientes bajan
+                        a tamaño de lectura para que el bloque no se lea como
+                        tres titulares seguidos. */}
+                    <div data-reveal-stagger className="mt-4 space-y-4">
+                      {group.lead.map((par, j) => (
+                        <p
+                          key={par}
+                          data-reveal="up"
+                          className={
+                            j === 0
+                              ? 'text-lg leading-relaxed text-[var(--color-neutral-medium)]'
+                              : 'text-[15px] leading-relaxed text-[var(--color-neutral-medium)]'
+                          }
                         >
-                          <span
-                            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]"
-                            style={{ backgroundColor: `${group.accent}1F` }}
-                          >
-                            <Icon className="h-4 w-4 text-[var(--velvet-indigo)]" />
-                          </span>
-                          <div className="min-w-0">
-                            <span className="font-semibold">{f.label}</span>
-                            <p className="mt-0.5 text-sm text-[var(--color-neutral-medium)]">
-                              {f.blurb}
-                            </p>
-                          </div>
-                        </div>
+                          {par}
+                        </p>
                       ))}
                     </div>
+
+                    {/* Lo que viene — bloque APARTE, con su propio icono y en
+                        la columna de TEXTO, nunca dentro de la tarjeta: la
+                        tarjeta es el inventario de lo que YA funciona, y basta
+                        con que compartan caja para que se confundan. */}
+                    {group.soon && group.soon.length > 0 && (
+                      <div
+                        data-reveal="up"
+                        className="mt-6 rounded-[var(--radius-medium)] border border-dashed border-gray-300 bg-white/60 p-5"
+                      >
+                        <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-[var(--color-neutral-medium)] uppercase">
+                          <Clock className="h-4 w-4" />
+                          Muy pronto
+                        </p>
+                        <ul className="mt-3 space-y-2">
+                          {group.soon.map((s) => (
+                            <li key={s} className="flex gap-3">
+                              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-neutral-medium)]" />
+                              <span className="text-[15px] leading-relaxed text-[var(--color-neutral-medium)]">
+                                {s}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                </div>
-                )}
+
+                  {/* ── Tarjeta: la capacidad listada ── */}
+                  <div
+                    data-reveal={flip ? 'left' : 'right'}
+                    className={flip ? 'lg:order-1' : undefined}
+                  >
+                    <div className="rounded-[var(--radius-medium)] border border-gray-200 bg-white p-6 shadow-[var(--shadow-medium)] sm:p-7">
+                      <p className="text-xs font-semibold tracking-wide text-[var(--color-neutral-medium)] uppercase">
+                        Lo que incluye
+                      </p>
+
+                      <ul className="mt-4 space-y-3">
+                        {group.bullets.map((b) => (
+                          <li key={b} className="flex gap-3">
+                            <Check className="mt-0.5 h-[18px] w-[18px] shrink-0 text-[var(--color-success)]" />
+                            <span className="text-[15px] leading-relaxed">{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {/* Dónde vive esto en el producto. `features` puede ir
+                          VACÍO —el informe médico no tiene sección propia— y
+                          entonces el pie no se pinta, en vez de anunciar una
+                          pantalla que no existe. */}
+                      {group.features.length > 0 && (
+                        <p className="mt-6 border-t border-gray-200 pt-4 text-sm text-[var(--color-neutral-medium)]">
+                          <span className="font-semibold">En tu panel:</span>{' '}
+                          {group.features.map((f) => f.label).join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             );

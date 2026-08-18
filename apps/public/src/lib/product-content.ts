@@ -73,9 +73,23 @@ export interface CapabilityGroup {
   id: string;
   eyebrow: string;
   title: string;
-  /** El argumento de venta del grupo, una frase. */
-  lead: string;
-  /** Detalles concretos, todos verificables en el producto de hoy. */
+  /**
+   * La descripcion, en PROSA CORRIDA: un parrafo por entrada. No es una lista
+   * disfrazada: cuenta como se usa la capacidad, encadenando una cosa con la
+   * siguiente. Las funciones sueltas van en `bullets`, que es lo que se pinta
+   * en la tarjeta de al lado.
+   *
+   * Era `string` (una sola frase) hasta el 2026-08-17. Se volvio lista de
+   * parrafos cuando la banda paso a texto-de-un-lado / tarjeta-del-otro: con
+   * una frase, la columna de texto quedaba vacia junto a una tarjeta de once
+   * bullets.
+   */
+  lead: string[];
+  /**
+   * Las funciones concretas, todas verificables en el producto de HOY. Es lo
+   * que se pinta en la tarjeta blanca. Lo que aun no existe va en `soon`,
+   * nunca aqui.
+   */
   bullets: string[];
   /**
    * Lo que viene. Se renderiza en un bloque APARTE, nunca mezclado con
@@ -186,20 +200,41 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     id: 'agenda',
     accent: '#3B82F6',
     eyebrow: 'Agenda',
-    title: 'Tus citas, sin teléfono de por medio',
-    lead: 'El paciente agenda solo desde tu perfil público, tú te enteras por donde ya lees tus mensajes, y llega a la consulta con sus datos contestados de antemano.',
+    title: 'Todo empieza en la cita',
+    lead: [
+      'Creas la cita tú desde el sistema, o la reserva el paciente desde tu página web con los horarios y los servicios que tú definiste. Entre por donde entre, cae en la misma agenda.',
+      'De ahí en adelante la agenda es donde manejas todo lo previo a la consulta: confirmas, reagendas o cancelas sin perder el historial, le abres el expediente al paciente nuevo o enganchas la cita al expediente que ya tenías.',
+      'Y es desde donde le mandas lo que quieres que llegue contestando: tus formatos con tus preguntas, o el de datos fiscales si va a necesitar factura. Por correo, por WhatsApp o como una liga que pegas donde sea.',
+    ],
     bullets: [
-      'Agenda en línea desde tu perfil público, con los horarios y servicios que tú defines. Reprogramar, cancelar o confirmar no pierde el historial de la cita.',
+      'Citas creadas por ti desde el sistema, o reservadas por el paciente desde tu página web con los horarios y servicios que tú defines.',
+      'Confirmación por correo en automático al crearse la cita, y recordatorios con la anticipación que elijas.',
+      'Confirmación por WhatsApp con un toque: se abre el chat del paciente con el mensaje ya escrito y tú lo mandas.',
+      'Reprogramar, cancelar o confirmar sin perder el historial de la cita.',
+      'Desde la cita le abres el expediente al paciente nuevo, o la enganchas al expediente que ya existía.',
+      'Formatos previos a la consulta con TUS preguntas —edad, sexo, padecimientos previos, lo que tu consulta necesite—. Armas la plantilla una vez y la reutilizas; puedes tener las que quieras.',
+      'Se los mandas por correo, por WhatsApp o como una liga que pegas donde sea.',
+      'El formato de datos fiscales va por el mismo camino: el paciente captura su RFC y su factura queda lista para timbrarse en un clic.',
+      'Los archivos que el paciente manda antes de la consulta quedan guardados junto a su cita.',
       'Google Calendar en los dos sentidos: lo que agendas aquí aparece allá, y lo que bloqueas allá se respeta aquí.',
       'Tu itinerario del día por Telegram, a la hora que tú elijas — más los avisos de las citas y las tareas que vienen.',
-      'Confirmaciones y recordatorios por correo para tus pacientes, con la anticipación que elijas.',
-      'Formularios previos a la consulta con TUS preguntas: armas la plantilla una vez y se la mandas por correo o WhatsApp para que el paciente llegue con todo contestado.',
-      'Los archivos que el paciente manda antes de la consulta quedan guardados junto a su cita.',
     ],
+    /* ⚠️ WHATSAPP: hoy es un enlace `wa.me`, NO una API. El doctor toca el
+       botón, se abre WhatsApp con el mensaje ya escrito y él le da enviar;
+       nada de nuestro lado se entera de que se mandó (ver el comentario de
+       `BookingActions.tsx`, donde está medido). Por eso los bullets de arriba
+       dicen «con un toque» y NUNCA «automático», y por eso lo que está aquí
+       abajo es la AUTOMATIZACIÓN, no WhatsApp.
+
+       Estuvo mal en las dos direcciones hasta el 2026-08-17: un bullet vivo
+       decía que los formatos salían «por correo o WhatsApp» como si fuera
+       solo, y al mismo tiempo `soon` listaba WhatsApp como si no existiera.
+       Si alguien mueve una de estas tres líneas a `bullets`, la página promete
+       un envío que el producto no hace. */
     soon: [
-      'Recordatorios automáticos a tus pacientes por WhatsApp, y que confirmen si van a venir respondiendo ahí mismo.',
+      'Que la confirmación y los recordatorios por WhatsApp salgan solos, sin que tú abras el chat.',
+      'Que el paciente confirme si va a venir respondiendo ahí mismo.',
       'Que el paciente te diga por WhatsApp si va a necesitar factura, sin que se lo preguntes.',
-      'Tu itinerario del día y tus avisos, también por WhatsApp.',
     ],
     features: [
       {
@@ -219,7 +254,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     accent: '#10B981',
     eyebrow: 'Clínico',
     title: 'El expediente del paciente, completo',
-    lead: 'Historia clínica, notas y recetas en el mismo lugar donde vive la cita — en regla con lo que piden las instituciones, y en tus propios formatos.',
+    lead: [
+      'Historia clínica, notas y recetas en el mismo lugar donde vive la cita — en regla con lo que piden las instituciones, y en tus propios formatos.'
+    ],
     bullets: [
       'Expediente conforme a la NOM-004 y la NOM-024, con su aviso de privacidad: lo que exigen las instituciones de gobierno.',
       'Recetarios personalizados con tus formatos, los datos de tu consultorio y tu firma, exportables a PDF.',
@@ -245,15 +282,23 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   /**
    * El informe médico NO tiene permiso propio: vive dentro del expediente
    * (`/dashboard/medical-records/patients/[id]/informe`), así que `features`
-   * va vacío a propósito y la banda se pinta a ancho completo. Repetir aquí
-   * la key `expedientes` la contaría dos veces en `ALL_FEATURES`.
+   * va VACÍO a propósito. Repetir aquí la key `expedientes` sería afirmar que
+   * el informe es una sección aparte del panel, y no lo es.
+   *
+   * Vacío ya no cambia el layout: hasta el 2026-08-17 esta banda se pintaba a
+   * ancho completo porque la columna derecha era el mockup del panel y sin
+   * `features` no había nada que poner. Ahora la tarjeta lleva los `bullets`
+   * —que esta banda sí tiene—, y lo único que se cae es el renglón «En tu
+   * panel» del pie.
    */
   {
     id: 'informe',
     accent: '#0EA5E9',
     eyebrow: 'Informe médico',
     title: 'El informe de la aseguradora, sin volver a escribir el caso',
-    lead: 'Tus pacientes asegurados necesitan un informe en el formato exacto de su aseguradora. Ese informe ya está en tu expediente — sólo hay que vaciarlo. Aquí se llena solo, con lo que ya documentaste.',
+    lead: [
+      'Tus pacientes asegurados necesitan un informe en el formato exacto de su aseguradora. Ese informe ya está en tu expediente — sólo hay que vaciarlo. Aquí se llena solo, con lo que ya documentaste.'
+    ],
     bullets: [
       'El formato oficial de cada aseguradora — AXA, Allianz y GNP — tal cual lo piden, no una aproximación.',
       'Se llena con IA a partir del expediente del paciente: sus consultas, sus notas, sus diagnósticos. No vuelves a escribir lo que ya escribiste.',
@@ -268,7 +313,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     accent: '#F59E0B',
     eyebrow: 'Facturación',
     title: 'Facturar deja de ser un trámite aparte',
-    lead: 'La factura sale de la cita que la originó, con los datos fiscales que el paciente llenó una sola vez. Tú revisas y timbras.',
+    lead: [
+      'La factura sale de la cita que la originó, con los datos fiscales que el paciente llenó una sola vez. Tú revisas y timbras.'
+    ],
     bullets: [
       'Facturación CFDI con tu propio sello (CSD), armada desde la cita que la origina — con los datos fiscales que el paciente ya llenó una sola vez.',
       'Le mandas al paciente un link para que capture él mismo su RFC, su razón social y su uso de CFDI. Quedan guardados en su expediente para siempre.',
@@ -289,7 +336,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     accent: '#EAB308',
     eyebrow: 'Dinero',
     title: 'Saber cuánto entró y cuánto salió',
-    lead: 'Todo el dinero de tu consultorio cae en un mismo tablero. Lo que cobras en la consulta, lo que te pagan en línea y lo que bajas del SAT llegan solos; lo demás lo agregas tú.',
+    lead: [
+      'Todo el dinero de tu consultorio cae en un mismo tablero. Lo que cobras en la consulta, lo que te pagan en línea y lo que bajas del SAT llegan solos; lo demás lo agregas tú.'
+    ],
     bullets: [
       'Un solo tablero de ingresos y egresos: aquí aterriza todo lo que se mueve en tu consultorio, venga de donde venga.',
       'Terminas una cita y lo que cobraste por ella se registra solo, con el precio del servicio que ya venía de tu agenda — sin capturarlo dos veces.',
@@ -315,7 +364,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     accent: '#8B5CF6',
     eyebrow: 'Asistente de IA',
     title: 'No tienes que aprenderte el sistema',
-    lead: 'Lo caro de cualquier software es el tiempo que tardas en dominarlo. Aquí le escribes lo que quieres —«agéndame a Laura el martes a las 5», «¿cómo va mi semana?»— y se hace. Sin buscar en qué pantalla estaba.',
+    lead: [
+      'Lo caro de cualquier software es el tiempo que tardas en dominarlo. Aquí le escribes lo que quieres —«agéndame a Laura el martes a las 5», «¿cómo va mi semana?»— y se hace. Sin buscar en qué pantalla estaba.'
+    ],
     bullets: [
       'Le hablas como le hablarías a tu asistente: «¿qué tengo mañana?», «reagenda a Laura al jueves», «¿cuánto llevo este mes?».',
       'No es solo para preguntar: crea citas, las actualiza y registra lo que haga falta, sin que tengas que encontrar el botón correcto.',
@@ -336,7 +387,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     accent: '#06B6D4',
     eyebrow: 'Presencia',
     title: 'Que te encuentren',
-    lead: 'Tu propia página, no un renglón en un directorio: tus fotos, tus videos, tus servicios y tus consultorios — con un botón de agendar que lleva a tu agenda de verdad.',
+    lead: [
+      'Tu propia página, no un renglón en un directorio: tus fotos, tus videos, tus servicios y tus consultorios — con un botón de agendar que lleva a tu agenda de verdad.'
+    ],
     bullets: [
       'Una página personalizada tuya: fotos, videos, los servicios que ofreces con su descripción y las direcciones de tus consultorios.',
       'Optimizada para buscadores desde el primer día. Con el tiempo empiezas a salir más arriba en Google sin pagar por estar ahí.',
@@ -377,7 +430,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     accent: '#6366F1',
     eyebrow: 'Reportes',
     title: 'Cómo va tu consultorio, en números',
-    lead: 'No solo el dinero: cuántas citas diste, cuánto documentaste y en qué se te fue el mes — con la gráfica enfrente, no en tu cabeza.',
+    lead: [
+      'No solo el dinero: cuántas citas diste, cuánto documentaste y en qué se te fue el mes — con la gráfica enfrente, no en tu cabeza.'
+    ],
     bullets: [
       'Tus citas mes a mes en una gráfica: cuántas agendaste, cuántas completaste, cuántas se reprogramaron y cuántas se cancelaron.',
       'Tu actividad clínica: cuántos expedientes abriste, cuántas plantillas armaste y cuántas recetas hiciste.',
@@ -400,7 +455,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     accent: '#78716C',
     eyebrow: 'Administración fiscal',
     title: 'La parte que nadie quiere hacer',
-    lead: 'Bajar del SAT todo lo que se facturó a tu nombre, cuadrarlo contra tu banco y tener listo cada mes el resumen que tu contador necesita.',
+    lead: [
+      'Bajar del SAT todo lo que se facturó a tu nombre, cuadrarlo contra tu banco y tener listo cada mes el resumen que tu contador necesita.'
+    ],
     bullets: [
       'Descarga automática de tus CFDI emitidos y recibidos, directo del SAT: tus ingresos y tus gastos con respaldo, sin capturar nada a mano.',
       'Cada mes se arma solo un resumen de todo lo que facturaste y todo lo que te facturaron — se lo mandas a tu contador y hace la declaración sin perseguirte.',
@@ -439,7 +496,6 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
 ];
 
 /** Todas las funciones, aplanadas — el orden es el de las bandas. */
-export const ALL_FEATURES: Feature[] = CAPABILITY_GROUPS.flatMap((g) => g.features);
 
 /**
  * Hechos de plataforma: ciertos para TODO el producto, así que no caben en
