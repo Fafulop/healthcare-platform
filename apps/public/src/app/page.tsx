@@ -8,7 +8,6 @@ import {
   Globe,
   Receipt,
   FileText,
-  Landmark,
   BarChart3,
   Cloud,
   Smartphone,
@@ -76,10 +75,8 @@ const GROUP_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
   informe: FileText,
   facturacion: Receipt,
   dinero: DollarSign,
-  asistente: Sparkles,
   presencia: Globe,
   reportes: BarChart3,
-  fiscal: Landmark,
 };
 
 const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -171,12 +168,66 @@ export default function Home() {
               Precio y el FAQ— y son justo tres sitios donde podrían quedar
               tres precios distintos. */}
           <div className="mt-10 flex justify-center">
-            <p className="inline-flex items-center rounded-full border border-white/25 bg-white/10 px-6 py-3 text-lg font-semibold text-white backdrop-blur-sm sm:text-xl">
-              ${PRICING.amount} {PRICING.currency} {PRICING.ivaNote}
+            {/* Mismo tratamiento tipografico que el $550 del bloque de Precio
+                (peticion del usuario, 2026-08-18): numero grande en la fuente
+                de titulos y la moneda + IVA chicos al lado, alineados abajo.
+                Antes era una linea sola en la fuente de cuerpo y los dos $550
+                de la pagina no se parecian.
+
+                Sigue dentro de la pastilla: es lo que lo emparenta con las
+                paradas del hilo de aqui abajo. Lo unico que cambio es la
+                letra, no el envase. */}
+            <p className="inline-flex items-end gap-2 rounded-full border border-white/25 bg-white/10 px-7 py-4 backdrop-blur-sm">
+              <span
+                className="text-4xl font-bold leading-none text-white sm:text-5xl"
+                style={{ fontFamily: 'var(--font-heading)' }}
+              >
+                ${PRICING.amount}
+              </span>
+              <span className="pb-0.5 text-base text-white/75 sm:text-lg">
+                {PRICING.currency} {PRICING.ivaNote}
+              </span>
             </p>
           </div>
 
           <HeroThread className="mt-16 sm:mt-20" />
+
+          {/* -- Plataforma, dentro del hero --
+              Hechos ciertos para TODO el producto, no de una capacidad.
+              Estuvieron entre las bandas y el precio hasta el 2026-08-18; el
+              usuario los subio aqui: contestan "¿y yo como lo uso?" antes de
+              que el doctor empiece a bajar, no cuando ya casi termina.
+
+              ⚠️ Van repintados para el NAVY. El estilo anterior era de campo
+              claro -chip `--velvet-indigo`/10, titulo oscuro, cuerpo
+              `--color-neutral-medium`- y sobre el hero desaparecia. Si alguien
+              devuelve esta tira al campo claro, hay que devolverle tambien
+              esos colores: blanco sobre blanco no se ve. */}
+          <div
+            data-reveal-stagger
+            className="mt-16 grid gap-8 border-t border-white/15 pt-12 text-left sm:mt-20 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            {PLATFORM_FACTS.map((fact) => {
+              const Icon = PLATFORM_ICONS[fact.id] ?? Cloud;
+
+              return (
+                <div key={fact.id} data-reveal="up">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-white/20 bg-white/10">
+                    <Icon className="h-5 w-5 text-white" />
+                  </span>
+                  <h3
+                    className="mt-4 font-bold text-white"
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    {fact.title}
+                  </h3>
+                  <p className="mt-2 text-[15px] leading-relaxed text-white/70">
+                    {fact.text}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -388,21 +439,23 @@ export default function Home() {
                         agarrar a quien viene scrolleando. Los siguientes bajan
                         a tamaño de lectura para que el bloque no se lea como
                         tres titulares seguidos. */}
-                    <div data-reveal-stagger className="mt-4 space-y-4">
-                      {group.lead.map((par, j) => (
-                        <p
-                          key={par}
-                          data-reveal="up"
-                          className={
-                            j === 0
-                              ? 'text-lg leading-relaxed text-[var(--color-neutral-medium)]'
-                              : 'text-[15px] leading-relaxed text-[var(--color-neutral-medium)]'
-                          }
-                        >
-                          {par}
-                        </p>
-                      ))}
-                    </div>
+                    {group.lead.length > 0 && (
+                      <div data-reveal-stagger className="mt-4 space-y-4">
+                        {group.lead.map((par, j) => (
+                          <p
+                            key={par}
+                            data-reveal="up"
+                            className={
+                              j === 0
+                                ? 'text-lg leading-relaxed text-[var(--color-neutral-medium)]'
+                                : 'text-[15px] leading-relaxed text-[var(--color-neutral-medium)]'
+                            }
+                          >
+                            {par}
+                          </p>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Lo que viene — bloque APARTE, con su propio icono y en
                         la columna de TEXTO, nunca dentro de la tarjeta: la
@@ -469,38 +522,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─────────────── Plataforma ───────────────
-          Hechos ciertos para TODO el producto, no de una capacidad. Van aquí,
-          entre las bandas y el precio, porque es justo donde el doctor pasa
-          de «¿qué hace?» a «¿y yo cómo lo uso?». Tira compacta a propósito:
-          rompe el ritmo de las bandas sin competir con ellas. */}
-      <section>
-        <div className="mx-auto max-w-6xl px-6 py-16 sm:py-20">
-          <div data-reveal-stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {PLATFORM_FACTS.map((fact) => {
-              const Icon = PLATFORM_ICONS[fact.id] ?? Cloud;
-
-              return (
-                <div key={fact.id} data-reveal="up">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[var(--velvet-indigo)]/10">
-                    <Icon className="h-5 w-5 text-[var(--velvet-indigo)]" />
-                  </span>
-                  <h3
-                    className="mt-4 font-bold"
-                    style={{ fontFamily: 'var(--font-heading)' }}
-                  >
-                    {fact.title}
-                  </h3>
-                  <p className="mt-2 text-[15px] leading-relaxed text-[var(--color-neutral-medium)]">
-                    {fact.text}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
       {/* ───────────────────────── Precio ─────────────────────────
           Antes eran DOS tarjetas comparables y una nota al pie explicando qué
           se quedaba fuera del plan Esencial. Con un solo plan no hay nada que
@@ -538,13 +559,20 @@ export default function Home() {
 
             <p className="mx-auto mt-5 max-w-xl text-[var(--color-neutral-medium)]">
               Todas las funciones, sin niveles ni extras: agenda, expediente, informes para
-              aseguradoras, facturación, flujo de dinero, asistente de IA, perfil público y
+              aseguradoras, facturación, flujo de dinero, perfil público y
               reportes.
             </p>
 
-            {/* El límite de facturas vive AQUÍ y en ningún otro lado. Estaba
-                también en la banda de facturación y quedaban dos fuentes del
-                mismo número. */}
+            {/* El límite de facturas se dice DOS veces a propósito: aquí y en
+                el último bullet de la banda de facturación (el usuario lo
+                pidió allá el 2026-08-18; antes vivía sólo aquí).
+
+                Que se repita el TEXTO no es el problema; que se repita el
+                NÚMERO sí. Los dos salen de `PRICING.includedInvoices` y
+                `PRICING.extraInvoicePrice` — el de allá es un template
+                literal justamente por esto. Si alguien escribe "30" o "$1"
+                a mano en cualquiera de los dos, la página puede acabar
+                anunciando dos ofertas distintas en la misma pantalla. */}
             <div className="mx-auto mt-8 max-w-xl rounded-[10px] bg-[var(--color-neutral-light)] px-5 py-4 text-left">
               <p className="font-semibold">
                 Incluye {PRICING.includedInvoices} facturas timbradas al mes.

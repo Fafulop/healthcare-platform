@@ -190,11 +190,16 @@ export const JOURNEY_CLOSE = {
 
 /* ────────────────────────── Capacidades ──────────────────────────
    El ORDEN es el argumento. Sigue al recorrido —agenda, expediente,
-   informe, facturación, dinero— y sólo después vienen las capacidades
-   que cruzan todo (asistente), las que traen pacientes (presencia) y las
-   que miden (reportes). La administración fiscal avanzada va al final: es
-   real y es fuerte, pero es de quien la necesita, y en medio del hilo
-   rompía la narrativa. */
+   informe, facturación, dinero— y sólo después vienen las que traen
+   pacientes (presencia) y las que miden (reportes).
+
+   Dos bandas se BORRARON el 2026-08-18 por petición del usuario:
+   `asistente` (el agente de IA, junto con su mención en la prosa del
+   precio) y `fiscal` (la administración fiscal avanzada: descarga SAT,
+   conciliación bancaria, ventas, compras y catálogo de productos). Sus
+   permisos —`asistente_ia`, `sat`, `conciliacion`, `ventas`, `compras`,
+   `productos`— siguen vivos en el producto; lo que se quitó es
+   venderlo en esta página. */
 export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     id: 'agenda',
@@ -202,40 +207,33 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     eyebrow: 'Agenda',
     title: 'Todo empieza en la cita',
     lead: [
-      'Creas la cita tú desde el sistema, o la reserva el paciente desde tu página web con los horarios y los servicios que tú definiste. Entre por donde entre, cae en la misma agenda.',
-      'De ahí en adelante la agenda es donde manejas todo lo previo a la consulta: confirmas, reagendas o cancelas sin perder el historial, le abres el expediente al paciente nuevo o enganchas la cita al expediente que ya tenías.',
-      'Y es desde donde le mandas lo que quieres que llegue contestando: tus formatos con tus preguntas, o el de datos fiscales si va a necesitar factura. Por correo, por WhatsApp o como una liga que pegas donde sea.',
+      'Creas la cita desde el sistema, o la reserva el paciente desde tu página web con los horarios y los servicios que tú definiste.',
+      'Puedes administrar la agenda confirmando, reagendando o cancelando la cita, todo en un mismo lugar, y enviar confirmaciones al correo o al WhatsApp del paciente.',
+      'Puedes crear expedientes nuevos para pacientes nuevos, o adjuntar expedientes ya creados de pacientes recurrentes.',
     ],
     bullets: [
       'Citas creadas por ti desde el sistema, o reservadas por el paciente desde tu página web con los horarios y servicios que tú defines.',
       'Confirmación por correo en automático al crearse la cita, y recordatorios con la anticipación que elijas.',
       'Confirmación por WhatsApp con un toque: se abre el chat del paciente con el mensaje ya escrito y tú lo mandas.',
       'Reprogramar, cancelar o confirmar sin perder el historial de la cita.',
-      'Desde la cita le abres el expediente al paciente nuevo, o la enganchas al expediente que ya existía.',
-      'Formatos previos a la consulta con TUS preguntas —edad, sexo, padecimientos previos, lo que tu consulta necesite—. Armas la plantilla una vez y la reutilizas; puedes tener las que quieras.',
-      'Se los mandas por correo, por WhatsApp o como una liga que pegas donde sea.',
-      'El formato de datos fiscales va por el mismo camino: el paciente captura su RFC y su factura queda lista para timbrarse en un clic.',
-      'Los archivos que el paciente manda antes de la consulta quedan guardados junto a su cita.',
-      'Google Calendar en los dos sentidos: lo que agendas aquí aparece allá, y lo que bloqueas allá se respeta aquí.',
-      'Tu itinerario del día por Telegram, a la hora que tú elijas — más los avisos de las citas y las tareas que vienen.',
+      'Desde la cita creas un expediente nuevo, o adjuntas un expediente ya creado al paciente recurrente.',
+      'Crea formatos personalizados a tu necesidad para enviar a los pacientes y recabar la información necesaria relativa a tu consulta. Puedes crear formatos ilimitados.',
+      'Envía los formatos por WhatsApp, por correo o como una liga que le pasas al paciente.',
+      'Pídele a tus pacientes sus datos fiscales con un formato especial: se cargan solos en su expediente una única vez. De ahí en adelante, facturar es tan fácil como un clic.',
+      'Desde la cita generas un link de cobro con tu cuenta de Mercado Pago o de Stripe: tu paciente paga con tarjeta de crédito o débito, transferencia o SPEI —según la cuenta que conectes— y el cobro entra solo en cuanto se paga.',
+      'Conecta y actualiza tu agenda con Google Calendar.',
+      'También puedes conectar la aplicación con Telegram para recibir notificaciones en tu celular todos los días, de tu agenda y de tus citas próximas.',
     ],
     /* ⚠️ WHATSAPP: hoy es un enlace `wa.me`, NO una API. El doctor toca el
        botón, se abre WhatsApp con el mensaje ya escrito y él le da enviar;
        nada de nuestro lado se entera de que se mandó (ver el comentario de
        `BookingActions.tsx`, donde está medido). Por eso los bullets de arriba
-       dicen «con un toque» y NUNCA «automático», y por eso lo que está aquí
-       abajo es la AUTOMATIZACIÓN, no WhatsApp.
+       dicen «con un toque» y NUNCA «automático».
 
-       Estuvo mal en las dos direcciones hasta el 2026-08-17: un bullet vivo
-       decía que los formatos salían «por correo o WhatsApp» como si fuera
-       solo, y al mismo tiempo `soon` listaba WhatsApp como si no existiera.
-       Si alguien mueve una de estas tres líneas a `bullets`, la página promete
-       un envío que el producto no hace. */
-    soon: [
-      'Que la confirmación y los recordatorios por WhatsApp salgan solos, sin que tú abras el chat.',
-      'Que el paciente confirme si va a venir respondiendo ahí mismo.',
-      'Que el paciente te diga por WhatsApp si va a necesitar factura, sin que se lo preguntes.',
-    ],
+       El bloque `soon` de esta capacidad (recordatorios y confirmación por
+       WhatsApp saliendo solos) se borró el 2026-08-18 por petición del
+       usuario. El campo `soon?` sigue existiendo en el tipo y la página lo
+       sigue pintando; hoy no lo usa nadie. */
     features: [
       {
         permissionKey: 'citas',
@@ -255,16 +253,19 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     eyebrow: 'Clínico',
     title: 'El expediente del paciente, completo',
     lead: [
-      'Historia clínica, notas y recetas en el mismo lugar donde vive la cita — en regla con lo que piden las instituciones, y en tus propios formatos.'
+      'Historia clínica, notas y recetas en un mismo lugar — en regla con lo que piden las instituciones, y en tus propios formatos.'
     ],
     bullets: [
       'Expediente conforme a la NOM-004 y la NOM-024, con su aviso de privacidad: lo que exigen las instituciones de gobierno.',
-      'Recetarios personalizados con tus formatos, los datos de tu consultorio y tu firma, exportables a PDF.',
-      'Plantillas propias para lo que documentas en cada consulta, con los formatos que tú definas y exportables a PDF.',
-      'Adjunta al expediente lo que haga falta: PDFs, estudios y fotografías.',
-      'Notas escritas o dictadas por voz, adjuntas al expediente. Y notas privadas tuyas, separadas de lo que ve el paciente.',
-      'Resumen instantáneo del paciente: todas sus citas, sus recetas y sus notas, sumadas en el momento.',
-      'Todo el expediente en una línea de tiempo ordenada y exportable a PDF — el historial completo del paciente de un vistazo.',
+      'Plantillas ilimitadas para todo tipo de situaciones en tu consulta: primera vez, recurrente, operatorio, postoperatorio… defines y creas todo lo que tu consulta necesita.',
+      'Crea formatos para recetas personalizadas a tu medida y a tus necesidades, con tu firma digital adjunta.',
+      'Adjunta al expediente cualquier tipo de documento relativo a tu paciente —como los resultados de sus estudios— en distintos formatos: imagen o PDF.',
+      'Ves en orden cronológico todas las acciones tomadas con el paciente: cuándo creaste la cita, cuándo vino a consulta, cuándo se adjuntó cierto estudio.',
+      'Notas no estructuradas para el paciente, escritas o con dictado de voz.',
+      'Un resumen del expediente completo del paciente, para que no tengas que leerlo todo — y que va sumando cada plantilla, receta o nota nueva que se crea.',
+      'Las plantillas personalizadas de recetas y notas puedes llenarlas por voz, para un dictado más rápido y práctico.',
+      'Una vez que tengas los datos fiscales de tu paciente viven para siempre en su expediente. Las citas, con su concepto, van generando las prefacturas: las revisas ahí mismo y las facturas con un solo clic.',
+      'Todo esto lo exportas a PDF para enviárselo al paciente.',
     ],
     features: [
       {
@@ -300,7 +301,7 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       'Tus pacientes asegurados necesitan un informe en el formato exacto de su aseguradora. Ese informe ya está en tu expediente — sólo hay que vaciarlo. Aquí se llena solo, con lo que ya documentaste.'
     ],
     bullets: [
-      'El formato oficial de cada aseguradora — AXA, Allianz y GNP — tal cual lo piden, no una aproximación.',
+      'El formato oficial de cada aseguradora — AXA, Allianz y GNP.',
       'Se llena con IA a partir del expediente del paciente: sus consultas, sus notas, sus diagnósticos. No vuelves a escribir lo que ya escribiste.',
       'También puedes dictarlo por voz y dejar que se acomode solo en los campos del formato.',
       'Todo es editable antes de firmar: tú revisas y corriges lo que quieras, campo por campo.',
@@ -317,11 +318,13 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       'La factura sale de la cita que la originó, con los datos fiscales que el paciente llenó una sola vez. Tú revisas y timbras.'
     ],
     bullets: [
-      'Facturación CFDI con tu propio sello (CSD), armada desde la cita que la origina — con los datos fiscales que el paciente ya llenó una sola vez.',
+      'Facturación CFDI con tu propio sello (CSD), armada desde la cita que la origina — con los datos fiscales que el paciente ya llenó.',
       'Le mandas al paciente un link para que capture él mismo su RFC, su razón social y su uso de CFDI. Quedan guardados en su expediente para siempre.',
-      'Desde el expediente ves qué citas están facturadas y cuáles no, sin cruzar listas a mano.',
+      'Desde el expediente ves qué citas están facturadas y cuáles no.',
       'El PDF y el XML quedan guardados y se los envías al paciente desde ahí mismo.',
       'Cada factura timbrada entra sola a tu flujo de dinero, agregada a ese paciente.',
+      'Conéctate directo al SAT: todos los días descarga solo tus facturas emitidas y recibidas, para que tengas visión total de tus obligaciones.',
+      `Cada mes van incluidas ${PRICING.includedInvoices} facturas timbradas. Las de más se timbran igual y se cobran a $${PRICING.extraInvoicePrice} + IVA cada una en tu recibo del mes siguiente — nunca se te detiene una factura.`,
     ],
     features: [
       {
@@ -337,14 +340,12 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     eyebrow: 'Dinero',
     title: 'Saber cuánto entró y cuánto salió',
     lead: [
-      'Todo el dinero de tu consultorio cae en un mismo tablero. Lo que cobras en la consulta, lo que te pagan en línea y lo que bajas del SAT llegan solos; lo demás lo agregas tú.'
+      'Todo el dinero de tu consultorio en un mismo lugar.'
     ],
     bullets: [
       'Un solo tablero de ingresos y egresos: aquí aterriza todo lo que se mueve en tu consultorio, venga de donde venga.',
       'Terminas una cita y lo que cobraste por ella se registra solo, con el precio del servicio que ya venía de tu agenda — sin capturarlo dos veces.',
-      'Conectas tu cuenta de Mercado Pago o de Stripe y generas links de cobro: tu paciente paga con tarjeta de crédito o débito, transferencia o SPEI —según la cuenta que conectes— y el cobro entra solo en cuanto se paga.',
-      'Los CFDI que bajas del SAT también entran solos: lo que facturaste como ingreso y lo que te facturaron como gasto.',
-      'Y lo que nunca pasó por el sistema lo agregas a mano: un ingreso o un gasto suelto, cuando haga falta.',
+      'Un estado de resultados al día, para ver cómo va tu consulta y poder medirla como negocio.',
     ],
     features: [
       {
@@ -360,36 +361,13 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     ],
   },
   {
-    id: 'asistente',
-    accent: '#8B5CF6',
-    eyebrow: 'Asistente de IA',
-    title: 'No tienes que aprenderte el sistema',
-    lead: [
-      'Lo caro de cualquier software es el tiempo que tardas en dominarlo. Aquí le escribes lo que quieres —«agéndame a Laura el martes a las 5», «¿cómo va mi semana?»— y se hace. Sin buscar en qué pantalla estaba.'
-    ],
-    bullets: [
-      'Le hablas como le hablarías a tu asistente: «¿qué tengo mañana?», «reagenda a Laura al jueves», «¿cuánto llevo este mes?».',
-      'No es solo para preguntar: crea citas, las actualiza y registra lo que haga falta, sin que tengas que encontrar el botón correcto.',
-      'Antes de escribir cualquier cosa te enseña exactamente qué va a hacer y espera tu confirmación. Nada se ejecuta a tus espaldas.',
-      'Conoce tu agenda, tu expediente y tu dinero — y trabaja sobre tus datos de este momento, no sobre un resumen viejo.',
-      'Incluido, no como un extra que se paga aparte.',
-    ],
-    features: [
-      {
-        permissionKey: 'asistente_ia',
-        label: 'Asistente IA',
-        blurb: 'Conversación sobre agenda, expediente y dinero.',
-      },
-    ],
-  },
-  {
     id: 'presencia',
     accent: '#06B6D4',
     eyebrow: 'Presencia',
     title: 'Que te encuentren',
-    lead: [
-      'Tu propia página, no un renglón en un directorio: tus fotos, tus videos, tus servicios y tus consultorios — con un botón de agendar que lleva a tu agenda de verdad.'
-    ],
+    /* Sin `lead` por petición del usuario (2026-08-18): esta banda es título
+       + tarjeta. `lead` vacío está contemplado en el render de `page.tsx`. */
+    lead: [],
     bullets: [
       'Una página personalizada tuya: fotos, videos, los servicios que ofreces con su descripción y las direcciones de tus consultorios.',
       'Optimizada para buscadores desde el primer día. Con el tiempo empiezas a salir más arriba en Google sin pagar por estar ahí.',
@@ -430,9 +408,8 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     accent: '#6366F1',
     eyebrow: 'Reportes',
     title: 'Cómo va tu consultorio, en números',
-    lead: [
-      'No solo el dinero: cuántas citas diste, cuánto documentaste y en qué se te fue el mes — con la gráfica enfrente, no en tu cabeza.'
-    ],
+    /* Sin `lead` por petición del usuario (2026-08-18): título + tarjeta. */
+    lead: [],
     bullets: [
       'Tus citas mes a mes en una gráfica: cuántas agendaste, cuántas completaste, cuántas se reprogramaron y cuántas se cancelaron.',
       'Tu actividad clínica: cuántos expedientes abriste, cuántas plantillas armaste y cuántas recetas hiciste.',
@@ -446,61 +423,15 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       },
     ],
   },
-  /**
-   * Va AL FINAL: está incluido como todo lo demás, pero es de quien lo
-   * necesita. En medio del recorrido rompía el hilo cita → factura → dinero.
-   */
-  {
-    id: 'fiscal',
-    accent: '#78716C',
-    eyebrow: 'Administración fiscal',
-    title: 'La parte que nadie quiere hacer',
-    lead: [
-      'Bajar del SAT todo lo que se facturó a tu nombre, cuadrarlo contra tu banco y tener listo cada mes el resumen que tu contador necesita.'
-    ],
-    bullets: [
-      'Descarga automática de tus CFDI emitidos y recibidos, directo del SAT: tus ingresos y tus gastos con respaldo, sin capturar nada a mano.',
-      'Cada mes se arma solo un resumen de todo lo que facturaste y todo lo que te facturaron — se lo mandas a tu contador y hace la declaración sin perseguirte.',
-      'Sabes cómo vas con el SAT durante el mes, no cuando ya toca declarar.',
-      'Conciliación bancaria: subes el estado de cuenta y lo cruzas contra lo registrado.',
-      'Ventas, compras, cotizaciones y catálogo de productos y servicios.',
-    ],
-    features: [
-      {
-        permissionKey: 'sat',
-        label: 'Descarga SAT',
-        blurb: 'Tus comprobantes emitidos y recibidos.',
-      },
-      {
-        permissionKey: 'conciliacion',
-        label: 'Conciliación Bancaria',
-        blurb: 'El estado de cuenta contra tus registros.',
-      },
-      {
-        permissionKey: 'ventas',
-        label: 'Ventas',
-        blurb: 'Ventas, cotizaciones y clientes.',
-      },
-      {
-        permissionKey: 'compras',
-        label: 'Compras',
-        blurb: 'Compras y proveedores.',
-      },
-      {
-        permissionKey: 'productos',
-        label: 'Productos y Servicios',
-        blurb: 'Tu catálogo, con precios.',
-      },
-    ],
-  },
 ];
 
 /** Todas las funciones, aplanadas — el orden es el de las bandas. */
 
 /**
  * Hechos de plataforma: ciertos para TODO el producto, así que no caben en
- * ninguna banda de capacidad. Van en una tira compacta justo antes del
- * precio, que es donde el doctor se pregunta «¿y esto cómo lo uso a diario?».
+ * ninguna banda de capacidad. Desde el 2026-08-18 van DENTRO del hero, bajo
+ * el hilo y sobre fondo navy — antes eran una tira clara entre las bandas y
+ * el precio. Su estilo vive en `page.tsx` y está pintado para el oscuro.
  */
 export const PLATFORM_FACTS: { id: string; title: string; text: string }[] = [
   {
