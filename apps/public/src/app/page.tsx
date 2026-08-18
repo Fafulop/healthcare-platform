@@ -61,11 +61,36 @@ export const metadata: Metadata = {
   title: 'TuSalud.pro | Todo tu consultorio, en un solo lugar',
   description: `Las citas, los expedientes, las facturas y los ingresos de tu consultorio en el mismo lugar, cada uno saliendo del anterior: agenda, expediente NOM-004, informes para aseguradoras, cobros que van directo a tu cuenta y facturación CFDI. Un solo plan, $${PRICING.amount} + IVA al mes.`,
   alternates: { canonical: '/' },
+  /* La imagen la genera `src/app/og/route.tsx`. Se referencia a mano, y no
+     como `opengraph-image.tsx`, porque ese archivo vive en el segmento RAIZ y
+     cascadearia este pitch de producto a los perfiles de doctor, que son de
+     cara al paciente y no declaran imagen propia. Ver el comentario de la
+     ruta.
+
+     `twitter` se declara aparte aunque repita: sin `card: 'summary_large_image'`
+     X/Twitter pinta el thumbnail chico y una imagen de 1200x630 se recorta a un
+     cuadrito. LinkedIn y WhatsApp si leen el OG directo. */
   openGraph: {
     title: 'Todo tu consultorio, en un solo lugar',
     description: `Citas, expedientes, facturas e ingresos en el mismo lugar — cada uno sale del anterior, sin capturar nada dos veces. Un solo plan, todo incluido, $${PRICING.amount} + IVA al mes.`,
     url: 'https://tusalud.pro',
     type: 'website',
+    siteName: 'TuSalud.pro',
+    locale: 'es_MX',
+    images: [
+      {
+        url: '/og',
+        width: 1200,
+        height: 630,
+        alt: `TuSalud.pro — todo tu consultorio en un solo lugar, $${PRICING.amount} ${PRICING.currency} ${PRICING.ivaNote}`,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Todo tu consultorio, en un solo lugar',
+    description: `Citas, expedientes, facturas e ingresos en el mismo lugar. Un solo plan, todo incluido, $${PRICING.amount} + IVA al mes.`,
+    images: ['/og'],
   },
 };
 
@@ -215,12 +240,18 @@ export default function Home() {
                   <span className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-white/20 bg-white/10">
                     <Icon className="h-5 w-5 text-white" />
                   </span>
-                  <h3
+                  {/* `<p>`, NO `<h3>`. Al subir esta tira al hero (2026-08-18)
+                      sus cuatro titulos quedaron ANTES del primer `<h2>` de la
+                      pagina, y el documento arrancaba h1 -> h3 -> h2: un salto
+                      de nivel que los lectores de pantalla anuncian como una
+                      seccion perdida. No son secciones del documento, son
+                      etiquetas de una tira de apoyo. */}
+                  <p
                     className="mt-4 font-bold text-white"
                     style={{ fontFamily: 'var(--font-heading)' }}
                   >
                     {fact.title}
-                  </h3>
+                  </p>
                   <p className="mt-2 text-[15px] leading-relaxed text-white/70">
                     {fact.text}
                   </p>
@@ -322,7 +353,10 @@ export default function Home() {
           Página larga ⇒ hace falta un mapa. Esto NO repite el pitch (no lleva
           `lead` ni bullets): solo nombra las seis capacidades y ancla a su
           banda. Es navegación, no un segundo resumen. */}
-      <section className="mx-auto max-w-6xl px-6 py-14 sm:py-16">
+      {/* `pt` recortado (2026-08-18): el hueco sobre el titulo era la suma
+          del `pb` del recorrido (80/96px) mas el `pt` propio (56/64px). El
+          `pb` se queda igual — lo que sobraba estaba ARRIBA. */}
+      <section className="mx-auto max-w-6xl px-6 pb-14 pt-4 sm:pb-16 sm:pt-6">
         <div data-reveal="up" className="mx-auto max-w-2xl text-center">
           <h2
             className="velvet-title text-3xl font-bold sm:text-4xl"
@@ -531,7 +565,9 @@ export default function Home() {
           El `id` sigue siendo `planes` aunque la sección ya se llame Precio:
           hay links vivos hacia tusalud.pro/#planes. */}
       <section id="planes" className="scroll-mt-24">
-        <div className="mx-auto max-w-3xl px-6 py-20 sm:py-24">
+        {/* `pt` recortado (2026-08-18), misma razon que en el indice: venia
+            encima el `pb` de las bandas. */}
+        <div className="mx-auto max-w-3xl px-6 pb-20 pt-6 sm:pb-24 sm:pt-8">
           <div data-reveal="up" className="text-center">
             <h2
               className="velvet-title text-3xl font-bold sm:text-4xl"
@@ -601,7 +637,11 @@ export default function Home() {
       </section>
 
       {/* ───────────────────────── FAQ ───────────────────────── */}
-      <section id="faq" className="mx-auto max-w-3xl scroll-mt-24 px-6 py-20 sm:py-24">
+      {/* El peor de los tres: el `pb` del precio y el `pt` del FAQ sumaban
+          160/192px de aire antes del titulo. `scroll-mt-24` se queda — es lo
+          que compensa la barra sticky cuando se llega por #faq, y no tiene
+          nada que ver con este hueco. */}
+      <section id="faq" className="mx-auto max-w-3xl scroll-mt-24 px-6 pb-20 pt-6 sm:pb-24 sm:pt-8">
         <h2
           className="velvet-title text-center text-3xl font-bold sm:text-4xl"
           style={{ fontFamily: 'var(--font-heading)' }}
