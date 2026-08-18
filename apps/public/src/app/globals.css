@@ -61,13 +61,36 @@
   --color-bg-green-light: #F8FAFC;
   --color-bg-yellow-light: #FAFAF9;
 
-  /* Spacing Scale - 8px base unit */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-xxl: 48px;
+  /* -- Escala de espaciado: BORRADA a proposito -----------------------
+     Aqui vivian --spacing-xs/sm/md/lg/xl/xxl (4/8/16/24/32/48px).
+
+     NO LAS VUELVAS A METER CON ESTOS NOMBRES: rompian `max-w-*`.
+     Tailwind v4 genera `max-w-<clave>` a partir de la escala de
+     espaciado cuando la clave existe ahi, y eso le GANA al namespace
+     `--container-*`. Como estas claves se llamaban igual que las de
+     ancho, `max-w-md` valia 16px y `max-w-xl` valia 32px -- pixeles, no
+     rem. Comprobado: definir --container-md/--container-xl NO lo
+     arregla, el espaciado gana y los `--container-*` ni se emiten.
+
+     Solo rompia las claves que chocan: `max-w-2xl`...`max-w-7xl`
+     siempre estuvieron bien porque "2xl" no estaba en esta lista. Por
+     eso el defecto salia en unas tarjetas si y en otras no, que es lo
+     que costo verlo.
+
+     Lo que estaba roto en prod: los tres parrafos de la tarjeta de
+     precio y el del panel de cierre de la home salian a 32px de ancho
+     -- una o dos palabras por renglon --, y las pantallas de exito y de
+     error de formulario-cita, formulario-fiscal, cancel-booking, review
+     y el 404 de doctores, todas `max-w-md w-full`, median 16px.
+
+     Se pueden borrar sin mas porque NADIE las usaba: ni un
+     `var(--spacing-...)` ni una utilidad `p-md`/`gap-lg`, ni en
+     apps/public ni en packages. Eran tokens muertos que solo hacian
+     dano.
+
+     Si vuelve a hacer falta una escala con nombres, que no use las
+     claves de ancho: `--space-md`, `--gap-md`, lo que sea menos
+     xs/sm/md/lg/xl. */
 
   /* Border Radius */
   --radius-small: 6px;
