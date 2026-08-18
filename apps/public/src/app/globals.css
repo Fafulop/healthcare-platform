@@ -280,3 +280,74 @@ html.reveal-ready [data-reveal] {
 }
 
 /* En "reduce motion" no se toca nada de esto: es textura, no movimiento. */
+
+/* ═══════════ El hilo del hero ═══════════
+   La animación del hero es CSS puro y deliberadamente NO usa `data-reveal`:
+   los reveals se disparan al entrar en pantalla y esto ya está en pantalla al
+   cargar. Además ScrollReveals sólo actúa si hay JS, y el hero no puede
+   depender de eso.
+
+   El hilo se dibuja escalando un tramo de 1px desde su origen —no con
+   stroke-dashoffset en un SVG— porque así el mismo elemento sirve vertical en
+   el teléfono y horizontal en escritorio cambiando sólo el eje, y el tramo
+   puede ser `flex-1` y repartirse el espacio sobrante sin que nadie mida nada.
+
+   `.hero-chip` arranca en opacity:0. Es seguro sin JS (la animación es CSS y
+   corre igual), y con "reduce motion" el bloque de abajo lo devuelve a su
+   estado final: el hilo aparece ya completo, sin dibujarse. */
+@keyframes hero-chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hero-line-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes hero-line-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.hero-chip {
+  opacity: 0;
+  animation: hero-chip-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hero-line {
+  transform: scaleY(0);
+  transform-origin: top;
+  animation: hero-line-y 0.4s ease-out both;
+}
+
+@media (min-width: 640px) {
+  .hero-line {
+    transform: scaleX(0);
+    transform-origin: left;
+    animation-name: hero-line-x;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-chip,
+  .hero-line {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

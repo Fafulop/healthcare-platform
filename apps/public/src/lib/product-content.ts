@@ -37,6 +37,23 @@ export const PRICING = {
   trialWeeks: 2,
 } as const;
 
+/* ─────────────────────── El hilo del hero ───────────────────────
+   Las cuatro paradas que dibuja `HeroThread` bajo el título.
+
+   NO es un resumen de `JOURNEY_STEPS`. El recorrido tiene siete pasos porque
+   explica; el hilo tiene cuatro porque sólo señala, y cuatro es lo que se lee
+   de un vistazo en una línea. Si se emparejan, el hero deja de ser un gesto y
+   se vuelve un índice duplicado del recorrido — que es exactamente el defecto
+   que se acaba de quitar del hero.
+
+   Cinco paradas ya no caben en un teléfono sin romper la fila. */
+export const HERO_THREAD: { id: string; label: string }[] = [
+  { id: 'cita', label: 'Cita' },
+  { id: 'expediente', label: 'Expediente' },
+  { id: 'factura', label: 'Factura' },
+  { id: 'dinero', label: 'Dinero' },
+];
+
 /** Una función del producto, tal como la ve el doctor en su panel. */
 export interface Feature {
   /** PermissionKey real — ver permissions.ts. */

@@ -19,6 +19,7 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
+import HeroThread from '@/components/HeroThread';
 import ScrollReveals from '@/components/ScrollReveals';
 import SectionNav from '@/components/SectionNav';
 import { REVEAL_BOOTSTRAP } from '@/lib/reveal-bootstrap';
@@ -107,64 +108,69 @@ export default function Home() {
     <div className="velvet-field text-[var(--color-neutral-dark)]">
       <script dangerouslySetInnerHTML={{ __html: REVEAL_BOOTSTRAP }} />
       <ScrollReveals />
-      <SectionNav items={NAV_ITEMS} />
 
-      {/* ───────────────────────── Hero ───────────────────────── */}
-      <section className="relative overflow-hidden">
-        <div
-          data-reveal-stagger
-          className="relative mx-auto max-w-5xl px-6 py-24 text-center sm:py-32"
-        >
-          <span
-            data-reveal="up"
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-primary)]/25 bg-white px-4 py-1.5 text-sm font-medium text-[var(--velvet-indigo)]"
-          >
-            <Sparkles className="h-4 w-4" />
-            Para consultorios en México
-          </span>
+      {/* ───────────────────────── Hero ─────────────────────────
+          Franja OSCURA y a sangre, y va ANTES de la navegación.
 
+          Por qué oscura: el material es exactamente el del panel del CTA
+          final —grano + el mismo degradado—, así que la página abre y cierra
+          sobre la misma superficie. Antes todo el peso visual estaba abajo y
+          lo primero que veía el doctor era lo más ligero de la página.
+
+          Por qué queda tan poco texto: el badge, el subtítulo, el segundo CTA
+          y la línea de la prueba gratis se borraron el 2026-08-17. Ninguno
+          decía nada que la página no repitiera más abajo —el subtítulo era
+          casi literalmente el encabezado de `#recorrido`, y las tres promesas
+          de la línea final viven en el bloque de Precio—. El hero no es un
+          resumen de la página: es una afirmación y un botón.
+
+          `velvet-title` NO se puede usar aquí: es un degradado índigo
+          recortado al texto, calculado para el campo CLARO. Sobre el navy
+          desaparece. Por eso el h1 va en blanco liso. */}
+      <section
+        className="relative overflow-hidden"
+        style={{
+          /* El grano va PRIMERO y el degradado debajo, igual que en el panel
+             del CTA final. */
+          backgroundImage:
+            'var(--velvet-grain), linear-gradient(135deg, var(--velvet-indigo-deep) 8%, var(--velvet-indigo) 65%, var(--velvet-amber) 185%)',
+          backgroundSize: '140px 140px, cover',
+          backgroundRepeat: 'repeat, no-repeat',
+        }}
+      >
+        <div className="mx-auto max-w-5xl px-6 py-24 text-center sm:py-32">
           <h1
-            data-reveal="up"
-            className="velvet-title mt-6 text-4xl leading-tight font-bold tracking-tight sm:text-6xl"
-            style={{ fontFamily: 'var(--font-heading)' }}
+            className="text-[2.75rem] font-bold tracking-tight text-white sm:text-7xl"
+            style={{ fontFamily: 'var(--font-heading)', lineHeight: 1.05 }}
           >
-            Todo tu consultorio, en un solo lugar
+            Todo tu consultorio,
+            {/* El corte es a mano: partido por el ancho del contenedor, "en un
+                solo lugar" se rompe en dos y la frase pierde el remate. */}
+            <br />
+            en un solo lugar
           </h1>
 
-          <p
-            data-reveal="up"
-            className="mx-auto mt-6 max-w-2xl text-lg text-[var(--color-neutral-medium)] sm:text-xl"
-          >
-            De la cita a la factura sin volver a capturar nada: agendas, atiendes,
-            documentas y facturas al mismo paciente en un solo hilo — y el dinero cae
-            solo en tu flujo.
-          </p>
-
-          <div
-            data-reveal="up"
-            className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row"
-          >
+          <div className="mt-10 flex justify-center">
             <a
               href={mailto}
-              className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--velvet-indigo)] px-8 py-4 text-lg font-semibold text-white shadow-[var(--shadow-light)] transition-colors hover:bg-[var(--velvet-indigo-deep)]"
+              className="inline-flex items-center gap-2 rounded-[10px] bg-white px-8 py-4 text-lg font-semibold text-[var(--velvet-indigo)] shadow-[var(--shadow-medium)] transition-colors hover:bg-[var(--color-neutral-light)]"
             >
               Agenda una demo
               <ArrowRight className="h-5 w-5" />
             </a>
-            <a
-              href="#recorrido"
-              className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--velvet-indigo)] px-8 py-4 text-lg font-semibold text-[var(--velvet-indigo)] transition-colors hover:bg-[var(--velvet-indigo)] hover:text-white"
-            >
-              Ver el recorrido
-            </a>
           </div>
 
-          <p data-reveal="up" className="mt-6 text-sm text-[var(--color-neutral-medium)]">
-            {PRICING.trialWeeks} semanas gratis · Sin instalar nada · Un solo plan, todo
-            incluido
-          </p>
+          <HeroThread className="mt-16 sm:mt-20" />
         </div>
       </section>
+
+      {/* La navegación va DEBAJO del hero, no encima. Es una barra blanca
+          translúcida con backdrop-blur: sobre el hero oscuro se leería como
+          una mancha pálida cruzando lo primero que ve el doctor. Aquí sigue
+          siendo `sticky top-0`, así que se pega en cuanto el hero sale de
+          pantalla — el único costo es que al aterrizar no se ve, que es lo
+          correcto para un hero de un titular y un botón. */}
+      <SectionNav items={NAV_ITEMS} />
 
       {/* ───────────────────── El recorrido ─────────────────────
           LA sección de la página. Es lo único que cuenta el producto como un
