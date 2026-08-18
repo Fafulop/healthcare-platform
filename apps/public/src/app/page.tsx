@@ -9,7 +9,6 @@ import {
   Receipt,
   FileText,
   Landmark,
-  ShieldCheck,
   BarChart3,
   Cloud,
   Smartphone,
@@ -26,9 +25,9 @@ import { REVEAL_BOOTSTRAP } from '@/lib/reveal-bootstrap';
 import {
   CAPABILITY_GROUPS,
   FAQ,
-  JOURNEY_LOOP,
+  JOURNEY_CLOSE,
+  JOURNEY_INTRO,
   JOURNEY_STEPS,
-  MONEY_PROMISE,
   PLATFORM_FACTS,
   PRICING,
   SALES_EMAIL,
@@ -48,18 +47,24 @@ import {
  * `/producto/facturacion`—, que sí son búsquedas distintas.
  *
  * ESTRUCTURA (2026-08-17): la página dejó de ser un catálogo. Primero cuenta
- * el RECORRIDO —un paciente de la cita a la factura— y sólo después abre el
- * detalle por capacidad. La razón: la promesa del producto es el circuito, y
- * repartida en bandas independientes el doctor tenía que armarla él. Los dos
- * planes murieron el mismo día: un solo precio, todo incluido.
+ * el RECORRIDO —las cuatro cosas que genera un paciente: su cita, su
+ * expediente, su factura y su ingreso— y sólo después abre el detalle por
+ * capacidad. La razón: la promesa del producto es el circuito, y repartida en
+ * bandas independientes el doctor tenía que armarla él. Los dos planes
+ * murieron el mismo día: un solo precio, todo incluido.
+ *
+ * El pitch NO es «de la cita a la factura». Así estaba escrito —aquí, en el
+ * `description` y en el encabezado del recorrido— y pone la factura de meta
+ * del producto cuando es una de las cuatro cosas, no el destino. Corregido el
+ * 2026-08-17; si vuelve a aparecer esa frase, es una regresión.
  */
 export const metadata: Metadata = {
   title: 'TuSalud.pro | Todo tu consultorio, en un solo lugar',
-  description: `De la cita a la factura sin capturar nada dos veces: agenda, expediente NOM-004, informes para aseguradoras, cobros que van directo a tu cuenta y facturación CFDI. Un solo plan, $${PRICING.amount} + IVA al mes.`,
+  description: `Las citas, los expedientes, las facturas y los ingresos de tu consultorio en el mismo lugar, cada uno saliendo del anterior: agenda, expediente NOM-004, informes para aseguradoras, cobros que van directo a tu cuenta y facturación CFDI. Un solo plan, $${PRICING.amount} + IVA al mes.`,
   alternates: { canonical: '/' },
   openGraph: {
     title: 'Todo tu consultorio, en un solo lugar',
-    description: `Agendas, atiendes, documentas y facturas al mismo paciente en un solo hilo. Un solo plan, todo incluido, $${PRICING.amount} + IVA al mes.`,
+    description: `Citas, expedientes, facturas e ingresos en el mismo lugar — cada uno sale del anterior, sin capturar nada dos veces. Un solo plan, todo incluido, $${PRICING.amount} + IVA al mes.`,
     url: 'https://tusalud.pro',
     type: 'website',
   },
@@ -150,14 +155,25 @@ export default function Home() {
             en un solo lugar
           </h1>
 
+          {/* El precio, NO un botón. El hero se queda a propósito sin CTA:
+              lidera con el número y deja que la página venda. La invitación a
+              escribir sigue viva dos veces más abajo —en el bloque de Precio y
+              en el panel de cierre—, así que no se pierde el camino, sólo deja
+              de ser lo primero.
+
+              Es una pastilla y no texto suelto para que pertenezca a la misma
+              familia que las paradas del hilo de abajo: misma piel
+              translúcida, mismo borde. En texto plano se leería como el
+              subtítulo que se borró.
+
+              El número sale de PRICING. Nunca se escribe a mano aquí: es el
+              tercer lugar de la página que lo menciona —con el bloque de
+              Precio y el FAQ— y son justo tres sitios donde podrían quedar
+              tres precios distintos. */}
           <div className="mt-10 flex justify-center">
-            <a
-              href={mailto}
-              className="inline-flex items-center gap-2 rounded-[10px] bg-white px-8 py-4 text-lg font-semibold text-[var(--velvet-indigo)] shadow-[var(--shadow-medium)] transition-colors hover:bg-[var(--color-neutral-light)]"
-            >
-              Agenda una demo
-              <ArrowRight className="h-5 w-5" />
-            </a>
+            <p className="inline-flex items-center rounded-full border border-white/25 bg-white/10 px-6 py-3 text-lg font-semibold text-white backdrop-blur-sm sm:text-xl">
+              ${PRICING.amount} {PRICING.currency} {PRICING.ivaNote}
+            </p>
           </div>
 
           <HeroThread className="mt-16 sm:mt-20" />
@@ -175,13 +191,15 @@ export default function Home() {
       {/* ───────────────────── El recorrido ─────────────────────
           LA sección de la página. Es lo único que cuenta el producto como un
           hilo y no como un catálogo, y por eso va antes que cualquier lista de
-          capacidades: el doctor tiene que ver el circuito completo —cita,
-          expediente, consulta, datos fiscales, factura, cobro, flujo— antes de
+          capacidades: el doctor tiene que ver el circuito completo antes de
           que le importe cómo se llama cada pantalla.
 
-          La vuelta (`JOURNEY_LOOP`) es el remate y va aparte, en oscuro: el
-          argumento no es que el primer paciente sea fácil, es que el segundo ya
-          no tiene pasos. */}
+          El eje NO es «de la cita a la factura» —ver el comentario de
+          `JOURNEY_STEPS`—: son las cuatro cosas que genera un paciente, y la
+          factura es una de ellas, no el destino.
+
+          El remate (`JOURNEY_CLOSE`) va aparte y en oscuro: los cuatro pasos
+          no siguen encadenándose, terminan en un solo estado. */}
       <section id="recorrido" className="scroll-mt-24">
         <div className="mx-auto max-w-4xl px-6 py-20 sm:py-24">
           <div data-reveal="up" className="mx-auto max-w-2xl text-center">
@@ -189,11 +207,10 @@ export default function Home() {
               className="velvet-title text-3xl font-bold sm:text-4xl"
               style={{ fontFamily: 'var(--font-heading)' }}
             >
-              De la cita a la factura, sin capturar nada dos veces
+              {JOURNEY_INTRO.title}
             </h2>
             <p className="mt-4 text-lg text-[var(--color-neutral-medium)]">
-              Así se ve un paciente de principio a fin. No son módulos sueltos: es un
-              mismo hilo.
+              {JOURNEY_INTRO.lead}
             </p>
           </div>
 
@@ -230,48 +247,22 @@ export default function Home() {
             data-reveal="up"
             className="mt-4 flex gap-5 rounded-[var(--radius-medium)] bg-[var(--velvet-indigo)] p-5 shadow-[var(--shadow-medium)] sm:p-6"
           >
+            {/* Un check, no el `↺` que había: esto ya no es una vuelta al
+                principio, es el estado final de los cuatro pasos. */}
             <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-lg font-bold text-white"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white"
               aria-hidden="true"
             >
-              ↺
+              <Check className="h-5 w-5" />
             </span>
             <div className="min-w-0">
               <h3 className="font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>
-                {JOURNEY_LOOP.title}
+                {JOURNEY_CLOSE.title}
               </h3>
               <p className="mt-1.5 text-[15px] leading-relaxed text-white/80">
-                {JOURNEY_LOOP.text}
+                {JOURNEY_CLOSE.text}
               </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────────── La promesa del dinero ───────────────
-          Era el quinto bullet de la banda `dinero`, donde no lo leía nadie.
-          Es una de las objeciones que de verdad frenan la venta, así que va a
-          franja propia y justo después del recorrido —que es donde acaba de
-          aparecer el cobro—. Sin `id` de navegación: no es una capacidad. */}
-      <section className="px-6">
-        <div
-          data-reveal="up"
-          className="mx-auto flex max-w-4xl flex-col gap-5 rounded-[var(--radius-medium)] border border-[var(--color-success)]/25 bg-white/80 p-7 shadow-[var(--shadow-light)] backdrop-blur-sm sm:flex-row sm:p-8"
-        >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[var(--color-success)]/12">
-            <ShieldCheck className="h-6 w-6 text-[var(--color-success)]" />
-          </span>
-          <div>
-            <h2
-              className="velvet-title text-2xl font-bold sm:text-3xl"
-              style={{ fontFamily: 'var(--font-heading)' }}
-            >
-              {MONEY_PROMISE.title}
-            </h2>
-            <p className="mt-3 text-[15px] leading-relaxed text-[var(--color-neutral-medium)] sm:text-base">
-              {MONEY_PROMISE.body}
-            </p>
-            <p className="mt-3 font-medium">{MONEY_PROMISE.footer}</p>
           </div>
         </div>
       </section>

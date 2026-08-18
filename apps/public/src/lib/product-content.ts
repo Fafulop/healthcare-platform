@@ -40,11 +40,16 @@ export const PRICING = {
 /* ─────────────────────── El hilo del hero ───────────────────────
    Las cuatro paradas que dibuja `HeroThread` bajo el título.
 
-   NO es un resumen de `JOURNEY_STEPS`. El recorrido tiene siete pasos porque
-   explica; el hilo tiene cuatro porque sólo señala, y cuatro es lo que se lee
-   de un vistazo en una línea. Si se emparejan, el hero deja de ser un gesto y
-   se vuelve un índice duplicado del recorrido — que es exactamente el defecto
-   que se acaba de quitar del hero.
+   El hilo y `JOURNEY_STEPS` tienen HOY las dos cuatro entradas, y eso es
+   deliberado, no un descuido: son las cuatro cosas que genera un paciente
+   —cita, expediente, factura, ingreso— y el argumento entero de la página es
+   que son las mismas cuatro. El hero las NOMBRA en una línea; el recorrido
+   las EXPLICA en tarjetas. Lo que no puede pasar es que el hilo empiece a
+   explicar: en cuanto una pastilla lleve una frase, deja de ser un gesto y
+   se vuelve un índice duplicado del recorrido.
+
+   (Estuvieron desparejos: el recorrido tenía siete pasos hasta el
+   2026-08-17. Que ahora coincidan es la corrección, no la coincidencia.)
 
    Cinco paradas ya no caben en un teléfono sin romper la fila. */
 export const HERO_THREAD: { id: string; label: string }[] = [
@@ -105,64 +110,69 @@ export interface CapabilityGroup {
    cobro se registra solo, fiscal decía que la factura sale de la cita— y
    armar el circuito quedaba de tarea del doctor.
 
+   ⚠️ EL EJE NO ES «DE LA CITA A LA FACTURA». Así se escribió primero y está
+   mal: pone la factura de destino del producto cuando es UNA de las cuatro
+   cosas que genera un paciente —cita, expediente, factura e ingreso—, no la
+   meta. El argumento es que las cuatro viven en el mismo lugar y cada una
+   sale de la anterior. Si alguien vuelve a titular esto «de la cita a la
+   factura», está reintroduciendo el error, no acortando la frase.
+
+   PASARON DE SIETE PASOS A CUATRO el 2026-08-17. Los tres que se fueron no
+   se perdieron, se movieron a la capacidad que ya los contaba mejor: los
+   datos fiscales y el envío del CFDI viven en `facturacion` (dos bullets),
+   y el cobro con links de Mercado Pago/Stripe, el efectivo y el registro
+   automático del ingreso viven en `dinero` (tres bullets). Un recorrido de
+   siete pasos ya no era un hilo: era el catálogo otra vez, sólo que
+   numerado. Antes de agregar un paso aquí, comprueba que la capacidad
+   correspondiente no lo diga ya.
+
    Cada paso es algo que el producto hace HOY. Lo que aún no existe
    (WhatsApp) se queda en el bloque «Muy pronto» de su capacidad: un
    recorrido que mezcla lo real con lo prometido deja de ser creíble. */
+export const JOURNEY_INTRO = {
+  title: 'Citas, expedientes, facturas e ingresos, en el mismo lugar',
+  lead: 'Cada paciente genera una cita, un expediente, una factura y un ingreso. Aquí cada uno sale del anterior: no los capturas por separado.',
+};
+
 export const JOURNEY_STEPS: { n: number; title: string; text: string }[] = [
   {
     n: 1,
-    title: 'Se crea la cita',
-    text: 'El paciente agenda solo desde tu perfil público, o la creas tú en segundos. Ahí mismo marcas si va a necesitar factura.',
+    title: 'Se genera la cita',
+    text: 'El paciente la reserva desde tu página web personalizada, o la registras tú desde el sistema. En los dos casos entra a la misma agenda.',
   },
   {
     n: 2,
-    title: 'Nace su expediente',
-    text: 'Si es paciente nuevo, su expediente se crea ligado a esa cita. No lo abres aparte ni lo buscas después.',
+    title: 'Se abre su expediente',
+    text: 'Si es paciente nuevo, el expediente se crea desde la cita. Si ya lo tenías, la cita se adjunta al expediente que ya existe.',
   },
   {
     n: 3,
-    title: 'Documentas la consulta',
-    text: 'Nota escrita o dictada por voz, receta con tu formato y tu firma, estudios y archivos adjuntos. Todo cuelga del mismo paciente, en su línea de tiempo.',
+    title: 'Desde el expediente trabajas la consulta',
+    text: 'Consultas con tus propios formatos, recetas personalizadas con tu firma, notas dictadas por voz y los documentos que necesites adjuntar: estudios, PDFs, imágenes. Todo queda guardado en ese paciente.',
   },
   {
     n: 4,
-    title: 'Sus datos fiscales, una sola vez',
-    text: 'Le mandas un link, el paciente llena sus datos fiscales él mismo y quedan guardados en su expediente. Tú no capturas un solo RFC.',
-  },
-  {
-    n: 5,
-    title: 'Facturas en un clic',
-    text: 'Desde el expediente, la cita ya trae su liga de facturación. Clic, revisas la factura ya armada, clic, timbrada.',
-  },
-  {
-    n: 6,
-    title: 'Le cobras por donde quieras',
-    text: 'Le generas un link de pago con tu propia cuenta de Mercado Pago o de Stripe y lo cobras con tarjeta, transferencia o SPEI. En cuanto el paciente paga, el cobro entra solo. O lo registras en efectivo si te pagó en el consultorio.',
-  },
-  {
-    n: 7,
-    title: 'Todo aterriza en tu flujo de dinero',
-    text: 'El cobro y la factura quedan agregados a ese paciente. Siempre sabes cuánto entró, de dónde y de quién.',
+    title: 'Y desde ahí, la factura',
+    text: 'Un clic. Sale con los datos fiscales que el paciente llenó él mismo desde un link, y se le envía por correo.',
   },
 ];
 
-/** El cierre del recorrido: la vuelta es lo que hace que valga la pena. */
-export const JOURNEY_LOOP = {
-  title: 'La siguiente consulta',
-  text: 'Los pasos 2 y 4 ya no existen: el expediente está ahí y sus datos fiscales también. Terminas la consulta, cobras y facturas en un clic.',
+/* El remate del recorrido, en oscuro y aparte de los cuatro pasos.
+
+   ANTES ERA UNA VUELTA (`JOURNEY_LOOP`): decía que en la segunda consulta
+   los pasos 2 y 4 ya no existen. Buen argumento, pero se apoyaba en un paso
+   4 que era «sus datos fiscales» y hoy ya no existe — se habría quedado
+   señalando un número equivocado. Ahora cierra en vez de dar la vuelta: los
+   cuatro pasos terminan en un solo estado. */
+export const JOURNEY_CLOSE = {
+  title: 'Y con eso queda cerrado',
+  text: 'La cita cerrada, tu paciente actualizado y el ingreso registrado en tu flujo. Sin capturar lo mismo cuatro veces.',
 };
 
-/* ──────────────────── La promesa del dinero ────────────────────
-   Vivía como el quinto bullet de la banda `dinero`, donde nadie lo leía.
-   Es de las dos o tres cosas que de verdad frenan a un doctor que va a
-   meter su consultorio a un software, así que sube a franja propia justo
-   después del recorrido. NO lleva `id` de navegación: no es una capacidad
-   y meterla al carrusel diluiría los destinos reales. */
-export const MONEY_PROMISE = {
-  title: 'Tu dinero va de tu paciente a tu cuenta. Punto.',
-  body: 'Conectas tu propia cuenta de Mercado Pago o de Stripe. El pago viaja directo de tu paciente a esa cuenta: nosotros no lo tocamos, no lo retenemos y no dependes de que te lo depositemos después. No hay comisión nuestra sobre lo que cobras, ni saldo que esperar, ni corte que perseguir.',
-  footer: `Nuestro cobro es uno solo y es el de la plataforma: $${PRICING.amount} + IVA al mes.`,
-};
+/* `MONEY_PROMISE` («Tu dinero va de tu paciente a tu cuenta. Punto.») se
+   BORRÓ el 2026-08-17. Era la tercera copia del mismo hecho: lo dice la
+   primera pregunta del FAQ y lo dice la nota bajo el precio. No se perdió
+   nada al quitarla; lo que se quitó fue una franja que repetía. */
 
 /* ────────────────────────── Capacidades ──────────────────────────
    El ORDEN es el argumento. Sigue al recorrido —agenda, expediente,
