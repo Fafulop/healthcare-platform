@@ -69,6 +69,40 @@ export interface Feature {
   blurb: string;
 }
 
+/**
+ * El clip de una capacidad: unos segundos del panel REAL, en silencio y en
+ * bucle, bajo la prosa que acaba de describirlos.
+ *
+ * ⚠️ ESTO AFIRMA UN HECHO. Un clip dice «así se ve el producto», y a diferencia
+ * de un bullet, envejece SOLO: el día que la pantalla cambie, la página seguirá
+ * enseñando la vieja sin que nada se ponga rojo. Por eso `recordedAt` es
+ * obligatorio y va aquí, en los datos: es lo único que deja ver de un vistazo
+ * cuál toca regrabar.
+ *
+ * ⚠️ NADA DE DATOS REALES. Se graba en una cuenta de demostración, con
+ * pacientes inventados. Un paciente real en un video público no es un bug de
+ * maquetación, es una fuga de datos personales (LFPDPPP) que además queda
+ * cacheada fuera de nuestro alcance.
+ *
+ * ⚠️ NI ASISTENTE NI FISCAL EN CUADRO. El 2026-08-18 se dejaron de vender esas
+ * dos capacidades en esta página; un clip que enseñe el sidebar completo las
+ * vuelve a anunciar por la puerta de atrás.
+ *
+ * Los tres archivos comparten nombre a propósito (`base`): así no pueden
+ * quedar el mp4 de una toma y el póster de otra.
+ */
+export interface CapabilityClip {
+  /** Nombre base en `/public/clips`: se sirven `<base>.mp4`, `.webm` y `.webp`. */
+  base: string;
+  /** Tamaño REAL del archivo. Va al markup para que la caja no salte al cargar. */
+  width: number;
+  height: number;
+  /** Qué se ve, para quien no puede verlo. No es un pie de foto decorativo. */
+  alt: string;
+  /** Cuándo se grabó (YYYY-MM-DD). Ver la advertencia de arriba. */
+  recordedAt: string;
+}
+
 export interface CapabilityGroup {
   id: string;
   eyebrow: string;
@@ -105,6 +139,16 @@ export interface CapabilityGroup {
    * panel.
    */
   features: Feature[];
+  /**
+   * El clip de la capacidad, si lo tiene. OPCIONAL a propósito: vale más
+   * enseñar tres bandas con una toma buena que siete con relleno, y una banda
+   * sin clip se pinta hoy exactamente como se pintaba ayer.
+   *
+   * Va al PIE de la columna de texto, nunca dentro de la tarjeta: la tarjeta
+   * es el inventario, y el 2026-08-17 se le quitó el mockup justamente para
+   * que dejara de disfrazarse de pantalla.
+   */
+  clip?: CapabilityClip;
   /**
    * Color de la capacidad. Tiñe ÚNICAMENTE la pastilla de su icono: el fondo
    * lo pone el campo continuo de la página (`.velvet-field`), no la sección.
@@ -234,6 +278,20 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
        WhatsApp saliendo solos) se borró el 2026-08-18 por petición del
        usuario. El campo `soon?` sigue existiendo en el tipo y la página lo
        sigue pintando; hoy no lo usa nadie. */
+    clip: {
+      base: 'agenda',
+      /* Medidas REALES del archivo entregado (1866×832 de origen, escalado a
+         1100 de ancho). Si se regraba con otro encuadre, esto cambia: lo
+         imprime `make-clip.mjs` al terminar y se copia tal cual. */
+      width: 1100,
+      height: 490,
+      recordedAt: '2026-08-18',
+      alt:
+        'La pantalla de citas: la cita de Guillermo Iturbe Sáenz, consulta de ' +
+        'cardiología en Consultorio Polanco, se abre y muestra su precio, su ' +
+        'horario y las acciones para completarla, reagendarla o cancelarla; ' +
+        'debajo, el mes completo con las citas repartidas por día.',
+    },
     features: [
       {
         permissionKey: 'citas',

@@ -17,6 +17,7 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
+import CapabilityClipPlayer from '@/components/CapabilityClip';
 import HeroThread from '@/components/HeroThread';
 import ScrollReveals from '@/components/ScrollReveals';
 import SectionNav from '@/components/SectionNav';
@@ -490,6 +491,16 @@ export default function Home() {
                         ))}
                       </div>
                     )}
+
+                    {/* El clip — al PIE del texto, no dentro de la tarjeta.
+                        Aquí abajo remata lo que los párrafos acaban de contar;
+                        en la tarjeta le devolvería a la lista el disfraz de
+                        pantalla que se le quitó el 2026-08-17.
+
+                        Va ANTES de «Muy pronto» a propósito: el clip enseña lo
+                        que ya funciona, y lo que aún no existe no puede quedar
+                        entre la prosa y su prueba. */}
+                    {group.clip && <CapabilityClipPlayer clip={group.clip} />}
 
                     {/* Lo que viene — bloque APARTE, con su propio icono y en
                         la columna de TEXTO, nunca dentro de la tarjeta: la
