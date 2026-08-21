@@ -76,6 +76,7 @@ Cada renglón de esta lista es un bug que ya pasó una vez.
 | Nombres de campo fuera de WinAnsi | El campo no se imprime y se omite |
 | Nombres repetidos (un campo, varios recuadros) | Marcar uno marca a sus hermanos |
 | **Qué casillas puede proponer el asistente, y cuáles NO** | §6 — el peor bug que ha tenido esto |
+| **De qué lado del recuadro está su etiqueta** (se mide por grupo, no se supone) | §7d — Ve por Más rotulaba con la opción SIGUIENTE |
 | Propuesta de diccionario contra el canónico | El trabajo manual que queda |
 
 ## 4. 🔴 `updateMetadata: false`, o la herramienta se acusa a sí misma
@@ -394,6 +395,84 @@ de encoger en un mínimo y recorta. Medido con valores de 180 caracteres: AXA pi
 los **avisa los 21**; Allianz pierde 14 y **calla 2** (`p2_Senale_los_resultados_de_examenes_de_
 laborat_2`, `p2_Hubo_complicaciones`), porque el aviso usa la misma estimación de 0.5 em que es
 optimista. Ahí la estimación es SEGURA —sólo decide si avisar— pero conviene afinarla.
+
+## 7d. 🔴 DE QUÉ LADO ESTÁ LA ETIQUETA — no se supone, se MIDE (2026-08-21)
+
+Lo trajo la aseguradora #4 y es la suposición del motor más vieja que había: desde el 2026-08-10
+`etiquetas-de-la-hoja.ts` daba por hecho que **la etiqueta de un recuadro es el texto a su
+DERECHA**. No es una convención del PDF — era una **coincidencia de las tres primeras
+aseguradoras**. Medido sobre los seis formatos:
+
+**Los votos que emite el motor** (no una medición aparte — instrumentando `votosDeLado`):
+
+| | vota izq | vota der | se abstiene |
+|---|---|---|---|
+| AXA | 0 | 45 | 4 |
+| Allianz | 0 | 27 | 6 |
+| GNP | 0 | 19 | 0 |
+| **Ve por Más** | **27** | 0 | 0 |
+| **MetLife** | **28** | 0 | 3 |
+| **SURA** | **19** | **6** | 0 |
+
+```
+AXA         [x] Hospital     ← recuadro y luego la palabra
+Ve por Más  Agudo [x]        ← la palabra y luego el recuadro
+```
+
+Con la regla vieja, Ve por Más rotulaba cada recuadro con la opción **SIGUIENTE**: el médico marca
+lo que lee como «Agudo» y la hoja le afirma **«Crónico»** a la aseguradora. Es *un rótulo pobre se
+ignora, uno FALSO se obedece* servido en 27 casillas — y ningún gate lo alcanza, porque la hoja se
+ve perfectamente normal.
+
+⇒ **Se decide por GRUPO** (mayoría de sus recuadros; el que tiene los dos textos casi a la misma
+distancia **se abstiene**), y **lo que no se decide solo cae a la mayoría de LA HOJA**, nunca a una
+constante. El grupo tiene que poder contradecir a su hoja: **SURA mezcla los dos estilos** y sus
+pares `Sí`/`No` rotulan por la derecha mientras el resto rotula por la izquierda.
+
+### 🔴 La primera versión de este arreglo TRAÍA EL BUG QUE VENÍA A ARREGLAR
+
+Salió del `/code-review` y se confirmó **ejecutando**, no leyendo. La primera versión resolvía el
+empate con un `der` fijo — «la conducta de siempre», que sonaba conservador. En una hoja que rotula
+por la IZQUIERDA es rotular mal. Medido en MetLife: **tres grupos sin un solo voto**, los tres
+cayendo al `der` de emergencia:
+
+```
+[izq="Congénito" 12.71 · der="Adquirido" 14.38]   →  rotulaba "Adquirido"
+[izq="Sí" 6.65 · der="No" 8.56]                   →  rotulaba "No"
+```
+
+Un `Sí` rotulado `No` en la hoja que firma un médico. Es el patrón que esta carpeta ya tiene
+fichado —*un arreglo salido de un review no viene bendecido*— con `type-check` y los 5 gates en
+verde. Con la mayoría de la hoja como red, los tres resuelven bien.
+
+⚠️ **Y hay que ser honesto con el alcance de «por grupo»: cuando el grupo tiene UN solo recuadro,
+«por grupo» es «por recuadro».** Es el caso de los 27 de Ve por Más, los 31 de MetLife y 23 de los
+24 de SURA. Lo que sostiene el mecanismo son **la abstención y la mayoría de la hoja**, no la
+agrupación.
+
+**Regresión, con AXA de oráculo:** AXA **49/49** opciones · Allianz **33/33** · GNP **19/19**, los
+tres con los mismos grupos y los mismos que ve el asistente (13 · 12 · 5) y aplanando a 0 campos
+vivos. Y las tres hojas nuevas pasan a resolver el **100 %** de sus recuadros (27 · 31 · 25).
+
+⚠️ **Un guardarraíl que NO se ha visto correr:** un lado sólo vota si además puede rotular, para que
+una raya de relleno (`__________`) —votante perfecto, etiqueta inútil tras `limpiar()`— no arrastre
+a un grupo hacia un lado donde después se queda sin opciones y **desaparece entero, en silencio**.
+Instrumentado sobre los 6 formatos: **0 vetos**. Es preventivo y no está ejercitado; la rama que sí
+corre mucho es la de «un solo lado rotulable» (28 veces en AXA).
+
+> 🔎 **La lección, que ya es la de siempre pero con dos vueltas nuevas:**
+>
+> 1. La suposición no estaba escrita como suposición, estaba escrita como **medición** — *"medido
+>    sobre el AXA oficial: las 49 casillas resuelven por la derecha"*. Era cierta y era **local**.
+>    Una propiedad medida sobre tres formatos no es una propiedad de los formatos, igual que una
+>    medida sobre el PDF de un tercero no es una propiedad del formato (03-FORMATOS §5).
+> 2. 🔴 **Y la primera redacción de este mismo §7d citaba números que el código NO produce.** Decía
+>    «AXA 43 der / 1 izq» y un ejemplo de `Sí_3` con `Cédula profesional:` a 0.3 pt — los dos salían
+>    de un script de sondeo con OTROS filtros (banda vertical de 8 pt en vez de 6, sin tope de
+>    distancia), no de `votosDeLado`. El motor mide `Sí_3` como `«¿Es cáncer?»` a 5.56 pt y `Sí` a
+>    2.78 pt, y AXA vota **0/45**. Lo cazó el `/code-review` instrumentando la función de verdad.
+>    ⇒ **Un número que justifica un diseño tiene que salir de la función que se shipeó**, no de un
+>    sondeo parecido: quien re-calibre `EMPATE_PT` lo haría contra una cifra que no existe.
 
 ## 7b. 🔴 En un formato PLANO, las ETIQUETAS son una pieza aparte del diccionario
 

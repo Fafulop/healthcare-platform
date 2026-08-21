@@ -20,6 +20,10 @@
  * texto **a la derecha**, y la pregunta del grupo por el texto **a la izquierda**
  * del primer recuadro.
  *
+ * ⚠️ Lo de "a la derecha" valía para AXA, Allianz y GNP y **no es una
+ * convención del PDF**: Ve por Más, MetLife y SURA rotulan por la IZQUIERDA.
+ * El lado ya no se supone, se MIDE por grupo — ver `ladoDelGrupo`.
+ *
  *   TE            → Urgencia · Hospitalización · Corta estancia/ambulatoria · Consultorio
  *   Consultorio_2 → Consultorio · Hospital · Gabinete · Otro
  *   Sí_3          → "¿Es cáncer?"  Sí · No
@@ -82,6 +86,105 @@ function aLaDerecha(textos: Texto[], x: number, w: number, y: number, max: numbe
  * un mes donde va la fecha de alta.
  */
 const GUIA_DE_FECHA = /^(d[ií]a|mes|a[ñn]o)(\s+(d[ií]a|mes|a[ñn]o))*:?$/i;
+
+/**
+ * 🔴 DE QUÉ LADO DEL RECUADRO ESTÁ SU ETIQUETA (2026-08-21)
+ *
+ * Este motor daba por hecho que la etiqueta de una casilla es el texto **a la
+ * derecha**. No es una convención del PDF: era una coincidencia de las tres
+ * primeras aseguradoras. Medido sobre los seis formatos:
+ *
+ *   AXA 43 der / 1 izq · Allianz 27/0 · GNP 17/0     ← lo que hay en prod
+ *   Ve por Más 0/27 · MetLife 1/27 · SURA 6/19       ← las tres siguientes
+ *
+ *   AXA         [x] Hospital     ← recuadro y luego la palabra
+ *   Ve por Más  Agudo [x]        ← la palabra y luego el recuadro
+ *
+ * Con la suposición vieja, Ve por Más rotula cada recuadro con la opción
+ * SIGUIENTE: el médico marca lo que lee como «Agudo» y la hoja le afirma
+ * «Crónico» a la aseguradora. Es *un rótulo pobre se ignora, uno FALSO se
+ * obedece* — la lección más cara de esta carpeta — servida en 27 casillas.
+ *
+ * Se decide **por GRUPO**, y lo que no alcanza a decidirse cae a la mayoría de
+ * LA HOJA — nunca a una constante. Medido en SURA —la única hoja que mezcla los
+ * dos estilos— cada grupo es internamente consistente: sus pares `Sí`/`No`
+ * rotulan por la derecha y el resto por la izquierda, así que el grupo tiene que
+ * poder contradecir a su hoja cuando su propia evidencia es clara.
+ *
+ * 🔴 **Por qué hace falta el segundo nivel** (hallazgo del `/code-review`,
+ * verificado ejecutando): un recuadro con los dos textos casi a la misma
+ * distancia **se abstiene**, y un grupo donde TODOS se abstienen se quedaba sin
+ * un solo voto. Con el `der` fijo que tenía la primera versión, eso rotulaba mal
+ * en una hoja que rotula por la izquierda. Medido en MetLife, que es de las de
+ * izquierda — tres grupos sin ningún voto:
+ *
+ *   [izq="Congénito" 12.71 · der="Adquirido" 14.38]  →  rotulaba "Adquirido"
+ *   [izq="Sí" 6.65 · der="No" 8.56]                  →  rotulaba "No"
+ *
+ * Un `Sí` rotulado como `No` en la hoja que firma un médico: exactamente el
+ * rótulo FALSO que este mecanismo existe para no producir, reintroducido por su
+ * propia salida de emergencia.
+ *
+ * ⚠️ Y una honestidad sobre el alcance: **el grupo NO es una protección extra
+ * cuando el grupo tiene UN solo recuadro**, que es el caso de las 27 opciones de
+ * Ve por Más, las 31 de MetLife y 23 de las 24 de SURA. Ahí «por grupo» es «por
+ * recuadro». Lo que de verdad sostiene el mecanismo son la **abstención** y la
+ * **mayoría de la hoja**, no la agrupación.
+ */
+type LadoEtiqueta = 'izq' | 'der';
+
+/** Menos de esto entre los dos huecos es un empate: el recuadro no vota. */
+const EMPATE_PT = 2;
+
+/** Un recuadro con su vecino de cada lado, ya limpio. `''` = ese lado no rotula. */
+interface RecuadroConVecinos {
+  izq: string;
+  der: string;
+  huecoIzq: number;
+  huecoDer: number;
+}
+
+/**
+ * Los votos de un conjunto de recuadros. `null` = no hay evidencia.
+ *
+ * 🔴 Un lado sólo vota si además puede ROTULAR. El hueco se mide con geometría
+ * cruda pero la etiqueta pasa por `limpiar()`, que deja en `''` las rayas de
+ * relleno (`____________`): sin esta condición una raya es un votante perfecto y
+ * una etiqueta inútil, y un grupo pegado a rayas votaría `izq` en bloque para
+ * después quedarse sin una sola opción rotulable — y desaparecer entero, en
+ * silencio, del catálogo. (Hallazgo del `/code-review`; AXA tiene 3 de esas
+ * rayas en su capa de texto.)
+ */
+function votosDeLado(crudas: RecuadroConVecinos[]): LadoEtiqueta | null {
+  let izq = 0;
+  let der = 0;
+  for (const c of crudas) {
+    const puedeIzq = c.izq !== '' && Number.isFinite(c.huecoIzq);
+    const puedeDer = c.der !== '' && Number.isFinite(c.huecoDer);
+    if (!puedeIzq && !puedeDer) continue;
+    if (puedeIzq !== puedeDer) {
+      // Un solo lado rotulable: no hay nada que comparar, vota ése.
+      if (puedeIzq) izq += 1;
+      else der += 1;
+      continue;
+    }
+    if (Math.abs(c.huecoIzq - c.huecoDer) < EMPATE_PT) continue; // se abstiene
+    if (c.huecoIzq < c.huecoDer) izq += 1;
+    else der += 1;
+  }
+  if (izq === der) return null;
+  return izq > der ? 'izq' : 'der';
+}
+
+/**
+ * El lado de un grupo: su propia evidencia manda; si no la tiene, la de la HOJA.
+ *
+ * El último recurso sigue siendo `der`, que es la conducta anterior a este
+ * cambio, y sólo se alcanza en una hoja que no dio evidencia por ningún lado.
+ */
+function ladoDelGrupo(crudas: RecuadroConVecinos[], ladoDeLaHoja: LadoEtiqueta | null): LadoEtiqueta {
+  return votosDeLado(crudas) ?? ladoDeLaHoja ?? 'der';
+}
 
 /**
  * La pregunta que manda sobre una caja: lo de arriba o lo de la izquierda,
@@ -278,6 +381,17 @@ export async function etiquetasDeLaHoja(
 
   const contexto: Record<string, string> = {};
   const casillas: GrupoCasillas[] = [];
+  /**
+   * Los grupos con sus recuadros, a la espera del lado. Hace falta juntarlos
+   * TODOS antes de decidir: un grupo que no puede decidirse solo cuelga de la
+   * mayoría de la hoja, y ésa no se conoce hasta recorrer el formato entero.
+   */
+  const pendientes: Array<{
+    clave: string;
+    nombrePdf: string;
+    paginaGrupo: number;
+    crudas: Array<RecuadroConVecinos & { onState: string; x: number; y: number; pagina: number }>;
+  }> = [];
 
   for (const field of pdf.getForm().getFields()) {
     const nombrePdf = field.getName();
@@ -290,8 +404,20 @@ export async function etiquetasDeLaHoja(
     const esCasilla = field instanceof PDFCheckBox || field instanceof PDFRadioGroup;
     if (!esTexto && !esCasilla) continue;
 
-    /** Los recuadros con su posición: la pregunta se decide DESPUÉS, con todos. */
-    const crudas: Array<OpcionCasilla & { x: number; y: number; pagina: number }> = [];
+    /**
+     * Los recuadros con su posición y los DOS textos vecinos: el lado del que
+     * sale la etiqueta —y la pregunta— se deciden DESPUÉS, con el grupo entero.
+     */
+    const crudas: Array<{
+      onState: string;
+      izq: string;
+      der: string;
+      huecoIzq: number;
+      huecoDer: number;
+      x: number;
+      y: number;
+      pagina: number;
+    }> = [];
     let paginaGrupo = 1;
 
     for (const widget of field.acroField.getWidgets()) {
@@ -321,22 +447,67 @@ export async function etiquetasDeLaHoja(
       const onState = onStateDelWidget(widget);
       if (!onState) continue;   // un recuadro sin on-state no se puede marcar
 
+      // Se leen los DOS vecinos y se guarda su hueco. Cuál manda lo decide
+      // `ladoDelGrupo` con todos los recuadros del grupo delante.
       const der = aLaDerecha(textos, r.x, r.ancho, r.y, 170);
-      const etiqueta = der ? limpiar(der.s) : '';
-      // Sin etiqueta el recuadro no se ofrece: marcar "la opción 3" a ciegas en
-      // un documento médico-legal es exactamente lo que no se va a hacer.
-      if (etiqueta === '') continue;
-      crudas.push({ onState, etiqueta, x: r.x, y: r.y, pagina });
+      const izq = aLaIzquierda(textos, r.x, r.y, 170);
+      crudas.push({
+        onState,
+        izq: izq ? limpiar(izq.s) : '',
+        der: der ? limpiar(der.s) : '',
+        huecoIzq: izq ? r.x - (izq.x + izq.w) : Infinity,
+        huecoDer: der ? der.x - (r.x + r.ancho) : Infinity,
+        x: r.x,
+        y: r.y,
+        pagina,
+      });
     }
 
     if (esCasilla && crudas.length > 0) {
+      pendientes.push({ clave, nombrePdf, paginaGrupo, crudas });
+    }
+  }
+
+  // ── Segunda pasada: el lado, ahora que se conoce la HOJA entera ────────────
+  // La mayoría de la hoja es la red de la que cuelgan los grupos que no pudieron
+  // decidirse solos. Se calcula sobre TODOS los recuadros del formato.
+  const ladoDeLaHoja = votosDeLado(pendientes.flatMap((p) => p.crudas));
+
+  for (const { clave, nombrePdf, paginaGrupo, crudas } of pendientes) {
+    {
+      const lado = ladoDelGrupo(crudas, ladoDeLaHoja);
+      // Sin etiqueta DEL LADO QUE MANDA el recuadro no se ofrece: marcar "la
+      // opción 3" a ciegas en un documento médico-legal es exactamente lo que
+      // no se va a hacer. (Con `lado === 'der'` esto deja el mismo conjunto que
+      // antes del cambio, que es lo que mantiene a AXA/Allianz/GNP intactos.)
+      const opciones = crudas
+        .map((c) => ({ ...c, etiqueta: lado === 'izq' ? c.izq : c.der }))
+        .filter((c) => c.etiqueta !== '');
+      if (opciones.length === 0) continue;
+
       // 🔴 La pregunta sale del recuadro MÁS A LA IZQUIERDA de su renglón, no
       // del primero que devuelva `getWidgets()`: ese orden no es el visual. En
       // `MAM` el primer widget es "Maternidad" y a su izquierda está
       // "Accidente" — otra opción del mismo grupo, que se habría tomado como la
       // pregunta.
-      const primero = [...crudas].sort((a, b) => a.y - b.y || a.x - b.x)[0];
-      const etiquetas = new Set(crudas.map((o) => o.etiqueta));
+      //
+      // ⚠️ Y en un grupo que rotula por la IZQUIERDA, ese texto es la etiqueta
+      // del propio recuadro: lo descarta el `!etiquetas.has(texto)` de abajo y
+      // el grupo se queda sin pregunta. Es el resultado correcto —null antes
+      // que una pregunta falsa— y no se inventa otra derivación para taparlo.
+      //
+      // 🔴 Pero `pregunta: null` NO es sólo un rótulo pobre: la **regla 3** de
+      // `casillasParaElAgente` saca del catálogo del asistente todo grupo sin
+      // pregunta y con opciones genéricas, así que un par `Sí`/`No` rotulado por
+      // la izquierda desaparece del catálogo entero, no sólo de la prosa. Está
+      // escrito aquí para que el próximo formato no re-diagnostique desde cero
+      // "el asistente ve menos preguntas de las que tiene la hoja".
+      //
+      // ⚠️ Y `etiquetas.has` es igualdad EXACTA: una hoja que imprima `Agudo:`
+      // junto a un recuadro rotulado `Agudo` se colaría. No pasa en ninguno de
+      // los 6 formatos de hoy (comprobado), pero es latente, no descartado.
+      const primero = [...opciones].sort((a, b) => a.y - b.y || a.x - b.x)[0];
+      const etiquetas = new Set(opciones.map((o) => o.etiqueta));
       const izq = aLaIzquierda(geo[primero.pagina]?.textos ?? [], primero.x, primero.y, 220);
       const texto = izq ? limpiar(izq.s) : '';
       // 🔴 Un encabezado se descarta… SALVO que suene a consentimiento o
@@ -355,7 +526,7 @@ export async function etiquetasDeLaHoja(
 
       casillas.push({
         clave, nombrePdf, pagina: paginaGrupo, pregunta,
-        opciones: crudas.map(({ onState, etiqueta }) => ({ onState, etiqueta })),
+        opciones: opciones.map(({ onState, etiqueta }) => ({ onState, etiqueta })),
       });
     }
   }

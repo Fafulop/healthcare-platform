@@ -90,6 +90,7 @@ editar**. Detalle en [`SESSION-REFRESCO`](SESSION-REFRESCO.md).
 | [`06-AGENTE-conversar-con-el-formato.md`](06-AGENTE-conversar-con-el-formato.md) | El chat sobre la hoja: **la hoja ES el card**. En prod |
 | [`07-PLAN-informe-a-nivel-paciente.md`](07-PLAN-informe-a-nivel-paciente.md) | Informe a nivel PACIENTE con fuentes elegidas. En prod |
 | 👉 [`08-ALTA-de-un-formato-nuevo.md`](08-ALTA-de-un-formato-nuevo.md) | **CÓMO AGREGAR UNA ASEGURADORA.** Las 4 piezas, la herramienta y las trampas |
+| [`09-CATALOGO-aseguradoras-pendientes.md`](09-CATALOGO-aseguradoras-pendientes.md) | **Las que FALTAN, medidas y ordenadas** por lo que cuestan · de dónde se baja cada PDF |
 
 ## De dónde viene este pedido
 
