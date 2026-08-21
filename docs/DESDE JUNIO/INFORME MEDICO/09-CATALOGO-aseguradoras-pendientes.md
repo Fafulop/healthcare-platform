@@ -42,7 +42,7 @@ Se hacen primero. El PDF ya trae campos y la aseguradora los nombró.
 | | Versión | Campos | Texto | Opacos | Trampas medidas |
 |---|---|---|---|---|---|
 | **Ve por Más (BX+)** ✅ | `SM008` (2017, mod 2021) | 113 | 86 | **20 %** | 🔴 **DOS campos mal nombrados por la aseguradora** (08-ALTA §6c) |
-| **MetLife** | `CC-1-020 VER5` (2022) | 164 | 133 | 33 % | 43 `maxLength`; la fecha va en **tres cajas** (`D1`/`M1`/`A1`) |
+| **MetLife** ✅ | `CC-1-020 VER5` (2022) | 164 | 133 | 33 % | 43 `maxLength`; la fecha va en **tres cajas** (`D1`/`M1`/`A1`) · **4 bloques de médico** |
 | **SURA** | (2025) | 106 | 82 | 34 % | 19 `maxLength`, varios `max=1` |
 
 ### ✅ El bloqueador COMPARTIDO del tier 1 — resuelto el 2026-08-21
@@ -153,6 +153,51 @@ preguntó por la fecha de diagnóstico y el CIE-10 —lo que no puede saber— e
 describe OTRA COSA, y **no mapearlos no los desactiva** — siguen llegándole al modelo con ese nombre
 de etiqueta. El detalle y por qué el contador de "rótulos ilegibles" no lo ve, en
 [`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §6c.
+
+### ✅ MetLife — CONSTRUIDA el 2026-08-21 (sin fila en prod; PDF revisado por el usuario)
+
+Dict de **14 entradas** + **mapa de 18 etiquetas**, que aquí NO es opcional: la hoja tiene cuatro
+bloques de médico y sin el mapa el modelo ve cuatro `Nombre completo` idénticos
+([`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §6).
+
+`llenados=14 · problemas=0 · ilegibles=0 · 0 campos vivos tras aplanar`, los 14 valores impresos al
+leer el PDF de vuelta, y **0 rótulos ilegibles** en el catálogo del asistente (los 4 que había —la
+fórmula obstétrica `G`/`P`/`A`/`C`, de una letra— se cerraron con una línea cada uno). Llamada real
+a gpt-4o: **12 colocaciones, 0 descartadas**, eligiendo los campos del médico TRATANTE y no los del
+equipo quirúrgico, y preguntando por la fecha de diagnóstico y el CIE en vez de inventarlos.
+
+🔴 **Cuatro trampas nuevas**, todas en [`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §6: el campo
+`…1` de un bloque suele ser la COLA del renglón del rótulo (45 pt, no 567); con varios bloques de
+médico el nombre no dice de quién es; una fecha partida en TRES cajas recibe la misma etiqueta en
+las tres; y un `maxLength` chico omite datos reales.
+
+⚠️ **El `/code-review` encontró 6 cosas, y las 6 eran ciertas** (verificadas contra el texto
+impreso antes de tocar nada). Las dos que más valen:
+
+1. 🔴 **Yo mismo puse un rótulo FALSO** — `Detallar_222` rotulado «complicaciones» cuando vive bajo
+   la pregunta k) (insumos); las complicaciones son la l) y tienen sus tres campos. Y como el mapa a
+   mano **PISA** lo que deduce la geometría, ese rótulo falso habría ganado. *Un rótulo pobre se
+   ignora, uno FALSO se obedece* — cometido dentro del propio mecanismo que existe para evitarlo.
+2. 🔴 **`undefined_12`** —una caja de 3 caracteres para la homoclave del RFC— llegaba al modelo
+   rotulada **«Teléfono del consultorio»**, que es EXACTAMENTE la cadena a la que el dict manda
+   `medico.telefono`. El modelo podía meter los 3 primeros dígitos del teléfono en la homoclave.
+
+### 🔎 Y una FALSA ALARMA que vale documentar
+
+La comprobación de "leer el PDF de vuelta" reportó que el teléfono de MetLife **no se imprimía** —y,
+al perseguirlo, que **ningún campo `comb` de AXA ni GNP se imprimía**, incluidas la fecha de
+nacimiento y el teléfono del médico de GNP, que están EN PROD.
+
+Era **la prueba la que estaba mal**. Un campo `comb` reparte cada carácter en su celda, así que
+pdf.js los extrae **separados por espacios** (`"1 5 0 5 1 9 8 0"`) y comparar contra `"15051980"`
+nunca empata. Se confirmó descomprimiendo el stream de apariencia (`<31> Tj`, `<35> Tj`…, cada glifo
+en su sitio) y localizando el texto dentro del rect del campo. Con la comparación corregida:
+**AXA 7/7, GNP 7/7, MetLife 42/42 comb imprimen**.
+
+> 🔎 **La lección, que es la de siempre al revés:** la comprobación que existe para cazar el texto
+> que se escribe y no se imprime puede dar un **falso POSITIVO**, y ése empuja a "arreglar" código
+> que funciona en la hoja que 11 doctores usan a diario. Antes de tocar el motor por una medición,
+> hay que verificar la MEDICIÓN — aquí, mirando el stream y la posición en la página.
 
 ## 6. El orden acordado con el usuario (2026-08-21)
 

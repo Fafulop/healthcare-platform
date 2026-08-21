@@ -186,6 +186,70 @@ encima**. Los dos campos de arriba puntúan como perfectamente legibles.
 > Un contador de legibilidad en verde **no dice nada** sobre si los rótulos son ciertos; eso sigue
 > pidiendo leer el texto impreso alrededor de la caja, formato por formato.
 
+### 🔴 El campo `…1` de un bloque NO suele ser su primera línea (MetLife, 2026-08-21)
+
+Cuando un bloque de texto largo se reparte en varios campos numerados, el `…1` es muchas veces **la
+cola del renglón donde va impreso el rótulo**, y el ancho lo delata:
+
+| bloque | `…1` | `…2` | `…3` |
+|---|---|---|---|
+| `Detallar resultados de exploración física…` | **45 pt** | 567 pt | 567 pt |
+| `a Principales signos síntomas…` | **311 pt** | 567 pt | 567 pt |
+| `h Indicar el tratamiento…` | **165 pt** | 567 pt | 567 pt |
+
+La propuesta automática ofrece el `…1` en los tres, y mapear ahí mete la exploración física entera
+en una caja de 45 pt. ⚠️ **Y no hay regla que sirva de atajo:** en `Antecedentes personales
+patológicos` de la MISMA hoja el `1` sí es la línea ancha, porque ahí el rótulo va en su propio
+renglón. **Se mide bloque por bloque, con el ancho del widget delante.**
+
+### 🔴 Cuando la hoja tiene VARIOS bloques de médico, el nombre del campo no dice de quién es
+
+MetLife trae **cuatro**: su §6 es *Equipo quirúrgico* (`a) Anestesiólogo`, `b) Primer ayudante`,
+`c) Otro`, `d) Otro`) y su §7 es *Datos del médico*. Los campos se llaman `Nombre completo_2`, `_3`,
+`_4` y `Cédula profesional especialidad`…`_5`, sin nada que los distinga. El médico tratante es el
+de la **§7**.
+
+La propuesta automática ofrecía `medico.especialidad → "Especialidad"`, que es la del participante
+*c) Otro* — **el mismo error que `p2_RFC` en Allianz** (§8), que empataba exacto y vivía en el
+bloque del médico. Y aquí el `etiquetas` no es cosmético: sin él **el modelo ve cuatro cajas
+`Nombre completo` idénticas** y no puede elegir.
+
+⇒ El mapa de etiquetas hace falta en dos casos distintos, y conviene no confundirlos:
+**(a)** formato PLANO, porque los nombres los inventamos nosotros (§7b, Allianz); **(b)** formato
+CON campos donde los nombres existen pero **no distinguen a quién pertenecen** (MetLife).
+
+🔴 **Y si se cubre un bloque, hay que cubrirlos TODOS.** El `/code-review` encontró que rotular
+`a)` y `b)` y dejar crudos `c)`, `d)` y el del tratante es **peor que no rotular ninguno**: los
+nombrados insinúan que los otros son otra cosa. En MetLife eran 15 campos (`Número celular_5`,
+`Registro Federal de Contribuyentes_3`…) distinguidos sólo por un `_N` sin significado.
+
+### 🔴 Una fecha partida en TRES cajas: las tres reciben la MISMA etiqueta
+
+MetLife parte cada fecha en `D6`/`M6`/`A6` (`maxLength` 2/2/4). Los tres nombres miden ≤3
+caracteres ⇒ `esOpaco()` los manda a la derivación por vecindad, y como la pregunta impresa es UNA
+sola, **las tres cajas salen con la misma etiqueta**. Medido: `D1`, `M1` y `A1` llegaban al modelo
+las tres como «Lugar y fecha:».
+
+Con tres campos indistinguibles y topes 2/2/4, escribir el DÍA en la caja del AÑO se acepta en
+silencio (2 ≤ 4) y la aseguradora recibe una fecha falsa. `GUIA_DE_FECHA` descarta los rótulos
+`Día`/`Mes`/`Año` a propósito —en AXA son guías sobre UNA caja ancha y tomarlas daba tres campos
+llamados «Mes» (§7)— así que en una hoja de tres cajas no queda ningún discriminador.
+
+⇒ Se resuelve en el `etiquetas` del formato, que es donde vive lo que la geometría no puede saber:
+`D6 → "Fecha de ingreso — DÍA (2 dígitos)"`. **El prefijo del nombre sí discrimina**; la etiqueta
+sólo lo hace explícito.
+
+### 🔴 Un `maxLength` chico OMITE datos reales — medirlo contra PROD, no contra un ejemplo
+
+`Teléfono del consultorio` de MetLife declara `maxLength = 10`. El renderer rescataba sólo las
+cadenas con forma de FECHA, así que cualquier teléfono más largo se omitía entero. Medido contra
+los 8 doctores de prod con `clinic_phone`: **3 de 8** (`55 5280 4422`, `333 848 6234`,
+`+52 3311846091`) recibirían el informe **sin el teléfono del consultorio**.
+
+⇒ El rescate ahora también quita la puntuación de un teléfono (no pierde un solo dígito) y, sólo si
+lo que queda son exactamente los 10 dígitos nacionales, el `+52`. Lo que sigue sin caber se **omite
+y se reporta**, nunca se recorta. Verificado con los 8 valores reales: los 8 imprimen.
+
 ### d) Que las cajas caigan en su raya
 
 Sólo se ve con los ojos. Los números pueden cuadrar (60/60 ubicadas, nada fuera de la hoja) y la
@@ -198,7 +262,8 @@ hoja verse mal en un navegador al 130%.
 | **AXA** | ✅ ya trae 277 campos | 🟢 **EN PROD y funcionando** |
 | **Allianz** | ✅ bajado del portal de Allianz el 2026-08-14 · **PLANO** (0 campos) | 🟢 **EN PROD**, poco probado a mano |
 | **GNP** | ✅ bajado de `gnp.com.mx` el 2026-08-15 · ya trae **62 campos** (55 texto + **7 radios**) | 🟢 **EN PROD y probado por el usuario** (`d51d570c`) |
-| **Ve por Más** | ✅ bajado de `vepormas.com` el 2026-08-21 · ya trae **113 campos** (86 texto + 27 grupos de UNA casilla) | 🟡 **CONSTRUIDO, sin fila en prod y SIN MIRAR.** Dict de 22 entradas · 0 al asistente (todos los grupos son de una opción) |
+| **Ve por Más** | ✅ bajado de `vepormas.com` el 2026-08-21 · ya trae **113 campos** (86 texto + 27 grupos de UNA casilla) | 🟢 **EN PROD** (`49d780ce`) · dict de 22 entradas · 0 al asistente (todos los grupos son de una opción) |
+| **MetLife** | ✅ bajado de `metlife.com.mx` el 2026-08-21 · ya trae **164 campos** (133 texto + 31 grupos de UNA casilla) | 🟡 **CONSTRUIDO, sin fila en prod.** Dict de 14 + **mapa de 18 etiquetas** · PDF revisado por el usuario |
 
 ### Allianz — lo que quedó (2026-08-14)
 

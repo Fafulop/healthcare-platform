@@ -31,6 +31,7 @@ import { DICT_AXA } from '../dicts/axa';
 import { DICT_ALLIANZ, ETIQUETAS_ALLIANZ } from '../dicts/allianz';
 import { DICT_GNP } from '../dicts/gnp';
 import { DICT_VEPORMAS } from '../dicts/vepormas';
+import { DICT_METLIFE, ETIQUETAS_METLIFE } from '../dicts/metlife';
 
 export interface FormatoEnRepo {
   insurer: string;
@@ -126,6 +127,30 @@ export const FORMATOS: FormatoEnRepo[] = [
     // ⚠️ Esta hoja rotula sus recuadros por la IZQUIERDA, al revés que AXA,
     // Allianz y GNP. No hay nada que declarar aquí —el lado se MIDE— pero es la
     // hoja que destapó que "a la derecha" era una coincidencia (08-ALTA §7d).
+    camposPropios: false,
+  },
+  {
+    insurer: 'MetLife',
+    name: 'Informe Médico',
+    // La clave impresa al pie de la hoja: `CC-1-020 VER. 5`. Como AXA y GNP, la
+    // clave de la aseguradora manda sobre la fecha del PDF (2022-06-08).
+    version: 'CC-1-020 VER5',
+    sourceUrl: 'https://www.metlife.com.mx/content/dam/metlifecom/mx/pdfs/common-files/CC-1-020-VER5.pdf',
+    archivo: 'metlife-informe-medico-cc-1-020-ver5.pdf',
+    dict: DICT_METLIFE,
+    // 🔴 SÍ necesita mapa de etiquetas aunque los campos los haya puesto la
+    // aseguradora: la hoja tiene CUATRO bloques de médico (§6 equipo quirúrgico
+    // + §7 el tratante) y sus campos se llaman `Nombre completo_2/_3/_4` sin
+    // decir de quién son. Sin esto el modelo ve cuatro `Nombre completo`
+    // idénticos. Es el caso que 08-ALTA §7b describe para los formatos PLANOS,
+    // aquí por una razón distinta: los nombres existen y no distinguen.
+    etiquetas: ETIQUETAS_METLIFE,
+    // El oficial ya trae sus 164 campos (133 texto + 31 grupos de UNA casilla).
+    // El archivo es el de MetLife byte a byte.
+    //
+    // ⚠️ Rotula por la IZQUIERDA (08-ALTA §7d) y parte TODAS sus fechas en tres
+    // cajas (`D3`/`M3`/`A3`, maxLength 2/2/4), que el diccionario 1:1 no sabe
+    // llenar — las teclea el médico.
     camposPropios: false,
   },
 ];

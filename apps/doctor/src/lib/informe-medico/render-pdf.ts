@@ -205,9 +205,25 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
     if (tope !== undefined && texto.length > tope) {
       // Una fecha `dd/mm/aaaa` cabe en 8 si se le quitan las barras, y eso NO
       // pierde información: es el formato que la hoja pide.
-      const sinSeparadores = texto.replace(/[/\-.\s]/g, '');
+      //
+      // 🔴 Y lo mismo vale para un TELÉFONO. Medido contra los 8 doctores de
+      // prod con `clinic_phone`: `55 5280 4422`, `333 848 6234` y
+      // `+52 3311846091` pasan de 10 caracteres y se omitían enteros, así que
+      // 3 de 8 recibían un informe de MetLife SIN el teléfono del consultorio
+      // (su caja declara `maxLength = 10`). Quitar espacios, guiones y
+      // paréntesis no pierde ni un dígito; el `+52` sí es información, pero
+      // sólo se descarta cuando sin él SÍ cabe y son los 10 dígitos nacionales.
+      const sinSeparadores = texto.replace(/[/\-.\s()]/g, '');
+      const soloDigitos = sinSeparadores.replace(/^\+?52/, '');
       if (/^\d{2}\d{2}\d{4}$/.test(sinSeparadores) && sinSeparadores.length <= tope) {
         texto = sinSeparadores;
+      } else if (/^\d+$/.test(sinSeparadores) && sinSeparadores.length <= tope) {
+        // Puro dígito y ya cabe sin la puntuación: `55 5280 4422` → `5552804422`.
+        texto = sinSeparadores;
+      } else if (/^\d{10}$/.test(soloDigitos) && soloDigitos.length <= tope) {
+        // `+52 33 1184 6091` → `3311846091`: el lada del país se cae sólo si lo
+        // que queda son exactamente los 10 dígitos nacionales.
+        texto = soloDigitos;
       } else {
         // NUNCA se recorta a ciegas: media fecha o medio diagnóstico es peor que
         // un hueco, y en un documento médico-legal es una afirmación falsa.
