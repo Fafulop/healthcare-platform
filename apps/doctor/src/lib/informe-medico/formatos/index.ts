@@ -30,6 +30,7 @@ import { claveCruda, type FieldDict } from '../types';
 import { DICT_AXA } from '../dicts/axa';
 import { DICT_ALLIANZ, ETIQUETAS_ALLIANZ } from '../dicts/allianz';
 import { DICT_GNP } from '../dicts/gnp';
+import { DICT_VEPORMAS } from '../dicts/vepormas';
 
 export interface FormatoEnRepo {
   insurer: string;
@@ -106,6 +107,25 @@ export const FORMATOS: FormatoEnRepo[] = [
     // una copia INVISIBLE del arte de la página 2. Lo primero es cosmético y se
     // deja como GNP lo publica (03-FORMATOS §5); lo último obligó a filtrar por
     // capa antes de deducir cualquier etiqueta (`add-fields.ts`).
+    camposPropios: false,
+  },
+  {
+    insurer: 'Ve por Más',
+    name: 'GMM Informe Médico',
+    // La clave impresa en la hoja y en el nombre del archivo que publica la
+    // aseguradora: `SM008`. Mismo criterio que AXA y GNP — la clave de la hoja
+    // manda sobre la fecha del PDF (creado 2017-04-21, modificado 2021-02-25).
+    version: 'SM008',
+    sourceUrl: 'https://www.vepormas.com/fwpf/storage/02_informe_medico_GMM_SM008.pdf',
+    archivo: 'vepormas-gmm-informe-medico-sm008.pdf',
+    dict: DICT_VEPORMAS,
+    // El oficial YA trae sus 113 campos (86 de texto + 27 grupos de una casilla)
+    // puestos por la aseguradora, y sus nombres se explican solos: no hace falta
+    // mapa de `etiquetas`. El archivo es el de Ve por Más byte a byte.
+    //
+    // ⚠️ Esta hoja rotula sus recuadros por la IZQUIERDA, al revés que AXA,
+    // Allianz y GNP. No hay nada que declarar aquí —el lado se MIDE— pero es la
+    // hoja que destapó que "a la derecha" era una coincidencia (08-ALTA §7d).
     camposPropios: false,
   },
 ];

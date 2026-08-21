@@ -92,10 +92,11 @@ const GUIA_DE_FECHA = /^(d[ií]a|mes|a[ñn]o)(\s+(d[ií]a|mes|a[ñn]o))*:?$/i;
  *
  * Este motor daba por hecho que la etiqueta de una casilla es el texto **a la
  * derecha**. No es una convención del PDF: era una coincidencia de las tres
- * primeras aseguradoras. Medido sobre los seis formatos:
+ * primeras aseguradoras. Votos que emite ESTA función (`votosDeLado`), no un
+ * sondeo aparte — `izq / der / abstenciones`:
  *
- *   AXA 43 der / 1 izq · Allianz 27/0 · GNP 17/0     ← lo que hay en prod
- *   Ve por Más 0/27 · MetLife 1/27 · SURA 6/19       ← las tres siguientes
+ *   AXA 0/45/4 · Allianz 0/27/6 · GNP 0/19/0          ← lo que hay en prod
+ *   Ve por Más 27/0/0 · MetLife 28/0/3 · SURA 19/6/0  ← las tres siguientes
  *
  *   AXA         [x] Hospital     ← recuadro y luego la palabra
  *   Ve por Más  Agudo [x]        ← la palabra y luego el recuadro
@@ -126,10 +127,22 @@ const GUIA_DE_FECHA = /^(d[ií]a|mes|a[ñn]o)(\s+(d[ií]a|mes|a[ñn]o))*:?$/i;
  * propia salida de emergencia.
  *
  * ⚠️ Y una honestidad sobre el alcance: **el grupo NO es una protección extra
- * cuando el grupo tiene UN solo recuadro**, que es el caso de las 27 opciones de
- * Ve por Más, las 31 de MetLife y 23 de las 24 de SURA. Ahí «por grupo» es «por
- * recuadro». Lo que de verdad sostiene el mecanismo son la **abstención** y la
- * **mayoría de la hoja**, no la agrupación.
+ * cuando el grupo tiene UN solo recuadro**, que es el caso de 27 de los 27
+ * GRUPOS de Ve por Más, 31 de los 31 de MetLife y 23 de los 24 de SURA (grupos,
+ * no opciones). Ahí «por grupo» es «por recuadro». Lo que de verdad sostiene el
+ * mecanismo son la **abstención** y la **mayoría de la hoja**, no la agrupación.
+ *
+ * ⚠️ **Límite conocido, anotado sin arreglar a medias:** cuando sólo UN lado
+ * puede rotular, ese lado vota sin comparar distancias — y en un grupo de un
+ * recuadro ese voto único ES el grupo, así que nunca se consulta la mayoría de
+ * la hoja. Un texto suelto a 170 pt por la izquierda, sin nada a la derecha,
+ * se vuelve la etiqueta. Antes de este cambio el recuadro simplemente se
+ * DESCARTABA (sin texto a la derecha no había etiqueta), así que aquí se emite
+ * un rótulo donde antes había silencio. No se dispara en los 4 formatos del
+ * repo —los 14 votos unilaterales de AXA, los 8 de GNP y los 9 de Ve por Más
+ * coinciden con su hoja— pero es la única rama que puede producir un rótulo
+ * falso sin la red de la mayoría. Acotarla pide una distancia máxima que hoy no
+ * está calibrada contra ningún formato real.
  */
 type LadoEtiqueta = 'izq' | 'der';
 
@@ -474,61 +487,59 @@ export async function etiquetasDeLaHoja(
   const ladoDeLaHoja = votosDeLado(pendientes.flatMap((p) => p.crudas));
 
   for (const { clave, nombrePdf, paginaGrupo, crudas } of pendientes) {
-    {
-      const lado = ladoDelGrupo(crudas, ladoDeLaHoja);
-      // Sin etiqueta DEL LADO QUE MANDA el recuadro no se ofrece: marcar "la
-      // opción 3" a ciegas en un documento médico-legal es exactamente lo que
-      // no se va a hacer. (Con `lado === 'der'` esto deja el mismo conjunto que
-      // antes del cambio, que es lo que mantiene a AXA/Allianz/GNP intactos.)
-      const opciones = crudas
-        .map((c) => ({ ...c, etiqueta: lado === 'izq' ? c.izq : c.der }))
-        .filter((c) => c.etiqueta !== '');
-      if (opciones.length === 0) continue;
+    const lado = ladoDelGrupo(crudas, ladoDeLaHoja);
+    // Sin etiqueta DEL LADO QUE MANDA el recuadro no se ofrece: marcar "la
+    // opción 3" a ciegas en un documento médico-legal es exactamente lo que
+    // no se va a hacer. (Con `lado === 'der'` esto deja el mismo conjunto que
+    // antes del cambio, que es lo que mantiene a AXA/Allianz/GNP intactos.)
+    const opciones = crudas
+      .map((c) => ({ ...c, etiqueta: lado === 'izq' ? c.izq : c.der }))
+      .filter((c) => c.etiqueta !== '');
+    if (opciones.length === 0) continue;
 
-      // 🔴 La pregunta sale del recuadro MÁS A LA IZQUIERDA de su renglón, no
-      // del primero que devuelva `getWidgets()`: ese orden no es el visual. En
-      // `MAM` el primer widget es "Maternidad" y a su izquierda está
-      // "Accidente" — otra opción del mismo grupo, que se habría tomado como la
-      // pregunta.
-      //
-      // ⚠️ Y en un grupo que rotula por la IZQUIERDA, ese texto es la etiqueta
-      // del propio recuadro: lo descarta el `!etiquetas.has(texto)` de abajo y
-      // el grupo se queda sin pregunta. Es el resultado correcto —null antes
-      // que una pregunta falsa— y no se inventa otra derivación para taparlo.
-      //
-      // 🔴 Pero `pregunta: null` NO es sólo un rótulo pobre: la **regla 3** de
-      // `casillasParaElAgente` saca del catálogo del asistente todo grupo sin
-      // pregunta y con opciones genéricas, así que un par `Sí`/`No` rotulado por
-      // la izquierda desaparece del catálogo entero, no sólo de la prosa. Está
-      // escrito aquí para que el próximo formato no re-diagnostique desde cero
-      // "el asistente ve menos preguntas de las que tiene la hoja".
-      //
-      // ⚠️ Y `etiquetas.has` es igualdad EXACTA: una hoja que imprima `Agudo:`
-      // junto a un recuadro rotulado `Agudo` se colaría. No pasa en ninguno de
-      // los 6 formatos de hoy (comprobado), pero es latente, no descartado.
-      const primero = [...opciones].sort((a, b) => a.y - b.y || a.x - b.x)[0];
-      const etiquetas = new Set(opciones.map((o) => o.etiqueta));
-      const izq = aLaIzquierda(geo[primero.pagina]?.textos ?? [], primero.x, primero.y, 220);
-      const texto = izq ? limpiar(izq.s) : '';
-      // 🔴 Un encabezado se descarta… SALVO que suene a consentimiento o
-      // facturación. `casillasParaElAgente` decide qué puede proponer el modelo
-      // buscando esas palabras en `pregunta + clave + opciones`: si se le quita
-      // la pregunta, un grupo rotulado **"CONSENTIMIENTO INFORMADO"** en
-      // versales —con opciones que no son `Sí`/`No`, así que tampoco lo atrapa
-      // la regla 3— se volvería proponible por un modelo. Es exactamente el
-      // `Sí acepto` del 2026-08-10 entrando por una puerta nueva, y prefiero un
-      // rótulo feo a un guardarraíl con un hueco.
-      const util =
-        texto.length > 3 &&
-        !etiquetas.has(texto) &&
-        (!esEncabezadoDeSeccion(texto) || CONSENTIMIENTO_O_FACTURACION.test(texto));
-      const pregunta = util ? texto : null;
+    // 🔴 La pregunta sale del recuadro MÁS A LA IZQUIERDA de su renglón, no
+    // del primero que devuelva `getWidgets()`: ese orden no es el visual. En
+    // `MAM` el primer widget es "Maternidad" y a su izquierda está
+    // "Accidente" — otra opción del mismo grupo, que se habría tomado como la
+    // pregunta.
+    //
+    // ⚠️ Y en un grupo que rotula por la IZQUIERDA, ese texto es la etiqueta
+    // del propio recuadro: lo descarta el `!etiquetas.has(texto)` de abajo y
+    // el grupo se queda sin pregunta. Es el resultado correcto —null antes
+    // que una pregunta falsa— y no se inventa otra derivación para taparlo.
+    //
+    // 🔴 Pero `pregunta: null` NO es sólo un rótulo pobre: la **regla 3** de
+    // `casillasParaElAgente` saca del catálogo del asistente todo grupo sin
+    // pregunta y con opciones genéricas, así que un par `Sí`/`No` rotulado por
+    // la izquierda desaparece del catálogo entero, no sólo de la prosa. Está
+    // escrito aquí para que el próximo formato no re-diagnostique desde cero
+    // "el asistente ve menos preguntas de las que tiene la hoja".
+    //
+    // ⚠️ Y `etiquetas.has` es igualdad EXACTA: una hoja que imprima `Agudo:`
+    // junto a un recuadro rotulado `Agudo` se colaría. No pasa en ninguno de
+    // los 6 formatos de hoy (comprobado), pero es latente, no descartado.
+    const primero = [...opciones].sort((a, b) => a.y - b.y || a.x - b.x)[0];
+    const etiquetas = new Set(opciones.map((o) => o.etiqueta));
+    const izq = aLaIzquierda(geo[primero.pagina]?.textos ?? [], primero.x, primero.y, 220);
+    const texto = izq ? limpiar(izq.s) : '';
+    // 🔴 Un encabezado se descarta… SALVO que suene a consentimiento o
+    // facturación. `casillasParaElAgente` decide qué puede proponer el modelo
+    // buscando esas palabras en `pregunta + clave + opciones`: si se le quita
+    // la pregunta, un grupo rotulado **"CONSENTIMIENTO INFORMADO"** en
+    // versales —con opciones que no son `Sí`/`No`, así que tampoco lo atrapa
+    // la regla 3— se volvería proponible por un modelo. Es exactamente el
+    // `Sí acepto` del 2026-08-10 entrando por una puerta nueva, y prefiero un
+    // rótulo feo a un guardarraíl con un hueco.
+    const util =
+      texto.length > 3 &&
+      !etiquetas.has(texto) &&
+      (!esEncabezadoDeSeccion(texto) || CONSENTIMIENTO_O_FACTURACION.test(texto));
+    const pregunta = util ? texto : null;
 
-      casillas.push({
-        clave, nombrePdf, pagina: paginaGrupo, pregunta,
-        opciones: opciones.map(({ onState, etiqueta }) => ({ onState, etiqueta })),
-      });
-    }
+    casillas.push({
+      clave, nombrePdf, pagina: paginaGrupo, pregunta,
+      opciones: opciones.map(({ onState, etiqueta }) => ({ onState, etiqueta })),
+    });
   }
 
   casillas.sort((a, b) => a.pagina - b.pagina || a.clave.localeCompare(b.clave));

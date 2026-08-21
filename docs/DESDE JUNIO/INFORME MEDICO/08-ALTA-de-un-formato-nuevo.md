@@ -156,7 +156,37 @@ doctor daba un solo Guardar, y el PDF aplanado afirmaba una autorización que na
 > incluye cosas que ningún agente debe firmar. **"Qué campos existen" y "cuáles son suyos" son dos
 > preguntas distintas.**
 
-### c) Que las cajas caigan en su raya
+### c) 🔴 Los campos que la aseguradora nombró MAL — y por qué NO mapearlos no basta
+
+Lo trajo Ve por Más (2026-08-21) y cambia cómo se lee todo este documento. Dos de sus campos vienen
+con un nombre que **describe otra cosa**:
+
+| Nombre del campo | Lo que es de verdad | Cómo se supo |
+|---|---|---|
+| `Resultado de la exploración física y de los estudios anexar…` | la caja de la **TALLA** (31 pt) | encima está impreso `Talla_______cms.` |
+| `Antecedentes perinatales 4` (573 pt) | la caja de **PADECIMIENTO ACTUAL** | está bajo ese encabezado impreso; el 4º renglón perinatal real es `Antecedentes perinatales_4` |
+
+🔴 **Y la reacción intuitiva —"si no sé qué es, no lo mapeo"— es la TRAMPA, no la salida.** Un campo
+sin concepto canónico **no desaparece**: se le sigue ofreciendo al modelo como campo CRUDO **con su
+nombre del PDF de etiqueta**. O sea que el catálogo decía «Resultado de la exploración física…»
+sobre una caja de 10 caracteres que imprime dentro de `Talla (cms.)`. El médico dicta la
+exploración, el modelo elige el campo cuyo nombre lo dice, y la exploración acaba en la talla.
+
+⇒ **Mapear el campo a su concepto REAL es lo que borra el rótulo falso**, porque entonces la
+etiqueta sale del canónico y no del nombre. Dejarlo sin mapear lo deja armado.
+
+### 🔴 Y el contador de "rótulos ilegibles" NO ve esto
+
+El indicador que se usa desde GNP —cuántos campos llegan al modelo con el nombre crudo— da **0 para
+Ve por Más**, igual que AXA. Es verdad y mide lo que no importa: `esOpaco()` caza nombres que se
+*ven* opacos (`Día_4`, `Text Field 12`, ≤3 letras) y **un nombre largo, fluido y FALSO le pasa por
+encima**. Los dos campos de arriba puntúan como perfectamente legibles.
+
+> 🔎 **La lección:** *ilegible* y *falso* son dos defectos distintos, y el segundo es el peligroso.
+> Un contador de legibilidad en verde **no dice nada** sobre si los rótulos son ciertos; eso sigue
+> pidiendo leer el texto impreso alrededor de la caja, formato por formato.
+
+### d) Que las cajas caigan en su raya
 
 Sólo se ve con los ojos. Los números pueden cuadrar (60/60 ubicadas, nada fuera de la hoja) y la
 hoja verse mal en un navegador al 130%.
@@ -168,6 +198,7 @@ hoja verse mal en un navegador al 130%.
 | **AXA** | ✅ ya trae 277 campos | 🟢 **EN PROD y funcionando** |
 | **Allianz** | ✅ bajado del portal de Allianz el 2026-08-14 · **PLANO** (0 campos) | 🟢 **EN PROD**, poco probado a mano |
 | **GNP** | ✅ bajado de `gnp.com.mx` el 2026-08-15 · ya trae **62 campos** (55 texto + **7 radios**) | 🟢 **EN PROD y probado por el usuario** (`d51d570c`) |
+| **Ve por Más** | ✅ bajado de `vepormas.com` el 2026-08-21 · ya trae **113 campos** (86 texto + 27 grupos de UNA casilla) | 🟡 **CONSTRUIDO, sin fila en prod y SIN MIRAR.** Dict de 22 entradas · 0 al asistente (todos los grupos son de una opción) |
 
 ### Allianz — lo que quedó (2026-08-14)
 

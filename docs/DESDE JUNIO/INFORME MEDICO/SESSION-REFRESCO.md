@@ -7,7 +7,75 @@
 
 ---
 
-# ⏱️ EMPIEZA AQUÍ — cierre del 2026-08-16
+# ⏱️ EMPIEZA AQUÍ — cierre del 2026-08-21
+
+## Lo que pasó
+
+Se abrió el trabajo de **las aseguradoras que faltan**. El usuario dio una lista de ~16; se bajaron
+**14 PDFs de los dominios oficiales**, se midieron todos y se ordenaron por lo que cuestan:
+[`09-CATALOGO`](09-CATALOGO-aseguradoras-pendientes.md). Y se construyó la **cuarta aseguradora,
+Ve por Más**.
+
+| | |
+|---|---|
+| `8cd8c41e` **commiteado, NO pusheado** | el motor: la etiqueta de una casilla ya no se supone a la derecha |
+| Ve por Más | **sin commitear** · PDF + `dicts/vepormas.ts` (22 entradas) + entrada en `FORMATOS` + `seed-formato-vepormas.sql` **sin aplicar** |
+
+## 🔴 Lo que hay que hacer ANTES de pushear
+
+1. **Aplicar `seed-formato-vepormas.sql` a prod** (`prisma db execute` con la URL pública, jamás
+   `db push`) y verificarlo leyendo la fila de vuelta. Hasta que exista, `formatoDe()` no empata y
+   **el desplegable NO ofrece Ve por Más**. Es el mismo orden que se siguió con GNP: la fila ANTES
+   del push.
+2. **MIRAR la hoja.** Hay dos PDFs en `Downloads/`: `vepormas-MAPA-de-campos.pdf` y
+   `vepormas-DEMO-todo-lleno.pdf`. Nadie ha abierto Ve por Más en el visor. Los 4 bugs reales de
+   Allianz los encontró el usuario en la pantalla con todos los contadores en verde.
+
+## 🔴 Las dos lecciones caras de esta sesión
+
+**1. Una "medición" del motor puede ser una coincidencia de la muestra.** El rótulo de una casilla
+se tomaba del texto **a la derecha** — cierto para AXA, Allianz y GNP, y FALSO para Ve por Más,
+MetLife y SURA, que rotulan por la izquierda. Sin arreglarlo, el médico marca lo que lee como
+«Agudo» y la hoja le afirma «Crónico». Ahora el lado se MIDE, por grupo, con la mayoría de la hoja
+como red ([`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §7d).
+
+⚠️ **Y la primera versión del arreglo traía el bug que venía a arreglar**: el empate caía a un `der`
+fijo y eso rotulaba un `Sí` de MetLife como `No`. Lo cazó el `/code-review`. *Un arreglo salido de
+un review no viene bendecido* — otra vez, con type-check y 5 gates en verde.
+
+**2. NO mapear un campo no lo desactiva.** Ve por Más trae dos campos que la aseguradora nombró mal
+(uno llamado «Resultado de la exploración física…» que es la caja de la TALLA). Dejarlos sin mapear
+—que parecía lo prudente— **los deja llegándole al modelo con ese nombre de etiqueta**. Mapearlos a
+su concepto real es lo que borra el rótulo falso ([`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §6c).
+
+🔎 **Y el contador de "rótulos ilegibles" no ve esto**: da 0 para Ve por Más porque `esOpaco()` caza
+nombres que se VEN opacos, y un nombre largo, fluido y falso le pasa por encima. *Ilegible* y
+*falso* son dos defectos distintos.
+
+## Cómo se verifica que nada se rompió
+
+Lo de la sesión anterior sigue valiendo, más el cuarto formato. **AXA es el oráculo:**
+
+```
+AXA     277 campos · 22 grupos · 13 al asistente · 49 opciones
+Allianz  87 campos · 14 grupos · 12 al asistente · 33 opciones
+GNP      62 campos ·  7 grupos ·  5 al asistente · 19 opciones
+Ve+Más  113 campos · 27 grupos ·  0 al asistente · 27 opciones
+```
+
+🔴 **Y la comprobación que ningún contador da:** llenar todo, aplanar y **LEER EL PDF DE VUELTA**
+exigiendo que cada valor aparezca. Ve por Más: **22 de 22 impresos**.
+
+## Lo que sigue
+
+**MetLife → SURA** (tier 1), luego la derivación de etiquetas para un PDF **con campos** y nombres
+opacos —que hoy sólo existe para los PLANOS y es lo que destraba el tier 2 entero—, luego tier 2 y
+tier 3. Y quedan **4 nombres sin confirmar** con el usuario: Multiva, Latinoamericana, Prevem y
+«sisnova»; Atlas no se pudo bajar (reto HTML del servidor) y Pan-American no publica su hoja.
+
+---
+
+# ⏱️ Cierre del 2026-08-16
 
 **Nada a medias. Todo commiteado, pusheado y desplegado (SUCCESS).**
 `main` == `origin/main` == **`5788823f`**.

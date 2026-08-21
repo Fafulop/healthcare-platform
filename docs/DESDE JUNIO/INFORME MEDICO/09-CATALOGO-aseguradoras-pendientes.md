@@ -41,7 +41,7 @@ Se hacen primero. El PDF ya trae campos y la aseguradora los nombró.
 
 | | Versión | Campos | Texto | Opacos | Trampas medidas |
 |---|---|---|---|---|---|
-| **Ve por Más (BX+)** | `SM008` (2017, mod 2021) | 113 | 86 | **20 %** | ninguna conocida |
+| **Ve por Más (BX+)** ✅ | `SM008` (2017, mod 2021) | 113 | 86 | **20 %** | 🔴 **DOS campos mal nombrados por la aseguradora** (08-ALTA §6c) |
 | **MetLife** | `CC-1-020 VER5` (2022) | 164 | 133 | 33 % | 43 `maxLength`; la fecha va en **tres cajas** (`D1`/`M1`/`A1`) |
 | **SURA** | (2025) | 106 | 82 | 34 % | 19 `maxLength`, varios `max=1` |
 
@@ -138,6 +138,21 @@ del dominio de la aseguradora:
 
 ⚠️ **Los PDFs bajados viven en el scratchpad de la sesión, NO en el repo.** Sólo entra a
 `public/formatos/` el de la aseguradora que se esté dando de alta, en su commit.
+
+### ✅ Ve por Más — CONSTRUIDA el 2026-08-21 (sin fila en prod, sin mirar)
+
+Diccionario de **22 entradas**, verificadas contra la POSICIÓN de cada caja y contra el texto
+impreso. `llenados=22 · problemas=0 · ilegibles=0 · 0 campos vivos tras aplanar`, y **los 22 valores
+aparecen al leer el PDF de vuelta**.
+
+Y una llamada REAL a gpt-4o (3,737 tokens de entrada): **16 colocaciones, 0 descartadas**, y
+preguntó por la fecha de diagnóstico y el CIE-10 —lo que no puede saber— en vez de inventarlos.
+⚠️ Una corrida no distingue un resultado de ruido; es evidencia direccional.
+
+🔴 **Lo que enseñó, y vale para todas las que siguen:** dos de sus campos vienen con un nombre que
+describe OTRA COSA, y **no mapearlos no los desactiva** — siguen llegándole al modelo con ese nombre
+de etiqueta. El detalle y por qué el contador de "rótulos ilegibles" no lo ve, en
+[`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §6c.
 
 ## 6. El orden acordado con el usuario (2026-08-21)
 
