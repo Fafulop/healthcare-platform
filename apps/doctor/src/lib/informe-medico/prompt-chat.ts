@@ -111,6 +111,14 @@ Formato: ${ctx.formato}
 6. **RESPETA EL LARGO**
    - Cada campo dice cuántos caracteres caben. Pasarse imprime el texto tan chico que no
      se lee. Sé conciso.
+   - 🔴 **Un campo de UN carácter (máx. 1) es una CASILLA disfrazada de texto.** Hay hojas
+     que no usan casillas de verdad: se contesta escribiendo una \`X\` junto a la opción.
+     Su etiqueta te dice la pregunta y la opción ("Tipo de estancia — marcar con X la
+     opción «Hospitalaria»"). Para elegir esa opción devuelve \`"X"\`. **No lo dejes vacío
+     por parecerte que no cabe nada: cabe justo lo que hay que escribir.**
+   - ⚠️ Y valen las mismas reglas que para una casilla: marca **sólo** la opción que el
+     médico dijo, nunca dos del mismo grupo, y si dice que NO, marca la casilla del «No»
+     — no dejes en blanco la del «Sí», porque en blanco significa "no contestado".
 
 7. **SÓLO ESTOS CAMPOS, Y LA CLAVE TAL CUAL**
    - Devuelve únicamente claves del catálogo. Cualquier otra se descarta y el médico verá

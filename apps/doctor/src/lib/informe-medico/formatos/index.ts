@@ -32,6 +32,7 @@ import { DICT_ALLIANZ, ETIQUETAS_ALLIANZ } from '../dicts/allianz';
 import { DICT_GNP } from '../dicts/gnp';
 import { DICT_VEPORMAS } from '../dicts/vepormas';
 import { DICT_METLIFE, ETIQUETAS_METLIFE } from '../dicts/metlife';
+import { DICT_SURA, ETIQUETAS_SURA, OPCIONES_DE_TEXTO_SURA } from '../dicts/sura';
 
 export interface FormatoEnRepo {
   insurer: string;
@@ -50,6 +51,20 @@ export interface FormatoEnRepo {
    * no hace falta: sus nombres los puso la aseguradora y se explican solos.
    */
   etiquetas?: Record<string, string>;
+  /**
+   * 🔴 Opciones EXCLUYENTES que la hoja implementa como campos de TEXTO de un
+   * carácter (se contesta con una «X»), no como casillas.
+   *
+   * Una casilla de verdad es **un campo con un valor**, así que el PDF garantiza
+   * por estructura que sólo una opción quede marcada. Estas no: son N campos
+   * independientes, y nada impide que queden marcadas dos — o el `Sí` y el `No`
+   * de la misma pregunta, que le afirma a la aseguradora las dos cosas.
+   *
+   * Declararlas aquí es lo que permite al SERVIDOR imponer la exclusividad
+   * (regla 0). `casillasParaElAgente()` no las alcanza: filtra casillas, y para
+   * el motor esto es texto.
+   */
+  opcionesDeTexto?: Array<{ pregunta: string; campos: string[] }>;
   /**
    * `true` si los campos rellenables se los pusimos nosotros (Allianz), `false`
    * si el PDF oficial ya venía con AcroForm (AXA). Va a
@@ -151,6 +166,39 @@ export const FORMATOS: FormatoEnRepo[] = [
     // ⚠️ Rotula por la IZQUIERDA (08-ALTA §7d) y parte TODAS sus fechas en tres
     // cajas (`D3`/`M3`/`A3`, maxLength 2/2/4), que el diccionario 1:1 no sabe
     // llenar — las teclea el médico.
+    camposPropios: false,
+  },
+  {
+    insurer: 'SURA',
+    name: 'Informe Médico',
+    // La hoja no imprime clave de versión; se usa la fecha de creación del PDF
+    // oficial (2025-01-28), como se hizo con Allianz.
+    version: 'ENERO 2025',
+    sourceUrl: 'https://www.segurossura.com.mx/wp-content/uploads/2025/03/Informe-Medico-SURA.pdf',
+    archivo: 'sura-informe-medico-2025-01.pdf',
+    dict: DICT_SURA,
+    // 🔴 Imprescindible aquí: **13 campos de TEXTO con `maxLength = 1`
+    // funcionan como casillas** (se contesta con una «X»), y por ser texto
+    // `casillasParaElAgente()` NO los filtra. Sin el mapa, `Si`/`No_3` llegan
+    // al modelo sin decir que son «¿Hubo complicaciones?», y `Cirujano` y
+    // `Cirujano_2` (Médico 1 y Médico 2) sólo se distinguen por el `_2`.
+    etiquetas: ETIQUETAS_SURA,
+    // 🔴 La exclusividad de esas opciones la impone el SERVIDOR, no el prompt.
+    opcionesDeTexto: OPCIONES_DE_TEXTO_SURA,
+    // El oficial ya trae sus 106 campos (82 texto + 24 casillas). El archivo es
+    // el de SURA byte a byte.
+    //
+    // ⚠️ De esas 24 casillas, **23 son de UNA sola opción** —que la regla 2 de
+    // `casillasParaElAgente` bloquea, porque el modelo sólo podría MARCAR y
+    // nunca negar— así que `Group1`, con sus DOS recuadros, es la ÚNICA que el
+    // asistente ve. (No es un radio: esta hoja no trae ni uno; es un
+    // `PDFCheckBox` con dos widgets.) Por eso el catálogo de casillas de SURA
+    // llega casi vacío al chat y las preguntas de verdad viajan por
+    // `opcionesDeTexto`.
+    //
+    // ⚠️ Trae 3 opciones MARCADAS de fábrica (`Embarazo`, `Más de 2 años` y
+    // `Group1`): las apaga `normalizarCasillas` al renderizar y
+    // `leerPdfBaseParaVisor` al mostrarlas, igual que las 9 de AXA.
     camposPropios: false,
   },
 ];
@@ -262,4 +310,17 @@ export function etiquetasPorClave(formato: FormatoEnRepo): Record<string, string
     salida[claveCruda(nombre)] = etiqueta;
   }
   return salida;
+}
+
+/**
+ * Los grupos excluyentes de `opcionesDeTexto`, ya en forma de CLAVE.
+ *
+ * 🔴 Existe por **regla 0**: en una hoja cuyas opciones son cajas de texto, la
+ * exclusividad no la da la estructura del PDF (una casilla de verdad es UN campo
+ * con un valor) sino nuestra declaración. Sin esto, lo único que impide marcar
+ * `Sí` **y** `No` de la misma pregunta es una frase del prompt — y un veredicto
+ * que sólo sostiene la prosa del prompt no es un veredicto, es una esperanza.
+ */
+export function gruposExcluyentesPorClave(formato: FormatoEnRepo): string[][] {
+  return (formato.opcionesDeTexto ?? []).map((g) => g.campos.map((n) => claveCruda(n)));
 }

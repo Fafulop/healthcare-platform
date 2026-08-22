@@ -31,7 +31,14 @@ interface Mensaje {
   /** Cuántos campos aterrizaron en la hoja con este turno. */
   colocados?: number;
   /** Lo que el modelo propuso y no se pudo colocar. */
-  descartados?: Array<{ clave: string; motivo: string; caracteres?: string[]; opciones?: string[] }>;
+  descartados?: Array<{
+    clave: string;
+    motivo: string;
+    caracteres?: string[];
+    opciones?: string[];
+    tope?: number;
+    largo?: number;
+  }>;
   /** 🔴 Fuentes que el doctor eligió y que el servidor ya no pudo leer (se borró
    * la nota, la receta volvió a borrador). Se dice: si no, este turno se contestó
    * sin ellas y se ve idéntico a uno completo. */
@@ -450,6 +457,15 @@ export default function ChatInforme({
                             // "no existe", que no le sirve de nada al doctor para
                             // volver a preguntar.
                             ? `esa opción no existe; hay: ${(d.opciones ?? []).join(' · ')}`
+                            // 🔴 «no cabe» NO es «no existe»: decirle al médico que
+                            // el campo no está en su hoja, cuando lo está y lo tiene
+                            // delante, es afirmarle algo falso sobre su propio
+                            // formato. Cada rama nueva del servidor necesita su
+                            // renglón aquí, o cae al `else` y miente.
+                            : d.motivo === 'no-cabe-en-el-campo'
+                            ? `no cabe: esa caja admite ${d.tope ?? '?'} caracteres y traía ${d.largo ?? '?'}`
+                            : d.motivo === 'opciones-excluyentes-en-conflicto'
+                            ? 'marcó dos opciones de la misma pregunta; dime cuál va y la pongo'
                             : 'ese campo no está en esta hoja'}
                         </li>
                       ))}

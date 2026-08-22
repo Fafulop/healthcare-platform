@@ -43,7 +43,7 @@ Se hacen primero. El PDF ya trae campos y la aseguradora los nombró.
 |---|---|---|---|---|---|
 | **Ve por Más (BX+)** ✅ | `SM008` (2017, mod 2021) | 113 | 86 | **20 %** | 🔴 **DOS campos mal nombrados por la aseguradora** (08-ALTA §6c) |
 | **MetLife** ✅ | `CC-1-020 VER5` (2022) | 164 | 133 | 33 % | 43 `maxLength`; la fecha va en **tres cajas** (`D1`/`M1`/`A1`) · **4 bloques de médico** |
-| **SURA** | (2025) | 106 | 82 | 34 % | 19 `maxLength`, varios `max=1` |
+| **SURA** ✅ | (2025) | 106 | 82 | 34 % | 🔴 **13 opciones que son CAJAS DE TEXTO de 1 carácter**, no casillas |
 
 ### ✅ El bloqueador COMPARTIDO del tier 1 — resuelto el 2026-08-21
 
@@ -198,6 +198,46 @@ en su sitio) y localizando el texto dentro del rect del campo. Con la comparaci�
 > que se escribe y no se imprime puede dar un **falso POSITIVO**, y ése empuja a "arreglar" código
 > que funciona en la hoja que 11 doctores usan a diario. Antes de tocar el motor por una medición,
 > hay que verificar la MEDICIÓN — aquí, mirando el stream y la posición en la página.
+
+### ✅ SURA — CONSTRUIDA el 2026-08-21 (sin fila en prod; PDF revisado por el usuario)
+
+Dict de **14 entradas** + **45 etiquetas** + **7 grupos excluyentes de texto**. `llenados=14 ·
+problemas=0 · ilegibles=0 · 0 campos vivos tras aplanar`, los 14 valores impresos al leer el PDF de
+vuelta, demo 106/106.
+
+🔴 **Cierra el tier 1 y es la hoja que más motor pidió.** Sus opciones no son casillas sino cajas
+de TEXTO de un carácter (se contesta con una `X`), lo que dejó al descubierto que
+`casillasParaElAgente` no las alcanza y que **no tienen exclusividad estructural**: nada impedía
+marcar el `Sí` y el `No` de la misma pregunta. Detalle en
+[`08-ALTA`](08-ALTA-de-un-formato-nuevo.md) §6.
+
+**Llamada real a gpt-4o**, y aquí sí falló primero: con un mensaje que sólo hablaba del tipo de
+estancia y las complicaciones, el modelo colocó **CERO** — no escribe en una caja de 1 carácter
+porque nada le decía que la `X` fuera un valor legítimo. Con la regla nueva del prompt coloca
+`Hospitalaria = "X"` y `No_3 = "X"`, correctas.
+
+⚠️ **Dos rótulos ilegibles a propósito** (`Texto7`, `Texto11`): son cajas grandes que la hoja no
+explica. Se dejan pelonas — *un rótulo pobre se ignora, uno falso se obedece*.
+
+### 🔎 Lo que enseñó su `/code-review`: 10 hallazgos, los 10 ciertos
+
+Cuatro eran míos y de la misma familia — **guardarraíles que no cubrían la puerta nueva**:
+
+1. 🔴 **La exclusividad quedó en una regla del PROMPT.** Es regla 0 y la dejé en prosa. Ahora la
+   impone el servidor con `opcionesDeTexto`.
+2. 🔴 **Mi rama de rescate se saltaba el filtro de caracteres no imprimibles** que sí aplica la
+   rama gemela. Un `✓` —respuesta probable para algo que el prompt llama casilla— cabe en 1
+   carácter, se guarda, se ve en ámbar… y sale VACÍO del PDF.
+3. **«No cabe» se le reportaba al médico como «el campo no existe»**, sobre una hoja que tiene ese
+   campo. Y es el caso COMÚN, no el borde.
+4. 🔴 **Mis etiquetas de fecha prometían una fecha completa en una caja de 4 caracteres** — y mi
+   explicación de por qué no se mapeaban era falsa: dije que la fecha iba partida en `Día`/`Mes`/
+   `Año` y **esta hoja no tiene campos `Mes` ni `Año`**. Es UNA caja con `maxLength = 4`.
+
+> 🔎 **Y una que vale para cualquier cambio del chat:** agregar un motivo nuevo en el servidor no
+> basta. `ChatInforme.tsx` tiene un `else` final que dice *«ese campo no está en esta hoja»*, así
+> que un motivo sin su renglón en la UI **se pinta como una mentira**. Cada rama nueva del
+> servidor necesita su renglón allá.
 
 ## 6. El orden acordado con el usuario (2026-08-21)
 

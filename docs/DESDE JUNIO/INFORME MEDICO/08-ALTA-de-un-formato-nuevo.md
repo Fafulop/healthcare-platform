@@ -250,6 +250,39 @@ los 8 doctores de prod con `clinic_phone`: **3 de 8** (`55 5280 4422`, `333 848 
 lo que queda son exactamente los 10 dígitos nacionales, el `+52`. Lo que sigue sin caber se **omite
 y se reporta**, nunca se recorta. Verificado con los 8 valores reales: los 8 imprimen.
 
+### 🔴 Hay hojas cuyas OPCIONES no son casillas: son cajas de texto de 1 carácter
+
+SURA no usa casillas para sus preguntas importantes. Usa **13 campos de TEXTO con
+`maxLength = 1`** donde se contesta escribiendo una `X` al lado de la opción. Es la familia de los
+RADIOS de GNP —un tipo de pregunta que el motor no conocía— otra vez por una puerta nueva.
+
+**Y trae dos consecuencias que no se ven hasta que se miden:**
+
+**1. `casillasParaElAgente()` NO las protege.** Esa función filtra CASILLAS; para el motor esto es
+texto, así que sus tres reglas no se aplican. Quedaban al descubierto justo los casos que existen
+para bloquear: `Si`/`No_3` (el par de «¿Hubo complicaciones?», que es la regla 3) y
+`Cirujano`/`Cirujano_2`, dos preguntas distintas —Médico 1 y Médico 2— separadas por un `_2`.
+
+**2. 🔴 No hay exclusividad ESTRUCTURAL.** Una casilla de verdad no puede quedar doblemente
+marcada: el PDF guarda **un valor por campo**. Éstas son N campos independientes, así que nada
+impide que queden marcados el `Sí` **y** el `No` de la misma pregunta — y la hoja aplanada le
+afirma a la aseguradora las dos cosas.
+
+⇒ `FormatoEnRepo.opcionesDeTexto` declara los grupos y **el SERVIDOR impone la exclusividad**. Si
+llegan dos del mismo grupo se descarta el grupo ENTERO y se reporta: elegir "la primera" o "la más
+probable" es lo mismo que ya está prohibido al resolver un grupo excluyente.
+
+> 🔎 **La lección:** dejarlo en una regla del prompt —*"nunca marques dos del mismo grupo"*— **no
+> es un guardarraíl, es una esperanza.** Es regla 0 y la había dejado en prosa: el veredicto de qué
+> queda marcado en un documento médico-legal no se le pregunta al modelo.
+
+⚠️ **Y una nota de método para la próxima hoja rara:** al mapear estas opciones puse una etiqueta
+«¿Acepta tabulador?» que (a) es una **declaración de facturación**, justo la familia que
+`casillasParaElAgente` bloquea, y (b) era **falsa** — la hoja pregunta «¿Forma parte de nuestra
+red?». Las dos cosas se vieron leyendo el texto impreso. Cuando el guardarraíl automático no
+alcanza, el rótulo a mano es el único filtro que queda: hay que verificarlo contra la hoja, no
+contra lo que suena razonable.
+
 ### d) Que las cajas caigan en su raya
 
 Sólo se ve con los ojos. Los números pueden cuadrar (60/60 ubicadas, nada fuera de la hoja) y la
@@ -263,7 +296,8 @@ hoja verse mal en un navegador al 130%.
 | **Allianz** | ✅ bajado del portal de Allianz el 2026-08-14 · **PLANO** (0 campos) | 🟢 **EN PROD**, poco probado a mano |
 | **GNP** | ✅ bajado de `gnp.com.mx` el 2026-08-15 · ya trae **62 campos** (55 texto + **7 radios**) | 🟢 **EN PROD y probado por el usuario** (`d51d570c`) |
 | **Ve por Más** | ✅ bajado de `vepormas.com` el 2026-08-21 · ya trae **113 campos** (86 texto + 27 grupos de UNA casilla) | 🟢 **EN PROD** (`49d780ce`) · dict de 22 entradas · 0 al asistente (todos los grupos son de una opción) |
-| **MetLife** | ✅ bajado de `metlife.com.mx` el 2026-08-21 · ya trae **164 campos** (133 texto + 31 grupos de UNA casilla) | 🟡 **CONSTRUIDO, sin fila en prod.** Dict de 14 + **mapa de 18 etiquetas** · PDF revisado por el usuario |
+| **MetLife** | ✅ bajado de `metlife.com.mx` el 2026-08-21 · ya trae **164 campos** (133 texto + 31 grupos de UNA casilla) | 🟢 **EN PROD** (`57fa9be1`) · dict de 14 + mapa de 57 etiquetas |
+| **SURA** | ✅ bajado de `segurossura.com.mx` el 2026-08-21 · ya trae **106 campos** (82 texto + 24 casillas) | 🟡 **CONSTRUIDO, sin fila en prod.** Dict de 14 + 45 etiquetas + **7 grupos excluyentes de TEXTO** · PDF revisado por el usuario |
 
 ### Allianz — lo que quedó (2026-08-14)
 

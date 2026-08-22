@@ -4,7 +4,13 @@ import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { getChatProvider, type ChatMessage } from '@/lib/ai';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
-import { dictParaRender, formatoDe, leerPdfBase, etiquetasPorClave } from '@/lib/informe-medico/formatos';
+import {
+  dictParaRender,
+  formatoDe,
+  leerPdfBase,
+  etiquetasPorClave,
+  gruposExcluyentesPorClave,
+} from '@/lib/informe-medico/formatos';
 import { geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { camposDictables } from '@/lib/informe-medico/campos-dictables';
 import { casillasParaElAgente, etiquetasCacheadas } from '@/lib/informe-medico/etiquetas-de-la-hoja';
@@ -28,10 +34,21 @@ const MAX_CARACTERES_MENSAJE = 6000;
 /** Lo que el modelo propuso y NO se pudo colocar, para decirlo en vez de tragárselo. */
 interface Descartado {
   clave: string;
-  motivo: 'campo-inexistente' | 'caracteres-no-imprimibles' | 'no-es-texto' | 'opcion-inexistente';
+  motivo:
+    | 'campo-inexistente'
+    | 'caracteres-no-imprimibles'
+    | 'no-es-texto'
+    | 'opcion-inexistente'
+    /** Existe pero el valor no cabe. NO es lo mismo que "no existe". */
+    | 'no-cabe-en-el-campo'
+    /** Dos opciones de un mismo grupo excluyente en el mismo turno. */
+    | 'opciones-excluyentes-en-conflicto';
   caracteres?: string[];
   /** Sólo `opcion-inexistente`: qué se podía elegir de verdad. */
   opciones?: string[];
+  /** Sólo `no-cabe-en-el-campo`. */
+  tope?: number;
+  largo?: number;
 }
 
 /** Para comparar la etiqueta que devuelve el modelo con la de la hoja sin que
@@ -162,6 +179,9 @@ export async function POST(
       return NextResponse.json({ error: 'Este formato no tiene campos que se puedan llenar' }, { status: 400 });
     }
     const clavesValidas = new Set(campos.map((c) => c.clave));
+    // Para rescatar un campo de TEXTO que el modelo mandó bajo `casillas`: hace
+    // falta su `maxCaracteres` para no aceptar una frase en una caja de 1.
+    const porClaveTexto = new Map(campos.map((c) => [c.clave, c]));
 
     // El estado que el doctor TIENE DELANTE: lo guardado con lo pendiente
     // encima. Sin los pendientes, el agente propone otra vez lo que él acaba de
@@ -340,6 +360,47 @@ export async function POST(
       const clave = resolverClave(devuelta, clavesDeCasillas) ?? devuelta;
       const grupo = porClave.get(clave);
       if (!grupo) {
+        // 🔴 El caso SIMÉTRICO del de arriba: un campo de TEXTO que llegó bajo
+        // `casillas`. Pasa en las hojas cuyas opciones no son casillas de verdad
+        // sino cajas de UN carácter donde se escribe una «X» (SURA: `Si`/`No_3`
+        // de «¿Hubo complicaciones?», `Hospitalaria`…). El modelo las trata como
+        // lo que son —una casilla— y las manda en el bucket equivocado; medido
+        // con una llamada real, así se perdían las DOS de un turno correcto.
+        const comoTexto = resolverClave(devuelta, clavesValidas);
+        if (comoTexto) {
+          const campo = porClaveTexto.get(comoTexto);
+          const valor = bruto.trim();
+          // 🔴 El campo ya lo puso el bucle de `campos`: NO se pisa. El modelo
+          // manda a veces la misma clave en los dos buckets, y el otro sentido
+          // ya está guardado con `??=`; sin esto, un `"X"` del bucket de
+          // casillas machacaba en silencio el valor bueno.
+          if (valores[comoTexto] !== undefined) continue;
+          // Un carácter no imprimible saldría VACÍO del PDF. El bucle de
+          // `campos` lo descarta; esta rama tiene que hacer lo MISMO o el
+          // guardarraíl depende de por qué puerta entró el valor. Caso real: el
+          // prompt describe estas cajas como casillas, así que un `✓` (que no
+          // es WinAnsi) es una respuesta probable — y cabe en 1 carácter.
+          const malos = caracteresNoImprimibles(valor);
+          if (malos.length > 0) {
+            descartados.push({ clave: comoTexto, motivo: 'caracteres-no-imprimibles', caracteres: malos });
+            continue;
+          }
+          if (campo && valor.length <= campo.maxCaracteres) {
+            valores[comoTexto] = { value: valor, source: 'asistente', origin: 'llm' };
+            continue;
+          }
+          // 🔴 Existe pero no cabe: decirle al médico "el campo no existe" es
+          // MENTIRLE sobre su propia hoja. Y es el caso común, no el borde: el
+          // contrato de casillas dice "devuelve lo que dice la hoja", así que
+          // `"Hospitalaria"` (12) en una caja de 1 es la respuesta esperable.
+          descartados.push({
+            clave: comoTexto,
+            motivo: 'no-cabe-en-el-campo',
+            tope: campo?.maxCaracteres ?? 0,
+            largo: valor.length,
+          });
+          continue;
+        }
         descartados.push({ clave, motivo: 'campo-inexistente' });
         continue;
       }
@@ -352,6 +413,25 @@ export async function POST(
         continue;
       }
       valores[clave] = { value: opcion.onState, source: 'asistente', origin: 'llm' };
+    }
+
+    // ── 🔴 EXCLUSIVIDAD de las opciones que la hoja hace con CAJAS DE TEXTO ──
+    //
+    // Una casilla de verdad no necesita esto: el PDF guarda UN valor por campo,
+    // así que marcar una desmarca las otras por construcción. Estas son N campos
+    // independientes (SURA: `Si` y `No_3` de «¿Hubo complicaciones?»), y si el
+    // modelo manda los dos, la hoja aplanada le afirma a la aseguradora que sí y
+    // que no. Es la misma familia que la regla 2 de `casillasParaElAgente`, que
+    // aquí no aplica porque para el motor esto es texto.
+    //
+    // Cuando hay conflicto se descarta el GRUPO ENTERO y se reporta: no se elige
+    // "la primera" ni "la más probable" — es exactamente lo que ya está prohibido
+    // al resolver la opción de un grupo excluyente.
+    for (const grupo of gruposExcluyentesPorClave(formato)) {
+      const puestas = grupo.filter((c) => valores[c] !== undefined);
+      if (puestas.length <= 1) continue;
+      for (const c of puestas) delete valores[c];
+      descartados.push({ clave: puestas.join(' + '), motivo: 'opciones-excluyentes-en-conflicto' });
     }
 
     const texto = typeof respuesta.mensaje === 'string' ? respuesta.mensaje.trim() : '';

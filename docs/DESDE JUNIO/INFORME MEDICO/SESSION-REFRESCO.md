@@ -7,7 +7,44 @@
 
 ---
 
-# ⏱️ EMPIEZA AQUÍ — cierre del 2026-08-21
+# ⏱️ EMPIEZA AQUÍ — cierre del 2026-08-21 (TIER 1 COMPLETO)
+
+## En una tabla
+
+| | |
+|---|---|
+| **AXA · Allianz · GNP** | 🟢 en prod desde antes |
+| **Ve por Más** (4ª) | 🟢 **EN PROD** `49d780ce` |
+| **MetLife** (5ª) | 🟢 **EN PROD** `57fa9be1` |
+| **SURA** (6ª) | 🟡 **construida, SIN fila en prod** — falta aplicar `seed-formato-sura.sql` |
+
+🔴 **Lo primero al volver:** aplicar `seed-formato-sura.sql` a prod (`prisma db execute` con la URL
+pública, jamás `db push`), verificarlo leyendo la fila de vuelta, y desplegar. Hasta que exista, el
+desplegable NO ofrece SURA.
+
+## 🔴 Las tres lecciones caras de esta tanda
+
+**1. Una "medición" del motor puede ser una coincidencia de la muestra.** El rótulo de una casilla
+se tomaba del texto **a la derecha** — cierto para AXA, Allianz y GNP, falso para las tres nuevas.
+Ahora el lado se MIDE por grupo, con la mayoría de la hoja como red (08-ALTA §7d).
+
+**2. NO mapear un campo no lo desactiva.** Un campo sin canónico se le sigue ofreciendo al modelo
+**con su nombre del PDF de etiqueta**. Ve por Más traía uno llamado «Resultado de la exploración
+física…» que es la caja de la TALLA; dejarlo sin mapear lo dejaba armado (08-ALTA §6c).
+
+**3. 🔴 Un guardarraíl que vive en el PROMPT no es un guardarraíl.** Las opciones de SURA son
+cajas de TEXTO, así que `casillasParaElAgente` no las ve y **no hay exclusividad estructural**: lo
+único que impedía marcar el `Sí` y el `No` de la misma pregunta era una frase del prompt. Es regla 0
+y estaba en prosa. Hoy lo impone el servidor (`opcionesDeTexto`).
+
+## ⚠️ Y un patrón mío que conviene vigilar
+
+**Tres veces en esta tanda escribí un rótulo FALSO dentro del mecanismo que existe para evitar
+rótulos falsos** — `Detallar_222` como «complicaciones» (era «insumos»), «¿Acepta tabulador?» (la
+hoja dice «¿Forma parte de nuestra red?»), y unas fechas que prometían `Día/Mes/Año` en una caja de
+4 caracteres. Los tres los cazó el `/code-review` leyendo el texto IMPRESO. Cuando no se puede leer
+la hoja, la tentación es poner una frase que suene bien — y lo que suena bien es justo lo que el
+modelo obedece.
 
 ## Lo que pasó
 
