@@ -4,7 +4,7 @@ import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { getChatProvider } from '@/lib/ai';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
-import { dictParaRender, formatoDe, leerPdfBase, etiquetasPorClave } from '@/lib/informe-medico/formatos';
+import { camposParaElAgente, dictParaRender, formatoDe, leerPdfBase, etiquetasPorClave } from '@/lib/informe-medico/formatos';
 import { geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { camposDictables } from '@/lib/informe-medico/campos-dictables';
 import { etiquetasCacheadas } from '@/lib/informe-medico/etiquetas-de-la-hoja';
@@ -125,7 +125,12 @@ export async function POST(
       dict,
       () => leerPdfBase(formato)
     );
-    const campos = camposDictables(geo, pagina, { ...contexto, ...etiquetasPorClave(formato) });
+    // Mismo veto que en el chat: este endpoint también le ofrece campos a un
+    // modelo, así que no puede tener un catálogo más permisivo.
+    const campos = camposParaElAgente(
+      camposDictables(geo, pagina, { ...contexto, ...etiquetasPorClave(formato) }),
+      formato
+    );
     if (campos.length === 0) {
       return NextResponse.json({ error: 'Esta página no tiene campos que se puedan dictar' }, { status: 400 });
     }

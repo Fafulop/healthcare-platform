@@ -22,7 +22,8 @@ un **PDF idéntico al oficial de la aseguradora** para descargar o mandarle al p
 | **GNP** — Informe Médico GMM (oficial, 62 campos: 55 texto + **7 radios**) | ✅ **EN PROD y probado por el usuario** (`d51d570c`, 2026-08-15) |
 | **Ve por Más** — GMM Informe Médico `SM008` (oficial, 113 campos) | ✅ **EN PROD** (`49d780ce`, 2026-08-21) |
 | **MetLife** — Informe Médico `CC-1-020 VER5` (oficial, 164 campos) | ✅ **EN PROD** (`57fa9be1`, 2026-08-21) |
-| **SURA** — Informe Médico (oficial, 106 campos) | 🟡 **CONSTRUIDA 2026-08-21** — sin fila en prod ([`09-CATALOGO`](09-CATALOGO-aseguradoras-pendientes.md)) |
+| **SURA** — Informe Médico (oficial, 106 campos) | ✅ **EN PROD** (`62030184`, 2026-08-21) |
+| **Zurich** — Informe Médico (oficial, 86 campos) | 🟡 **CONSTRUIDA 2026-08-21** — sin fila en prod ([`09-CATALOGO`](09-CATALOGO-aseguradoras-pendientes.md)) |
 
 🔴 **Y GNP obligó a tocar el motor**, que hasta ahora sólo sabía de texto y casillas: **grupos de
 RADIO** (7 preguntas de la hoja, incluido el sexo), **rects invertidos** (4 widgets con alto

@@ -77,20 +77,70 @@ del tipo que el motor espera. **Medirlo antes de escribir el diccionario.**
 | **Plan Seguro** | `DMD-FORIMD` (2026) | 237 | 202 | 67 % | los nombres son el título del doc + un número |
 | **Bupa** | `MEX-FREC-V23.01` (2023) | 115 | 88 | **100 %** | todo es `Text Field 246` · además 5 campos de FIRMA |
 
-### 🔴 Y aquí está el hallazgo que REORDENA la lista
+### ✅ CORREGIDO (2026-08-21): el tier 2 es MUCHO más barato de lo que decía aquí
 
-`ETIQUETAS` —el mapa `nombre del campo → lo que dice la HOJA`, que llevó a Allianz de 61 campos
-ilegibles a 7— **lo genera únicamente el subcomando `campos`, que es el camino del PDF PLANO**
-(`alta-formato.ts`, el bloque que imprime `export const ETIQUETAS`). Un PDF que **ya trae campos**
-con nombres opacos **no tiene hoy ninguna derivación automática**.
+> 🔴 **Lo que este apartado afirmaba era FALSO**, y hay que decirlo porque mandaba a hacer trabajo
+> que no hace falta: *"un PDF que ya trae campos con nombres opacos no tiene hoy ninguna derivación
+> automática"*, y de ahí *"un cambio destraba Zurich, Monterrey, BBVA, Plan Seguro y Bupa a la vez"*.
+>
+> **`etiquetasDeLaHoja()` YA deriva por geometría los campos de TEXTO opacos** — es el mismo camino
+> que rescató 44 campos de MetLife. No hay que construir nada. Medido corriendo el motor real sobre
+> cada PDF:
 
-⇒ **Bupa y Plan Seguro son, ahora mismo, MÁS caros que un formato plano.** Un plano se auto-rotula;
-los suyos serían **88 y 135 etiquetas tecleadas a mano** mirando la hoja.
+| | texto | opacos | **rescatados por geometría** | siguen ilegibles |
+|---|---|---|---|---|
+| **Zurich** | 71 | 34 | **33** | **1** (1 %) |
+| **Monterrey NYL** | 160 | 78 | **66** | 12 (8 %) |
+| **BBVA** | 49 | 29 | **21** | 8 (16 %) |
+| **Bupa** | 88 | 88 | **54** | 34 (39 %) |
+| **Plan Seguro** | 202 | *(ver abajo)* | 0 | — |
 
-💡 **El arreglo es chico y no inventa nada:** el motor de vecindad ya rotula las casillas de AXA
-(49 de 49) y las de Allianz desde los `□` impresos. Es apuntarlo a los `rect` de los campos de
-TEXTO en vez de a las rayas dibujadas. **Un cambio destraba Zurich, Monterrey, BBVA, Plan Seguro y
-Bupa a la vez** — por eso va ANTES que el tier 2, y no se teclean 300 etiquetas.
+⇒ No hace falta construir nada: la derivación ya corre. **Pero la columna "rescatados" NO es el
+costo** — ver el aviso de abajo.
+
+### 🔴🔴 «Rescatado» ≠ «bien rotulado»: el costo real es ~4× esa columna
+
+Escribí *"Zurich cuesta UNA etiqueta a mano, no 34"*. **Falso, y medido al construirla:** Zurich
+llevó **22 etiquetas corregidas a mano + 14 preguntas de grupo = 39 cadenas escritas mirando la
+hoja.** La columna de arriba cuenta los campos que recibieron **una** etiqueta, no una etiqueta
+**correcta**. De los 33 "rescatados" de Zurich:
+
+| deducido | lo que era |
+|---|---|
+| `18` → «No» | la caja de DESCRIBIR LAS COMPLICACIONES (tomó la opción de al lado) |
+| `21` → «Hospitalización» | la FECHA DE INGRESO |
+| `Text10` → «Talla» · `11` → «Peso» | corridos una columna: son PESO y TENSIÓN ARTERIAL |
+| `31·32·34·36·38` → «PRESUPUESTO» | cinco campos con la MISMA cadena: indistinguibles |
+| `40` → una frase cortada del párrafo de privacidad | el CONSENTIMIENTO LFPDPPP del paciente |
+
+⇒ **Las estimaciones del §6 para BBVA (8), Monterrey (12) y Bupa (34) están bajas por ese mismo
+factor.** Sirven para ORDENAR, no para presupuestar.
+
+> 🔎 Es, otra vez, *los contadores cuentan lo que se INTENTÓ, no lo que salió* — la lección que esta
+> carpeta ya tenía escrita para `llenados`, aplicada ahora a "rescatados". Y la única forma de saber
+> cuáles son falsos sigue siendo leer el texto impreso campo por campo.
+
+### 🔴 La excepción: Plan Seguro, y el hueco REAL de `esOpaco()`
+
+Plan Seguro sale con **0 opacos** y eso es una mentira del medidor: **134 de sus 202 campos se
+llaman `informe medico 47`, `informe medico 54`…** —el título del documento más un número— y
+`esOpaco()` no los reconoce, porque sólo caza prefijos conocidos (`Text`, `undefined`, `Día`…) y
+nombres de ≤3 letras. Al no marcarlos como opacos, **la derivación por geometría NUNCA corre para
+ellos** y los 134 llegan al modelo rotulados con su propio nombre inservible.
+
+Es la misma familia que el hueco de 08-ALTA §6c: un nombre **fluido pero vacío** pasa por encima
+del filtro de legibilidad. Ahí era *falso*; aquí es *hueco*.
+
+⇒ **Ése sí es un arreglo de motor que vale la pena** —ampliar `esOpaco()` a los defaults de
+generador con número al final— pero es **de Plan Seguro, no de los cinco**, y hay que hacerlo con
+cuidado: ensanchar `esOpaco()` significa que la geometría PISA más nombres, y la geometría es
+justamente la que produce rótulos FALSOS (§7d, `Mts.` sobre la tensión arterial). Se hace cuando se
+construya Plan Seguro, midiendo el antes y el después de los otros cinco.
+
+> 🔎 **La lección de método, y ya van dos en este documento:** afirmé un hueco de capacidad sin
+> medirlo y estuve a punto de construir contra él. Los otros 68 campos de Plan Seguro (`edad`,
+> `Nombre`, `Patológicos 3`) están perfectamente bien. **Antes de "destrabar" algo, correr el motor
+> y contar.**
 
 ## 3. TIER 3 — PLANOS. Tratamiento Allianz completo
 
@@ -241,10 +291,15 @@ Cuatro eran míos y de la misma familia — **guardarraíles que no cubrían la 
 
 ## 6. El orden acordado con el usuario (2026-08-21)
 
-1. **Tier 1**, una por una, un commit cada una: **Ve por Más → MetLife → SURA**.
-2. La derivación de etiquetas para un PDF **con campos** y nombres opacos (§2).
-3. **Tier 2**, ya destrabado.
-4. **Tier 3** (planos) y las que falten por confirmar.
+1. ✅ **Tier 1 COMPLETO** — Ve por Más (`49d780ce`) · MetLife (`57fa9be1`) · SURA (`62030184`),
+   los tres EN PROD con su fila de `insurance_forms`.
+2. ~~La derivación de etiquetas para un PDF con campos y nombres opacos~~ **NO HACE FALTA: ya
+   existe** (§2, corregido midiendo).
+3. **Tier 2 por orden de costo relativo** (los números ORDENAN, no presupuestan — el costo real es
+   ~4× por los rótulos falsos, ver §2): ✅ **Zurich** (construida: 39 cadenas a mano) →
+   **BBVA** (8 sin rescatar) → **Monterrey NYL** (12) → **Bupa** (34) → **Plan Seguro** (pide
+   ampliar `esOpaco()` antes).
+4. **Tier 3** (planos: Inbursa ⚠️ de 2002, Banorte) y las que falten por confirmar.
 
 🔴 **Y lo que no cambia por ser la aseguradora #4:** cada formato nuevo trae **una suposición del
 motor que resulta ser falsa** (08-ALTA §7). Con GNP fueron cuatro y ninguna la alcanzaron los gates

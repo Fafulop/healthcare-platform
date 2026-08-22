@@ -283,6 +283,22 @@ red?». Las dos cosas se vieron leyendo el texto impreso. Cuando el guardarraíl
 alcanza, el rótulo a mano es el único filtro que queda: hay que verificarlo contra la hoja, no
 contra lo que suena razonable.
 
+### 🔴 Un CONSENTIMIENTO puede vivir en un campo de TEXTO — y ahí el guardarraíl no lo ve
+
+`casillasParaElAgente()` —lo que impide que un modelo firme el `Sí acepto` de AXA— **sólo mira
+casillas**. Zurich pone su consentimiento LFPDPPP en un campo de **TEXTO** (`40`: *«…sus datos
+personales generales y sensibles… consentimiento expreso… Aviso de Privacidad»*), así que el
+guardarraíl no lo alcanzaba y el modelo lo recibía en su catálogo **con una etiqueta que le decía
+exactamente qué era**.
+
+🔴 **Y NO basta con no mapearlo**, que es lo que yo había escrito en el dict: un campo sin concepto
+canónico se sigue ofreciendo como campo CRUDO. Es la misma lección de §6c, cometida otra vez tres
+aseguradoras después. Lo único que lo saca del catálogo es `camposVetadosParaElAgente`.
+
+⇒ **Al dar de alta un formato hay que buscar el consentimiento y la facturación en los campos de
+TEXTO, no sólo en las casillas.** El reporte de `alta-formato` avisa de los grupos sospechosos; para
+el texto, hoy, hay que mirar la hoja.
+
 ### d) Que las cajas caigan en su raya
 
 Sólo se ve con los ojos. Los números pueden cuadrar (60/60 ubicadas, nada fuera de la hoja) y la
@@ -297,7 +313,8 @@ hoja verse mal en un navegador al 130%.
 | **GNP** | ✅ bajado de `gnp.com.mx` el 2026-08-15 · ya trae **62 campos** (55 texto + **7 radios**) | 🟢 **EN PROD y probado por el usuario** (`d51d570c`) |
 | **Ve por Más** | ✅ bajado de `vepormas.com` el 2026-08-21 · ya trae **113 campos** (86 texto + 27 grupos de UNA casilla) | 🟢 **EN PROD** (`49d780ce`) · dict de 22 entradas · 0 al asistente (todos los grupos son de una opción) |
 | **MetLife** | ✅ bajado de `metlife.com.mx` el 2026-08-21 · ya trae **164 campos** (133 texto + 31 grupos de UNA casilla) | 🟢 **EN PROD** (`57fa9be1`) · dict de 14 + mapa de 57 etiquetas |
-| **SURA** | ✅ bajado de `segurossura.com.mx` el 2026-08-21 · ya trae **106 campos** (82 texto + 24 casillas) | 🟡 **CONSTRUIDO, sin fila en prod.** Dict de 14 + 45 etiquetas + **7 grupos excluyentes de TEXTO** · PDF revisado por el usuario |
+| **SURA** | ✅ bajado de `segurossura.com.mx` el 2026-08-21 · ya trae **106 campos** (82 texto + 24 casillas) | 🟢 **EN PROD** (`62030184`) · dict de 14 + 45 etiquetas + 7 grupos excluyentes de TEXTO |
+| **Zurich** | ✅ bajado de `zurich.com.mx` el 2026-08-21 · ya trae **86 campos** (71 texto + **15 radios**) | 🟡 **CONSTRUIDO, sin fila en prod.** Dict de 12 + 25 etiquetas + **15 preguntas de grupo** + 1 campo VETADO |
 
 ### Allianz — lo que quedó (2026-08-14)
 

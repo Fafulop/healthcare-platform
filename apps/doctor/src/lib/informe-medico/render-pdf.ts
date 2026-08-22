@@ -155,6 +155,14 @@ function aplicarRespuestas(form: PDFForm, answers: Answers, dict: FieldDict) {
       // que el médico no eligió — la misma regla que ya rige para las etiquetas
       // que el modelo devuelve (06-AGENTE §12).
       const elegida = field.getOptions().find((o) => empataOpcion(respuesta.value, o));
+      // 🔴 Si `getOptions()` no lo reconoce, se intenta contra los ON-STATES
+      // antes de rendirse: son lo que guarda el resto del motor y en Zurich las
+      // dos listas NO coinciden (ver `marcarPorOnState`). Sin esta vía, sus 15
+      // grupos se limpiaban y la respuesta del médico no llegaba al PDF.
+      if (elegida === undefined && marcarPorOnState(field, respuesta.value)) {
+        llenados++;
+        continue;
+      }
       if (elegida === undefined) {
         // 🔴 Y se APAGA antes de reportarlo. `normalizarCasillas` no lo tocó
         // —el campo tiene respuesta, así que cuenta como "contestado"— y si
@@ -441,22 +449,56 @@ function normalizarCasillas(form: PDFForm, answers: Answers, dict: FieldDict) {
  * perder la respuesta.
  */
 function marcarOpcion(field: PDFCheckBox, valor: string) {
+  const elegido = marcarPorOnState(field, valor);
+  // Sin on-state que empate, una casilla suelta se marca igual: el JSON guarda
+  // `'1'`, pero un `'x'` o un `'sí'` de un informe viejo significan lo mismo.
+  if (!elegido) field.check();
+}
+
+/**
+ * Pone `/V` y los `/AS` a partir del ON-STATE de los recuadros. Devuelve `true`
+ * si alguno empató.
+ *
+ * 🔴 Sirve para CASILLAS **y para RADIOS**, y lo segundo no es teórico: el
+ * `getOptions()` de pdf-lib y los on-states reales pueden NO coincidir, y
+ * entonces el motor se contradice consigo mismo. Medido:
+ *
+ *   GNP    `Genero`  → getOptions() ["M","F"]                    · on-states ["M","F"]   ✅ iguales
+ *   Zurich `Group10` → getOptions() ["Opción1","Opción1","Opción2","Opción2"] · on-states ["0","1"]  🔴
+ *
+ * El resto del motor —el catálogo del asistente, el visor, `etiquetasDeLaHoja`—
+ * guarda el ON-STATE (`"0"`). Con `getOptions()` como única vía, ese valor no
+ * empataba con nada, el grupo se LIMPIABA y la elección del médico no llegaba al
+ * PDF: los 15 grupos de Zurich, en silencio, con `problemas` contándolos y
+ * ninguna UI enseñándolos. Es la misma familia que el `S#ED` de GNP — dos
+ * mitades del motor leyendo la misma opción de dos maneras.
+ *
+ * ⚠️ **Límite conocido, anotado sin arreglar a medias:** esta vía hace que un
+ * `'1'` de LEGADO —el `?? '1'` de `InformeVisor` y los informes viejos que
+ * guardaban `'1'` por "marcada"— EMPATE con el on-state `"1"` de una hoja cuyos
+ * estados son `"0"`…`"3"` (Zurich), y marque la SEGUNDA opción en vez de
+ * reportarse como `opcion-no-existe`. Hoy no se alcanza: todos los recuadros de
+ * Zurich traen on-state definido, así que ese `?? '1'` nunca dispara, y no hay
+ * informes de Zurich (el formato no existía). Se deja escrito porque convierte
+ * un fallo RUIDOSO en una respuesta silenciosamente equivocada, y el arreglo
+ * —distinguir "valor de legado" de "on-state real"— pide un dato que hoy no se
+ * guarda en `answers`.
+ */
+function marcarPorOnState(field: PDFCheckBox | PDFRadioGroup, valor: string): boolean {
   const widgets = field.acroField.getWidgets();
   const estados = widgets.map((w) => onStateDelWidget(w));
 
-  // El on-state elegido, tolerando que un informe viejo haya guardado el nombre
-  // ESCAPADO del PDF (`S#ED`) en vez del texto (`Sí`).
+  // Tolera que un informe viejo haya guardado el nombre ESCAPADO del PDF
+  // (`S#ED`) en vez del texto (`Sí`).
   const elegido = estados.find((e) => e !== undefined && empataOpcion(valor, e));
-  if (elegido === undefined) {
-    field.check();
-    return;
-  }
+  if (elegido === undefined) return false;
 
   const on = PDFName.of(elegido);
   field.acroField.dict.set(PDFName.of('V'), on);
   widgets.forEach((w, i) => {
     w.dict.set(PDFName.of('AS'), estados[i] === elegido ? on : PDFName.of('Off'));
   });
+  return true;
 }
 
 /**

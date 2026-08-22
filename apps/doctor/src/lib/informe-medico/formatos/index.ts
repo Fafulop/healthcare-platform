@@ -33,6 +33,7 @@ import { DICT_GNP } from '../dicts/gnp';
 import { DICT_VEPORMAS } from '../dicts/vepormas';
 import { DICT_METLIFE, ETIQUETAS_METLIFE } from '../dicts/metlife';
 import { DICT_SURA, ETIQUETAS_SURA, OPCIONES_DE_TEXTO_SURA } from '../dicts/sura';
+import { DICT_ZURICH, ETIQUETAS_ZURICH, PREGUNTAS_ZURICH, VETADOS_ZURICH } from '../dicts/zurich';
 
 export interface FormatoEnRepo {
   insurer: string;
@@ -65,6 +66,48 @@ export interface FormatoEnRepo {
    * el motor esto es texto.
    */
   opcionesDeTexto?: Array<{ pregunta: string; campos: string[] }>;
+  /**
+   * `nombre del grupo -> la PREGUNTA que le hace la hoja`, para los grupos cuyo
+   * nombre no dice nada (`Group19`) **y** cuya pregunta la geometría no puede
+   * alcanzar.
+   *
+   * 🔴 Por qué hace falta: la pregunta se deduce del texto a la IZQUIERDA del
+   * primer recuadro, y en una hoja que rotula sus opciones por la izquierda ese
+   * texto **es la etiqueta de la propia opción** — se descarta (bien) y el grupo
+   * queda sin pregunta. Zurich es el caso: sus 15 grupos se llaman `Group10`…
+   * `Group24` y ninguno conserva su pregunta, aunque las 15 están impresas.
+   *
+   * ⚠️ Se aplica ANTES de `casillasParaElAgente()`, y eso es una mejora de
+   * SEGURIDAD, no sólo de comprensión: esa función busca `autoriz|tabulador|…`
+   * en `pregunta + clave + opciones`. Un `Sí`/`No` sin pregunta se bloquea por
+   * genérico (regla 3); con su pregunta de verdad, `¿Acepta tabulador?` se
+   * bloquea por lo que ES — una declaración de facturación.
+   *
+   * 🔴 Es texto IMPRESO leído de la hoja, nunca una interpretación. Si no se
+   * puede leer, se deja fuera: un grupo sin pregunta se ignora, uno con una
+   * pregunta FALSA se obedece.
+   */
+  preguntasDeCasilla?: Record<string, string>;
+  /**
+   * 🔴🔴 Campos de TEXTO que el asistente NUNCA debe poder llenar: los
+   * consentimientos del paciente y las declaraciones de facturación.
+   *
+   * Es el hermano de `casillasParaElAgente()` para el lado del texto, y existe
+   * porque aquella función **sólo mira casillas**. Zurich pone su consentimiento
+   * LFPDPPP en un campo de TEXTO (`40`, «…sus datos personales generales y
+   * sensibles… consentimiento expreso… Aviso de Privacidad»), así que el
+   * guardarraíl del 2026-08-10 —el que impide que un modelo firme el `Sí acepto`
+   * de AXA— no lo alcanzaba.
+   *
+   * ⚠️ **No basta con no mapearlo a un canónico.** Un campo sin concepto sigue
+   * ofreciéndose como campo CRUDO; eso ya está escrito en 08-ALTA §6c y lo
+   * volví a olvidar aquí. Lo único que lo saca del catálogo es esta lista.
+   *
+   * **La hoja NO cambia:** el visor la dibuja desde la geometría y el médico
+   * puede escribir ahí. Lo que se quita es que lo proponga un modelo — misma
+   * regla y mismo alcance que en las casillas.
+   */
+  camposVetadosParaElAgente?: string[];
   /**
    * `true` si los campos rellenables se los pusimos nosotros (Allianz), `false`
    * si el PDF oficial ya venía con AcroForm (AXA). Va a
@@ -201,6 +244,28 @@ export const FORMATOS: FormatoEnRepo[] = [
     // `leerPdfBaseParaVisor` al mostrarlas, igual que las 9 de AXA.
     camposPropios: false,
   },
+  {
+    insurer: 'Zurich',
+    name: 'Informe Médico',
+    // La hoja no imprime clave de versión: se usa la fecha de creación del PDF
+    // oficial (2020-05-14), como con Allianz y SURA.
+    version: 'MAYO 2020',
+    sourceUrl:
+      'https://www.zurich.com.mx/-/media/project/zwp/mexico/docs/regulaciones/formatos-y-solicitudes/vida-2020/formato-informe-medico_sinr.pdf',
+    archivo: 'zurich-informe-medico-2020-05.pdf',
+    dict: DICT_ZURICH,
+    etiquetas: ETIQUETAS_ZURICH,
+    // 🔴 Sus 15 grupos se llaman `Group10`…`Group24` y NINGUNO conserva su
+    // pregunta: la hoja rotula por la izquierda, así que el texto de donde el
+    // motor la saca es la etiqueta de la propia opción. Las 15 están impresas y
+    // se declaran aquí (ver `dicts/zurich.ts`).
+    preguntasDeCasilla: PREGUNTAS_ZURICH,
+    // 🔴 El consentimiento LFPDPPP del paciente vive en un campo de TEXTO, así
+    // que `casillasParaElAgente()` no lo ve. Esto es lo que lo saca del catálogo.
+    camposVetadosParaElAgente: VETADOS_ZURICH,
+    // El oficial ya trae sus 86 campos. El archivo es el de Zurich byte a byte.
+    camposPropios: false,
+  },
 ];
 
 /** La clave compuesta con la que se empata una fila de `insurance_forms`. */
@@ -323,4 +388,63 @@ export function etiquetasPorClave(formato: FormatoEnRepo): Record<string, string
  */
 export function gruposExcluyentesPorClave(formato: FormatoEnRepo): string[][] {
   return (formato.opcionesDeTexto ?? []).map((g) => g.campos.map((n) => claveCruda(n)));
+}
+
+/**
+ * Quita del catálogo del asistente los campos de texto vetados por el formato.
+ *
+ * 🔴 Se aplica a la lista que alimenta **el prompt Y la validación**, que son la
+ * misma (`clavesValidas`): así el modelo no puede colocar en un campo que no se
+ * le ofreció ni siquiera adivinando su nombre.
+ */
+export function camposParaElAgente<T extends { clave: string }>(
+  campos: T[],
+  formato: FormatoEnRepo
+): T[] {
+  const vetados = formato.camposVetadosParaElAgente;
+  if (!vetados?.length) return campos;
+  const fuera = new Set(vetados.map((n) => claveCruda(n)));
+  return campos.filter((c) => !fuera.has(c.clave));
+}
+
+/**
+ * Rellena la `pregunta` de los grupos que la declaran en `preguntasDeCasilla`.
+ *
+ * 🔴 **Lo declarado MANDA sobre lo que dedujo la geometría**, y esto es una
+ * decisión de seguridad, no de gusto. La versión anterior sólo rellenaba lo
+ * VACÍO —"la geometría salió de la hoja sin pasar por una mano"— y con eso el
+ * guardarraíl fallaba ABIERTO: `casillasParaElAgente` busca
+ * `autoriz|tabulador|convenio` **en la pregunta**, así que basta con que una
+ * reimpresión de la hoja imprima `Sí:` en vez de `Sí` para que el descarte por
+ * igualdad EXACTA de `etiquetas-de-la-hoja.ts` no dispare, el grupo se quede con
+ * una pregunta basura pero NO nula, la declarada se pierda, y
+ * `¿Acepta tabulador?` pase a ser proponible por un modelo.
+ *
+ * Quien escribe el mapa está mirando la hoja impresa; la geometría adivina. Ante
+ * el desacuerdo gana el humano — y el que ya no exista se REPORTA, porque un
+ * nombre que cambió es justo la señal de que el formato se reimprimió.
+ *
+ * Se aplica ANTES de `casillasParaElAgente()`: ver el comentario del campo.
+ */
+export function conPreguntasDeclaradas<T extends { nombrePdf: string; pregunta: string | null }>(
+  casillas: T[],
+  formato: FormatoEnRepo
+): T[] {
+  const mapa = formato.preguntasDeCasilla;
+  if (!mapa) return casillas;
+  return casillas.map((g) => (mapa[g.nombrePdf] ? { ...g, pregunta: mapa[g.nombrePdf] } : g));
+}
+
+/**
+ * Los grupos declarados en `preguntasDeCasilla` que YA NO existen en la hoja.
+ *
+ * 🔴 Un nombre que dejó de empatar significa casi siempre que la aseguradora
+ * reimprimió el formato, y entonces el resto del mapa también es sospechoso.
+ * Vale más un aviso ruidoso que un guardarraíl que se apagó en silencio.
+ */
+export function preguntasDeclaradasHuerfanas(
+  formato: FormatoEnRepo,
+  nombresEnLaHoja: Set<string>
+): string[] {
+  return Object.keys(formato.preguntasDeCasilla ?? {}).filter((n) => !nombresEnLaHoja.has(n));
 }

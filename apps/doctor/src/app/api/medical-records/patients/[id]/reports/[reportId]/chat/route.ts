@@ -10,6 +10,8 @@ import {
   leerPdfBase,
   etiquetasPorClave,
   gruposExcluyentesPorClave,
+  conPreguntasDeclaradas,
+  camposParaElAgente,
 } from '@/lib/informe-medico/formatos';
 import { geometriaCacheada } from '@/lib/informe-medico/campos-del-informe';
 import { camposDictables } from '@/lib/informe-medico/campos-dictables';
@@ -170,11 +172,22 @@ export async function POST(
     // las declaraciones de facturación y los grupos que no se pueden nombrar.
     // Esta MISMA lista alimenta el prompt y la validación, así que el modelo no
     // puede marcar algo que no se le ofreció.
-    const casillas = casillasParaElAgente(todasLasCasillas);
+    // 🔴 Las preguntas declaradas van ANTES del filtro, no después: éste busca
+    // `autoriz|tabulador|…` en la pregunta, así que darle la de verdad es lo que
+    // hace que `¿Acepta tabulador?` de Zurich se bloquee por lo que ES y no por
+    // ser un `Sí`/`No` genérico.
+    const casillas = casillasParaElAgente(conPreguntasDeclaradas(todasLasCasillas, formato));
 
     // La hoja ENTERA, no una página: el agente sólo puede decir "qué falta" si la
     // ve completa. Medido: los 255 campos de AXA son ~3,800 tokens (prompt-chat).
-    const campos = camposDictables(geo, null, { ...contexto, ...etiquetasPorClave(formato) });
+    // 🔴 `camposParaElAgente` saca los campos de TEXTO vetados por el formato:
+    // los consentimientos del paciente y las declaraciones de facturación.
+    // `casillasParaElAgente` sólo mira casillas, y Zurich pone su consentimiento
+    // LFPDPPP en un campo de texto — el guardarraíl del 2026-08-10 no lo veía.
+    const campos = camposParaElAgente(
+      camposDictables(geo, null, { ...contexto, ...etiquetasPorClave(formato) }),
+      formato
+    );
     if (campos.length === 0) {
       return NextResponse.json({ error: 'Este formato no tiene campos que se puedan llenar' }, { status: 400 });
     }
