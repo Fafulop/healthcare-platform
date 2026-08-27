@@ -105,7 +105,7 @@ C+ valida cada campo contra la hoja real antes de devolverlo, y lo que no pasa l
 |---|---|---|---|---|
 | `/dashboard/practice/conciliacion-bancaria` | `usePdfImport` | `/api/bank-statement-parse` | `gpt-4o` | PDF de estado de cuenta → movimientos |
 | ficha del paciente | — | `…/patients/[id]/summary` | `gpt-4o` | ⚠️ **NO pasa por la factory**: instancia `OpenAIChatProvider` a mano (`route.ts:213`), así que **ignora `LLM_PROVIDER`** |
-| **TODO el dashboard** (widget flotante) | `components/llm-assistant/ChatWidget`, montado en `app/dashboard/layout.tsx` | `/api/llm-assistant/chat` | `gpt-4o-mini` | RAG sobre los docs. Su modelo NO vive donde los demás: `lib/llm-assistant/constants.ts` (`LLM_MODEL`). **Retiro planeado en PR 4** |
+| **TODO el dashboard** (widget flotante del signo `?`) · 🚫 **HOY OCULTO** | `components/llm-assistant/ChatWidget`, montado en `app/dashboard/layout.tsx` | `/api/llm-assistant/chat` | `gpt-4o-mini` | RAG sobre los docs. Su modelo NO vive donde los demás: `lib/llm-assistant/constants.ts` (`LLM_MODEL`). Oculto 2026-08-27 (`WIDGET_AYUDA_VISIBLE`, ver `lib/ui-visibility.ts`); su endpoint sigue vivo. **Retiro planeado en PR 4** |
 | `/dashboard/appointments/v1` | `AppointmentChatPanel` ← `useAppointmentsChat` | `/api/appointments-chat` | `gpt-4o` | el chat v1 de la agenda. **Muere en PR 4** |
 | (embeddings del RAG) | — | `lib/ai` `getEmbeddingProvider` | `text-embedding-3-small` | muere con el RAG |
 
@@ -135,6 +135,10 @@ C+ valida cada campo contra la hoja real antes de devolverlo, y lo que no pasa l
   schema, `additionalProperties:false`, validación server-side y cliente honesto.
 - **Cuánto cuesta cada uno y quién lo usa** se mide desde 2026-08-27 — dónde verlo y las
   trampas del cálculo: [`02-COSTO-y-uso-por-doctor.md`](02-COSTO-y-uso-por-doctor.md).
+- 🚫 **DOS de las 19 superficies están OCULTAS de la UI** (no borradas, y sus endpoints
+  siguen respondiendo): el asistente 🟢 (`ASISTENTE_IA_VISIBLE`) y el widget de ayuda del signo
+  `?` (`WIDGET_AYUDA_VISIBLE`). Los dos flags viven en `apps/doctor/src/lib/ui-visibility.ts` —
+  salvo el del asistente, que es más viejo y sigue en `lib/agenda-agent/feature-flag.ts`.
 - **El asistente 🟢 está OCULTO de la UI** desde 2026-08-27 (`ASISTENTE_IA_VISIBLE = false`).
   Sigue vivo en el código y su endpoint sigue respondiendo — ver
   [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md).

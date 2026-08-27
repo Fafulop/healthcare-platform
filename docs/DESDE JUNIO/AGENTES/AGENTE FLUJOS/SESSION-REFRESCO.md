@@ -1,5 +1,17 @@
 # 🔄 Refresco de sesión — AGENTE FLUJOS — LÉEME PRIMERO
 
+> 🚫 **2026-08-27 — la página a la que este módulo RUTEA está oculta del menú.**
+> `Conciliación Bancaria` se escondió de las dos navegaciones (`433c546a`,
+> `CONCILIACION_BANCARIA_VISIBLE`), y la prosa de este módulo sigue diciendo *"los movimientos
+> se concilian en la página Conciliación Bancaria"*. **Hoy es inocuo** porque el asistente 🟢
+> también está oculto (`ASISTENTE_IA_VISIBLE`), pero **prender uno sin el otro manda al doctor
+> a una página sin puerta**. La tool de lectura sigue bien: reporta el estado, no promete
+> conciliar.
+>
+> ⚠️ **`gate:prosa` no cubre este caso.** Verifica que la prosa no nombre tools ni SECCIONES
+> fuera del scope del usuario — no que una página siga siendo alcanzable desde el menú. Es una
+> clase de drift nueva: *la UI se esconde y el prompt no se entera.*
+
 > Snapshot del estado del **módulo flujo de dinero** del asistente. Para una sesión/LLM en
 > frío: lee este archivo, luego [`00-DISENO-F1-tools-lectura.md`](00-DISENO-F1-tools-lectura.md)
 > para el detalle de los tools. Última actualización: **2026-07-27**.

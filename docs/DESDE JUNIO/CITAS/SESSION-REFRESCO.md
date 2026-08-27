@@ -29,6 +29,71 @@ la tarjeta y en el modal del calendario — y al hacerlo se descubrió que **dos
 que crean citas se lo estaban comiendo**. Además la barra pasó de **9 botones a 5** con un menú
 "Más". Todo en **§11**. 🔴 **Nada de eso se ha visto en un navegador.**
 
+🆕 **2026-08-27 (`b5f70617` + `3e83814d`, deploy SUCCESS en `@healthcare/doctor`) — las NOTAS
+de la cita ya se ven, y el paciente es el titular de la tarjeta.**
+
+⚠️ **Qué está probado y qué no, con precisión** (el resto de esta sección se escribió antes de
+los dos commits de abajo): el usuario verificó **que las notas se ven** y que la tarjeta ya no
+dice "1 / 1" (`b5f70617` + `3e83814d`). Lo de después — el recorte a 3 renglones y el arreglo
+del párrafo (`67c3f106`, `1dca23b0`) — **no se ha visto en un navegador**.
+
+🔴 **La lección de esta tanda: un arreglo de UI que no viste correr puede ser un NO-OP.**
+`67c3f106` recortaba la nota a 3 renglones para que no estirara la tarjeta… pero la nota se
+pintaba en **UN SOLO renglón**, y recortar una línea a tres no hace nada. Compiló, pasó
+type-check y los cinco gates, se desplegó, y no cambió absolutamente nada en pantalla. El
+diagnóstico ("crece a lo alto") era falso: crecía **a lo ancho**.
+
+**La causa real** — vale para cualquier texto largo que se meta en esa tabla: la fila
+desplegada es un `td colSpan={6}` dentro de `overflow-x-auto` con `table-layout: auto`, y
+`StatusActions` mete botones con `whitespace-nowrap`. La fila crece a lo que pidan esos
+botones, la tabla se desborda a lo ancho, y al texto **le sobra ancho**, así que no se parte.
+Se arregló en `1dca23b0` con dos cosas que no son intercambiables:
+
+- **`max-w-[60ch]`** — lo vuelve párrafo pase lo que pase con el ancho de la fila. Esto **no**
+  se puede lograr con reglas de wrapping: hay que ACOTAR el ancho.
+- **`overflow-wrap: anywhere`** en vez de `break-words` — `break-word` **no** reduce el ancho
+  mín-contenido, así que una tira sin espacios (hay una real en prod: `"cscscscscs…"`, 68
+  chars seguidos) sigue ensanchando la tabla en lugar de partirse.
+
+**107 de las 482 citas de prod tenían notas** escritas al agendar (*"seguimiento Wegovy"*,
+*"Ecocardiograma de control anual"*, *"Entrega de Holter de 24 h"*) y **no se veían en NINGUNA
+pantalla**. Ahora salen en las **cinco** superficies donde uno abre una cita:
+
+| Dónde | Componente |
+|---|---|
+| tarjeta del día en `/dashboard` → su modal | `day-details/AppointmentDetailModal` |
+| `/dashboard/appointments` → modal de la cita | `BookingDetailModal` |
+| `/dashboard/appointments` → **fila desplegada de la tabla**, teléfono Y escritorio | `BookingsSection` (×2: la sección rinde tarjetas abajo de `sm` y tabla arriba) |
+| expediente del paciente → "Citas e Ingresos" | `patients/[id]/page` |
+
+Casi todo era de **PINTAR, no de traer**: los endpoints de citas y del calendario ya mandaban
+`notes` (usan `include`; el de slots hasta la selecciona explícita). **La excepción es el del
+expediente**, que selecciona campo por campo — ahí sí hubo que pedirla y devolverla (con smoke
+read-only contra prod del select modificado ANTES del push).
+
+🔴 **El `1 / 1 reservado` de la tarjeta era un ARTEFACTO, no un dato.** Una cita freeform
+—todas las de hoy— se normaliza a forma de slot con `currentBookings: 1, maxBookings: 1`
+**fijos** en `tasks/calendar/route.ts`, así que ese renglón SIEMPRE decía "1 / 1" — y era el
+texto grande de la tarjeta, con el nombre del paciente abajo en gris chico. Ahora manda el
+PACIENTE y el conteo sólo aparece si `maxBookings > 1` (slots viejos con cupo múltiple), donde
+sí informa algo. Es otra cara de lo mismo que ya está anotado: **el mecanismo de slots está
+obsoleto y sigue generando UI que miente.**
+
+⚠️ **Dos detalles que NO son cosméticos.** Viven en `components/citas/NotasCita.tsx` — UN solo
+bloque para las 5 superficies, con `tieneNotas()` exportado para que nadie recopie la regla:
+
+- **`trim()` antes de pintar** — hay **29** citas con `notes = ""`, y una sección "Notas" vacía
+  no se lee como "no hay notas": se lee como que algo falló al cargar;
+- **`whitespace-pre-wrap`** — las notas traen saltos de línea de verdad.
+
+🔒 **El texto puede venir del PACIENTE**: `notes` llega en el body del POST de citas, que
+también sirve al widget público. Se rinde como nodo de texto de React (que escapa) y **nunca**
+con `dangerouslySetInnerHTML`.
+
+📊 **Sólo 34 de las 107** citas con notas tienen expediente ligado: las otras 73 se ven en el
+dashboard y en `/appointments`, pero **no** en la lista del expediente, que por definición
+muestra las citas de ESE paciente.
+
 ---
 
 ## 1. Qué está en prod

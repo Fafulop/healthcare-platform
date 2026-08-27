@@ -1,5 +1,23 @@
 # 🔄 Refresco de sesión — LÉEME PRIMERO cada sesión
 
+> 🚫 **2026-08-27 (`433c546a`) — Conciliación Bancaria está OCULTA del menú.** No se va a usar
+> por ahora. **No es un borrado**: la página, sus rutas y sus endpoints siguen vivos; el flag
+> `CONCILIACION_BANCARIA_VISIBLE` en `apps/doctor/src/lib/ui-visibility.ts` la devuelve con un
+> `true`. Todo lo que este doc dice sobre conciliación sigue siendo cierto del CÓDIGO — sólo
+> que hoy nadie puede llegar ahí desde la interfaz.
+>
+> Se taparon las **DOS** navegaciones, que es la parte que se olvida: `Sidebar` (escritorio) y
+> `MobileDrawer` (teléfono). `BottomNav` no tenía entrada propia — su botón "Más" abre el
+> MobileDrawer. Verificado que no queda otra puerta: la única otra mención en la UI es texto de
+> la matriz de completitud, que no enlaza.
+>
+> 🔴 **La trampa para el día que se vuelva a prender el asistente:** la prosa del módulo `flujo`
+> RUTEA al doctor a esta página (*"los movimientos se concilian en la página Conciliación
+> Bancaria"*, `modules/flujo.ts`). Hoy es inocuo porque el asistente 🟢 también está oculto,
+> pero si se prende uno sin el otro va a mandar gente a una página sin entrada en el menú.
+> **`gate:prosa` NO lo caza**: mira tools y secciones por permiso, no si una página es
+> alcanzable desde la navegación.
+
 > Snapshot del estado, decisiones y próximos pasos del trabajo en **Flujo de Dinero**. Para una
 > sesión/LLM en frío: lee **este** archivo, luego el [`README.md`](README.md) (índice) y de ahí los
 > numerados. Última actualización: **2026-07-11**.
