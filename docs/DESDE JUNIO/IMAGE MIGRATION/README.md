@@ -4,8 +4,11 @@
 > PDFs fiscales, marketing) de **UploadThing** a **Cloudflare R2**: el análisis que llevó a
 > esa decisión y el plan para ejecutarla.
 >
-> **Estado (2026-08-27): DECIDIDO, NO EMPEZADO.** Hay análisis y plan; no hay una sola línea
-> de código.
+> **Estado (2026-08-27): DECIDIDO, NO EMPEZADO, Y YA NO URGE.** Hay análisis y plan; no hay
+> una sola línea de código. **Y al cerrar la sesión apareció una opción más barata que migrar:**
+> UploadThing tiene plan **gratuito de 2 GB** y usamos ~0.2 GB ⇒ se puede dejar de pagar los
+> $10/mes **sin mover nada**. Lee [`02-PLAN` §0](02-PLAN-migracion-a-r2.md) ANTES que el resto:
+> cambia cuándo conviene hacer esto y qué hay que confirmar primero.
 
 ## Archivos
 

@@ -8,6 +8,34 @@
 
 ---
 
+## 0. 🆕 2026-08-27 (al cerrar la sesión) — hay una opción MÁS BARATA que migrar: no pagar
+
+El plan de abajo sigue siendo correcto, pero **el disparador dejó de ser urgente**. UploadThing
+tiene un **plan gratuito de 2 GB** y nosotros usamos **~0.2 GB**: se puede **bajar al plan
+gratis y dejar de pagar los $10/mes SIN migrar nada**. Los 232 archivos siguen donde están,
+todo sigue funcionando, y la migración se hace el día que de verdad convenga.
+
+**Eso hace desaparecer el argumento del dinero.** Quedan dos, y conviene tenerlos separados:
+
+1. **El costo de migrar escala con los datos.** Hoy son 232 archivos; a 100 GB es otro
+   proyecto. Sigue siendo cierto — sólo que ya no urge, porque a este ritmo faltan años.
+2. 🔴 **La exposición de las imágenes clínicas NO la arregla ningún plan.** Hoy se sirven en
+   URLs públicas permanentes: inadivinables, pero sin autenticación y para siempre.
+
+> ⚠️ **Y aquí está la trampa de bajarse al plan gratis:** según la página de precios de
+> UploadThing (verificada 2026-08-27), *"Regions and private files"* aparece en los planes de
+> **$10 y $25**, y **no** en el gratuito. O sea que **bajar a gratis puede CERRAR la puerta a
+> los archivos privados** — justo la herramienta con la que se arreglaría la exposición de
+> arriba. Hay que confirmarlo con ellos antes de bajar el plan: si es así, la decisión real no
+> es "pagar o no pagar", sino **"pagar $10 por privacidad, o migrar a R2 y tenerla gratis"**.
+
+**Lo primero que debe hacer la próxima sesión, antes que nada:** entrar al panel de UploadThing
+y confirmar (a) cuánto ocupa el bucket DE VERDAD —el 232 sale de la BASE y no cuenta huérfanos,
+así que podríamos estar más cerca de los 2 GB de lo que creemos— y (b) si el plan gratuito
+permite archivos privados. Con esas dos respuestas la decisión se toma sola.
+
+---
+
 ## 1. La idea en una frase
 
 **Los archivos NUEVOS van a R2; los 232 viejos se quedan en UploadThing hasta que se muevan a
@@ -117,6 +145,7 @@ frozen lockfile).
 | Fecha | Fase | Qué pasó |
 |---|---|---|
 | 2026-08-27 | — | Análisis y decisión (R2). Plan escrito. **Sin código.** Falta: cuenta de Cloudflare con R2, bucket(s) y token S3 en Railway. |
+| 2026-08-27 | — | **Se descubrió el plan GRATUITO de 2 GB de UploadThing** (usamos ~0.2 GB) ⇒ se puede dejar de pagar sin migrar. La migración deja de ser urgente; ver §0. 🔴 Pendiente confirmar en su panel: ocupación REAL del bucket y si el plan gratis permite archivos privados. |
 
 ---
 
