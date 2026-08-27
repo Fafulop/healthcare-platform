@@ -1,4 +1,5 @@
 import { Calendar, User, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Phone, Mail, DollarSign, ChevronsUpDown, MapPin } from "lucide-react";
+import { NotasCita } from "@/components/citas/NotasCita";
 import { useState, Fragment } from "react";
 import { formatLocalDate } from "@/lib/dates";
 import { resolverContacto } from "@/lib/booking-contact";
@@ -376,6 +377,9 @@ export function BookingsSection({
                            esto, cualquier clic en el modal burbujea, colapsa la tarjeta
                            y desmonta el modal a media captura. */
                         <StopClick className="border-t border-gray-200 pt-2">
+                          {/* Las notas van ARRIBA de las acciones: son el contexto con el
+                              que decides qué hacer, no una acción más. */}
+                          <NotasCita notes={booking.notes} className="mb-2" />
                           <StatusActions
                             booking={booking}
                             onUpdateStatus={onUpdateStatus}
@@ -532,6 +536,7 @@ export function BookingsSection({
                         {isExpanded && (
                           <tr className="bg-gray-50 border-b border-gray-200 last:border-b-0">
                             <td colSpan={6} className="px-3 pb-3 pt-0">
+                              <NotasCita notes={booking.notes} className="mb-2" />
                               <StatusActions
                                 booking={booking}
                                 layout="expanded"

@@ -1,6 +1,7 @@
 'use client';
 
-import { X, Clock, User, Mail, Phone, ExternalLink, StickyNote } from 'lucide-react';
+import { X, Clock, User, Mail, Phone, ExternalLink } from 'lucide-react';
+import { NotasCita } from '@/components/citas/NotasCita';
 import Link from 'next/link';
 
 const BOOKING_STATUS_COLORS: Record<string, string> = {
@@ -108,18 +109,7 @@ export function AppointmentDetailModal({ slot, onClose, zIndex = 'z-50' }: Props
                   </div>
                   {/* Notas de la cita. Sólo si hay texto: `trim()` porque en prod hay
                       29 citas con notes = "" y una sección vacía se lee como un error. */}
-                  {booking.notes?.trim() && (
-                    <div className="pt-1.5 mt-1.5 border-t border-gray-200">
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1">
-                        <StickyNote className="w-3.5 h-3.5 flex-shrink-0 text-amber-500" />
-                        Notas de la cita
-                      </div>
-                      {/* whitespace-pre-wrap: las notas traen saltos de línea de verdad. */}
-                      <p className="text-xs text-gray-600 whitespace-pre-wrap break-words">
-                        {booking.notes.trim()}
-                      </p>
-                    </div>
-                  )}
+                  <NotasCita notes={booking.notes} className="pt-1.5 mt-1.5 border-t border-gray-200" />
                 </div>
               ))}
             </div>

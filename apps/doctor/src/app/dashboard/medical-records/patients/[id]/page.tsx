@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { NotasCita } from "@/components/citas/NotasCita";
 import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, Sparkles, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -647,11 +648,7 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                         agendar ("seguimiento Wegovy") y que hasta hoy no se veía en
                         ninguna pantalla. `trim()`: hay citas con notes = "" y un
                         bloque vacío se lee como un error de carga. */}
-                    {b.notes?.trim() && (
-                      <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap break-words bg-amber-50 border border-amber-100 rounded px-2 py-1">
-                        {b.notes.trim()}
-                      </p>
-                    )}
+                    <NotasCita notes={b.notes} conEtiqueta={false} className="mt-1" />
                     {/* El PAPELEO de un vistazo. Los DOS veredictos —cobro y
                         factura— los resuelve el servidor; aquí no se deduce nada. */}
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5">

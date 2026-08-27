@@ -25,6 +25,7 @@
  */
 
 import { X, MapPin } from "lucide-react";
+import { NotasCita, tieneNotas } from "@/components/citas/NotasCita";
 import { formatLocalDate } from "@/lib/dates";
 import { resolverContacto } from "@/lib/booking-contact";
 import { resolveBookingTime } from "../_lib/event-model";
@@ -168,13 +169,11 @@ export function BookingDetailModal({
               dato administrativo, y hasta hoy no se veían en NINGUNA pantalla.
               `trim()`: en prod hay 29 citas con notes = "", y una sección vacía se lee
               como un error de carga. */}
-          {booking.notes?.trim() && (
+          {tieneNotas(booking.notes) && (
             <div>
               <SectionLabel>Notas</SectionLabel>
-              {/* whitespace-pre-wrap: las notas traen saltos de línea de verdad. */}
-              <p className="text-sm text-gray-700 whitespace-pre-wrap break-words bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
-                {booking.notes.trim()}
-              </p>
+              {/* Ya hay rótulo (SectionLabel), así que el bloque va sin su etiqueta. */}
+              <NotasCita notes={booking.notes} conEtiqueta={false} />
             </div>
           )}
 
