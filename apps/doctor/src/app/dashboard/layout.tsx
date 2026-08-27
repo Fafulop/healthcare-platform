@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import { WIDGET_AYUDA_VISIBLE } from "@/lib/ui-visibility";
 import { redirect } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, ChevronRight, ChevronLeft } from "lucide-react";
@@ -156,7 +157,8 @@ export default function DashboardRootLayout({
           <div className={widgetsCollapsed ? "hidden" : ""}>
             <VoiceAssistantHubWidget />
             <DayDetailsWidget />
-            <ChatWidget />
+            {/* El del signo de interrogación (HelpCircle) — oculto, ver ui-visibility.ts */}
+            {WIDGET_AYUDA_VISIBLE && <ChatWidget />}
           </div>
         </div>
       </PracticeUIProvider>

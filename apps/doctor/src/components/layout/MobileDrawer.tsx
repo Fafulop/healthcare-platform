@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
+import { CONCILIACION_BANCARIA_VISIBLE } from "@/lib/ui-visibility";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { pagePermissionKey } from "@healthcare/database";
@@ -269,13 +270,15 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               active={pathname.startsWith("/dashboard/sat-descarga")}
               onClick={onClose}
             />
-            <NavItem
-              icon={Landmark}
-              label="Conciliación Bancaria"
-              href="/dashboard/practice/conciliacion-bancaria"
-              active={pathname.startsWith("/dashboard/practice/conciliacion-bancaria")}
-              onClick={onClose}
-            />
+            {CONCILIACION_BANCARIA_VISIBLE && (
+              <NavItem
+                icon={Landmark}
+                label="Conciliación Bancaria"
+                href="/dashboard/practice/conciliacion-bancaria"
+                active={pathname.startsWith("/dashboard/practice/conciliacion-bancaria")}
+                onClick={onClose}
+              />
+            )}
             <NavItem
               icon={ShoppingCart}
               label="Ventas"

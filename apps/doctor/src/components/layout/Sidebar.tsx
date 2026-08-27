@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CONCILIACION_BANCARIA_VISIBLE } from "@/lib/ui-visibility";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -260,12 +261,14 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             href="/dashboard/sat-descarga"
             active={pathname?.startsWith("/dashboard/sat-descarga")}
           />
-          <NavItem
-            icon={Landmark}
-            label="Conciliación Bancaria"
-            href="/dashboard/practice/conciliacion-bancaria"
-            active={pathname?.startsWith("/dashboard/practice/conciliacion-bancaria")}
-          />
+          {CONCILIACION_BANCARIA_VISIBLE && (
+            <NavItem
+              icon={Landmark}
+              label="Conciliación Bancaria"
+              href="/dashboard/practice/conciliacion-bancaria"
+              active={pathname?.startsWith("/dashboard/practice/conciliacion-bancaria")}
+            />
+          )}
           <NavItem
             icon={ShoppingCart}
             label="Ventas"
