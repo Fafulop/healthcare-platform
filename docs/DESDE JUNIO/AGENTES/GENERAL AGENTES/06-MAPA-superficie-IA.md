@@ -94,6 +94,11 @@ validación server-side + fold sobre working copy + ⚠️ visible cuando no se 
 
 - **Token logging:** TODO endpoint LLM llama `logTokenUsage` (`lib/ai/log-token-usage.ts`,
   tabla `llm_token_usage`). El budget cap semanal (2M cost-weighted) es SOLO del agente.
+  Desde 2026-08-27 esas filas también se traducen a **dinero por doctor** y a **qué función
+  usó**, y las de voz llevan `surface` (de qué pantalla salieron). El costo NO es
+  `totalTokens × un precio`: hay que agrupar por modelo, el asistente se cobra por
+  `budgetTokens` y Whisper por minuto — las trampas, medidas, en
+  [`../INVENTARIO IA/02-COSTO-y-uso-por-doctor.md`](../INVENTARIO%20IA/02-COSTO-y-uso-por-doctor.md).
 - **`lib/ai` vs `lib/agenda-agent/anthropic.ts`:** `lib/ai` es la factory genérica
   (OpenAI implementado; el provider Anthropic ahí es un STUB que lanza — no usarlo).
   Para Anthropic se usa `callClaude` directamente. Consolidarlos es cleanup futuro.

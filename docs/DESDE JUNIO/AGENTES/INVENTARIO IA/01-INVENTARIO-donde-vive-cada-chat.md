@@ -10,6 +10,14 @@
 > (las 3 arquitecturas y el porqué de cada una); **este doc es el índice de UBICACIÓN y
 > PROVEEDOR**. Si difieren, gana el código.
 >
+> ⚠️ **Ojo con DOS nombres para lo mismo.** Las tablas de abajo usan la **RUTA** del endpoint
+> (`/api/llm-assistant/chat`, `…/reports/[reportId]/chat`). Lo que se **GUARDA** en
+> `llm_token_usage.endpoint` —y lo que ves en el admin— es una etiqueta más corta que escribe
+> cada ruta a mano: `llm-assistant`, `informe-chat`, `informe-dictado`, `voice-transcribe`…
+> Son **18** literales; la lista exacta sale de
+> `grep -rhoE "endpoint: '[^']+'" apps/doctor/src`, y su traducción a nombre humano vive en
+> `apps/api/src/lib/llm-features.ts`. Buscar por la ruta en la base de datos no encuentra nada.
+>
 > 🔎 **Cómo se levantó** (repetible cuando dudes que esté al día):
 > `grep -rlniE "openai|anthropic|callClaude|getChatProvider|gpt-4|whisper" apps packages --include=*.ts --include=*.tsx`
 > y de ahí hacia la UI siguiendo el `fetch('/api/…')`.
@@ -125,6 +133,8 @@ C+ valida cada campo contra la hoja real antes de devolverlo, y lo que no pasa l
   aplanar shapes anidados o inventar nombres, y **el cliente aplica NADA mientras el chat dice
   "listo"**. La plantilla para arreglarlo es la migración del form-builder (`66d90b17`): tools con
   schema, `additionalProperties:false`, validación server-side y cliente honesto.
+- **Cuánto cuesta cada uno y quién lo usa** se mide desde 2026-08-27 — dónde verlo y las
+  trampas del cálculo: [`02-COSTO-y-uso-por-doctor.md`](02-COSTO-y-uso-por-doctor.md).
 - **El asistente 🟢 está OCULTO de la UI** desde 2026-08-27 (`ASISTENTE_IA_VISIBLE = false`).
   Sigue vivo en el código y su endpoint sigue respondiendo — ver
   [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md).

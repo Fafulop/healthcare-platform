@@ -14,6 +14,7 @@
 | Archivo | Qué es |
 |---|---|
 | [`01-INVENTARIO-donde-vive-cada-chat.md`](01-INVENTARIO-donde-vive-cada-chat.md) | **La lista completa** — 2 en Anthropic, 17 en OpenAI, con pantalla · componente · hook · endpoint · modelo |
+| [`02-COSTO-y-uso-por-doctor.md`](02-COSTO-y-uso-por-doctor.md) | **Cuánto gasta cada doctor y qué funciones usa** (en prod 2026-08-27): dónde se ve en el admin, las 4 trampas del costo, y `surface` — de qué pantalla salió la voz |
 
 ## Lo que hay que recordar aunque no leas nada más
 
@@ -24,6 +25,8 @@
 3. **`AGENDA_AGENT_MODEL` mueve DOS superficies**, no una: el form-builder cae a esa variable si
    `FORM_BUILDER_CHAT_MODEL` no está puesta — y el form-builder tiene **0 evals**.
 4. **Toda la IA vive en `apps/doctor`.** `apps/api` y `packages/*` no tienen ni una llamada LLM.
+5. **El costo NO es `totalTokens × un precio`** — hay que agrupar por modelo, el asistente se
+   cobra por `budgetTokens` (si no, 3.94× de más) y Whisper por minuto. Todo en el `02`.
 
 ## Tipo de documento
 
