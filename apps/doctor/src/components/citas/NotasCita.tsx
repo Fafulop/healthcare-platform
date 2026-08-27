@@ -8,17 +8,27 @@
  * en su versión de teléfono y en la de escritorio). Cinco copias del mismo bloque se
  * separan en silencio: basta que alguien arregle el recorte en una y no en las otras.
  *
- * Tres decisiones que NO son cosméticas y por eso viven aquí y no en cada llamada:
+ * Cinco decisiones que NO son cosméticas y por eso viven aquí y no en cada llamada:
  *
  * 1. **`trim()` antes de decidir si se pinta.** En prod hay 29 citas con `notes = ""`
  *    (frente a 107 con texto real). Una sección "Notas" vacía no se lee como "no hay
  *    notas": se lee como que algo falló al cargar.
  * 2. **`whitespace-pre-wrap`.** Las notas traen saltos de línea de verdad
  *    ("Seguimiento Wegovy\n"), y colapsarlos junta renglones que el doctor separó.
- * 3. **En las LISTAS se recorta a 3 renglones** (`recortable`). Una nota larga estiraba
- *    la tarjeta y empujaba las acciones fuera de vista: hoy el promedio es de 25 chars,
- *    pero el campo admite **2000** y ya hay una de 250. En los MODALES no se recorta —
- *    ahí es donde uno va a LEER, y además tienen scroll propio.
+ * 3. **`max-w-[60ch]` — que sea un PÁRRAFO y no un renglón kilométrico.** Sin esto la
+ *    nota NO se parte en la tabla de citas: la fila desplegada es un `td colSpan=6`
+ *    dentro de `overflow-x-auto` con `table-layout: auto`, y `StatusActions` mete
+ *    botones con `whitespace-nowrap`. La fila crece a lo que pidan esos botones, la
+ *    tabla se desborda a lo ancho y el texto, con todo ese ancho disponible, no tiene
+ *    por qué cortarse. Un ancho máximo en `ch` lo vuelve párrafo pase lo que pase con
+ *    la fila.
+ * 4. **`overflow-wrap: anywhere`, no `break-words`.** `break-word` NO reduce el ancho
+ *    mín-contenido, así que una tira sin espacios —hay una real en prod:
+ *    `"cscscscscs…"`— sigue ensanchando la tabla en vez de partirse. `anywhere` sí.
+ * 5. **En las LISTAS se recorta a 3 renglones** (`recortable`). Ya siendo párrafo, una
+ *    nota larga seguiría estirando la tarjeta: hoy el promedio es de 25 chars, pero el
+ *    campo admite **2000** y ya hay una de 250. En los MODALES no se recorta — ahí es
+ *    donde uno va a LEER, y además tienen scroll propio.
  *
  * ⚠️ El texto puede venir del PACIENTE: `notes` llega en el body del POST de citas, que
  * también sirve al widget público. Se rinde como nodo de texto de React (que escapa) y
@@ -93,7 +103,7 @@ export function NotasCita({
       )}
       <p
         ref={ref}
-        className={`text-xs text-gray-700 whitespace-pre-wrap break-words bg-amber-50 border border-amber-100 rounded px-2 py-1.5 ${
+        className={`text-xs text-gray-700 whitespace-pre-wrap [overflow-wrap:anywhere] max-w-[60ch] bg-amber-50 border border-amber-100 rounded px-2 py-1.5 ${
           recortar ? 'line-clamp-3' : ''
         }`}
       >
