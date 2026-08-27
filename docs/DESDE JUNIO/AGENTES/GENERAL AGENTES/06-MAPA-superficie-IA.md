@@ -5,6 +5,12 @@
 > IA (~15 endpoints) no tenía NINGUNO: cada sesión que tocaba "la funcionalidad de IA" la
 > redescubría a mano. Creado 2026-07-18 tras migrar form-builder-chat. La verdad es el
 > código; este doc es el mapa y dice dónde está cada cosa.
+>
+> 📋 **Para "¿dónde se abre y a quién le habla?" ve a
+> [`../INVENTARIO IA/`](../INVENTARIO%20IA/README.md)** (levantado del código 2026-08-27):
+> pantalla · componente · hook · endpoint · modelo, para las **19** superficies. **Este doc se
+> queda con el PORQUÉ** (las 3 arquitecturas, la debilidad de C, cómo migrar de C a B). Al
+> agregar una superficie hay que tocar los dos: aquí su arquitectura, allá su ubicación.
 
 ---
 
@@ -12,7 +18,7 @@
 
 | Arquitectura | Quién la usa | Modelo | Cliente |
 |---|---|---|---|
-| **A. Agente con tool loop** (lecturas autónomas + propuestas confirmadas, caché, evals, budget) | el asistente (`/api/agenda-agent`) | `claude-sonnet-5` (`AGENDA_AGENT_MODEL`) | `lib/agenda-agent/anthropic.ts` (`callClaude`, raw fetch) |
+| **A. Agente con tool loop** (lecturas autónomas + propuestas confirmadas, caché, evals, budget) | el asistente (`/api/agenda-agent`) | **`claude-haiku-4-5`** (`AGENDA_AGENT_MODEL`) ⚠️ corregido 2026-08-27: decía `claude-sonnet-5`; el default vive en `run-turn.ts:54` | `lib/agenda-agent/anthropic.ts` (`callClaude`, raw fetch) |
 | **B. Chat single-shot con tool_use** (canvas/form manipulado por tools con schema, envelope `{message, actions[]}`, validación server-side, cliente honesto) | `form-builder-chat` (migrado 2026-07-18, `66d90b17`) | `claude-sonnet-5` (`FORM_BUILDER_CHAT_MODEL \|\| AGENDA_AGENT_MODEL`) | el mismo `callClaude` |
 | **C. Chat single-shot jsonMode** (el modelo devuelve UN JSON `{message, action, ...}`; sin validación del payload; el mensaje de éxito se escribe ANTES de aplicar) | la familia `*-chat` heredada (abajo) | `gpt-4o` / `gpt-4o-mini` | `lib/ai` (`getChatProvider`, `LLM_PROVIDER`, default openai) |
 
@@ -36,7 +42,7 @@ validación server-side + fold sobre working copy + ⚠️ visible cuando no se 
 
 | Endpoint (`/api/...`) | Arq. | Modelo | Qué hace | Notas |
 |---|---|---|---|---|
-| `agenda-agent` | A | claude-sonnet-5 | EL asistente (39 tools / 5 módulos) | docs propios: esta carpeta + `AGENTE */` |
+| `agenda-agent` | A | **claude-haiku-4-5** | EL asistente (38 tools / 5 módulos) · 🚫 **oculto de la UI 2026-08-27** | docs propios: esta carpeta + `AGENTE */` |
 | `form-builder-chat` | **B** | claude-sonnet-5 | construye/edita plantillas custom en el FormBuilder | migrado 2026-07-18; validación compartida en `lib/custom-template-validation.ts` |
 | `encounter-chat` | C | gpt-4o | llena el form de consulta | |
 | `prescription-chat` | C | gpt-4o | llena el form de receta (meds/estudios con acciones) | |
@@ -46,7 +52,8 @@ validación server-side + fold sobre working copy + ⚠️ visible cuando no se 
 | `sale-chat` | C | gpt-4o-mini | llena ventas | |
 | `purchase-chat` | C | gpt-4o-mini | llena compras | |
 | `quotation-chat` | C | gpt-4o-mini | llena cotizaciones | |
-| `appointments-chat` | C | gpt-4o | ChatWidget v1 (RAG) — **RETIRO planeado en PR 4** (no migrar, morir) | pipeline RAG completo muere con él (04-PLAN §2) |
+| `appointments-chat` | C | gpt-4o | el chat v1 de la AGENDA (`AppointmentChatPanel`, montado en `/dashboard/appointments/v1`) — **RETIRO planeado en PR 4** (no migrar, morir) | ⚠️ corregido 2026-08-27: este renglón decía "ChatWidget v1 (RAG)", que es el endpoint de ABAJO. Son DOS chats distintos |
+| `llm-assistant/chat` | C | gpt-4o-mini | **el ChatWidget flotante** (RAG sobre los docs), montado en `app/dashboard/layout.tsx` ⇒ visible en TODO el dashboard | ⚠️ faltaba en este inventario (agregado 2026-08-27). Su modelo NO vive con los demás: `lib/llm-assistant/constants.ts` (`LLM_MODEL`). El pipeline RAG muere con él en PR 4 (04-PLAN §2) |
 | `voice/transcribe` | — | whisper-1 | audio → texto | alimenta a varios chats (incl. form-builder) |
 | `voice/structure` | C | gpt-4o | transcript → campos estructurados (incl. plantillas custom) | prompts en `lib/voice-assistant/` |
 | `voice/chat` | C | gpt-4o | conversación del voice assistant | |
