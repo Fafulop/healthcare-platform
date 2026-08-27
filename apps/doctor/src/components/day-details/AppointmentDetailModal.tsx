@@ -109,7 +109,7 @@ export function AppointmentDetailModal({ slot, onClose, zIndex = 'z-50' }: Props
                   </div>
                   {/* Notas de la cita. Sólo si hay texto: `trim()` porque en prod hay
                       29 citas con notes = "" y una sección vacía se lee como un error. */}
-                  <NotasCita notes={booking.notes} className="pt-1.5 mt-1.5 border-t border-gray-200" />
+                  <NotasCita notes={booking.notes} recortable={false} className="pt-1.5 mt-1.5 border-t border-gray-200" />
                 </div>
               ))}
             </div>

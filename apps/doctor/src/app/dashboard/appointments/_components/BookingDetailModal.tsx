@@ -173,7 +173,7 @@ export function BookingDetailModal({
             <div>
               <SectionLabel>Notas</SectionLabel>
               {/* Ya hay rótulo (SectionLabel), así que el bloque va sin su etiqueta. */}
-              <NotasCita notes={booking.notes} conEtiqueta={false} />
+              <NotasCita notes={booking.notes} conEtiqueta={false} recortable={false} />
             </div>
           )}
 
