@@ -64,6 +64,10 @@ export interface Booking {
   createdAt: string;
   serviceId?: string | null;
   serviceName?: string | null;
+  /** Notas que el doctor escribió AL AGENDAR la cita. El endpoint las devuelve desde
+   *  siempre (usa `include`, no `select`), pero no se pintaban en ningún lado: 107 de
+   *  las 482 citas de prod tienen texto real aquí. Puede venir "" — tratar como vacío. */
+  notes?: string | null;
   /** Consultorio donde ocurre la cita. Se elige al agendar.
    *  ⚠️ `null` = NO REGISTRADO, no "el de siempre": ninguna cita anterior al
    *  2026-08-06 lo guardó. La UI lo dice explícitamente en vez de suponer el

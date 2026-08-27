@@ -43,6 +43,10 @@ export async function GET(
         serviceName: true,
         appointmentMode: true,
         finalPrice: true,
+        // Las notas que el doctor escribió al AGENDAR. A diferencia de los otros dos
+        // endpoints de citas (que usan `include` y ya las mandaban), éste selecciona
+        // campo por campo, así que había que pedirlas explícitamente.
+        notes: true,
         // La casilla "¿Necesita factura?" de la tabla de citas. Es una pregunta
         // por CITA y no se deduce de `patient.requiereFactura`, que contesta otra
         // ("¿tenemos su RFC?", ver bookings/route.ts en apps/api).
@@ -190,6 +194,7 @@ export async function GET(
         status: b.status,
         appointmentMode: b.appointmentMode ?? null,
         finalPrice: b.finalPrice ? Number(b.finalPrice) : null,
+        notes: b.notes ?? null,
         formLinkId: b.formLink?.status === 'SUBMITTED' ? (b.formLink.id ?? null) : null,
         facturaSolicitada: b.facturaSolicitada ?? null,
         // Financial

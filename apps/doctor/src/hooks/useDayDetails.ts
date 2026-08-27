@@ -22,6 +22,10 @@ interface Booking {
   patientEmail: string;
   patientPhone: string;
   status: string;
+  /** Notas de la cita. El endpoint `tasks/calendar` ya las mandaba; se declaran aquí
+   *  para que el tipo diga la verdad sobre lo que llega (`AppointmentDetailModal` las
+   *  pinta). Puede venir "" — tratar como vacío. */
+  notes?: string | null;
 }
 
 interface AppointmentSlot {

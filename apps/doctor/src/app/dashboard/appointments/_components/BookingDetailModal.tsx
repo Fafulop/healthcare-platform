@@ -163,6 +163,21 @@ export function BookingDetailModal({
             )}
           </div>
 
+          {/* Notas de la cita — lo que el doctor escribió al agendarla. Van ARRIBA de
+              precio/factura porque son contexto clínico ("seguimiento Wegovy"), no un
+              dato administrativo, y hasta hoy no se veían en NINGUNA pantalla.
+              `trim()`: en prod hay 29 citas con notes = "", y una sección vacía se lee
+              como un error de carga. */}
+          {booking.notes?.trim() && (
+            <div>
+              <SectionLabel>Notas</SectionLabel>
+              {/* whitespace-pre-wrap: las notas traen saltos de línea de verdad. */}
+              <p className="text-sm text-gray-700 whitespace-pre-wrap break-words bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
+                {booking.notes.trim()}
+              </p>
+            </div>
+          )}
+
           {/* Precio y la casilla, juntos como en la columna PRECIO de la tabla.
               La casilla va SIN rótulo, igual que allá: ya se rotula a sí misma ("¿Necesita
               factura?"), y un encabezado "Factura" aquí chocaría con el grupo FACTURA que

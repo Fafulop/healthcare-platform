@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Clock, User, Mail, Phone, ExternalLink } from 'lucide-react';
+import { X, Clock, User, Mail, Phone, ExternalLink, StickyNote } from 'lucide-react';
 import Link from 'next/link';
 
 const BOOKING_STATUS_COLORS: Record<string, string> = {
@@ -25,6 +25,10 @@ export interface Booking {
   patientEmail: string;
   patientPhone: string;
   status: string;
+  /** Notas que el doctor escribió AL AGENDAR. Ya venían en el payload —
+   *  `tasks/calendar/route.ts` y el endpoint de slots las seleccionan— pero no se
+   *  pintaban en ningún lado: 107 de 482 citas de prod tienen texto real aquí. */
+  notes?: string | null;
 }
 
 export interface AppointmentSlot {
@@ -72,9 +76,12 @@ export function AppointmentDetailModal({ slot, onClose, zIndex = 'z-50' }: Props
 
         {/* Body */}
         <div className="px-5 py-4 space-y-3">
-          <p className="text-sm text-gray-600">
-            <span className="font-medium">{slot.currentBookings}</span> / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
-          </p>
+          {/* Sólo cuando el cupo es múltiple: en una cita freeform siempre sería "1 / 1". */}
+          {slot.maxBookings > 1 && (
+            <p className="text-sm text-gray-600">
+              <span className="font-medium">{slot.currentBookings}</span> / {slot.maxBookings} reservados
+            </p>
+          )}
 
           {activeBookings.length === 0 ? (
             <p className="text-sm text-gray-400 italic">Sin reservas activas</p>
@@ -99,6 +106,20 @@ export function AppointmentDetailModal({ slot, onClose, zIndex = 'z-50' }: Props
                     <Phone className="w-3.5 h-3.5 flex-shrink-0" />
                     {booking.patientPhone}
                   </div>
+                  {/* Notas de la cita. Sólo si hay texto: `trim()` porque en prod hay
+                      29 citas con notes = "" y una sección vacía se lee como un error. */}
+                  {booking.notes?.trim() && (
+                    <div className="pt-1.5 mt-1.5 border-t border-gray-200">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1">
+                        <StickyNote className="w-3.5 h-3.5 flex-shrink-0 text-amber-500" />
+                        Notas de la cita
+                      </div>
+                      {/* whitespace-pre-wrap: las notas traen saltos de línea de verdad. */}
+                      <p className="text-xs text-gray-600 whitespace-pre-wrap break-words">
+                        {booking.notes.trim()}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -178,15 +178,32 @@ export function DayItineraryContent({ tasks, slots, loading, onToggleComplete }:
                           <span className="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">Cita</span>
                           <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${slotStatus.color}`}>{slotStatus.label}</span>
                         </div>
-                        <p className={`font-medium text-sm ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}>
-                          {slot.currentBookings} / {slot.maxBookings} reservado{slot.maxBookings > 1 ? 's' : ''}
-                        </p>
-                        {activeBookings.length > 0 && (
-                          <div className="mt-1.5 space-y-1">
+                        {/* El PACIENTE es el titular de la tarjeta. Antes el renglón grande
+                            era "{currentBookings} / {maxBookings} reservado" y el nombre iba
+                            abajo en gris chico — pero una cita freeform (todas las de hoy)
+                            se normaliza con currentBookings:1 y maxBookings:1 en
+                            `tasks/calendar/route.ts`, así que ese renglón SIEMPRE decía
+                            "1 / 1" y no informaba nada. */}
+                        {activeBookings.length > 0 ? (
+                          <div className="space-y-0.5">
                             {activeBookings.map(booking => (
-                              <p key={booking.id} className="text-xs text-gray-600 truncate">• {booking.patientName}</p>
+                              <p
+                                key={booking.id}
+                                className={`font-semibold text-sm truncate ${hasTaskOverlap ? 'text-blue-700' : 'text-gray-900'}`}
+                              >
+                                {booking.patientName}
+                              </p>
                             ))}
                           </div>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">Sin reservas</p>
+                        )}
+                        {/* El conteo sólo cuando de verdad dice algo: un cupo múltiple
+                            (slots viejos). En 1/1 es ruido. */}
+                        {slot.maxBookings > 1 && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {slot.currentBookings} / {slot.maxBookings} reservados
+                          </p>
                         )}
                         {hasTaskOverlap && (
                           <p className="text-xs text-blue-600 font-medium mt-1">ℹ️ Pendiente a esta hora</p>
