@@ -26,6 +26,7 @@ import { BookingFieldSettingsModal } from "./_components/BookingFieldSettingsMod
 import { MenuMasAcciones } from "./_components/MenuMasAcciones";
 import { useAgentActions } from "@/contexts/AgentContext";
 import { usePermissions } from "@/lib/permissions-client";
+import { ASISTENTE_IA_VISIBLE } from "@/lib/agenda-agent/feature-flag";
 import type { Booking } from "./_hooks/useBookings";
 import type { ClinicLocation } from "./_hooks/useSlots";
 
@@ -304,7 +305,9 @@ export default function AppointmentsPage() {
             <span className="hidden sm:inline">Campos de Cita</span>
             <span className="sm:hidden">Campos</span>
           </button>
-          {can("asistente_ia") && (
+          {/* ASISTENTE_IA_VISIBLE lo oculta mientras no esté listo — ver
+              `lib/agenda-agent/feature-flag.ts`. */}
+          {ASISTENTE_IA_VISIBLE && can("asistente_ia") && (
             <button
               onClick={openAgentPanel}
               className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md transition-colors text-sm"

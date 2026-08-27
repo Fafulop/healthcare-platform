@@ -16,7 +16,16 @@
 > los conteos vigentes (tools/módulos/evals) en
 > [`../GENERAL AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md`](../GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4.
 
-## Estado (2026-07-22)
+## Estado (2026-08-27)
+
+> 🚫 **OCULTO DE LA UI desde 2026-08-27 — el asistente NO es alcanzable por un doctor.**
+> Se apagaron sus tres puertas en la interfaz (`ASISTENTE_IA_VISIBLE = false` en
+> `apps/doctor/src/lib/agenda-agent/feature-flag.ts`) porque no está listo para doctores
+> reales. **No es un borrado:** módulos, tools, prompt, ruta, evals y el permiso `asistente_ia`
+> siguen intactos, y `true` lo devuelve completo. Todo lo de abajo describe un sistema que
+> sigue vivo en el código pero que hoy nadie puede abrir.
+> ⚠️ **Los evals siguen verdes** — eso no dice nada sobre si la UI está prendida.
+> Detalle, trampas y cómo verificarlo: [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) (bloque de arriba).
 
 **PR 1 (lecturas) · PR 2 (rangos/bloqueos) · PR 3 (citas) — los tres VIVOS en prod y validados
 en vivo.** Después de PR 3, el trabajo se movió a los otros módulos (facturas, fiscal, flujo,

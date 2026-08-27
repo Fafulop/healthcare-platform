@@ -5,6 +5,7 @@ import { Sparkles } from "lucide-react";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { useAgentActions } from "@/contexts/AgentContext";
 import { AgendaAgentPanel } from "@/components/agent/AgendaAgentPanel";
+import { ASISTENTE_IA_VISIBLE } from "@/lib/agenda-agent/feature-flag";
 import Sidebar from "./Sidebar";
 import BottomNav from "./BottomNav";
 import MobileDrawer from "./MobileDrawer";
@@ -22,7 +23,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   // Members without the Asistente IA toggle get no panel at all (its API
   // route is blocked for them anyway — this hides the dead surface).
-  const agentAllowed = can("asistente_ia");
+  // ASISTENTE_IA_VISIBLE lo apaga para TODOS mientras no esté listo (ver
+  // `lib/agenda-agent/feature-flag.ts`): cubre el panel y su pestaña verde.
+  const agentAllowed = ASISTENTE_IA_VISIBLE && can("asistente_ia");
 
   const handleMoreClick = () => {
     setIsDrawerOpen(true);

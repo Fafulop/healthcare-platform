@@ -1,5 +1,54 @@
 # 🔄 Refresco de sesión — AGENTE AGENDA — LÉEME PRIMERO
 
+> ## 🚫 2026-08-27 — EL PANEL ESTÁ OCULTO DE LA UI (no borrado, no apagado)
+>
+> ### En una frase
+> El asistente **ya no tiene ninguna puerta en la interfaz del doctor**: se ocultó a propósito
+> porque no está listo para doctores reales. **El flujo entero sigue vivo e intacto** — los 5
+> módulos, las 38 tools, el prompt, `POST /api/agenda-agent`, los evals y el permiso
+> `asistente_ia`. No se borró ni una línea de comportamiento.
+>
+> ### El interruptor
+> `apps/doctor/src/lib/agenda-agent/feature-flag.ts` → **`ASISTENTE_IA_VISIBLE = false`**.
+> Ponerlo en `true` lo devuelve completo. Es lo único que hay que tocar.
+>
+> Cubre las **TRES —y únicas— superficies** que abrían el panel:
+>
+> | # | Dónde | Qué era |
+> |---|---|---|
+> | 1 | `components/layout/DashboardLayout.tsx` | el montaje del panel (punto ÚNICO de montaje) |
+> | 2 | `components/layout/DashboardLayout.tsx` | la pestaña verde del borde derecho (`Sparkles`) |
+> | 3 | `app/dashboard/appointments/page.tsx` | el botón verde **"Asistente"** de la barra |
+>
+> Las tres ya estaban detrás de `can("asistente_ia")`; ahora es
+> `ASISTENTE_IA_VISIBLE && can("asistente_ia")`. **Cómo se supo que son las únicas tres:**
+> `useAgentActions` es el único handle que puede abrir el panel, y en todo `apps/doctor/src`
+> aparece nada más en esos dos archivos + `app/dashboard/layout.tsx`, que solo LEE `isOpen`
+> para el ancho `--agent-dock` (queda en `0px`, que ya era su estado normal cerrado).
+>
+> ### ⚠️ Si vienes a prenderlo otra vez, lee esto ANTES
+> - **`false` NO significa "bandera vieja que alguien olvidó".** Es una decisión de producto de
+>   esta fecha. Antes de ponerlo en `true`, pregunta si el asistente ya está listo — no lo
+>   deduzcas de que los evals estén verdes.
+> - **Los evals SIGUEN corriendo verdes contra una feature que nadie puede alcanzar.** Verde
+>   aquí no dice nada sobre si la UI está prendida; corren sobre `run-turn`, no sobre la ruta
+>   ni sobre el panel (el punto ciego de siempre — `05-REFERENCIA-TECNICA` §10).
+> - **El toggle `asistente_ia` sigue visible en la pestaña Equipo** — a propósito, para no tocar
+>   la feature de permisos ni sus gates. O sea que un dueño puede prendérselo a un helper y no
+>   pasa nada. Es cosmético hoy; si molesta, ese cambio es aparte.
+> - **Esto OCULTA la puerta, no la CIERRA.** `POST /api/agenda-agent` sigue respondiéndole a un
+>   doctor con sesión que la llame directo. Nadie lo va a hacer sin querer, pero si algún día se
+>   necesita el candado de verdad, es otro cambio (guard en la ruta).
+>
+> ### Verificación
+> `pnpm type-check` (5/5) + `pnpm gates` (los CINCO) limpios. Los gates no tenían de qué
+> quejarse: no se tocó ni un número, ni una tool, ni la prosa de un módulo.
+> 🔴 **No se vio en un navegador.** El argumento es que un `false &&` en tiempo de compilación
+> no puede renderizar y que las tres puertas están cubiertas por el grep de arriba — pero eso es
+> razonamiento, no observación. La comprobación real es cargar `/dashboard/appointments`.
+> Sin code review, y a propósito: `05-METODO` §1 lo clasifica como mecánico/auto-anunciante
+> (fallo RUIDOSO — el botón está o no está), que es justo donde el review formal da cero.
+
 > ## 🆕 2026-08-11 — sólo la UI del panel, cero cambios de comportamiento
 >
 > `AgendaAgentPanel.tsx` se tocó en una sesión de UI transversal (`9670b7ea`, `1d6b3a42`). **No
