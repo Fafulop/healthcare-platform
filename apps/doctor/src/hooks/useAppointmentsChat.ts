@@ -594,6 +594,7 @@ export function useAppointmentsChat({ slots, bookings, onRefresh }: UseAppointme
     try {
       const fd = new FormData();
       fd.append('audio', audioBlob, 'recording.webm');
+      fd.append('surface', 'agenda-v1'); // qué pantalla — ver VOICE_SURFACES
       const res = await fetch('/api/voice/transcribe', { method: 'POST', body: fd });
       const json = await res.json();
 

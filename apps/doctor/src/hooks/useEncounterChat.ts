@@ -193,6 +193,7 @@ export function useEncounterChat({
     try {
       const fd = new FormData();
       fd.append('audio', audioBlob, 'recording.webm');
+      fd.append('surface', 'consulta'); // qué pantalla — ver VOICE_SURFACES
 
       const res = await fetch('/api/voice/transcribe', {
         method: 'POST',

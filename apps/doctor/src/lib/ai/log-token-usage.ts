@@ -16,6 +16,13 @@ interface LogTokenUsageParams {
   /** Cost-weighted tokens (cache-aware endpoints only — feeds the daily cap). */
   budgetTokens?: number;
   durationSeconds?: number; // for Whisper calls (no token data)
+  /**
+   * Pantalla que originó la llamada, para endpoints COMPARTIDOS por varias pantallas
+   * (hoy `voice-transcribe`, que llaman once). Sin esto, todas sus filas se ven iguales
+   * y no se puede saber si el doctor usa la voz en notas o en plantillas.
+   * Las llaves válidas están en `apps/api/src/lib/llm-features.ts` (VOICE_SURFACES).
+   */
+  surface?: string;
 }
 
 export function logTokenUsage(params: LogTokenUsageParams): void {
@@ -33,6 +40,7 @@ export function logTokenUsage(params: LogTokenUsageParams): void {
         totalTokens: params.usage.totalTokens,
         budgetTokens: params.budgetTokens ?? null,
         durationSeconds: params.durationSeconds ?? null,
+        surface: params.surface ?? null,
       },
     })
   );

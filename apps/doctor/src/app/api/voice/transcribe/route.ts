@@ -52,6 +52,15 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File | null;
     const language = (formData.get('language') as string) || 'es';
+    // De qué pantalla viene. Este endpoint lo llaman ONCE pantallas distintas y sin
+    // esto todas sus filas quedan indistinguibles en `llm_token_usage`. Se acota a 50
+    // chars (el ancho de la columna) y se cae a null: es un dato de analítica, jamás
+    // debe poder tumbar una transcripción.
+    const surfaceRaw = formData.get('surface');
+    const surface =
+      typeof surfaceRaw === 'string' && surfaceRaw.length > 0
+        ? surfaceRaw.slice(0, 50)
+        : undefined;
 
     // 3. Validate audio file exists
     if (!audioFile) {
@@ -171,6 +180,7 @@ export async function POST(request: NextRequest) {
       provider: 'openai',
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       durationSeconds: duration,
+      surface,
     });
 
     // 11. Return success response

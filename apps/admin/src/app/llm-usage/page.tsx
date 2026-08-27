@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Bot, Zap, MessageSquare, Users, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, Loader2, Bot, Zap, MessageSquare, Users, ChevronDown, ChevronRight, DollarSign } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { formatUsd } from "@/lib/format-usd";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
@@ -27,6 +28,8 @@ interface DoctorStats {
   promptTokens: number;
   completionTokens: number;
   requests: number;
+  /** USD estimados a precios de hoy. null = algun modelo sin precio en la tabla. */
+  costUsd: number | null;
   byEndpoint: EndpointStats[];
 }
 
@@ -37,6 +40,8 @@ interface LlmUsageData {
   totalRequests: number;
   promptTokens: number;
   completionTokens: number;
+  /** USD estimados de TODOS los doctores. null si a alguno le falto precio. */
+  totalCostUsd: number | null;
   uniqueDoctors: number;
   byDoctor: DoctorStats[];
   byEndpoint: EndpointStats[];
@@ -103,6 +108,7 @@ function DoctorRow({ doctor }: { doctor: DoctorStats }) {
         <td className="px-4 py-3 text-right text-gray-500">{doctor.promptTokens.toLocaleString()}</td>
         <td className="px-4 py-3 text-right text-gray-500">{doctor.completionTokens.toLocaleString()}</td>
         <td className="px-4 py-3 text-right font-semibold text-gray-900">{doctor.totalTokens.toLocaleString()}</td>
+        <td className="px-4 py-3 text-right font-semibold text-emerald-700">{formatUsd(doctor.costUsd)}</td>
       </tr>
       {expanded && doctor.byEndpoint.map((ep) => (
         <tr key={ep.endpoint} className="bg-blue-50 text-sm">
@@ -111,6 +117,10 @@ function DoctorRow({ doctor }: { doctor: DoctorStats }) {
           <td className="px-4 py-2 text-right text-gray-400">{ep.promptTokens.toLocaleString()}</td>
           <td className="px-4 py-2 text-right text-gray-400">{ep.completionTokens.toLocaleString()}</td>
           <td className="px-4 py-2 text-right text-gray-600 font-medium">{ep.totalTokens.toLocaleString()}</td>
+          {/* El costo NO se abre por endpoint: el precio depende del MODELO, y un mismo
+              endpoint pudo correr con mas de uno (el asistente cambio de Sonnet a Haiku).
+              Repartirlo por endpoint seria inventar. */}
+          <td className="px-4 py-2 text-right text-gray-300">—</td>
         </tr>
       ))}
     </>
@@ -194,7 +204,7 @@ export default function LlmUsagePage() {
         ) : data ? (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               <KpiCard
                 label="Tokens totales"
                 value={data.totalTokens}
@@ -210,6 +220,12 @@ export default function LlmUsagePage() {
                 label="Doctores activos"
                 value={data.uniqueDoctors}
                 icon={<Users className="w-4 h-4" />}
+              />
+              <KpiCard
+                label="Costo estimado"
+                value={formatUsd(data.totalCostUsd)}
+                sub="USD a precios de hoy"
+                icon={<DollarSign className="w-4 h-4" />}
               />
               <KpiCard
                 label="Promedio por solicitud"
@@ -257,6 +273,7 @@ export default function LlmUsagePage() {
                           <th className="px-4 py-3 text-right text-gray-600 font-medium">Tokens entrada</th>
                           <th className="px-4 py-3 text-right text-gray-600 font-medium">Tokens salida</th>
                           <th className="px-4 py-3 text-right text-gray-600 font-medium">Total tokens</th>
+                          <th className="px-4 py-3 text-right text-gray-600 font-medium" title="Estimado con los precios de HOY. Si un proveedor cambia tarifas, el costo del pasado cambia con el.">Costo USD (est.)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">

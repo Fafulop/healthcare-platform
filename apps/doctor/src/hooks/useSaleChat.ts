@@ -80,5 +80,5 @@ export function useSaleChat({ currentFormData, onUpdateFields, onUpdateItems }: 
     [currentFormData, onUpdateFields, onUpdateItems]
   );
 
-  return useBasePracticeChat({ idPrefix: 'sale_chat', makeApiCall });
+  return useBasePracticeChat({ idPrefix: 'sale_chat', surface: 'ventas', makeApiCall });
 }

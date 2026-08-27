@@ -84,5 +84,5 @@ export function usePurchaseChat({
     [currentFormData, onUpdateFields, onUpdateItems]
   );
 
-  return useBasePracticeChat({ idPrefix: 'purch_chat', makeApiCall });
+  return useBasePracticeChat({ idPrefix: 'purch_chat', surface: 'compras', makeApiCall });
 }

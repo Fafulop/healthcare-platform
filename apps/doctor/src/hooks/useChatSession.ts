@@ -9,6 +9,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { surfaceDeSesion } from '@/lib/voice/surfaces';
 import { useVoiceRecording, formatDuration } from './useVoiceRecording';
 import { useChatPersistence } from './useChatPersistence';
 import type {
@@ -478,6 +479,7 @@ export function useChatSession(options: UseChatSessionOptions): UseChatSessionRe
         // 1. Transcribe audio
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
+        formData.append('surface', surfaceDeSesion(sessionType)); // la PANTALLA, no el widget
         formData.append('language', 'es');
 
         const transcribeRes = await fetch('/api/voice/transcribe', {

@@ -175,6 +175,7 @@ export function usePatientNotes(patientId: string) {
           const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
           const formData = new FormData();
           formData.append('audio', blob, 'recording.webm');
+          formData.append('surface', 'notas-paciente'); // qué pantalla — ver VOICE_SURFACES
           const res = await fetch('/api/voice/transcribe', {
             method: 'POST',
             body: formData,

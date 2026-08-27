@@ -9,6 +9,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { surfaceDeSesion } from '@/lib/voice/surfaces';
 import { useVoiceRecording, formatDuration } from './useVoiceRecording';
 import type {
   VoiceSessionType,
@@ -116,6 +117,7 @@ export function useVoiceSession(options: UseVoiceSessionOptions): UseVoiceSessio
 
       const formData = new FormData();
       formData.append('audio', recording.audioBlob, 'recording.webm');
+      formData.append('surface', surfaceDeSesion(sessionType)); // la PANTALLA, no el widget
       formData.append('language', 'es');
 
       const transcribeRes = await fetch('/api/voice/transcribe', {

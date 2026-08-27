@@ -109,5 +109,5 @@ export function useLedgerChat({ accumulatedEntries, onUpdateEntries }: UseLedger
     [accumulatedEntries, onUpdateEntries]
   );
 
-  return useBasePracticeChat({ idPrefix: 'ledger_chat', makeApiCall });
+  return useBasePracticeChat({ idPrefix: 'ledger_chat', surface: 'flujo', makeApiCall });
 }

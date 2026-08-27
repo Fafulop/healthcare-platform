@@ -281,6 +281,20 @@ export async function POST(request: NextRequest) {
         completionTokens: response.usage.output_tokens,
         totalTokens: response.usage.input_tokens + response.usage.output_tokens,
       },
+      // Tokens ponderados por costo, con los MISMOS pesos que run-turn (uncached×1 ·
+      // cache read×0.1 · cache write×1.25 · output×5) — son los múltiplos de precio de
+      // Anthropic, así que esto × el precio de input = el costo real. Hoy este endpoint
+      // NO cachea (manda `system` como string pelado; el único cache_control del repo
+      // vive en run-turn), así que los dos términos de caché salen 0 — se dejan escritos
+      // para que el número siga siendo correcto el día que sí se cachee.
+      budgetTokens: Math.round(
+        (response.usage.input_tokens -
+          (response.usage.cache_read_input_tokens ?? 0) -
+          (response.usage.cache_creation_input_tokens ?? 0)) +
+          (response.usage.cache_read_input_tokens ?? 0) * 0.1 +
+          (response.usage.cache_creation_input_tokens ?? 0) * 1.25 +
+          response.usage.output_tokens * 5
+      ),
     });
 
     // Collect text + validated actions from the content blocks

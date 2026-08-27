@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, BarChart2, ChevronUp, ChevronDown } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { formatUsd } from "@/lib/format-usd";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
@@ -25,15 +26,41 @@ interface FeatureCounts {
   llmTotalTokens: number;
 }
 
+interface FeatureDetail {
+  key: string;
+  label: string;
+  requests: number;
+  tokens: number;
+}
+
 interface DoctorRow {
   slug: string;
   name: string;
   specialty: string;
   createdAt: string;
   counts: FeatureCounts;
+  /** solicitudes por función de IA. Llave de voz: "voice-transcribe:<pantalla>". */
+  aiFeatures: Record<string, number>;
+  aiFeatureDetail: FeatureDetail[];
+  /** USD estimados a precios de hoy. null = algún modelo sin precio. */
+  aiCostUsd: number | null;
 }
 
-type SortKey = "name" | keyof FeatureCounts;
+interface FeatureMeta {
+  key: string;
+  label: string;
+  category: string;
+}
+
+/** El endpoint ahora devuelve un objeto, no un arreglo: trae también el catálogo. */
+interface FeatureUsageResponse {
+  doctors: DoctorRow[];
+  features: FeatureMeta[];
+  voiceFeatureKeys: { key: string; label: string }[];
+  unknownEndpoints: string[];
+}
+
+type SortKey = "name" | "aiCostUsd" | keyof FeatureCounts;
 type SortDir = "asc" | "desc";
 
 const COLUMNS: { key: SortKey; label: string; group: string }[] = [
@@ -50,6 +77,7 @@ const COLUMNS: { key: SortKey; label: string; group: string }[] = [
   { key: "products",      label: "Productos",     group: "Admin" },
   { key: "llmRequests",   label: "Solicitudes IA", group: "IA" },
   { key: "llmTotalTokens", label: "Tokens IA",    group: "IA" },
+  { key: "aiCostUsd",     label: "Costo USD (est.)", group: "IA" },
 ];
 
 const GROUP_COLORS: Record<string, string> = {
@@ -63,6 +91,8 @@ const GROUP_COLORS: Record<string, string> = {
 
 function getValue(row: DoctorRow, key: SortKey): string | number {
   if (key === "name") return row.name;
+  // null (sin precio) ordena como -1 para que no se confunda con $0 real.
+  if (key === "aiCostUsd") return row.aiCostUsd ?? -1;
   return row.counts[key as keyof FeatureCounts];
 }
 
@@ -81,7 +111,7 @@ export default function FeatureUsagePage() {
     },
   });
 
-  const [data, setData] = useState<DoctorRow[]>([]);
+  const [data, setData] = useState<FeatureUsageResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -117,7 +147,31 @@ export default function FeatureUsagePage() {
     }
   }
 
-  const sorted = [...data].sort((a, b) => {
+  const doctors = data?.doctors ?? [];
+
+  /**
+   * Columnas de la matriz de IA: SOLO las funciones con uso real (hoy ~15 de 19),
+   * ordenadas por total de solicitudes. Meter las 19 siempre dejaría media tabla en
+   * ceros y taparía lo que sí se usa.
+   */
+  const aiColumns = (() => {
+    const totals = new Map<string, { label: string; total: number }>();
+    const labelOf = new Map<string, string>([
+      ...(data?.features ?? []).map((f) => [f.key, f.label] as [string, string]),
+      ...(data?.voiceFeatureKeys ?? []).map((f) => [f.key, f.label] as [string, string]),
+    ]);
+    for (const d of doctors) {
+      for (const [key, n] of Object.entries(d.aiFeatures)) {
+        const prev = totals.get(key);
+        totals.set(key, { label: labelOf.get(key) ?? key, total: (prev?.total ?? 0) + n });
+      }
+    }
+    return [...totals.entries()]
+      .map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => b.total - a.total);
+  })();
+
+  const sorted = [...doctors].sort((a, b) => {
     const av = getValue(a, sortKey);
     const bv = getValue(b, sortKey);
     const cmp = typeof av === "number" && typeof bv === "number"
@@ -232,6 +286,18 @@ export default function FeatureUsagePage() {
                         <p className="text-xs text-gray-400">{row.specialty}</p>
                       </td>
                       {COLUMNS.map((col) => {
+                        if (col.key === "aiCostUsd") {
+                          return (
+                            <td
+                              key={col.key}
+                              className={`px-3 py-3 text-right tabular-nums ${
+                                row.aiCostUsd === null ? "text-gray-400 italic" : "text-emerald-700 font-medium"
+                              }`}
+                            >
+                              {formatUsd(row.aiCostUsd)}
+                            </td>
+                          );
+                        }
                         const val = row.counts[col.key as keyof FeatureCounts];
                         return (
                           <td
@@ -249,6 +315,80 @@ export default function FeatureUsagePage() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* ── Matriz: QUÉ función de IA usa cada doctor ───────────────────────
+            La pregunta que esta sección contesta es "¿usa la voz en notas o en
+            plantillas?", que la columna "Solicitudes IA" no puede contestar
+            porque suma todo en un número. */}
+        {!isLoading && !error && aiColumns.length > 0 && (
+          <div className="mt-8 bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-4 py-3 border-b bg-purple-50">
+              <h2 className="font-semibold text-purple-900">Uso de IA por función</h2>
+              <p className="text-xs text-purple-700 mt-0.5">
+                Solicitudes por doctor y función. Sólo se listan las funciones con uso real.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">Doctor</th>
+                    {aiColumns.map((c) => (
+                      <th
+                        key={c.key}
+                        className="px-3 py-2 text-right font-medium text-gray-600 whitespace-nowrap"
+                        title={c.key}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {sorted.map((row) => (
+                    <tr key={row.slug} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
+                        {row.name}
+                      </td>
+                      {aiColumns.map((c) => {
+                        const n = row.aiFeatures[c.key] ?? 0;
+                        return (
+                          <td
+                            key={c.key}
+                            className={`px-3 py-3 text-right tabular-nums ${
+                              n === 0 ? "text-gray-200" : "text-gray-800 font-medium"
+                            }`}
+                          >
+                            {n === 0 ? "·" : n.toLocaleString()}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-3 border-t bg-gray-50 text-xs text-gray-500 space-y-1">
+              <p>
+                🎤 <strong>La voz se abre por pantalla</strong> desde el 2026-08-27. Las
+                transcripciones anteriores aparecen como{" "}
+                <em>&quot;Transcripción de voz (origen desconocido)&quot;</em>: el dato de qué
+                pantalla las originó no se guardaba, y no es recuperable hacia atrás.
+              </p>
+              <p>
+                Las filas de voz pesan <strong>0 tokens</strong> (Whisper se cobra por minuto),
+                así que la columna &quot;Tokens IA&quot; de arriba no las cuenta — pero
+                &quot;Costo USD&quot; sí.
+              </p>
+              {data?.unknownEndpoints?.length ? (
+                <p className="text-amber-700">
+                  ⚠️ Endpoints sin etiqueta (agrégalos a <code>llm-features.ts</code>):{" "}
+                  {data.unknownEndpoints.join(", ")}
+                </p>
+              ) : null}
+            </div>
           </div>
         )}
       </div>

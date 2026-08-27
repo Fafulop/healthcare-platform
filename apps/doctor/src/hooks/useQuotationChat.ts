@@ -82,5 +82,5 @@ export function useQuotationChat({
     [currentFormData, onUpdateFields, onUpdateItems]
   );
 
-  return useBasePracticeChat({ idPrefix: 'quot_chat', makeApiCall });
+  return useBasePracticeChat({ idPrefix: 'quot_chat', surface: 'cotizaciones', makeApiCall });
 }

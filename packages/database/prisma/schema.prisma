@@ -2699,6 +2699,11 @@ model LlmTokenUsage {
   // split — those rows don't participate in the budget aggregate.
   budgetTokens     Int?     @map("budget_tokens")
   durationSeconds  Float?   @map("duration_seconds") // For Whisper (no token counts)
+  // Pantalla que originó la llamada. Existe porque `voice-transcribe` lo llaman ONCE
+  // pantallas distintas escribiendo el MISMO endpoint, y "¿usa la voz en notas o en
+  // plantillas?" era imposible de contestar. NULL = fila anterior a 2026-08-27:
+  // el origen NO es recuperable hacia atrás, se reporta como "origen desconocido".
+  surface          String?  @db.VarChar(50)
   createdAt        DateTime @default(now()) @map("created_at")
 
   doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
@@ -2706,6 +2711,7 @@ model LlmTokenUsage {
   @@index([doctorId])
   @@index([doctorId, createdAt])
   @@index([createdAt])
+  @@index([endpoint, surface])
   @@map("llm_token_usage")
   @@schema("public")
 }

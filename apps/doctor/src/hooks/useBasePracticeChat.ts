@@ -36,9 +36,17 @@ export function generateChatId(prefix: string): string {
  */
 export function useBasePracticeChat({
   idPrefix,
+  surface,
   makeApiCall,
 }: {
   idPrefix: string;
+  /**
+   * Pantalla que usa este chat, para las filas de voz. Es OBLIGATORIO y por eso no
+   * tiene default: este hook lo comparten ventas · compras · cotizaciones · flujo, y
+   * una constante aquí metería las CUATRO en el mismo cajón — justo lo que `surface`
+   * viene a separar. Llaves en `lib/voice/surfaces.ts` / `api: VOICE_SURFACES`.
+   */
+  surface: string;
   makeApiCall: (
     conversation: ConversationMessage[],
     text: string
@@ -117,6 +125,7 @@ export function useBasePracticeChat({
     try {
       const fd = new FormData();
       fd.append('audio', audioBlob, 'recording.webm');
+      fd.append('surface', surface);
       const res = await fetch('/api/voice/transcribe', { method: 'POST', body: fd });
       const json = await res.json();
 

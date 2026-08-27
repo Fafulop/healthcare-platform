@@ -181,6 +181,7 @@ export function usePatientChat({
     try {
       const fd = new FormData();
       fd.append('audio', audioBlob, 'recording.webm');
+      fd.append('surface', 'paciente'); // qué pantalla — ver VOICE_SURFACES
 
       const res = await fetch('/api/voice/transcribe', {
         method: 'POST',
