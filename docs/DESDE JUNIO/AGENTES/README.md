@@ -5,7 +5,7 @@
 > No son varios agentes que se hablan entre sí — esa decisión se tomó y no se re-litiga
 > (`AGENTE FACTURAS/00-FACTIBILIDAD` §1, re-confirmada en `05-ANALISIS`).
 >
-> 7 carpetas, 45+ docs. Este índice dice qué es cada una y en qué orden leerlas.
+> 10 carpetas, 45+ docs. Este índice dice qué es cada una y en qué orden leerlas.
 
 ---
 
@@ -44,7 +44,8 @@ Después, según lo que vengas a hacer:
 | [`AGENTE FLUJOS/`](AGENTE%20FLUJOS/README.md) | Lectura del ledger, balance, evidencia y conciliación bancaria | 🟢 vivo · F1 validado |
 | [`AGENTE EXPEDIENTE/`](AGENTE%20EXPEDIENTE/README.md) | Metadatos de expedientes — **contenido clínico estructuralmente fuera** | 🟢 vivo · F1 validado |
 | [`AGENTE KNOWLEDGE LAYER/`](AGENTE%20KNOWLEDGE%20LAYER/README.md) | Qué conocimiento HABLA el agente vs qué RUTEA a la guía determinista | 🟡 su PR shippeó; K2-K4 sin retomar |
-| [`AGENTE WHATSAPP/`](AGENTE%20WHATSAPP/README.md) | Agente paciente-facing por WhatsApp | 🌱 exploración, nada construido |
+| [`AGENTE WHATSAPP/`](AGENTE%20WHATSAPP/README.md) | Agente paciente-facing por WhatsApp | 🌱 exploración re-verificada 2026-09-10; la cuenta de la API está por aprobarse |
+| [`AGENTE ELEVENLABS/`](AGENTE%20ELEVENLABS/README.md) | Agente de **VOZ** paciente-facing: un número que se contesta solo (ElevenLabs + Twilio; el cerebro es nuestro tool layer) | 🌱 exploración 2026-09-10, nada construido |
 | [`INVENTARIO IA/`](INVENTARIO%20IA/README.md) | **Dónde está cada chat de IA y a qué proveedor le habla** — las 19 superficies con pantalla · endpoint · modelo (2 Anthropic / 17 OpenAI) | 🟢 vivo · levantado 2026-08-27 |
 | [`OPTIMIZACION COSTOS/`](OPTIMIZACION%20COSTOS/README.md) | **Bajar el costo del LLM** para que quepa en la suscripción del doctor ($37–50/mes): análisis medido + matriz de experimentos (Anthropic/Haiku, DeepSeek, Kimi) + cap semanal | 🟡 análisis hecho, experimentos pendientes |
 
@@ -124,4 +125,5 @@ Conteos exactos (tools, evals, prefijo) y las fronteras completas:
 
 *Carpetas hermanas fuera de AGENTES: `../NUEVOS USUARIOS/` (usuarios secundarios y los permisos
 que recortan los módulos del agente) · `../flujo de dinero permutaciones/` (el sustrato del
-dominio dinero + el TOOLING canónico de acceso a prod).*
+dominio dinero + el TOOLING canónico de acceso a prod) · `../CLINICAS/` (los dos modelos
+multi-doctor que ensamblan los canales WhatsApp + voz).*

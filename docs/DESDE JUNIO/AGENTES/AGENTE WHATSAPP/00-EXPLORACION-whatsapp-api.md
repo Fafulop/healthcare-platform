@@ -4,6 +4,11 @@
 > snapshot de esta carpeta cuyo contenido puede caducar por causas EXTERNAS: precios, límites y
 > el rollout de "coexistence" de Meta cambian — **re-verificar contra la documentación vigente
 > de Meta antes de construir**. Índice y resumen: [`README.md`](README.md).
+>
+> ⚠️ **Re-verificado 2026-09-10** — dos cosas de este doc ya caducaron: (1) "coexistence" dejó
+> de ser reciente/limitado: es **GA desde mayo 2025** (con sus límites); (2) el camino Tech
+> Provider resultó **autoservicio** (Business Verification + App Review), no un tier cerrado.
+> Detalle en [`01-ACTUALIZACION-2026-09-tech-provider.md`](01-ACTUALIZACION-2026-09-tech-provider.md).
 
 > **Qué es esto.** Investigación inicial (2026-07-07, sesión de cierre de PR 3 del agente de
 > agenda) sobre si la plataforma puede: (1) enviar mensajes automáticos de WhatsApp a pacientes
