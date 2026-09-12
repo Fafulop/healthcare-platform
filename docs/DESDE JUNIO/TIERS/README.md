@@ -43,6 +43,16 @@ paralelo.
   automatiza. Regla general que deja la experiencia: *el corte de tier barato excluye subsistemas
   completos; el caro carva dentro de uno que se describe a sí mismo.*
 
+## 🔴 HANDOFF 2026-09-12 — el producto pasa a CUATRO tiers (plan escrito, nada en código)
+
+**Lee primero [`02-PLAN-cuatro-tiers.md`](02-PLAN-cuatro-tiers.md).** FREE · BÁSICO (149) · PRO
+(299, con los flujos de IA de hoy + WhatsApp a pacientes cuando Meta apruebe) · LAB (el asistente
+🟢 y la línea "Jarvis"). El diseño v1 de abajo (FULL/CORE) **se reusa entero**; el plan solo
+cambia el vocabulario y agrega dos cosas que v1 no tenía: la key `ia` para los flujos de IA
+sueltos (hoy son OWNER_ONLY y **ningún tier puede apagarlos**) y **cupos** de almacenamiento y
+pacientes. Bloquea: las decisiones de su §9 (nombres, candado vs ocultar el micrófono en FREE,
+fail-open a PRO, alta self-service, créditos extra). Handoff detallado en su §8.1.
+
 ## 🔴 HANDOFF — lee esto primero (cierre de sesión 2026-07-27)
 
 **TIERS está COMPLETO salvo T6.** T1–T5 shipped, desplegados y **probados en vivo**. Lo que
