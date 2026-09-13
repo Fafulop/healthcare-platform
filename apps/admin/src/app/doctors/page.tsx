@@ -37,6 +37,15 @@ interface Doctor {
 // What each tier takes away, derived from the single source of truth
 // (TIER_EXCLUDED_KEYS) — never a hand-written list, so a new tier or a changed
 // exclusion shows up here on its own.
+//
+// TIERS Q2b: por eso FREE y BÁSICO ya muestran "Funciones de IA" sin tocar
+// nada aquí — `ia` es una TierKey (no un toggle de member), y por eso el mapa
+// de etiquetas es `TIER_KEY_LABELS` y no `PERMISSION_LABELS`: el segundo no la
+// tiene y pintaría `undefined`.
+//
+// ⚠️ Esta app sólo se redespliega si cambia algo DENTRO de `apps/admin`:
+// `packages/**` no está en los watchPatterns de nadie. Con el bundle viejo de
+// `@healthcare/database`, el modal listaría exclusiones de otro vocabulario.
 const tierExclusionLabels = (tier: DoctorTier): string[] =>
   (TIER_EXCLUDED_KEYS[tier] ?? []).map((k) => TIER_KEY_LABELS[k]);
 

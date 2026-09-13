@@ -43,7 +43,17 @@ export function useNotesPage() {
   // a feature that will never work for their role. Found via bug hunt
   // 2026-07-21 (§16 hallazgo 5 — different from 3/4: Notas itself IS a
   // member-accessible page, only the voice-to-text shortcut isn't).
-  const { isOwner } = usePermissions();
+  // TIERS Q2b: el dictado deja de colgar de `isOwner` y cuelga de la key de
+  // plan `ia`. Para un member `can('ia')` ya es false, así que la conducta
+  // owner-only descrita arriba se conserva intacta; lo que se agrega es que un
+  // plan SIN IA tampoco lo tiene. El botón vive en NoteEditor y ahí se pinta
+  // con candado; esta guarda es la red de atrás.
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace
+  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
+  // true en esa ventana — y ahí el daño es físico: el micrófono del navegador
+  // se ABRE y graba antes del 403. Review de Q2b.
+  const { can, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && can('ia');
 
   // Data
   const [notes, setNotes] = useState<Note[]>([]);
@@ -250,7 +260,7 @@ export function useNotesPage() {
       return;
     }
 
-    if (!isOwner) {
+    if (!aiAllowed) {
       toast.error('El dictado por voz no está disponible en esta cuenta.');
       return;
     }
@@ -282,7 +292,16 @@ export function useNotesPage() {
             );
             setIsDirty(true);
           } else {
-            toast.error(data.error?.message || 'No se pudo transcribir el audio');
+            // `api-error-handler` devuelve `error` como STRING ('TIER_EXCLUDED'),
+            // así que `data.error?.message` es undefined y caía al mensaje
+            // genérico: al doctor se le decía que su audio falló cuando lo que
+            // pasó es que su plan no incluye dictado — y su grabación ya se
+            // perdió. Hallazgo del review de Q2b.
+            toast.error(
+              data.error === 'TIER_EXCLUDED'
+                ? 'El dictado por voz no está incluido en tu plan.'
+                : data.error?.message || 'No se pudo transcribir el audio'
+            );
           }
         } catch {
           toast.error('Error al transcribir el audio');
@@ -297,7 +316,7 @@ export function useNotesPage() {
     } catch {
       toast.error('No se pudo acceder al micrófono');
     }
-  }, [recording, isOwner]);
+  }, [recording, aiAllowed]);
 
   // ─── Task modal ─────────────────────────────────────────────────────────────
 

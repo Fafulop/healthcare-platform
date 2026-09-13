@@ -19,12 +19,14 @@ export function ChatWidget() {
   // /api/llm-assistant/chat 403s for a member and the raw "PERMISSION_BLOCKED"
   // string renders as a chat reply (found live, 2026-07-21 — same bug class as
   // VoiceAssistantHubWidget below and the agenda-page agent button, §16).
-  const { isOwner } = usePermissions();
+  // TIERS Q2b: pasa de `isOwner` a `can('ia')`. No cambia nada para members
+  // (`can('ia')` ya es false para ellos) y además lo apaga en un plan sin IA.
+  // Es puerta de OCULTAR, no de candado: el widget de ayuda no es el upsell
+  // que se quiere mostrar, y de hecho hoy está apagado por `WIDGET_AYUDA_VISIBLE`.
+  const { can, loading: permsLoading } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const { messages, isLoading, sendMessage, clearChat } = useLlmChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  if (!isOwner) return null;
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -32,6 +34,14 @@ export function ChatWidget() {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // 🔴 El return condicional va DESPUÉS de todos los hooks. Estaba antes del
+  // useEffect de arriba: en cuanto la condición cambia entre renders, React
+  // tira "Rendered fewer hooks than during the previous render". Antes solo lo
+  // disparaba un member; ahora lo dispara un DUEÑO en FREE/BÁSICO en cada carga
+  // (la sesión resuelve y `can('ia')` pasa de true a false), y FREE es el
+  // DEFAULT_TIER de las cuentas nuevas. Hallazgo del review de Q2b.
+  if (permsLoading || !can('ia')) return null;
 
   return (
     <>

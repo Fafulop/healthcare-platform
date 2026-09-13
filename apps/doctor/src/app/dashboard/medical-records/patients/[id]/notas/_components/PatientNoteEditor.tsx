@@ -1,8 +1,9 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { Mic, Square, Loader2, X, Trash2, Check } from 'lucide-react';
+import { Mic, Square, Loader2, X, Trash2, Check, Lock } from 'lucide-react';
 import { practiceConfirm } from '@/lib/practice-confirm';
+import { useAiLock, AiUpgradeDialog } from '@/components/layout/AiUpgradeDialog';
 
 interface Props {
   isNewNote: boolean;
@@ -37,6 +38,10 @@ export function PatientNoteEditor({
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const prevSavingRef = useRef(false);
   const [justSaved, setJustSaved] = useState(false);
+  // TIERS Q2b — gemelo del micrófono de NoteEditor (notas globales). Los dos
+  // botones son idénticos y sus guardas se aplicaron siempre en la misma
+  // pasada: candadear solo uno rompería la simetría (plan §9.2).
+  const { locked: aiLocked, allowed: aiAllowed, upsellOpen, openUpsell, closeUpsell } = useAiLock();
 
   // Split content into title (first line) and body (rest)
   const firstNewline = editorContent.indexOf('\n');
@@ -155,36 +160,52 @@ export function PatientNoteEditor({
 
       {/* Bottom bar */}
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-t border-gray-100 flex-shrink-0">
-        {/* Whisper */}
-        <button
-          onClick={toggleRecording}
-          disabled={transcribing}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors ${
-            recording
-              ? 'border-red-200 bg-red-50 text-red-600'
-              : transcribing
-              ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          {transcribing ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Transcribiendo...</span>
-            </>
-          ) : recording ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <Square className="w-3.5 h-3.5" />
-              <span>Detener</span>
-            </>
-          ) : (
-            <>
-              <Mic className="w-3.5 h-3.5" />
-              <span>Dictar</span>
-            </>
-          )}
-        </button>
+        {/* Whisper — con candado si el plan no incluye IA (TIERS Q2b). El `<div/>`
+            del caso oculto conserva el `justify-between` de la barra. */}
+        {aiLocked ? (
+          <button
+            onClick={openUpsell}
+            title="Dictado por voz — no incluido en tu plan"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-gray-50 text-gray-400 transition-colors hover:bg-gray-100"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Dictar</span>
+          </button>
+        ) : aiAllowed ? (
+          <button
+            onClick={toggleRecording}
+            disabled={transcribing}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors ${
+              recording
+                ? 'border-red-200 bg-red-50 text-red-600'
+                : transcribing
+                ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {transcribing ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Transcribiendo...</span>
+              </>
+            ) : recording ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <Square className="w-3.5 h-3.5" />
+                <span>Detener</span>
+              </>
+            ) : (
+              <>
+                <Mic className="w-3.5 h-3.5" />
+                <span>Dictar</span>
+              </>
+            )}
+          </button>
+        ) : (
+          <div />
+        )}
+
+        <AiUpgradeDialog open={upsellOpen} onClose={closeUpsell} />
 
         {/* Save */}
         <button

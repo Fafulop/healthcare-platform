@@ -554,6 +554,61 @@ el archivo (type-check exit 2, gates exit 1). Saber la regla no la aplica: **des
 comentario de bloque, pásale `grep -n '^\s*\*.*\S\*/'`**. Los literales de string con `*` no
 molestan; solo los comentarios.
 
+### Q2b — el candado de IA, y el FLIP (2026-09-13)
+
+**Q2b-1 y Q2b-2 se fusionaron en un solo commit** (decisión del usuario tras el review): partirlos
+dejaba toda la UI del candado sin ejecutarse nunca hasta el flip, o sea que su **primera corrida
+real habría sido en producción**. Con dr-prueba ya en `FREE`, fusionarlos hace que se pruebe de
+inmediato.
+
+| Qué | Dónde |
+|---|---|
+| `ia` entra a `TIER_EXCLUDED_KEYS` de **FREE y BÁSICO** — el flip | `permissions.ts` |
+| `can`/`lockedByTier` aceptan `TierKey` (antes `PermissionKey`) | `permissions-client.ts` |
+| `useAiLock()` + `<AiUpgradeDialog>` — el candado no reusa `TierUpgradeNotice` porque ése reemplaza la PÁGINA, y la IA son controles sueltos DENTRO de páginas que el plan sí incluye | `components/layout/AiUpgradeDialog.tsx` (nuevo) |
+| **CANDADO (3 archivos)**: el FAB del hub de voz y los DOS botones «Dictar» | `VoiceAssistantHubWidget`, `NoteEditor`, `PatientNoteEditor` |
+| **OCULTAR (~23 puertas)**: 6 tarjetas del dashboard, 5 páginas `*/new` + sus hooks (incluidos los `?chat=true`), FormBuilder, ChatWidget, los tiles del modal del hub, las 3 del informe, los 3 disparadores de resumen | 14 archivos |
+| El PDF de conciliación se bloquea **DENTRO del modal**, no en el botón | `StatementUploadModal` |
+
+🔎 **`whatsapp` sigue FUERA de las listas**: no existe ninguna ruta suya, y `gate:routes` —que
+ahora sí verifica `ia`— fallaría.
+
+**Los 7 hallazgos del review (corrido ANTES del commit esta vez) y sus arreglos:**
+
+| # | Hallazgo | Arreglo |
+|---|---|---|
+| 1 | 🔴 **Todas las puertas fallaban ABIERTAS mientras carga la sesión.** `permissions-client` hace fail-open (`isOwner ?? true`, `tier ?? PRO`), así que en esa ventana `can('ia')` era **true**: en FREE el micrófono se pintaba encendido, el doctor apretaba, **el navegador abría el micrófono y grababa de verdad** — y el 403 llegaba al soltar. `useAiLock` devolvía `loading` y nadie lo usaba | `!loading` en `useAiLock` **y** `!permsLoading` en las ~14 puertas que llaman `can('ia')` directo |
+| 2 | `pdfBloqueado` era estado DERIVADO guardado: no se re-evaluaba si la sesión resolvía después de elegir el archivo ⇒ «Subir y Procesar» mandaba el PDF a un 403 | Derivado: `!aiAllowed && fileType === 'pdf'` |
+| 3 | El diálogo de upsell podía pintarse **sin CTA** (env var ausente ⇒ `href` null): un callejón sin salida | Fallback fijo `hola@tusalud.pro`, el mismo patrón que ya usa `apps/public/src/lib/product-content.ts` |
+| 4 | Con Q2b partido, **toda la UI del candado era inalcanzable** y se estrenaría en prod | Se fusionó el flip en este commit (arriba) |
+| 5 | 🔴 **`PanelFuentes` afirmaba algo falso.** Meter `aiAllowed` dentro de `hayAsistente` mandaba al panel a su rama de "todavía no lo generas", que promete «el asistente podrá usarlo en cuanto lo generes» — a alguien que YA lo generó y nunca tendrá asistente. El doc del prop enumera EXACTAMENTE dos estados; le agregué un tercero sin decirlo | Prop nuevo `sinIaEnElPlan` + una tercera rama de copia. `hayAsistente` recupera su significado |
+| 6 | Un 403 de tier se le mostraba al doctor como **«No se pudo transcribir el audio»**: `api-error-handler` devuelve `error` como STRING, así que `data.error?.message` era undefined | Mensaje propio para `TIER_EXCLUDED` en los dos hooks de notas |
+| 7 | `ChatWidget` tenía un `return null` condicional ARRIBA de un `useEffect` (violación de las reglas de hooks). Preexistente, pero este PR le agrega un disparador: ahora lo cruza un **DUEÑO** en FREE/BÁSICO en cada carga | El return se movió debajo de los hooks |
+
+**Verificación** (toda leída del LOG, no del código de salida): `pnpm type-check` **5/5** con 3 cache
+misses · `pnpm gates` **76 OK / 0 FAIL**, y por primera vez la línea de TIERS dice
+`keys excluibles por tier: facturacion, sat, conciliacion, **ia**` — o sea que `gate:routes`
+**verificó de verdad** que las 15 anotaciones cubren la key · **37/37 comprobaciones EJECUTADAS**:
+las rutas de IA bloqueadas en FREE y BÁSICO y abiertas en PRO/LAB; **`GET` de `…/summary` SIGUE
+permitido** en los dos planes recortados (el hallazgo 1 del review anterior, ahora medido);
+expedientes, ventas, citas y `agenda-agent` intactos; y el eje de MEMBER sin moverse.
+
+⚠️ **Lo que NO está probado: que alguien lo haya VISTO.** La extensión de Chrome no conecta en esta
+sesión (misma causa que el dictado: se emparejan con una cuenta de claude.ai y aquí se usa
+`ANTHROPIC_API_KEY`), así que **ningún candado se ha renderizado nunca**. La lógica está ejecutada;
+los píxeles no. Runbook para el usuario, con dr-prueba ya en `FREE`: el FAB del hub en gris con
+candado → abre el diálogo con su CTA · «Dictar» en Notas y en Notas del paciente, igual · las 6
+tarjetas de Acciones Rápidas y los botones «Chat IA» de las 5 páginas `*/new`, ausentes · en
+Conciliación, el modal ofrece **sólo CSV** · en un informe, ni pestaña de chat ni «Llenar la hoja»,
+y el panel de fuentes explica que el plan no incluye asistente (sin prometer uno).
+
+🔴 **Prerrequisito de DESPLIEGUE, no de código:** este commit toca `packages/database`, que no está
+en los `watchPatterns` de ningún servicio. Por eso lleva un cambio de comentario **dentro de
+`apps/api` y de `apps/admin`** — los dos comentarios estaban además desactualizados — para que sus
+propios watchPatterns disparen y las tres apps queden en el mismo commit. Con `api` viejo, FREE
+seguiría teniendo IA por ese lado: **dos apps aplicando techos distintos, y pareciendo que
+funciona**. (`railway up` NO sirve aquí: sube el árbol de trabajo, que todavía tiene BBVA.)
+
 ## 8.1 🔄 Handoff — cierre de sesión 2026-09-12
 
 - **Estado:** **Q1 CERRADO en prod** (`2779b2e6` + SQL + runbook A y B) y **Q2a construido**

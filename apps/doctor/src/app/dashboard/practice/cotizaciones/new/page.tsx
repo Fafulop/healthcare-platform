@@ -75,12 +75,18 @@ export default function NewCotizacionPage() {
   // Auto-open chat panel from hub widget. quotation-chat is a legacy AI
   // surface, OWNER_ONLY regardless of the Ventas toggle (00-REQUISITOS
   // §5.3) — found via bug hunt 2026-07-21 (§16 hallazgo 3 family).
-  const { isOwner } = usePermissions();
+  // TIERS Q2b: la puerta cuelga de la key de plan `ia` (antes `isOwner`).
+  // `can('ia')` ya es false para members, así que owner-only se conserva.
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace
+  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
+  // true en esa ventana y la puerta se pintaría ENCENDIDA en un plan sin IA.
+  const { can, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && can('ia');
   useEffect(() => {
-    if (searchParams.get('chat') === 'true' && isOwner) {
+    if (searchParams.get('chat') === 'true' && aiAllowed) {
       setChatPanelOpen(true);
     }
-  }, [searchParams, isOwner]);
+  }, [searchParams, aiAllowed]);
 
   // Pre-select client from URL parameter
   useEffect(() => {
@@ -331,7 +337,7 @@ export default function NewCotizacionPage() {
             <FileText className="w-8 h-8 text-blue-600" />
             Nueva Cotización
           </h1>
-          {isOwner && (
+          {aiAllowed && (
           <button
             type="button"
             onClick={() => setChatPanelOpen(true)}

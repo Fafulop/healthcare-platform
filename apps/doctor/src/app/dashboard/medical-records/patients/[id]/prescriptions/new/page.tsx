@@ -19,7 +19,7 @@ export default function NewPrescriptionPage() {
     patientId,
     session,
     sessionStatus,
-    isOwner,
+    aiAllowed,
     patient,
     doctorProfile,
     encounters,
@@ -94,7 +94,7 @@ export default function NewPrescriptionPage() {
           <div className="flex items-center gap-2">
             {/* Chat IA edits the fixed fields — hidden in template mode, and
                 owner-only regardless (legacy AI surface, §16 hallazgo 3). */}
-            {!selectedTemplate && isOwner && (
+            {!selectedTemplate && aiAllowed && (
               <button
                 onClick={() => setChatPanelOpen(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"

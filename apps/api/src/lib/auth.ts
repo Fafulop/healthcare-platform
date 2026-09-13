@@ -19,9 +19,18 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  * if the account's tier excludes the feature this route belongs to, block with
  * 403 regardless of member toggles. Uses nearest-feature-key so OWNER_ONLY
  * sub-routes under an excluded feature (facturacion/csd, sat-descarga/fiel) are
- * caught too. Admins never reach it. Every existing account is PRO (which
- * excludes nothing) ⇒ no-op until an account is moved to FREE; a NEW account
- * is born FREE (DEFAULT_TIER) and IS gated from day one.
+ * caught too. Admins never reach it.
+ *
+ * TIERS Q2b — esto ya NO es un no-op. `ia` entró a `TIER_EXCLUDED_KEYS` de
+ * FREE y BÁSICO, así que las rutas anotadas con `feature: 'ia'` (los 12
+ * prefijos de chat/voz + las 3 de IA del expediente) devuelven 403 en esas dos
+ * cuentas. Las 12 de prod siguen en PRO, que no excluye nada; una cuenta NUEVA
+ * nace FREE (DEFAULT_TIER) y queda gateada desde el primer día.
+ *
+ * ⚠️ Este archivo vive en `apps/api`, que sólo se redespliega si cambia algo
+ * DENTRO de `apps/api`: `packages/**` no está en los watchPatterns de ningún
+ * servicio. Si `@healthcare/database` cambia y esta app no se redespliega,
+ * `api` y `doctor` aplican TECHOS DISTINTOS — y parece que funciona.
  */
 function enforceTier(request: Request, tier: string): void {
   const { pathname } = new URL(request.url);

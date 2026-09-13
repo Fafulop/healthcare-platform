@@ -14,7 +14,15 @@ export interface PatientNote {
 export function usePatientNotes(patientId: string) {
   // voice/transcribe is OWNER_ONLY (00-REQUISITOS §5.3) — same fix as
   // dashboard/notas (§16 hallazgo 5).
-  const { isOwner } = usePermissions();
+  // TIERS Q2b — gemelo de `useNotesPage`: el dictado cuelga de la key de plan
+  // `ia`, no de `isOwner`. `can('ia')` ya es false para cualquier member, así
+  // que la conducta owner-only se conserva.
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace
+  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
+  // true en esa ventana — y ahí el daño es físico: el micrófono del navegador
+  // se ABRE y graba antes del 403. Review de Q2b.
+  const { can, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && can('ia');
 
   // Data
   const [notes, setNotes] = useState<PatientNote[]>([]);
@@ -155,7 +163,7 @@ export function usePatientNotes(patientId: string) {
       return;
     }
 
-    if (!isOwner) {
+    if (!aiAllowed) {
       toast.error('El dictado por voz no está disponible en esta cuenta.');
       return;
     }
@@ -187,7 +195,16 @@ export function usePatientNotes(patientId: string) {
             );
             setIsDirty(true);
           } else {
-            toast.error(data.error?.message || 'No se pudo transcribir el audio');
+            // Gemelo de `useNotesPage`: `api-error-handler` devuelve `error`
+            // como STRING ('TIER_EXCLUDED'), así que `data.error?.message` es
+            // undefined y caía al mensaje genérico — al doctor se le decía que
+            // su audio falló cuando lo que pasó es que su plan no incluye
+            // dictado, y la grabación ya se perdió. Review de Q2b.
+            toast.error(
+              data.error === 'TIER_EXCLUDED'
+                ? 'El dictado por voz no está incluido en tu plan.'
+                : data.error?.message || 'No se pudo transcribir el audio'
+            );
           }
         } catch {
           toast.error('Error al transcribir el audio');
@@ -202,7 +219,7 @@ export function usePatientNotes(patientId: string) {
     } catch {
       toast.error('No se pudo acceder al micrófono');
     }
-  }, [recording, isOwner]);
+  }, [recording, aiAllowed]);
 
   // ─── Return ──────────────────────────────────────────────────────────────────
 

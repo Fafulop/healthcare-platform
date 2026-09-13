@@ -53,7 +53,13 @@ export function useNewEncounterPage() {
   // encounter-chat is a legacy AI surface, OWNER_ONLY regardless of the
   // Expedientes toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21
   // (§16 hallazgo 3 family).
-  const { isOwner } = usePermissions();
+  // TIERS Q2b: la puerta cuelga de la key de plan `ia` (antes `isOwner`).
+  // `can('ia')` ya es false para members ⇒ owner-only se conserva.
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace
+  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
+  // true en esa ventana y la puerta se pintaría ENCENDIDA en un plan sin IA.
+  const { can, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && can('ia');
 
   const [doctorProfile, setDoctorProfile] = useState<PracticeDoctorProfile | null>(null);
   const [patientName, setPatientName] = useState<string>('');
@@ -294,7 +300,7 @@ export function useNewEncounterPage() {
     patientId,
     session,
     sessionStatus: status,
-    isOwner,
+    aiAllowed,
     // Data
     patientName,
     doctorProfile,

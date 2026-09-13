@@ -27,6 +27,7 @@ import InformeVisor, { type ValorVisor } from './InformeVisor';
 import ChatInforme, { type PropuestaChat } from './ChatInforme';
 import PanelFuentes, { type FuenteDisponible, type FuenteElegida } from './PanelFuentes';
 import { caracteresNoImprimibles } from '@/lib/informe-medico/winansi';
+import { usePermissions } from '@/lib/permissions-client';
 
 interface Formato { id: string; insurer: string; name: string; version: string }
 interface Valor { value: string; source: string | null; origin: string }
@@ -106,6 +107,16 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  // TIERS Q2b — el chat del informe y el autollenado llaman al modelo
+  // (…/reports/[reportId]/chat). Llenar la hoja A MANO y generar el PDF NO son
+  // IA y siguen disponibles en cualquier plan: lo único que se esconde es el
+  // asistente. El micrófono de ChatInforme queda inalcanzable por construcción
+  // — sólo se llega a él con el panel abierto, y el panel ya no se abre.
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace
+  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
+  // true en esa ventana y la puerta se pintaría ENCENDIDA en un plan sin IA.
+  const { can, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && can('ia');
 
   /** 07-PLAN: el catálogo de fuentes del paciente. De aquí sale también la lista
    * de consultas para elegir el ANCLA. */
@@ -688,6 +699,11 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
               // Sólo hay asistente cuando el informe existe y se puede editar:
               // es exactamente la condición con la que se monta `ChatInforme`.
               hayAsistente={Boolean(informe) && !emitido}
+              // TIERS Q2b — SEPARADO de `hayAsistente` a propósito. Fundirlos
+              // mandaba al panel a su rama de "todavía no lo generas", que le
+              // promete un asistente a quien nunca lo va a tener. Marcar
+              // fuentes a mano sigue disponible: no llama a ningún modelo.
+              sinIaEnElPlan={!aiAllowed}
               // Abre el chat Y manda el turno: el doctor tiene que VER lo que se
               // pidió y lo que contestó, no que la hoja se llene sola por detrás.
               onLlenarConLasFuentes={() => {
@@ -923,7 +939,7 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
           desmonta, y la limpieza que cierra el MICRÓFONO corre al desmontar.
           Emitir mientras el chat graba dejaba el micrófono abierto en un
           consultorio donde se están hablando datos del paciente. */}
-      {informe && !emitido && (
+      {informe && !emitido && aiAllowed && (
         <ChatInforme
           base={base}
           reportId={informe.id}
@@ -960,7 +976,7 @@ export default function PantallaInforme({ patientId, anclaFija = null, volverHre
       )}
 
       {/* La pestaña del borde derecho para abrirlo, igual que la del asistente. */}
-      {informe && !emitido && !chatAbierto && (
+      {informe && !emitido && !chatAbierto && aiAllowed && (
         <button
           onClick={() => setChatAbierto(true)}
           title="Conversar con el formato"

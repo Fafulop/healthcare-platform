@@ -45,7 +45,14 @@ export function useNewPrescriptionForm() {
   // Expedientes toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21
   // (§16 hallazgo 3 family). Separate from the issue-guard: this only gates
   // the AI-assist chat, not drafting/capturing the prescription itself.
-  const { isOwner } = usePermissions();
+  // TIERS Q2b: la puerta cuelga de la key de plan `ia` (antes `isOwner`).
+  // `can('ia')` ya es false para members ⇒ owner-only se conserva. Sigue
+  // separada de la guarda de EMISIÓN de la receta, que no es IA.
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace
+  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
+  // true en esa ventana y la puerta se pintaría ENCENDIDA en un plan sin IA.
+  const { can, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && can('ia');
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<PracticeDoctorProfile | null>(null);
@@ -508,7 +515,7 @@ export function useNewPrescriptionForm() {
     patientId,
     session,
     sessionStatus: status,
-    isOwner,
+    aiAllowed,
     // Data
     patient,
     doctorProfile,

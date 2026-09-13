@@ -91,12 +91,18 @@ export default function NewCompraPage() {
   // Auto-open chat panel from hub widget. purchase-chat is a legacy AI
   // surface, OWNER_ONLY regardless of the Compras toggle (00-REQUISITOS
   // §5.3) — found via bug hunt 2026-07-21 (§16 hallazgo 3 family).
-  const { isOwner } = usePermissions();
+  // TIERS Q2b: la puerta cuelga de la key de plan `ia` (antes `isOwner`).
+  // `can('ia')` ya es false para members, así que owner-only se conserva.
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace
+  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
+  // true en esa ventana y la puerta se pintaría ENCENDIDA en un plan sin IA.
+  const { can, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && can('ia');
   useEffect(() => {
-    if (searchParams.get('chat') === 'true' && isOwner) {
+    if (searchParams.get('chat') === 'true' && aiAllowed) {
       setChatPanelOpen(true);
     }
-  }, [searchParams, isOwner]);
+  }, [searchParams, aiAllowed]);
 
   // Load voice data from sessionStorage (hub widget flow)
   useEffect(() => {
@@ -445,7 +451,7 @@ export default function NewCompraPage() {
             <ArrowLeft className="w-4 h-4" />
             Volver a Compras
           </Link>
-          {isOwner && (
+          {aiAllowed && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setChatPanelOpen(true)}

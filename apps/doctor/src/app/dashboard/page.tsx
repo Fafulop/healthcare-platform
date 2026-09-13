@@ -27,7 +27,7 @@ export default function DoctorDashboardPage() {
   const doctorId = session?.user?.doctorId;
   // Secondary users: widgets of blocked sections don't render (and their
   // fetches don't fire) — same registry keys as the sidebar/PermissionGate.
-  const { can, isOwner } = usePermissions();
+  const { can, isOwner, loading: permsLoading } = usePermissions();
 
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [confirmedCount, setConfirmedCount] = useState<number | null>(null);
@@ -159,7 +159,13 @@ export default function DoctorDashboardPage() {
       {/* Itinerario del día + Calendario */}
       {can("citas") && <DashboardDaySection />}
 
-      {/* Acciones Rápidas - Chat IA */}
+      {/* Acciones Rápidas - Chat IA — TIERS Q2b: la sección ENTERA es IA (sus
+          seis tarjetas abren paneles `*-chat`), así que se oculta completa en
+          un plan sin IA: dejar el encabezado con una rejilla vacía sería peor.
+          Los `isOwner` de adentro quedan como red redundante; `can("ia")` ya es
+          false para cualquier member, así que este guard también arregla la
+          caja vacía que un member veía antes. */}
+      {!permsLoading && can("ia") && (
       <div className="bg-white rounded-lg shadow mb-6">
         <div className="p-4 sm:p-6 border-b border-gray-200">
           <div className="flex items-center gap-2">
@@ -283,8 +289,10 @@ export default function DoctorDashboardPage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Actividad Reciente — cross-block feed, owner-only (activity-logs API) */}
+      {/* Actividad Reciente — cross-block feed, owner-only (activity-logs API).
+          NO es IA: este `isOwner` se queda tal cual (TIERS Q2b). */}
       {isOwner && (
       <div className="bg-white rounded-lg shadow">
         <button

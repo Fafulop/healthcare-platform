@@ -40,7 +40,13 @@ export function useNewTask() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
 
-  const { isOwner } = usePermissions();
+  // TIERS Q2b: la puerta cuelga de la key de plan `ia` (antes `isOwner`).
+  // `can('ia')` ya es false para members ⇒ owner-only se conserva.
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace
+  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
+  // true en esa ventana y la puerta se pintaría ENCENDIDA en un plan sin IA.
+  const { can, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && can('ia');
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [accumulatedTasks, setAccumulatedTasks] = useState<VoiceTaskData[]>([]);
 
@@ -59,10 +65,10 @@ export function useNewTask() {
     // task-chat is a legacy AI surface, OWNER_ONLY regardless of the Tareas
     // toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21, same class
     // as ChatWidget/VoiceAssistantHubWidget (§16 hallazgo 3).
-    if (searchParams.get('chat') === 'true' && isOwner) {
+    if (searchParams.get('chat') === 'true' && aiAllowed) {
       setChatPanelOpen(true);
     }
-  }, [searchParams, isOwner]);
+  }, [searchParams, aiAllowed]);
 
   useEffect(() => {
     if (authStatus === "authenticated") {
@@ -303,7 +309,7 @@ export function useNewTask() {
   return {
     session,
     authStatus,
-    isOwner,
+    aiAllowed,
     form,
     setForm,
     patientSearch,

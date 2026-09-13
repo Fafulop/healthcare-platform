@@ -11,7 +11,7 @@ export default function NewPatientPage() {
   const {
     session,
     sessionStatus,
-    isOwner,
+    aiAllowed,
     doctorProfile,
     modalOpen, setModalOpen,
     sidebarOpen, setSidebarOpen,
@@ -57,7 +57,7 @@ export default function NewPatientPage() {
             <h1 className="text-2xl font-bold text-gray-900">Nuevo Paciente</h1>
             <p className="text-gray-600 mt-1">Complete la información del paciente</p>
           </div>
-          {isOwner && (
+          {aiAllowed && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setChatPanelOpen(true)}

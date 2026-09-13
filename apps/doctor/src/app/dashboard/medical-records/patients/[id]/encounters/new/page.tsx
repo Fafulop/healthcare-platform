@@ -14,7 +14,7 @@ export default function NewEncounterPage() {
     patientName,
     session,
     sessionStatus,
-    isOwner,
+    aiAllowed,
     doctorProfile,
     selectedTemplate,
     modalOpen, setModalOpen,
@@ -78,7 +78,7 @@ export default function NewEncounterPage() {
             )}
             <p className="text-gray-600 mt-1">Registre los detalles de la consulta</p>
           </div>
-          {isOwner && (
+          {aiAllowed && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setChatPanelOpen((prev) => !prev)}

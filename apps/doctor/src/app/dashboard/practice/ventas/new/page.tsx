@@ -73,10 +73,16 @@ export default function NewVentaPage() {
   // sale-chat is a legacy AI surface, OWNER_ONLY regardless of the Ventas
   // toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21 (§16
   // hallazgo 3 family).
-  const { isOwner } = usePermissions();
+  // TIERS Q2b: la puerta cuelga de la key de plan `ia` (antes `isOwner`).
+  // `can('ia')` ya es false para members, así que owner-only se conserva.
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace
+  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
+  // true en esa ventana y la puerta se pintaría ENCENDIDA en un plan sin IA.
+  const { can, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && can('ia');
   useEffect(() => {
-    if (searchParams.get('chat') === 'true' && isOwner) setChatPanelOpen(true);
-  }, [searchParams, isOwner]);
+    if (searchParams.get('chat') === 'true' && aiAllowed) setChatPanelOpen(true);
+  }, [searchParams, aiAllowed]);
 
   useEffect(() => {
     if (searchParams.get('voice') === 'true') {
@@ -330,7 +336,7 @@ export default function NewVentaPage() {
             <ArrowLeft className="w-4 h-4" />
             Volver a Ventas
           </Link>
-          {isOwner && (
+          {aiAllowed && (
           <button
             onClick={() => setChatPanelOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"

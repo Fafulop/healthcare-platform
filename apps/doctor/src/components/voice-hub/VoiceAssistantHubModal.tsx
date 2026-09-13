@@ -6,6 +6,7 @@ import { X, Mic, Sparkles, UserPlus, Calendar, DollarSign, ShoppingCart, Shoppin
 import { VoiceRecordingModal, VoiceChatSidebar } from '@/components/voice-assistant';
 import type { VoiceSessionType, VoiceStructuredData } from '@/types/voice-assistant';
 import type { InitialChatData } from '@/hooks/useChatSession';
+import { usePermissions } from '@/lib/permissions-client';
 
 const SESSION_TYPE_ROUTES: Partial<Record<VoiceSessionType, { route: string; storageKey: string }>> = {
   NEW_PATIENT: { route: '/dashboard/medical-records/patients/new', storageKey: 'voicePatientData' },
@@ -112,8 +113,13 @@ export function VoiceAssistantHubModal({ isOpen, onClose, doctorId }: VoiceAssis
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [voiceSidebarOpen, setVoiceSidebarOpen] = useState(false);
   const [sidebarInitialData, setSidebarInitialData] = useState<InitialChatData | undefined>(undefined);
+  // TIERS Q2b — red de atrás. El FAB que abre este modal ya está gateado, pero
+  // sus tiles navegan a `?chat=true`, un deep link que NO pasa por el FAB (las
+  // páginas destino tienen su propia guarda). Esta comprobación evita además
+  // que el modal se pinte por cualquier otro camino en un plan sin IA.
+  const { can, loading: permsLoading } = usePermissions();
 
-  if (!isOpen) return null;
+  if (!isOpen || permsLoading || !can('ia')) return null;
 
   const handleActionClick = (action: VoiceAction) => {
     if (action.chatRoute) {

@@ -64,6 +64,18 @@ interface Props {
    */
   hayAsistente: boolean;
   /**
+   * 🔴 TIERS Q2b — el PLAN de la cuenta no incluye IA. Es un TERCER estado,
+   * distinto de `hayAsistente: false`: allí el informe todavía no se genera (o
+   * ya se emitió) y el asistente sí va a llegar; aquí el informe puede estar
+   * generado y el asistente NO va a llegar nunca.
+   *
+   * Fundirlo dentro de `hayAsistente` hacía que la copia le prometiera
+   * "el asistente podrá usarlo en cuanto lo generes" a alguien que YA lo
+   * generó — exactamente la frase falsa que el comentario de arriba existe
+   * para evitar. Hallazgo del review de Q2b.
+   */
+  sinIaEnElPlan: boolean;
+  /**
    * 🔴 EL DISPARADOR. Marcar una casilla no llena nada; lo que llena es un turno
    * del chat, y el doctor no tiene por qué adivinar que hay que escribirle un
    * mensaje —ni cuál—. Este botón manda ese turno por él.
@@ -95,7 +107,7 @@ const SINGULAR = {
 
 export default function PanelFuentes({
   disponibles, seleccion, anclaId, presupuestoTokens, guardando, soloLectura,
-  hayAsistente, onAlternar, onLlenarConLasFuentes, chatOcupado,
+  hayAsistente, sinIaEnElPlan, onAlternar, onLlenarConLasFuentes, chatOcupado,
 }: Props) {
   const elegidas = useMemo(
     () => new Set(seleccion.map((f) => `${f.tipo}:${f.id}`)),
@@ -158,20 +170,32 @@ export default function PanelFuentes({
       {/* 🔴 El texto depende del estado, porque el botón no siempre existe: antes
           de generar el informe y en uno emitido NO hay asistente, y decir "aprieta
           el botón de abajo" señalaba a un botón que no está. */}
-      <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded p-2">
-        <strong>Marcar aquí no llena la hoja todavía.</strong>{' '}
-        {hayAsistente ? (
-          <>
-            Marca lo que quieras que el asistente lea y luego aprieta el botón de abajo.
-          </>
-        ) : (
-          <>
-            Se guarda con el informe, y el asistente podrá usarlo en cuanto lo generes.
-          </>
-        )}{' '}
-        Lo que ponga sale en <strong>ámbar</strong> para que lo revises, porque lo interpretó
-        un modelo y no lo copió el sistema. Nada se guarda hasta que aprietes Guardar.
-      </p>
+      {/* Sin IA en el plan la explicación es OTRA: no hay asistente que vaya a
+          leer nada, así que ni se promete uno ni se habla del ámbar (que
+          describe lo que escribe el modelo). Sigue siendo útil marcar fuentes:
+          se guardan con el informe. */}
+      {sinIaEnElPlan ? (
+        <p className="mt-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2">
+          <strong>Marcar aquí no llena la hoja.</strong> Lo que marques se guarda con el informe
+          como respaldo de por qué dice lo que dice, pero <strong>tu plan no incluye el
+          asistente</strong>: la hoja se llena a mano. Nada se guarda hasta que aprietes Guardar.
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded p-2">
+          <strong>Marcar aquí no llena la hoja todavía.</strong>{' '}
+          {hayAsistente ? (
+            <>
+              Marca lo que quieras que el asistente lea y luego aprieta el botón de abajo.
+            </>
+          ) : (
+            <>
+              Se guarda con el informe, y el asistente podrá usarlo en cuanto lo generes.
+            </>
+          )}{' '}
+          Lo que ponga sale en <strong>ámbar</strong> para que lo revises, porque lo interpretó
+          un modelo y no lo copió el sistema. Nada se guarda hasta que aprietes Guardar.
+        </p>
+      )}
 
       {/* 🔴 EL DISPARADOR, junto a las casillas y no escondido en el chat: aquí
           es donde el doctor marca y se queda esperando a que pase algo. Sin él,
@@ -179,7 +203,7 @@ export default function PanelFuentes({
           adivinar que hacía falta, y qué escribir.
           Sólo se ofrece si hay ALGO que leer: con el expediente vacío mandaría un
           turno que le pide al modelo usar unas fuentes que no existen. */}
-      {hayAsistente && (lista.length > 0 || anclaId !== null) && (
+      {hayAsistente && !sinIaEnElPlan && (lista.length > 0 || anclaId !== null) && (
         <button
           onClick={onLlenarConLasFuentes}
           disabled={guardando !== null || chatOcupado}

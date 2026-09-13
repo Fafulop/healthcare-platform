@@ -191,9 +191,10 @@ export const TIER_KEY_LABELS: Record<TierKey, string> = {
  *      para una cuenta SIN fiscal — y BÁSICO sí tiene facturación/SAT. Ningún
  *      eval ni assert de gate:prompt corre con BASICO (todos corren con FREE),
  *      así que entra cuando tenga los suyos (02-PLAN §8, hallazgo del review).
- *   ⚠️ `ia` y `whatsapp` entran en Q2, JUNTO con las rutas que las gatean —
- *      `gate:routes` exige que toda key excluida resuelva a ≥1 ruta, y hoy
- *      ninguna ruta resuelve a `ia`/`whatsapp`.
+ *   ✅ `ia` YA ENTRÓ (Q2b): sus 12 prefijos y las 3 rutas de IA del expediente
+ *      llevan `feature: 'ia'` en el route map, así que `gate:routes` sí puede
+ *      verificar su cobertura. `whatsapp` sigue FUERA: no existe todavía
+ *      ninguna ruta suya y el gate fallaría.
  *   ⚠️ `asistente_ia` (el panel 🟢, que solo LAB conserva) entra en Q5, junto
  *      con las puertas del cliente y el retiro del flag ASISTENTE_IA_VISIBLE.
  *      Excluirlo antes dejaría `/api/agenda-agent` en 403 para TODAS las
@@ -204,8 +205,8 @@ export const TIER_KEY_LABELS: Record<TierKey, string> = {
  * (para el agente es byte a byte la forma que tenía CORE).
  */
 export const TIER_EXCLUDED_KEYS: Record<DoctorTier, readonly TierKey[]> = {
-  FREE: ['facturacion', 'sat', 'conciliacion'],
-  BASICO: [],
+  FREE: ['facturacion', 'sat', 'conciliacion', 'ia'],
+  BASICO: ['ia'],
   PRO: [],
   LAB: [],
 };

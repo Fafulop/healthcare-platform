@@ -15,7 +15,10 @@ interface Props {
   onClose: () => void;
   summary: PatientSummaryData;
   patientName: string;
-  onRegenerate: () => void;
+  /** TIERS Q2b — opcional: sin IA en el plan no hay con qué regenerar, y el
+   *  botón desaparece. Mismo patrón que `onToggleAIChat?` en el Toolbar del
+   *  FormBuilder. LEER el resumen ya guardado no es IA y sigue disponible. */
+  onRegenerate?: () => void;
   isRegenerating: boolean;
 }
 
@@ -89,18 +92,24 @@ export function PatientSummaryModal({
 
         {/* Footer */}
         <div className="px-4 sm:px-6 py-3 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
-          <button
-            onClick={onRegenerate}
-            disabled={isRegenerating}
-            className="px-3 py-2 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {isRegenerating ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="w-3.5 h-3.5" />
-            )}
-            {isRegenerating ? 'Regenerando...' : 'Regenerar'}
-          </button>
+          {/* El `<div/>` conserva el `justify-between` del pie cuando no hay
+              regenerar (plan sin IA). */}
+          {onRegenerate ? (
+            <button
+              onClick={onRegenerate}
+              disabled={isRegenerating}
+              className="px-3 py-2 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {isRegenerating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              {isRegenerating ? 'Regenerando...' : 'Regenerar'}
+            </button>
+          ) : (
+            <div />
+          )}
 
           <div className="flex items-center gap-2">
             <button

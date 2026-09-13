@@ -11,6 +11,7 @@ import { formatSex } from '@/components/medical-records/patient-display';
 import { usePatientProfile } from '../_components/usePatientProfile';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
+import { usePermissions } from '@/lib/permissions-client';
 
 interface RecentNote {
   id: string;
@@ -835,6 +836,17 @@ export default function PatientProfilePage() {
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  // TIERS Q2b — el resumen del paciente lo GENERA un modelo (POST …/summary).
+  // Son TRES disparadores para la misma acción (Generar, Regenerar y el de
+  // dentro del modal): gatear solo uno deja los otros dos vivos, que es justo
+  // lo que señaló el review. Ojo: LEER un resumen ya guardado NO es IA — por
+  // eso la regla de ruta lleva `methods: ['POST']` y aquí solo se esconden los
+  // botones que lo vuelven a generar.
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace
+  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
+  // true en esa ventana y la puerta se pintaría ENCENDIDA en un plan sin IA.
+  const { can, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && can('ia');
 
   useEffect(() => {
     if (!patientId) return;
@@ -1253,6 +1265,7 @@ export default function PatientProfilePage() {
                     Ver resumen completo
                   </p>
                 </button>
+                {aiAllowed && (
                 <div className="mt-3 pt-3 border-t border-gray-100">
                   <button
                     onClick={handleGenerateSummary}
@@ -1267,10 +1280,12 @@ export default function PatientProfilePage() {
                     {generatingSummary ? 'Regenerando...' : 'Regenerar Resumen'}
                   </button>
                 </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-4">
                 <p className="text-sm text-gray-500 mb-3">No hay resumen generado</p>
+                {aiAllowed && (
                 <button
                   onClick={handleGenerateSummary}
                   disabled={generatingSummary}
@@ -1283,6 +1298,7 @@ export default function PatientProfilePage() {
                   )}
                   {generatingSummary ? 'Generando...' : 'Generar Resumen'}
                 </button>
+                )}
               </div>
             )}
           </div>
@@ -1309,7 +1325,7 @@ export default function PatientProfilePage() {
           onClose={() => setShowSummaryModal(false)}
           summary={summary}
           patientName={`${patient.firstName} ${patient.lastName}`}
-          onRegenerate={handleGenerateSummary}
+          onRegenerate={aiAllowed ? handleGenerateSummary : undefined}
           isRegenerating={generatingSummary}
         />
       )}

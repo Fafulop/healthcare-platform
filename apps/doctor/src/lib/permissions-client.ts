@@ -14,7 +14,13 @@
  */
 
 import { useSession } from "next-auth/react";
-import { hasPermission, tierAllows, FALLBACK_TIER, type PermissionKey } from "@healthcare/database";
+import {
+  hasPermission,
+  tierAllows,
+  FALLBACK_TIER,
+  type PermissionKey,
+  type TierKey,
+} from "@healthcare/database";
 
 export interface ClientPermissions {
   /** true while the session is loading — callers should render nothing gated yet. */
@@ -22,8 +28,15 @@ export interface ClientPermissions {
   isOwner: boolean;
   /** Account tier (courtesy copy from the session; the server reads it fresh). */
   tier: string;
-  /** Effective access: BOTH ceilings. False for a tier-locked owner too. */
-  can: (key: PermissionKey) => boolean;
+  /**
+   * Effective access: BOTH ceilings. False for a tier-locked owner too.
+   *
+   * Acepta `TierKey`, no solo `PermissionKey` (TIERS Q2b): un tier puede
+   * excluir `ia`/`whatsapp`, que NO son toggles de member. Para un MEMBER esas
+   * keys dan false siempre —su set de permisos nunca las contiene— así que las
+   * superficies de IA siguen siendo owner-only sin un check aparte.
+   */
+  can: (key: TierKey) => boolean;
   /**
    * True when the ONLY thing standing between this user and the feature is the
    * account's plan ⇒ render a lock + upgrade CTA instead of hiding.
@@ -33,7 +46,7 @@ export interface ClientPermissions {
    * "upgrade your plan" would both mislead and expose what the owner switched
    * off. Those keep the existing HIDE behaviour.
    */
-  lockedByTier: (key: PermissionKey) => boolean;
+  lockedByTier: (key: TierKey) => boolean;
 }
 
 export function usePermissions(): ClientPermissions {
@@ -48,14 +61,22 @@ export function usePermissions(): ClientPermissions {
   // lock someone out of a paid feature because a field is missing.
   const tier = (session?.user as { tier?: string } | undefined)?.tier ?? FALLBACK_TIER;
 
-  /** What the member's toggles alone allow (owner = everything). */
-  const grantedToUser = (key: PermissionKey) => isOwner || hasPermission(permissions, key);
+  /** What the member's toggles alone allow (owner = everything).
+   *
+   * El cast es seguro y DELIBERADO: `hasPermission` es fail-closed y solo hace
+   * `perms[key] === true`, así que una key que no es toggle de member (`ia`,
+   * `whatsapp`) devuelve false para cualquier member — que es justo la conducta
+   * que se quiere (los flujos de IA son owner-only, 00-REQUISITOS §5.3). Y como
+   * `lockedByTier` exige `grantedToUser`, un member ve las puertas de IA
+   * OCULTAS, nunca con candado: no podría comprar el upgrade ni le serviría. */
+  const grantedToUser = (key: TierKey) =>
+    isOwner || hasPermission(permissions, key as PermissionKey);
 
   return {
     loading,
     isOwner,
     tier,
-    can: (key: PermissionKey) => tierAllows(tier, key) && grantedToUser(key),
-    lockedByTier: (key: PermissionKey) => !tierAllows(tier, key) && grantedToUser(key),
+    can: (key: TierKey) => tierAllows(tier, key) && grantedToUser(key),
+    lockedByTier: (key: TierKey) => !tierAllows(tier, key) && grantedToUser(key),
   };
 }
