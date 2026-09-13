@@ -15,6 +15,14 @@
  * que tenga acceso; el dueño le da el acceso a los demás usuarios"*. Compartir
  * el helper deja que el informe herede `expedientes` sin tocar el permiso de las
  * otras superficies de voz.
+ *
+ * ⚠️ **TIERS Q2 — este helper es INVISIBLE para el gate de IA por prefijo.** El
+ * techo del tier cuelga de la RUTA (`feature: 'ia'` en `route-permissions.ts`),
+ * y este archivo transcribe *sin* pasar por esa ruta. Hoy no hay fuga: sus
+ * ÚNICOS dos llamadores son `…/reports/[reportId]/dictar` y su gemela `/chat`,
+ * y las dos están anotadas con `feature: 'ia'`. Pero **un llamador nuevo obtiene
+ * transcripción de IA sin tocar ningún prefijo anotado** — si agregas uno,
+ * anota SU ruta también, o el plan que no incluye IA la seguirá pagando.
  */
 import OpenAI, { toFile } from 'openai';
 

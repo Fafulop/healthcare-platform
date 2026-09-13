@@ -42,10 +42,19 @@ funcionalidad general, y **solo entonces** empieza el desarrollo del LAB (docume
 
 ### G5 — 🔴 Los flujos de IA de hoy NO son gateables por tier
 
-Los 11 prefijos de IA están en el route map con key **`OWNER_ONLY`**
-(`route-permissions.ts:143-153`: `encounter-chat`, `patient-chat`, `prescription-chat`,
-`sale-chat`, `purchase-chat`, `quotation-chat`, `task-chat`, `ledger-chat`, `form-builder-chat`,
-`voice`, `llm-assistant`). `nearestFeatureKey` **salta a propósito** las reglas `OWNER_ONLY`/
+Los **12** prefijos de IA están en el route map con key **`OWNER_ONLY`**
+(`route-permissions.ts:142-153`: **`appointments-chat`**, `encounter-chat`, `patient-chat`,
+`prescription-chat`, `sale-chat`, `purchase-chat`, `quotation-chat`, `task-chat`, `ledger-chat`,
+`form-builder-chat`, `voice`, `llm-assistant`).
+
+> ⚠️ **`appointments-chat` faltaba en esta lista** (decía 11; son 12). Se encontró el 2026-09-13 al
+> arrancar Q2, comparando el mapa contra `ls` de los directorios de rutas y contra un grep de
+> quién importa un cliente LLM. Es un `gpt-4o` real (`appointments-chat/route.ts:22`). **Cómo se
+> escapó:** la lista se escribió leyendo el route map por el bloque comentado "Legacy AI surfaces",
+> y `appointments-chat` vive UNA línea más arriba, fuera del bloque. Método que sí cierra la lista:
+> cruzar TRES fuentes — el route map, `ls` de `app/api/`, y un grep de importaciones de LLM — y
+> ojo con que el grep de `route.ts` **subcuenta**: `llm-assistant` y `agenda-agent` llaman al
+> modelo desde `lib/`, no desde su `route.ts`. `nearestFeatureKey` **salta a propósito** las reglas `OWNER_ONLY`/
 `NEUTRAL` (`route-permissions.ts:238`) — así que **ningún tier puede excluirlas hoy**: un doctor
 FREE podría dictar una consulta y pagar gpt-4o con nuestra cuenta.
 
@@ -113,7 +122,7 @@ puede hablar de una función que un member nunca togglea.
 
 | Prefijo / ruta | Hoy |
 |---|---|
-| `encounter-chat` · `patient-chat` · `prescription-chat` · `sale-chat` · `purchase-chat` · `quotation-chat` · `task-chat` · `ledger-chat` · `form-builder-chat` · `voice` · `llm-assistant` | OWNER_ONLY |
+| **`appointments-chat`** · `encounter-chat` · `patient-chat` · `prescription-chat` · `sale-chat` · `purchase-chat` · `quotation-chat` · `task-chat` · `ledger-chat` · `form-builder-chat` · `voice` · `llm-assistant` | OWNER_ONLY |
 | `medical-records/patients/*/summary` | hereda `expedientes` → **agregar regla con `feature: 'ia'`** |
 | `medical-records/patients/*/reports/*/dictar` y `.../chat` | hereda `expedientes` → **agregar reglas con `feature: 'ia'`** |
 | `bank-statement-parse` | ya es `conciliacion` (excluida en FREE/BÁSICO) — no necesita `ia` |
@@ -401,19 +410,118 @@ cero throws**. Los otros tres arreglos se leyeron hunk por hunk. Ejecutar el arr
 una segunda lectura (la lección de `turnoEncolado`), pero no cubre el resto del diff: si algo de Q1
 muerde, el sospechoso #1 es lo que no se ejecutó.
 
-**Lo único que falta de Q1:** el **runbook A** en el admin — 12 chips azules `Pro`, y el modal con
-los cuatro planes (etiqueta + código + cupos). Son ojos humanos, no código.
+**Runbook A — ✅ EJECUTADO por el usuario (2026-09-13):** reportó que el admin *"works as
+expected"*. Con eso **Q1 queda CERRADO**. (Lo verificó él, no yo: la ruta del navegador no estaba
+disponible —la extensión de Chrome no conecta, con toda probabilidad por la misma razón que el
+dictado por voz: esta sesión se autentica con `ANTHROPIC_API_KEY` y esas dos funciones se emparejan
+con una cuenta de claude.ai. Si una sesión futura necesita manejar el navegador, ese es el
+prerrequisito.)
+
+**Runbook B — ✅ EJECUTADO por el usuario (2026-09-13), "all as expected":** dr-prueba a FREE desde
+el modal del admin, candado + pantalla de plan en Facturación y Descarga SAT, Flujo intacto, y
+**Ventas · Compras · Productos siguen disponibles** — la diferencia deliberada con el viejo CORE.
+Con eso la cadena completa (route map → choke point → 403 → candado → upsell) queda observada en
+vivo, no solo en verde.
+
+> 🔎 **Estado de tiers tras la prueba — A PROPÓSITO, no lo "arregles":** la verificación en BD
+> encontró **dr-prueba en `FREE`** y **dr-quebradita en `BASICO`**; el usuario decidió (2026-09-13)
+> **dejarlas así**. dr-prueba en FREE es justamente el banco de pruebas que Q2 necesita (una cuenta
+> real con recorte para probar el gating de IA). Las otras 10 siguen en `PRO`.
+>
+> Y la lección del método, que aplica a cualquier runbook de downgrade: **leer el estado de la BD
+> DESPUÉS de la prueba, no solo antes**. Es barato y es la única forma de distinguir "se revirtió"
+> de "se nos olvidó" — aquí resultó ser intencional, pero eso no se sabía hasta mirarlo.
+
+### Q2a — el campo `feature` en el route map (2026-09-13)
+
+**La mitad de servidor de Q2, deliberadamente NO-OP.** Se partió Q2 en dos al ver el inventario
+real de puertas de cliente (26, no ~20): Q2a enseña al mapa de rutas a resolver `ia`, y **Q2b** es
+el que muerde (meter `ia` en `TIER_EXCLUDED_KEYS` + las puertas del cliente). Misma disciplina que
+Q1: lo que se despliega hoy no le cambia la conducta a nadie.
+
+| Qué | Dónde |
+|---|---|
+| `RouteRule` gana `feature?: TierKey` — la lee SOLO `nearestFeatureKey`; `checkRoutePermission` la ignora, así que anotar una ruta no cambia quién entra hoy | `route-permissions.ts` |
+| `nearestFeatureKey` resuelve `rule.feature ?? rule.key` y devuelve `TierKey \| null`; se salta la regla solo si lo RESUELTO es `NEUTRAL`/`OWNER_ONLY` — una regla OWNER_ONLY **con** `feature` ya cuenta | idem |
+| Las **12** rutas de IA anotadas con `feature: 'ia'` | idem |
+| **3 reglas nuevas** para la IA que vive dentro del expediente (`…/summary`, `…/reports/*/dictar`, `…/reports/*/chat`) con `key: 'expedientes'` (lo que ya heredaban) + `feature: 'ia'` | idem |
+| `tierRouteDecision` devuelve `featureKey: TierKey \| null` | idem |
+| El 403 del doctor-app ahora **lleva la key**: `medical-auth` la adjunta al error y `api-error-handler` la mete en el body | `medical-auth.ts`, `api-error-handler.ts` |
+| Nota en `transcribir-audio.ts`: el gate por prefijo **no puede verlo** | `lib/voice/transcribir-audio.ts` |
+
+**Verificación**, toda leída del LOG y no del código de salida (ver la trampa de método abajo):
+`pnpm type-check` **5/5** en la segunda corrida —falló a la primera— y con **3 cache misses**, así
+que `doctor`, `admin` y `api` se revisaron de verdad, no se replicaron de caché · `pnpm gates`
+**76 OK / 0 FAIL** (el mapa pasó de 69 a 72 reglas) · y **33/33 comprobaciones EJECUTADAS contra el
+árbol final**, que es lo que de verdad prueba el cambio:
+
+- las 12 rutas de IA y las 3 del expediente resuelven a `'ia'` (incluido el comodín en medio:
+  `…/patients/*/reports/*/chat`);
+- **no se movió nada más**: `facturacion/csd`→`facturacion`, `sat-descarga/fiel`→`sat`,
+  `agenda-agent`→`asistente_ia` (es de Q5), `bank-statement-parse`→`conciliacion`,
+  `…/reports/*` (el padre, que NO llama a ningún LLM)→`expedientes`, `team`→`null`;
+- **el check de MEMBER es idéntico**: `…/summary` sigue dando `toggle_on` con `expedientes` y
+  `toggle_off` sin él; `encounter-chat` sigue siendo `owner_only`;
+- **la prueba de que es NO-OP**: `tierRouteDecision('/api/encounter-chat','POST','FREE').blocked`
+  = **false**, mientras que la misma llamada con `/api/facturacion` sí da `true` y su `featureKey`
+  viaja. `gate:routes` NO puede verificar la cobertura de `ia` todavía (solo mira las keys que
+  algún tier excluye, y ninguna lo hace aún) — por eso se probó ejecutando, no confiando en el gate.
+
+**Tres correcciones al inventario, encontradas verificando en vez de asumir:**
+
+1. **`appointments-chat` faltaba** en la lista cerrada del plan (eran 12, no 11) — ver §3.1.
+2. El barrido de puertas **afirmó dos cosas falsas** que se cayeron al leer el código: que
+   `bank-statement-parse` "no tiene regla propia" (sí la tiene, `route-permissions.ts:131`, key
+   `conciliacion`) y que `…/reports/*` importa un LLM (no importa ninguno: cero coincidencias).
+   Las tres rutas heredadas están completas. *Lección: un inventario de agente es una hipótesis
+   sobre el código, no el código.*
+3. **`transcribir-audio.ts` es un hueco REAL pero hoy VACÍO**: transcribe sin pasar por
+   `/api/voice/*`, así que un gate por prefijo no lo ve — pero sus únicos dos llamadores son las
+   dos rutas del informe, ya anotadas. Queda la nota en el archivo para el próximo que lo llame.
+
+🔴 **La lección barata que casi se anota como cara: un `*/` dentro de un comentario de BLOQUE.**
+La nota que se agregó a `transcribir-audio.ts` citaba la ruta `…/reports/` + `*` + `/dictar`. Ese
+`*/` **cierra el JSDoc ahí mismo**, y el resto del comentario se parsea como código: 20+ errores de
+sintaxis, `Tasks: 2 successful, 5 total`. En comentarios de bloque, cita las rutas con comodín como
+`[reportId]`, no con `*`. (En comentarios de línea `//` no pasa nada — por eso el mismo texto en
+`route-permissions.ts` está bien.)
+
+⚠️ **Y la trampa de MÉTODO que lo hizo casi invisible:** el comando era
+`pnpm type-check > log 2>&1; echo "exit=$?" >> log`. El `echo` final **siempre** sale 0, así que la
+notificación de la tarea en segundo plano dijo **"exit code 0"** mientras el fallo real (`exit=2`)
+vivía DENTRO del log. Estuve a un paso de escribir "type-check 5/5" en este doc apoyándome en esa
+notificación. **El código de salida de una tarea encadenada no es el del comando que te importa:
+lee el log, siempre.**
+
+⚠️ **Deuda anotada, no arreglada:** en `apps/api` el `AuthError` de tier **sí** carga la key
+(`lib/auth.ts:31`) pero **ningún handler la devuelve** — todos hacen
+`NextResponse.json({ error: error.message })`, así que se pierde. Hoy no muerde (T4 deduce la key
+del PATH en el cliente, y casi toda la IA vive en `apps/doctor`), pero significa que esa línea de
+`apps/api` es decorativa. Arreglarlo toca cada handler; no entra en Q2a.
+
+**Lo que falta para Q2b** (y su prerrequisito duro): `ia` a `TIER_EXCLUDED_KEYS` de FREE/BÁSICO ·
+`can`/`lockedByTier` a `TierKey` · un componente de control bloqueado NUEVO (el candado del
+sidebar **no se puede reusar**: funciona porque un item de nav es un `Link` a una página que
+renderiza `TierUpgradeNotice`, y un micrófono no tiene destino) · candado en 3 archivos (el FAB del
+hub + los DOS editores de notas) · ocultar las otras ~23 puertas, de las cuales **~12 no comprueban
+nada hoy** (las 3 del informe, los 3 disparadores de "Generar Resumen", y los tiles del modal del
+hub, que además se saltan por deep-link `?chat=true`). 🔴 **Prerrequisito:
+`NEXT_PUBLIC_SALES_EMAIL` en Railway + redeploy** (verificado el 2026-09-13: NO está puesta): sin
+ella `TierUpgradeNotice` omite el CTA y un micrófono con candado no ofrece salida — peor que
+ocultarlo.
 
 ## 8.1 🔄 Handoff — cierre de sesión 2026-09-12
 
-- **Estado:** **Q1 construido** (as-built en §8), a la espera de type-check + OK al diff + push +
-  SQL. Sigue habiendo cambios ajenos en el working tree (informe BBVA, `scripts/demo-seed/`,
-  `ANALISIS CAT/`) — no son de este plan, no mezclarlos en su commit.
-- **Siguiente paso:** cerrar Q1 (los pendientes listados al final de §8). Después **Q2** (key `ia`
-  + campo `feature`) o **Q3/Q4** (cupos) — son independientes entre sí; §9.2 (candado vs ocultar el
-  micrófono) bloquea la parte de cliente de Q2, no la de servidor.
-- **§9 contestado el 2026-09-12:** 1 (placeholders como nombres), 3 (conciliación excluida) y 4
-  (fail-open PRO). Quedan 2, 5, 6 y 7.
+- **Estado:** **Q1 CERRADO en prod** (`2779b2e6` + SQL + runbook A y B) y **Q2a construido**
+  (as-built en §8). Sigue habiendo cambios ajenos en el working tree (informe BBVA,
+  `scripts/demo-seed/`, `ANALISIS CAT/`) — no son de este plan, no mezclarlos en su commit.
+- **Siguiente paso:** **Q2b** — es el que muerde, y su prerrequisito duro es
+  `NEXT_PUBLIC_SALES_EMAIL` en Railway + redeploy (sin ella el candado no ofrece salida). Q3/Q4
+  (cupos) son independientes y se pueden adelantar.
+- **Banco de pruebas listo:** dr-prueba está en `FREE` a propósito — en cuanto Q2b entre, ahí se ve
+  el micrófono con candado y el 403 de `/api/encounter-chat`.
+- **§9 contestado:** 1, 3 y 4 el 2026-09-12; **2 el 2026-09-13** (candado en las dos puertas
+  principales, el resto oculto). Quedan 5, 6, 7 y el nuevo 8.
 - **Contexto de la sesión** (por si se pierde): la visión "Jarvis" (hablarle al app, que navegue
   y llene plantillas) se analizó contra el código: el asistente unificado ya existe pero está
   oculto, tiene **cero escrituras en expediente** (privacidad v1 = solo metadatos), y la
@@ -427,11 +535,13 @@ los cuatro planes (etiqueta + código + cupos). Son ojos humanos, no código.
 
 1. **Nombres definitivos** de los cuatro tiers (aquí FREE/BASICO/PRO/LAB como placeholders) y
    si LAB es por invitación o un plan de pago.
-2. **"Sin IA" en FREE/BÁSICO, ¿oculta o muestra con candado** el micrófono/dictado? Hoy la
-   transcripción de voz en notas es **la función de IA más usada** (`../AGENTES/INVENTARIO IA/02`).
-   Mostrarla bloqueada es el mejor upsell del producto; ocultarla es la política vigente de T4
-   para botones sueltos. Recomendación: **candado con CTA solo en el hub de voz y el micrófono de
-   notas** (2 puertas, las más visibles); el resto oculto.
+2. ✅ **DECIDIDO (usuario, 2026-09-13): candado con CTA en las DOS puertas principales —el hub de
+   voz y el micrófono de notas—, y el resto de las ~18 puertas de IA OCULTAS.** Es la
+   recomendación original: la transcripción de voz es **la función de IA más usada**
+   (`../AGENTES/INVENTARIO IA/02`), así que mostrarla bloqueada es el mejor upsell del producto,
+   mientras que llenar la UI de candados no lo es. Consecuencia para Q2: hay que distinguir DOS
+   tratamientos en el cliente (candado vs ocultar), no uno — y la lista de puertas es la parte que
+   se escapa (lección de T4 §13.4.1: dos greps, escritorio **y** móvil).
 3. **`conciliacion`:** ¿excluida en FREE/BÁSICO (como CORE) o queda fuera del vocabulario de
    tiers porque está oculta para todos? Recomendación: excluirla en FREE/BÁSICO y no tocar el flag.
 4. **Fail-open a PRO** (propuesto) vs a LAB (como hoy, FULL). Recomendación: PRO.

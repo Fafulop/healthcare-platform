@@ -25,7 +25,13 @@
  * Design: docs/DESDE JUNIO/NUEVOS USUARIOS/01-DISENO-tecnico.md §4.3
  */
 
-import { hasPermission, tierAllows, type PermissionKey, type PermissionSet } from './permissions';
+import {
+  hasPermission,
+  tierAllows,
+  type PermissionKey,
+  type PermissionSet,
+  type TierKey,
+} from './permissions';
 
 export type RouteAccessKey = PermissionKey | 'NEUTRAL' | 'OWNER_ONLY';
 
@@ -35,6 +41,19 @@ export interface RouteRule {
   key: RouteAccessKey;
   /** If set, the rule only applies to these upper-cased HTTP methods. */
   methods?: string[];
+  /**
+   * TIERS Q2 — la FUNCIÓN de plan a la que pertenece esta ruta, cuando NO se
+   * puede deducir de `key`. Solo la lee `nearestFeatureKey` (el techo del
+   * tier); `checkRoutePermission` (toggles de member) la IGNORA a propósito,
+   * así que anotar una ruta no cambia en nada quién puede entrar hoy.
+   *
+   * Existe porque los flujos de IA sueltos son `OWNER_ONLY` y **no tienen un
+   * prefijo padre con key de función** del que colgarse: `facturacion/csd`
+   * resuelve a `facturacion` por el prefijo padre (hueco G1 del diseño v1),
+   * pero `encounter-chat` no tiene padre. Sin esta anotación, ningún tier
+   * puede excluir la IA (hueco G5 del plan de cuatro tiers §2).
+   */
+  feature?: TierKey;
 }
 
 export const ROUTE_PERMISSION_MAP: RouteRule[] = [
@@ -124,6 +143,15 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
 
   // ── apps/doctor internal ────────────────────────────────────────────────
   { prefix: 'medical-records/tasks', key: 'tareas' }, // specific beats expedientes
+  // TIERS Q2 — las TRES rutas de IA que viven DENTRO del expediente. Su `key`
+  // sigue siendo `expedientes` (exactamente lo que heredaban de la regla de
+  // abajo, así que para un member no cambia nada), pero su FUNCIÓN de plan es
+  // `ia`. Sin estas tres reglas, un gate por prefijo de IA no las vería: el
+  // informe transcribe con `lib/voice/transcribir-audio` justo para NO pasar
+  // por `/api/voice`, que es OWNER_ONLY.
+  { prefix: 'medical-records/patients/*/summary', key: 'expedientes', feature: 'ia' },
+  { prefix: 'medical-records/patients/*/reports/*/dictar', key: 'expedientes', feature: 'ia' },
+  { prefix: 'medical-records/patients/*/reports/*/chat', key: 'expedientes', feature: 'ia' },
   { prefix: 'medical-records', key: 'expedientes' },
   { prefix: 'custom-templates', key: 'expedientes' },
   { prefix: 'notes', key: 'notas' },
@@ -138,19 +166,27 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   // Agent panel (module filtering on top of this — PR C)
   { prefix: 'agenda-agent', key: 'asistente_ia' },
 
-  // Legacy AI surfaces: owner-only in v1 (00-REQUISITOS §5.3)
-  { prefix: 'appointments-chat', key: 'OWNER_ONLY' },
-  { prefix: 'encounter-chat', key: 'OWNER_ONLY' },
-  { prefix: 'patient-chat', key: 'OWNER_ONLY' },
-  { prefix: 'prescription-chat', key: 'OWNER_ONLY' },
-  { prefix: 'sale-chat', key: 'OWNER_ONLY' },
-  { prefix: 'purchase-chat', key: 'OWNER_ONLY' },
-  { prefix: 'quotation-chat', key: 'OWNER_ONLY' },
-  { prefix: 'task-chat', key: 'OWNER_ONLY' },
-  { prefix: 'ledger-chat', key: 'OWNER_ONLY' },
-  { prefix: 'form-builder-chat', key: 'OWNER_ONLY' },
-  { prefix: 'voice', key: 'OWNER_ONLY' },
-  { prefix: 'llm-assistant', key: 'OWNER_ONLY' },
+  // Legacy AI surfaces: owner-only in v1 (00-REQUISITOS §5.3).
+  //
+  // TIERS Q2: las DOCE llevan `feature: 'ia'` — siguen siendo OWNER_ONLY para
+  // members (sin cambio), y además quedan bajo el techo del plan. La lista se
+  // cerró cruzando TRES fuentes (el inventario de 19 superficies de
+  // `../AGENTES/INVENTARIO IA/01`, `ls` de `app/api/`, y un grep de quién
+  // importa un cliente LLM); `appointments-chat` faltaba en el plan original
+  // por vivir fuera de este bloque de comentario.
+  { prefix: 'appointments-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  { prefix: 'encounter-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  { prefix: 'patient-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  { prefix: 'prescription-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  { prefix: 'sale-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  { prefix: 'purchase-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  { prefix: 'quotation-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  { prefix: 'task-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  { prefix: 'ledger-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  { prefix: 'form-builder-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  // Cubre voice/transcribe, voice/structure y voice/chat (prefijo por segmento).
+  { prefix: 'voice', key: 'OWNER_ONLY', feature: 'ia' },
+  { prefix: 'llm-assistant', key: 'OWNER_ONLY', feature: 'ia' },
 
   // Receta PDF identity (legal) — owner-only always (00-REQUISITOS §3.5)
   { prefix: 'prescription-template', key: 'OWNER_ONLY' },
@@ -226,21 +262,25 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; key: PermissionKey }> 
  * Hueco G1 del diseño (01-DISENO §4.3). NEUTRAL/OWNER_ONLY sin key de función
  * por encima ⇒ null (el tier no aplica; lo decide el check normal).
  */
-export function nearestFeatureKey(pathname: string, method: string): PermissionKey | null {
+export function nearestFeatureKey(pathname: string, method: string): TierKey | null {
   const clean = pathname.split('?')[0].replace(/\/+$/, '');
   const apiIdx = clean.indexOf('/api/');
   const rel = apiIdx >= 0 ? clean.slice(apiIdx + 5) : clean.replace(/^\/+/, '');
   const pathSegs = segments(rel);
   const upperMethod = method.toUpperCase();
 
-  let best: { key: PermissionKey; len: number } | null = null;
+  let best: { key: TierKey; len: number } | null = null;
   for (const rule of ROUTE_PERMISSION_MAP) {
-    if (rule.key === 'NEUTRAL' || rule.key === 'OWNER_ONLY') continue; // solo keys de función
+    // `feature` gana sobre `key` (TIERS Q2): así una ruta OWNER_ONLY declara a
+    // qué FUNCIÓN de plan pertenece. Se salta solo si lo RESUELTO no es una
+    // key de función — una regla OWNER_ONLY CON `feature` sí cuenta.
+    const resolved = rule.feature ?? rule.key;
+    if (resolved === 'NEUTRAL' || resolved === 'OWNER_ONLY') continue;
     if (rule.methods && !rule.methods.includes(upperMethod)) continue;
     const prefixSegs = segments(rule.prefix);
     if (!prefixMatches(prefixSegs, pathSegs)) continue;
     if (!best || prefixSegs.length > best.len) {
-      best = { key: rule.key as PermissionKey, len: prefixSegs.length };
+      best = { key: resolved, len: prefixSegs.length };
     }
   }
   return best?.key ?? null;
@@ -257,7 +297,7 @@ export function tierRouteDecision(
   pathname: string,
   method: string,
   tier: string | null | undefined
-): { blocked: boolean; featureKey: PermissionKey | null } {
+): { blocked: boolean; featureKey: TierKey | null } {
   const featureKey = nearestFeatureKey(pathname, method);
   const blocked = featureKey != null && !tierAllows(tier, featureKey);
   return { blocked, featureKey };

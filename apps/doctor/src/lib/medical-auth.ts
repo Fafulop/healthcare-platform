@@ -1,6 +1,13 @@
 import { NextRequest } from 'next/server';
 import { auth } from '@healthcare/auth';
-import { prisma, checkRoutePermission, tierRouteDecision, FALLBACK_TIER, type PermissionSet } from '@healthcare/database';
+import {
+  prisma,
+  checkRoutePermission,
+  tierRouteDecision,
+  FALLBACK_TIER,
+  type PermissionSet,
+  type TierKey,
+} from '@healthcare/database';
 
 export interface MedicalAuthContext {
   userId: string;
@@ -64,8 +71,17 @@ export async function requireDoctorAuth(
     // TIER ceiling (owner + member): the account's plan doesn't include this
     // feature. Blocks regardless of toggles; nearest-feature-key catches
     // OWNER_ONLY sub-routes. No-op while the account is PRO/LAB (nothing excluded).
-    if (tierRouteDecision(pathname, method, tier).blocked) {
-      throw new Error('TIER_EXCLUDED');
+    const tierDecision = tierRouteDecision(pathname, method, tier);
+    if (tierDecision.blocked) {
+      // La FUNCIÓN que el plan no incluye VIAJA con el error (TIERS Q2). El
+      // cliente la necesita para saber qué ofrecer: un micrófono bloqueado por
+      // `ia` no se explica igual que Facturación, y con `ia` el bloqueo ya no
+      // corresponde a una SECCIÓN sino a un control dentro de una página que
+      // el plan sí incluye. apps/api ya lo hacía (lib/auth.ts:31); aquí se
+      // perdía — y ésta es la app donde viven casi todas las rutas de IA.
+      const err = new Error('TIER_EXCLUDED') as Error & { featureKey?: TierKey | null };
+      err.featureKey = tierDecision.featureKey;
+      throw err;
     }
 
     // MEMBER toggles (members only). Fail-closed: an internal route missing

@@ -42,8 +42,14 @@ export function handleApiError(error: unknown, context: string = 'API request'):
     // marker so the UI shows the upgrade prompt, not the member "sin permiso"
     // screen. Without this the throw would fall through to a generic 500.
     if (error.message === 'TIER_EXCLUDED') {
+      // TIERS Q2 — `featureKey` dice QUÉ función del plan faltó. Sin ella el
+      // cliente sabe que topó con el techo del plan pero no qué ofrecer, y con
+      // la key `ia` eso importa: el bloqueo ya no es una sección entera sino un
+      // control suelto. Null si el throw viene de un camino que no la adjuntó.
+      const featureKey =
+        (error as Error & { featureKey?: string | null }).featureKey ?? null;
       return NextResponse.json(
-        { error: 'TIER_EXCLUDED' },
+        { error: 'TIER_EXCLUDED', featureKey },
         { status: 403 }
       );
     }
