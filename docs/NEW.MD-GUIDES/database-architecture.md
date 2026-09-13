@@ -352,11 +352,25 @@ Push schema changes to Railway when:
 
 ### Read-only queries against prod (no psql needed)
 
-`psql` is not installed on the dev machine, and `railway run` injects the **internal**
-DB hostname (unreachable locally) — so neither works for ad-hoc prod queries. The working
-pattern (used for every pre-push smoke test, migration pre-flight, and post-deploy
-verification): a **throwaway tsx script in `packages/database/`** that reads the public
-URL from `.env` and queries through Prisma. Delete it after use — never commit it.
+`psql` is not installed on the dev machine. Two patterns work; both read the **public** URL.
+
+> ⚠️ **Corrección (2026-09-13, verificada).** Esta sección decía que `railway run` inyecta el
+> hostname **interno** "so neither works". Es cierto **sólo para el servicio linkeado**
+> (`@healthcare/api`, cuyo `DATABASE_URL` es `pgvector.railway.internal`). Con
+> `railway run --service pgvector` se inyecta el env del servicio de Postgres, que **sí** trae
+> `DATABASE_PUBLIC_URL`, y funciona: así se verificó `stored_files` contra prod
+> (`HOST: yamanote.proxy.rlwy.net:51502/railway`). Ver
+> `docs/DESDE JUNIO/flujo de dinero permutaciones/TOOLING-acceso-railway-db.md`, que documenta
+> ese método como canónico — los dos docs se contradecían.
+
+**Patrón A — script desechable con el env del servicio de Postgres:**
+
+```powershell
+railway run --service pgvector node scratchpad/query.cjs   # el script lee process.env.DATABASE_PUBLIC_URL
+```
+
+**Patrón B — throwaway tsx script en `packages/database/`** que lee la URL pública del `.env`
+y consulta por Prisma. Delete it after use — never commit it.
 
 ```typescript
 // packages/database/tmp-my-check.ts  — TEMP, delete after use.

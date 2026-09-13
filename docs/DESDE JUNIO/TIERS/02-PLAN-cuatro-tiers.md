@@ -676,11 +676,12 @@ nuevo lo sirve `apps/api` en tiempo de ejecución — su modal ya lo muestra bie
 en dr-prueba (FREE, 9 activos) el contador debe decir `9 / 50 activos` y NO cambiar al filtrar por
 archivados; en el admin, bajar a FREE a dr-david debe fallar con el mensaje que nombra 94 y 50.
 
-### Q4 — el cupo de almacenamiento (CONSTRUIDO, sin commitear — 2026-09-13)
+### Q4 — el cupo de almacenamiento (EN PROD — 2026-09-13)
 
-> **Estado: CÓDIGO ESCRITO Y EN VERDE (type-check + 5 gates), SIN COMMIT y SIN
-> SQL aplicado.** El as-built está en §8.2, al final de esta sección. Lo que el
-> plan de abajo prometía y NO se construyó (el medidor) está listado ahí.
+> **Estado: EN PRODUCCIÓN** (`0cbd76b4`), con `add-stored-files.sql` **aplicado
+> y verificado** contra prod. El as-built está en §8.2, al final de esta sección.
+> Lo que el plan de abajo prometía y NO se construyó (el medidor) está ahí, junto
+> con los 5 hallazgos del review que quedaron abiertos.
 
 **Lo que se midió antes de decidir nada** (read-only contra prod, 2026-09-13). Esto ya cambió el
 plan dos veces, así que va primero:
@@ -767,7 +768,9 @@ rechazo.
 
 ## 8.2 As-built Q4 — el cupo de almacenamiento (2026-09-13)
 
-> **Estado: construido, en verde, SIN COMMIT.** No está en prod. El SQL tampoco.
+> **Estado: EN PROD.** `0cbd76b4` en `main` y el SQL aplicado y verificado.
+> ⚠️ Falta lo único que prueba que FUNCIONA: que alguien suba un archivo.
+> `storedFile.createMany` **no se ha ejecutado nunca**.
 
 **Lo que se construyó, y en qué se APARTA del plan de arriba:**
 
@@ -798,7 +801,7 @@ rechazo.
 | 4 | El mensaje decía "borra archivos" y **nada baja el uso**: ningún camino borra filas de `stored_files` | El mensaje ya no promete una salida que no existe |
 | 5 | `formatearBytes(0)` devolvía `"1 KB"` — al que está exacto en su tope le decía que le quedaba espacio | Devuelve `0 B` |
 | 6 | `No existe el doctor` salía como "Failed to run middleware" | Traducido a `UploadThingError` |
-| 7 | **Exigir `doctorId` rompía subidas que ayer funcionaban**: antes de Q4 el middleware ni lo miraba, y `computeEffectiveAccess` devuelve null para un ADMIN (que `requireDoctorAuth` sí admite en endpoints de doctor) y para una membresía REVOKED. No se pudo contar cuántos son —el DNS de Railway no resuelve desde esta máquina—, así que se arregló en vez de medirlo | **Fail-open**: sin doctor no se mide ni se registra, pero se sube. Son cuentas que no tienen cupo que gastar |
+| 7 | **Exigir `doctorId` rompía subidas que ayer funcionaban**: antes de Q4 el middleware ni lo miraba, y `computeEffectiveAccess` devuelve null para un ADMIN (que `requireDoctorAuth` sí admite en endpoints de doctor) y para una membresía REVOKED. Se arregló sin medirlo (el DNS de Railway no resolvía en ese momento) y **se midió después, contra prod: 2 de 13 usuarios**, los dos con rol `DOCTOR` y **ninguno ADMIN** — o sea que el mecanismo que el review señalaba (los admins) NO era el real, aunque el hallazgo sí. Dos cuentas sin doctor ni membresía activa tampoco alcanzan un expediente ni un flujo, así que el fail-open es casi inerte en la práctica | **Fail-open**: sin doctor no se mide ni se registra, pero se sube. Son cuentas que no tienen cupo que gastar |
 
 **Lo que el review dejó ABIERTO (no se arregló):**
 
@@ -812,12 +815,34 @@ rechazo.
 **Verificación:** type-check ✅ (0 errores, 5/5; los cache misses cayeron en los paquetes que
 cambiaron en cada corrida) · 5 gates ✅ —pero
 **`gate:docs` no mira los docs de TIERS**, sólo AGENTES y NUEVOS USUARIOS, así que su verde no dice
-nada de esta sección— · code review ✅ (12 hallazgos) · **smoke read-only contra prod ❌ IMPOSIBLE
-HOY**: el DNS de Railway no resuelve, y además `stored_files` no existe todavía, así que
-`storedFile.aggregate` y `createMany` **no se han ejecutado nunca**.
+nada de esta sección— · code review ✅ (12 hallazgos).
 
-🔴 **Orden obligatorio al desplegar:** correr `add-stored-files.sql` en la consola SQL de Railway
-**ANTES** del push. La tabla es aditiva y nadie la lee hasta que el código llegue.
+**La migración, verificada contra prod** (`yamanote.proxy.rlwy.net:51502/railway`, read-only,
+después de aplicarla): las 7 columnas —con `file_key TEXT NOT NULL`, o sea que NO había una tabla
+vieja que volviera no-op al `CREATE TABLE IF NOT EXISTS`—, los 3 índices
+(`stored_files_pkey` · `stored_files_doctor_id_idx` · `stored_files_file_key_key`), la FK
+`doctors(id) ON DELETE CASCADE`, y 0 filas.
+
+🔴 **Lo que sigue SIN probarse: que un archivo real se registre.** `storedFile.aggregate` corre en
+la próxima subida; **`createMany` no se ha ejecutado nunca**. Type-check y gates jamás tocaron una
+subida viva. La prueba es subir un archivo y ver la fila:
+`SELECT doctor_id, kind, size_bytes, file_key FROM public.stored_files ORDER BY created_at DESC LIMIT 5;`
+Y si la tabla sigue vacía después de una subida exitosa, el síntoma es MUDO: `registrarArchivo` no
+lanza y `onUploadComplete` corre como daemon.
+
+🔴 **El orden se hizo AL REVÉS, y hay que anotarlo.** `database-architecture.md` tiene una
+checklist —nacida del incidente de ventas del 2026-02-19— que dice que el schema llega a la BD
+**ANTES** que el código. Aquí se pusheó `0cbd76b4` primero y el SQL se aplicó después, porque se
+dio por hecho que ya estaba corrido.
+
+**No pasó nada, y es por suerte prestada:** el hallazgo #2 del review (fail-open ante errores de
+infraestructura) aterrizó ANTES del push. Con el código original —fail-closed— esa ventana habría
+sido *toda* subida de `doctor` y `api` (29 de 33 definiciones) devolviendo "Failed to run
+middleware", con `admin` vivo para que pareciera caída parcial.
+
+El costo real de la ventana fue silencioso: mientras la tabla no existió, cada subida pasó **sin
+medirse** y dejó un `[storage] no se pudo leer el uso` en los logs. Sin backfill, esos bytes no se
+recuperan.
 
 ## 8.1 🔄 Handoff — cierre de sesión 2026-09-12
 
