@@ -609,6 +609,73 @@ propios watchPatterns disparen y las tres apps queden en el mismo commit. Con `a
 seguiría teniendo IA por ese lado: **dos apps aplicando techos distintos, y pareciendo que
 funciona**. (`railway up` NO sirve aquí: sube el árbol de trabajo, que todavía tiene BBVA.)
 
+### Q3 — el cupo de pacientes (2026-09-13)
+
+**Decisiones del usuario que lo destrabaron:** (1) el cupo cuenta **SOLO `status = 'active'`** —
+archivar libera lugar, y archivar es lo que ya hace el DELETE (borrado suave); (2) un downgrade que
+dejaría la cuenta por encima del tope **se RECHAZA en el admin**, en vez de permitir que exista una
+cuenta por encima de su cupo.
+
+**Por qué (1) importa más de lo que parece**, medido en prod el 2026-09-13: dr-prueba tiene **43
+pacientes pero 9 activos** (34 archivados). Contándolos todos estaría casi en el tope por
+expedientes que ya cerró. En la base solo hay `active` (263) y `archived` (40): `inactive` está en
+el comentario del esquema y no lo usa nadie.
+
+| Qué | Dónde |
+|---|---|
+| `assertPatientQuota(db, doctorId, entrantes, tier?)` + `maxPatientsFor()` + `QuotaExceededError` + `PATIENT_STATUS_COUNTED_AGAINST_QUOTA` | `permissions.ts` |
+| Alta individual | `patients/route.ts` |
+| Importación `.xlsx` — cuenta DENTRO de la transacción y rechaza el archivo ENTERO | `patient-import-commit.ts` |
+| **Desarchivar** (`archived/inactive → active`) consume un lugar | `patients/[id]/route.ts` PUT |
+| **Guard del downgrade** en el admin (409 con números y el arreglo) | `admin/doctor-tier/route.ts` |
+| `QUOTA_EXCEEDED` → 403 con `{limit, current, incoming}` | `api-error-handler.ts`, y a mano en la ruta de importación (no pasa por el handler) |
+| El contador `9 / 50 activos` y el `activeCount` que lo alimenta | `medical-records/page.tsx`, `patients/route.ts` GET |
+| `/feature-usage` cuenta ACTIVOS (antes `_count.patients` pelado) | `analytics/feature-usage/route.ts` |
+
+🔴 **Los TRES caminos, no dos.** El plan decía "2 caminos que crean pacientes". Son dos que
+**crean**, pero el cupo tiene un tercero que lo **consume**: desarchivar. Lo cazó el review y es el
+hallazgo grave — sin él el tope no existía: un doctor en 50/50 abre un archivado, lo guarda como
+`active` y queda en 51, repetible sin límite, y el contador pintaba "51 / 50" afirmando un estado
+que el servidor llama imposible. *Se guardaba la SALIDA y no el REGRESO.*
+
+**Los 4 hallazgos del review (corrido ANTES del commit) y sus arreglos:**
+
+| # | Hallazgo | Arreglo |
+|---|---|---|
+| 1 | La ruta de importación **no pasa por `handleApiError`**: el `QuotaExceededError` caía a un **500 genérico**, así que la rama nueva de `QUOTA_EXCEEDED` era código muerto ahí. Un límite de negocio se veía como avería de plataforma | Rama propia en el catch de esa ruta: 403 con los números |
+| 2 | 🔴 **Desarchivar saltaba el cupo por completo** (arriba) | Guard en el PUT, sólo en la TRANSICIÓN a `active` |
+| 3 | El lote se cobraba por TODOS los renglones, pero la plantilla trae columna `estatus` (`ESTATUS_MAP`) y el committer la respeta: 60 renglones con 55 `archivado` se rechazaban por 60 cuando solo 5 quedarían activos | Se cobra `entrantesActivos`, no `patients.length` |
+| 4 | Carrera check-then-create: dos altas simultáneas en 49/50 pasan las dos ⇒ 51 | **NO se arregló** (decisión del usuario: sin trabajo a nivel BD). Deriva acotada de 1-2, no un bypass. Anotado aquí |
+
+**Verificación**, toda leída del log: `pnpm type-check` **5/5** con 3 cache misses · `pnpm gates`
+**76 OK / 0 FAIL** · **21/21 + 15/15 comprobaciones EJECUTADAS** (frontera exacta 49+1 pasa /
+50+1 bloquea; lote todo-o-nada; fail-open con tier corrupto; las cinco transiciones de estado; el
+filtro del importador) · y **smoke-test read-only contra prod de las DOS formas de consulta
+nuevas** (`count` filtrado y `groupBy` filtrado): coinciden doctor por doctor, que es lo que
+importa porque el número que se MUESTRA y el que se COBRA tienen que ser el mismo.
+
+⚠️ **Y una trampa de método que casi se cuela:** las comprobaciones de los hallazgos 2 y 3 no
+podían importar el código real (ni la condición del PUT ni el filtro del importador están
+exportados), así que el script replicaba ambas. Eso valida **mi transcripción**, no el código: si
+me hubiera equivocado al copiar, la prueba pasaba igual. Se cerró leyendo las dos líneas reales de
+vuelta y comparándolas carácter por carácter. *Replicar una condición para probarla es un test de
+uno mismo hasta que se lee el original.*
+
+🔴 **Q3 NO es NO-OP**, aunque los caminos de escritura sí lo sean (ninguna cuenta FREE está cerca
+de 50): **el guard del admin muerde desde el primer día**. Medido: bajar a FREE a
+**dr-david-salazar-vela (94 activos)** o a **dr-jose (60)** se rechaza ya. dra-mariana-serratos va
+en 46, a cuatro del tope.
+
+**Despliegue:** `apps/api` y `apps/doctor` cambian en sus propias rutas, así que sus watchPatterns
+disparan solos. **`apps/admin` NO necesita tocarse esta vez**: lo que consume de
+`@healthcare/database` (`DOCTOR_TIERS`, `TIER_LIMITS`, `TIER_EXCLUDED_KEYS`) no cambió, y el 409
+nuevo lo sirve `apps/api` en tiempo de ejecución — su modal ya lo muestra bien
+(`doctors/page.tsx` lee `result.message`).
+
+**Lo que NO está probado: los PÍXELES.** Nadie ha visto el contador ni el rechazo del admin. Runbook:
+en dr-prueba (FREE, 9 activos) el contador debe decir `9 / 50 activos` y NO cambiar al filtrar por
+archivados; en el admin, bajar a FREE a dr-david debe fallar con el mensaje que nombra 94 y 50.
+
 ## 8.1 🔄 Handoff — cierre de sesión 2026-09-12
 
 - **Estado:** **Q1 CERRADO en prod** (`2779b2e6` + SQL + runbook A y B) y **Q2a construido**

@@ -22,6 +22,7 @@
 import type { Prisma } from '@prisma/client';
 import { importedNotesHeader } from './patient-import';
 import type { ValidationResult } from './patient-import-validate';
+import { assertPatientQuota } from './permissions';
 
 export interface ImportActor {
   /** El usuario que APRIETA el botón — doctor, apoyo o admin. */
@@ -75,6 +76,33 @@ export async function commitPatientImport(
   input: CommitInput,
 ): Promise<CommitResult> {
   const { doctorId, actor, sourceFile, batchId } = input;
+
+  /* ── 0. El CUPO del plan, ANTES de escribir nada (TIERS Q3) ──────────────
+   *
+   * Se evalúa el lote COMPLETO: si `activos + entrantes` pasa el tope, se
+   * rechaza el archivo entero y no entra ni un paciente. Importar "los
+   * primeros N" dejaría al doctor adivinando cuáles quedaron dentro — el mismo
+   * criterio de todo-o-nada que ya rige esta transacción.
+   *
+   * 🔴 Se cobran SÓLO los renglones que van a quedar `active`, no todos: la
+   * plantilla trae columna `estatus` (ESTATUS_MAP: activo/inactivo/archivado) y
+   * esta misma función la respeta al escribir. Cobrar el archivo entero
+   * rechazaba migraciones legítimas —60 renglones de historia con 55
+   * archivados cuestan 5 lugares, no 60— y contradecía la regla de que el cupo
+   * cuenta activos. Hallazgo del review de Q3.
+   *
+   * Se cuenta con `tx`, no con el cliente de fuera: contar por fuera sería leer
+   * un estado que esta misma transacción está a punto de mover.
+   */
+  const entrantesActivos = validated.patients.filter(
+    (p) => ((p.data as { status?: string }).status ?? 'active') === 'active',
+  ).length;
+  await assertPatientQuota(
+    tx as unknown as Parameters<typeof assertPatientQuota>[0],
+    doctorId,
+    entrantesActivos,
+  );
+
   const importedAt = new Date();
   const nextInternalId = makeInternalIdFactory(
     new Set(input.existingInternalIds),

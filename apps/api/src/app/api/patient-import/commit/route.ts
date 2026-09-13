@@ -14,7 +14,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { prisma, validateImport, commitPatientImport } from '@healthcare/database';
+import {
+  prisma,
+  validateImport,
+  commitPatientImport,
+  QuotaExceededError,
+} from '@healthcare/database';
 import { requireDoctorAuth, AuthError } from '@/lib/auth';
 import { parseImportFile, describeSheets } from '@/lib/patient-import-parse';
 import {
@@ -95,6 +100,26 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    // 🔴 TIERS Q3 — el cupo del plan NO es una falla del sistema.
+    //
+    // Esta ruta no pasa por `handleApiError`, así que sin esta rama el
+    // QuotaExceededError caía al 500 genérico de abajo: el doctor leía "no se
+    // pudo completar la importación" —que suena a avería— en vez de "tu plan
+    // incluye 50 y ya tienes 10", y en los logs un límite de negocio aparecía
+    // como error de plataforma. Es la misma lección del toast que decía "no se
+    // pudo transcribir el audio" ante un 403 de plan. Hallazgo del review de Q3.
+    if (error instanceof QuotaExceededError) {
+      return NextResponse.json(
+        {
+          error:
+            `Tu plan incluye ${error.limit} pacientes activos y ya tienes ${error.current}. ` +
+            `Este archivo agregaría ${error.incoming} más, así que no se importó nada. ` +
+            `Archiva expedientes para liberar lugar (archivar no borra nada).`,
+          quota: { limit: error.limit, current: error.current, incoming: error.incoming },
+        },
+        { status: 403 },
+      );
     }
     console.error('POST /api/patient-import/commit', error);
     return NextResponse.json(

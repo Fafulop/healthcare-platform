@@ -268,3 +268,81 @@ export const TIER_LIMITS: Record<DoctorTier, TierLimits> = {
   PRO: { storageBytes: 50 * GB, maxPatients: null },
   LAB: { storageBytes: 50 * GB, maxPatients: null },
 };
+
+/**
+ * El cupo de pacientes de un tier. `null` = sin tope.
+ *
+ * Un tier DESCONOCIDO cae a `FALLBACK_TIER` (PRO), igual que `tierAllows`: un
+ * dato corrupto no debe inventar un tope que nadie compró.
+ */
+export function maxPatientsFor(tier: string | null | undefined): number | null {
+  const known = typeof tier === 'string' && Object.hasOwn(TIER_LIMITS, tier);
+  return TIER_LIMITS[known ? (tier as DoctorTier) : FALLBACK_TIER].maxPatients;
+}
+
+/** Lo que se cuenta contra el cupo (decisión del usuario, 2026-09-13). */
+export const PATIENT_STATUS_COUNTED_AGAINST_QUOTA = 'active';
+
+/**
+ * 🔴 QUÉ se cuenta: SOLO los pacientes con `status = 'active'`.
+ *
+ * Archivar libera un lugar — y archivar es lo que ya hace el DELETE de
+ * `patients/[id]` (borrado suave, `status: 'archived'`), así que la válvula de
+ * escape existe sin construir nada. Medido en prod el 2026-09-13: dr-prueba
+ * tiene 43 pacientes pero **9 activos** y 34 archivados; contarlos todos lo
+ * pondría casi en el tope por expedientes que ya cerró. En la base solo hay
+ * `active` (263) y `archived` (40): `inactive` está en el comentario del
+ * esquema pero no lo usa nadie.
+ *
+ * ⚠️ El número que se CUENTA y el que se MUESTRA tienen que ser el mismo. El
+ * contador del admin (`/feature-usage`) usaba un `_count.patients` pelado, que
+ * para dr-prueba decía 43 mientras esto ve 9. Dos números distintos para
+ * "pacientes" en el mismo producto es una contradicción que descubre un doctor
+ * confundido, no un test.
+ */
+export class QuotaExceededError extends Error {
+  readonly limit: number;
+  readonly current: number;
+  readonly incoming: number;
+  constructor(limit: number, current: number, incoming: number) {
+    super('QUOTA_EXCEEDED');
+    this.name = 'QuotaExceededError';
+    this.limit = limit;
+    this.current = current;
+    this.incoming = incoming;
+  }
+}
+
+/** Cliente mínimo que necesita el chequeo — sirve igual `prisma` que un `tx`. */
+interface PatientCounter {
+  patient: { count(args: { where: Record<string, unknown> }): Promise<number> };
+  doctor: { findUnique(args: { where: { id: string }; select: { tier: true } }): Promise<{ tier: string } | null> };
+}
+
+/**
+ * Lanza `QuotaExceededError` si crear `incoming` pacientes pasaría el cupo del
+ * plan. No hace nada si el tier no tiene tope (PRO/BÁSICO/LAB ⇒ ni consulta).
+ *
+ * Se le pasa el MISMO cliente con el que se va a escribir: dentro de una
+ * transacción hay que contar dentro de ella, o se cuenta un estado que la
+ * escritura ya movió.
+ */
+export async function assertPatientQuota(
+  db: PatientCounter,
+  doctorId: string,
+  incoming: number,
+  tierYaConocido?: string | null,
+): Promise<void> {
+  const tier =
+    tierYaConocido !== undefined
+      ? tierYaConocido
+      : (await db.doctor.findUnique({ where: { id: doctorId }, select: { tier: true } }))?.tier ?? null;
+
+  const limit = maxPatientsFor(tier);
+  if (limit === null) return; // sin tope ⇒ ni siquiera se cuenta
+
+  const current = await db.patient.count({
+    where: { doctorId, status: PATIENT_STATUS_COUNTED_AGAINST_QUOTA },
+  });
+  if (current + incoming > limit) throw new QuotaExceededError(limit, current, incoming);
+}

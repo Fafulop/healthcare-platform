@@ -38,6 +38,23 @@ export function handleApiError(error: unknown, context: string = 'API request'):
       );
     }
 
+    // TIERS Q3 — cupo de pacientes del plan. Va con NÚMEROS: sin ellos el
+    // cliente sólo puede decir "no se pudo", y el doctor no sabe si le faltan
+    // 1 o 40 lugares ni que archivar libera uno. Misma lección que el toast de
+    // dictado, que decía "no se pudo transcribir" ante un 403 de plan.
+    if (error.message === 'QUOTA_EXCEEDED') {
+      const q = error as Error & { limit?: number; current?: number; incoming?: number };
+      return NextResponse.json(
+        {
+          error: 'QUOTA_EXCEEDED',
+          limit: q.limit ?? null,
+          current: q.current ?? null,
+          incoming: q.incoming ?? null,
+        },
+        { status: 403 }
+      );
+    }
+
     // Account tier doesn't include this feature (medical-auth TIERS T2). Distinct
     // marker so the UI shows the upgrade prompt, not the member "sin permiso"
     // screen. Without this the throw would fall through to a generic 500.

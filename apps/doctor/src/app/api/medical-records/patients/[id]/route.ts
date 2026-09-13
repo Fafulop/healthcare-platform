@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import {
+  prisma,
+  assertPatientQuota,
+  PATIENT_STATUS_COUNTED_AGAINST_QUOTA,
+} from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { logPatientUpdated, logPatientArchived } from '@/lib/activity-logger';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -75,6 +79,24 @@ export async function PUT(
         { error: 'Patient not found' },
         { status: 404 }
       );
+    }
+
+    // 🔴 TIERS Q3 — DESARCHIVAR consume un lugar del cupo.
+    //
+    // El cupo se apoya en "archivar LIBERA lugar"; si la operación inversa no
+    // se guarda, el tope no existe: un doctor en 50/50 abre un expediente
+    // archivado, lo guarda como `active` y queda en 51 — repetible sin límite,
+    // y el contador de la lista pintaría "51 / 50", afirmando un estado que el
+    // servidor llama imposible. Se guardaba la SALIDA y no el REGRESO.
+    // Hallazgo del review de Q3.
+    //
+    // Sólo la TRANSICIÓN a `active` cuenta: una edición cualquiera de un
+    // paciente que ya estaba activo no toca el cupo.
+    if (
+      body.status === PATIENT_STATUS_COUNTED_AGAINST_QUOTA &&
+      existingPatient.status !== PATIENT_STATUS_COUNTED_AGAINST_QUOTA
+    ) {
+      await assertPatientQuota(prisma, doctorId, 1);
     }
 
     // Track changes to medical baseline fields

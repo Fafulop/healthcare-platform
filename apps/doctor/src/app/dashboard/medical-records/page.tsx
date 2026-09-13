@@ -9,6 +9,7 @@ import { PatientCard, type Patient } from '@/components/medical-records/PatientC
 import { PatientRow, PatientRowHeader } from '@/components/medical-records/PatientRow';
 import { PatientSearchBar } from '@/components/medical-records/PatientSearchBar';
 import { usePermissions } from '@/lib/permissions-client';
+import { maxPatientsFor } from '@healthcare/database';
 
 const VIEW_STORAGE_KEY = 'medicalRecordsViewMode';
 
@@ -24,9 +25,16 @@ export default function PatientsPage() {
   // `isOwner: true` por defecto (fail-open, para no esconderle nada al dueño en
   // el primer render). Sin comprobarlo, una cuenta de apoyo alcanza a ver
   // parpadear "Importar" antes de que se resuelva.
-  const { isOwner, loading: permsLoading } = usePermissions();
+  const { isOwner, tier, loading: permsLoading } = usePermissions();
+  // TIERS Q3 — el cupo de pacientes del plan. `null` ⇒ sin tope (PRO/BÁSICO/LAB)
+  // y no se pinta nada: hoy eso son 10 de las 12 cuentas.
+  const topePacientes = maxPatientsFor(tier);
 
   const [patients, setPatients] = useState<Patient[]>([]);
+  /** ACTIVOS del doctor, venga del servidor y NO de `patients.length`: la lista
+   *  está filtrada por estado y con el filtro en "archivados" su longitud no
+   *  dice cuántos lugares del cupo están ocupados. */
+  const [activeCount, setActiveCount] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [loading, setLoading] = useState(true);
@@ -59,6 +67,10 @@ export default function PatientsPage() {
       const data = await res.json();
       if (!data?.data || !Array.isArray(data.data)) throw new Error('Invalid response format');
       setPatients(data.data);
+      // TIERS Q3 — viene del SERVIDOR, no de `data.data.length`: la lista está
+      // filtrada por estado. Si el endpoint es viejo (o no lo manda) se deja en
+      // null y el contador de cupo simplemente no se pinta, en vez de inventar.
+      setActiveCount(typeof data.activeCount === 'number' ? data.activeCount : null);
     } catch (err: any) {
       setError(err.message || 'Error loading patients');
     } finally {
@@ -148,6 +160,18 @@ export default function PatientsPage() {
           {!loading && (
             <p className="text-sm text-gray-500">
               {patients.length} paciente{patients.length !== 1 ? 's' : ''}
+            </p>
+          )}
+          {/* El cupo del plan. Cuenta ACTIVOS (del servidor), no lo que se está
+              viendo: archivar libera lugar, así que un archivado no ocupa cupo. */}
+          {!loading && topePacientes !== null && activeCount !== null && (
+            <p
+              className={`text-sm ${
+                activeCount >= topePacientes ? 'text-amber-700 font-medium' : 'text-gray-400'
+              }`}
+              title={`Tu plan incluye ${topePacientes} pacientes activos. Archivar libera lugar.`}
+            >
+              {activeCount} / {topePacientes} activos
             </p>
           )}
           <div className="flex gap-1 flex-shrink-0 ml-auto">

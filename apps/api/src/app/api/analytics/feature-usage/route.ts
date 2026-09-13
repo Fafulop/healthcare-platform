@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/auth';
-import { prisma } from '@healthcare/database';
+import { prisma, PATIENT_STATUS_COUNTED_AGAINST_QUOTA } from '@healthcare/database';
 import { allFeatures, featureOf, voiceLabel } from '@/lib/llm-features';
 import { costOfUsd } from '@/lib/llm-pricing';
 
@@ -10,6 +10,7 @@ export async function GET(request: Request) {
 
     const [
       doctors,
+      activePatientCounts,
       encounterCounts,
       prescriptionCounts,
       llmTokenTotals,
@@ -24,9 +25,14 @@ export async function GET(request: Request) {
             doctorFullName: true,
             primarySpecialty: true,
             createdAt: true,
+            // TIERS Q3 — `patients` SALE de este `_count`: contaba TODOS los
+            // expedientes sin mirar `status`, y el cupo del plan sólo cuenta los
+            // `active`. Para dr-prueba eso eran 43 aquí contra 9 en el cupo: dos
+            // números distintos para "pacientes" en el mismo producto. Ahora
+            // viene del groupBy filtrado de abajo. (`_count.select` no acepta
+            // `where`, por eso no se arregla en línea.)
             _count: {
               select: {
-                patients: true,
                 tasks: true,
                 articles: true,
                 bookings: true,
@@ -40,6 +46,15 @@ export async function GET(request: Request) {
             },
           },
           orderBy: { doctorFullName: 'asc' },
+        }),
+
+        // Pacientes ACTIVOS por doctor — el mismo criterio que el cupo del plan
+        // (`PATIENT_STATUS_COUNTED_AGAINST_QUOTA`). Archivar libera lugar, así
+        // que un archivado no puede contar aquí tampoco.
+        prisma.patient.groupBy({
+          by: ['doctorId'],
+          where: { status: PATIENT_STATUS_COUNTED_AGAINST_QUOTA },
+          _count: { id: true },
         }),
 
         prisma.clinicalEncounter.groupBy({
@@ -81,6 +96,8 @@ export async function GET(request: Request) {
         }),
       ]);
 
+    // Pacientes ACTIVOS — el mismo criterio que el cupo del plan (TIERS Q3).
+    const activePatientMap = new Map(activePatientCounts.map((p) => [p.doctorId, p._count.id]));
     const encounterMap = new Map(encounterCounts.map((e) => [e.doctorId, e._count.id]));
     const prescriptionMap = new Map(prescriptionCounts.map((p) => [p.doctorId, p._count.id]));
     const tokenMap = new Map(llmTokenTotals.map((t) => [t.doctorId, t._sum.totalTokens ?? 0]));
@@ -132,7 +149,7 @@ export async function GET(request: Request) {
       specialty: doc.primarySpecialty,
       createdAt: doc.createdAt.toISOString(),
       counts: {
-        patients: doc._count.patients,
+        patients: activePatientMap.get(doc.id) ?? 0,
         encounters: encounterMap.get(doc.id) ?? 0,
         prescriptions: prescriptionMap.get(doc.id) ?? 0,
         tasks: doc._count.tasks,

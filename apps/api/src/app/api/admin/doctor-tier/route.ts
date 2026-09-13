@@ -14,7 +14,14 @@
 // the boundary.
 
 import { NextResponse } from 'next/server';
-import { prisma, DOCTOR_TIERS, TIER_EXCLUDED_KEYS, type DoctorTier } from '@healthcare/database';
+import {
+  prisma,
+  DOCTOR_TIERS,
+  TIER_EXCLUDED_KEYS,
+  maxPatientsFor,
+  PATIENT_STATUS_COUNTED_AGAINST_QUOTA,
+  type DoctorTier,
+} from '@healthcare/database';
 import { requireAdminAuth, AuthError } from '@/lib/auth';
 
 function isCanonicalTier(value: unknown): value is DoctorTier {
@@ -112,6 +119,35 @@ export async function PATCH(request: Request) {
         success: true,
         data: { doctorId: doctor.id, slug: doctor.slug, previousTier: doctor.tier, tier, changed: false },
       });
+    }
+
+    // TIERS Q3 — un downgrade que dejaría la cuenta POR ENCIMA de su cupo se
+    // RECHAZA aquí (decisión del usuario, 2026-09-13): la alternativa era
+    // dejarla existir por encima del tope, y entonces "cuántos pacientes tengo
+    // permitidos" deja de tener una respuesta cierta.
+    //
+    // ⚠️ Esto NO es teórico: medido en prod el 2026-09-13, dr-david-salazar-vela
+    // tiene 94 pacientes activos y dr-jose 60 — mover cualquiera de los dos a
+    // FREE (tope 50) se rechaza desde hoy. dra-mariana-serratos va en 46.
+    const nuevoTope = maxPatientsFor(tier);
+    if (nuevoTope !== null) {
+      const activos = await prisma.patient.count({
+        where: { doctorId: doctor.id, status: PATIENT_STATUS_COUNTED_AGAINST_QUOTA },
+      });
+      if (activos > nuevoTope) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'QUOTA_EXCEEDED',
+            message:
+              `${doctor.slug} tiene ${activos} pacientes activos y el plan ${tier} permite ` +
+              `${nuevoTope}. Archiva ${activos - nuevoTope} expediente(s) antes de bajar el plan ` +
+              `(archivar no borra nada y libera lugar).`,
+            data: { current: activos, limit: nuevoTope, tier },
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const updated = await prisma.doctor.update({

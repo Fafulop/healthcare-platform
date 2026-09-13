@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import {
+  prisma,
+  assertPatientQuota,
+  PATIENT_STATUS_COUNTED_AGAINST_QUOTA,
+} from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { logPatientCreated } from '@/lib/activity-logger';
 import {
@@ -57,7 +61,21 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ data: patients });
+    // TIERS Q3 — el total de ACTIVOS va aparte de la lista, y a propósito: la
+    // lista viene filtrada por `status`, así que con el filtro en "archivados"
+    // su longitud NO dice cuántos lugares del cupo están ocupados. Pintar
+    // "34 / 50" al mirar archivados afirmaría que un archivado consume cupo,
+    // que es exactamente lo contrario de la regla (archivar LIBERA lugar).
+    // Se añade junto a `data` sin tocar su forma: los demás consumidores de
+    // este endpoint (buscadores, modal de formulario) lo ignoran.
+    const activeCount =
+      status === PATIENT_STATUS_COUNTED_AGAINST_QUOTA && !search && !email
+        ? patients.length // ya lo tenemos: es exactamente esta consulta
+        : await prisma.patient.count({
+            where: { doctorId, status: PATIENT_STATUS_COUNTED_AGAINST_QUOTA },
+          });
+
+    return NextResponse.json({ data: patients, activeCount });
   } catch (error) {
     return handleApiError(error, 'GET /api/medical-records/patients');
   }
@@ -87,6 +105,12 @@ export async function POST(request: NextRequest) {
     if (body.tags && !Array.isArray(body.tags)) {
       throw new Error('Tags must be an array');
     }
+
+    // TIERS Q3 — el cupo de pacientes del plan, ANTES de crear. Sin tope
+    // (PRO/BÁSICO/LAB) ni siquiera cuenta. Archivar libera lugar: el DELETE de
+    // `patients/[id]` es un borrado SUAVE que pone `status: 'archived'`, y solo
+    // los `active` cuentan.
+    await assertPatientQuota(prisma, doctorId, 1);
 
     // Generate internal ID if not provided
     const internalId = body.internalId || `P${Date.now()}`;

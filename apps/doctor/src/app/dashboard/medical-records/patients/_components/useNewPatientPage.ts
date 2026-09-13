@@ -229,6 +229,19 @@ export function useNewPatientPage() {
 
     if (!res.ok) {
       const errorData = await res.json();
+      // TIERS Q3 — el cupo del plan llega como marcador + números. Sin esto el
+      // doctor vería literalmente la cadena "QUOTA_EXCEEDED", que es peor que
+      // un error genérico: parece una falla del sistema y no un límite de su
+      // plan, y no dice que archivar libera lugar.
+      if (errorData.error === 'QUOTA_EXCEEDED') {
+        const { current, limit } = errorData as { current?: number; limit?: number };
+        throw new Error(
+          current != null && limit != null
+            ? `Tu plan incluye ${limit} pacientes activos y ya tienes ${current}. ` +
+              `Archiva un expediente para liberar lugar (archivar no borra nada).`
+            : 'Tu plan no permite más pacientes activos. Archiva un expediente para liberar lugar.'
+        );
+      }
       throw new Error(errorData.error || 'Error al crear paciente');
     }
 
