@@ -149,14 +149,26 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   // `ia`. Sin estas tres reglas, un gate por prefijo de IA no las vería: el
   // informe transcribe con `lib/voice/transcribir-audio` justo para NO pasar
   // por `/api/voice`, que es OWNER_ONLY.
-  { prefix: 'medical-records/patients/*/summary', key: 'expedientes', feature: 'ia' },
+  // ⚠️ `methods: ['POST']`: SOLO el POST genera el resumen con el modelo; el GET
+  // lee el que ya está guardado en Postgres (`summary/route.ts` :9-41, sin una
+  // sola llamada al LLM). Sin esto, excluir `ia` le quitaría al doctor la
+  // LECTURA de un resumen que YA es suyo — exactamente el error que este repo
+  // ya pagó en vivo dos veces (`facturacion/csd/status` y `sat-descarga/fiel`,
+  // 2026-07-21). `dictar` y `chat` no lo necesitan: son POST-only.
+  { prefix: 'medical-records/patients/*/summary', key: 'expedientes', feature: 'ia', methods: ['POST'] },
   { prefix: 'medical-records/patients/*/reports/*/dictar', key: 'expedientes', feature: 'ia' },
   { prefix: 'medical-records/patients/*/reports/*/chat', key: 'expedientes', feature: 'ia' },
   { prefix: 'medical-records', key: 'expedientes' },
   { prefix: 'custom-templates', key: 'expedientes' },
   { prefix: 'notes', key: 'notas' },
   { prefix: 'bank-statement-import', key: 'conciliacion' },
-  { prefix: 'bank-statement-parse', key: 'conciliacion' },
+  // Parsea el PDF del estado de cuenta CON un LLM. Su key sigue siendo
+  // `conciliacion`, pero ADEMÁS es IA: con el apilamiento de `routeTierKeys` se
+  // bloquea si CUALQUIERA de las dos está excluida. Sin la anotación, un
+  // BÁSICO —que hoy NO excluye `conciliacion` porque esa entrada está diferida
+  // (permissions.ts §TIER_EXCLUDED_KEYS)— seguiría pagando parseo con modelo:
+  // la misma fuga que Q2 existe para cerrar, colándose por otra key.
+  { prefix: 'bank-statement-parse', key: 'conciliacion', feature: 'ia' },
 
   // Print settings dialog lives in the expediente surface
   { prefix: 'doctor/pdf-settings', key: 'expedientes' },
@@ -263,27 +275,64 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; key: PermissionKey }> 
  * por encima ⇒ null (el tier no aplica; lo decide el check normal).
  */
 export function nearestFeatureKey(pathname: string, method: string): TierKey | null {
+  return routeTierKeys(pathname, method).displayKey;
+}
+
+/**
+ * TODAS las keys de función bajo las que cae una ruta para el TECHO del tier —
+ * la de la FUNCIÓN a la que pertenece por prefijo (`key`) **y** la anotada
+ * (`feature`). Se devuelven las DOS porque **se apilan, no se sustituyen**.
+ *
+ * 🔴 Por qué (hallazgo del review de Q2a): la primera versión resolvía
+ * `feature ?? key`, así que anotar `…/patients/[id]/summary` con `feature: 'ia'`
+ * la sacaba de `expedientes`. Un plan que excluyera `expedientes` habría
+ * negado TODO `/api/medical-records/*` **menos** esas tres rutas, que se
+ * colaban por `ia` — el resumen con IA de un expediente seguía alcanzable en
+ * un plan sin expedientes. Una anotación cuyo contrato es "no cambia quién
+ * entra" no puede AMPLIAR el acceso; con el apilamiento no puede.
+ *
+ * `displayKey` es la que se le REPORTA al cliente cuando no hay bloqueo
+ * (la anotada gana, que es la que describe mejor la función); cuál causó el
+ * bloqueo lo decide `tierRouteDecision`.
+ */
+export function routeTierKeys(
+  pathname: string,
+  method: string
+): { displayKey: TierKey | null; keys: TierKey[] } {
   const clean = pathname.split('?')[0].replace(/\/+$/, '');
   const apiIdx = clean.indexOf('/api/');
   const rel = apiIdx >= 0 ? clean.slice(apiIdx + 5) : clean.replace(/^\/+/, '');
   const pathSegs = segments(rel);
   const upperMethod = method.toUpperCase();
 
-  let best: { key: TierKey; len: number } | null = null;
+  // Dos "mejores" independientes: la regla más específica con key de FUNCIÓN,
+  // y la regla más específica con `feature`. Pueden venir de reglas distintas.
+  let bestKey: { key: PermissionKey; len: number } | null = null;
+  let bestFeature: { key: TierKey; len: number } | null = null;
+
   for (const rule of ROUTE_PERMISSION_MAP) {
-    // `feature` gana sobre `key` (TIERS Q2): así una ruta OWNER_ONLY declara a
-    // qué FUNCIÓN de plan pertenece. Se salta solo si lo RESUELTO no es una
-    // key de función — una regla OWNER_ONLY CON `feature` sí cuenta.
-    const resolved = rule.feature ?? rule.key;
-    if (resolved === 'NEUTRAL' || resolved === 'OWNER_ONLY') continue;
     if (rule.methods && !rule.methods.includes(upperMethod)) continue;
     const prefixSegs = segments(rule.prefix);
     if (!prefixMatches(prefixSegs, pathSegs)) continue;
-    if (!best || prefixSegs.length > best.len) {
-      best = { key: resolved, len: prefixSegs.length };
+
+    if (rule.feature && (!bestFeature || prefixSegs.length > bestFeature.len)) {
+      bestFeature = { key: rule.feature, len: prefixSegs.length };
+    }
+    // NEUTRAL/OWNER_ONLY no son keys de función: no aportan techo por sí solas.
+    if (
+      rule.key !== 'NEUTRAL' &&
+      rule.key !== 'OWNER_ONLY' &&
+      (!bestKey || prefixSegs.length > bestKey.len)
+    ) {
+      bestKey = { key: rule.key, len: prefixSegs.length };
     }
   }
-  return best?.key ?? null;
+
+  const keys: TierKey[] = [];
+  if (bestFeature) keys.push(bestFeature.key);
+  if (bestKey && bestKey.key !== bestFeature?.key) keys.push(bestKey.key);
+
+  return { displayKey: bestFeature?.key ?? bestKey?.key ?? null, keys };
 }
 
 /**
@@ -298,9 +347,13 @@ export function tierRouteDecision(
   method: string,
   tier: string | null | undefined
 ): { blocked: boolean; featureKey: TierKey | null } {
-  const featureKey = nearestFeatureKey(pathname, method);
-  const blocked = featureKey != null && !tierAllows(tier, featureKey);
-  return { blocked, featureKey };
+  const { displayKey, keys } = routeTierKeys(pathname, method);
+  // Bloquea si CUALQUIERA de las keys aplicables está fuera del plan (se
+  // apilan — ver routeTierKeys). Se reporta la que CAUSÓ el bloqueo, no la
+  // "bonita": si a un plan le falta `expedientes`, el cliente tiene que oír
+  // `expedientes`, no `ia`.
+  const offending = keys.find((k) => !tierAllows(tier, k)) ?? null;
+  return { blocked: offending !== null, featureKey: offending ?? displayKey };
 }
 
 /** Toggle governing a dashboard page, or null if the page is ungated (home). */

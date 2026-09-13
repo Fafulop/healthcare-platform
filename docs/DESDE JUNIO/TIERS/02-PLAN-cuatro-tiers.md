@@ -510,6 +510,50 @@ hub, que además se saltan por deep-link `?chat=true`). 🔴 **Prerrequisito:
 ella `TierUpgradeNotice` omite el CTA y un micrófono con candado no ofrece salida — peor que
 ocultarlo.
 
+🔴 **Segundo prerrequisito de Q2b, descubierto al desplegar Q2a: hay que FORZAR el deploy de
+`api` y `admin`.** El commit de Q2a tocó `packages/database` + tres archivos de `apps/doctor`, y
+**solo `@healthcare/doctor` se redesplegó**: `api` y `admin` se quedaron en el commit anterior con
+sus marcas de tiempo intactas. Confirmado que no hay NINGÚN `railway.json`/`railway.toml` en el
+repo (los `watchPatterns` viven solo en el dashboard) y que **`packages/**` no está en los de
+nadie** — el mismo incidente que ya estaba anotado. Hoy da igual porque Q2a es NO-OP, pero en Q2b
+muerde de verdad: un `api` con el bundle viejo de `@healthcare/database` **no sabría que FREE
+excluye `ia`** (ni `TIER_EXCLUDED_KEYS` ni el campo `feature` viajarían), así que las dos apps
+aplicarían el techo de forma distinta — el peor modo de fallo, porque *parece* que funciona.
+**Antes de que Q2b muerda: `railway up` por servicio** (no `railway redeploy`, que reconstruye el
+commit viejo) y verificar el `commitHash` de los tres.
+
+### Q2a — code review (2026-09-13), 5 hallazgos · 4 arreglados
+
+⚠️ **Primero, el error de método: el review se corrió DESPUÉS de commitear y pushear**, porque fui
+directo de "gates en verde" a proponer el commit. Lo pidió el usuario (*"no code review??"*). La
+regla del repo —lógica de frontera y contenido que afirma hechos SIEMPRE llevan review— aplicaba a
+Q2a por partida doble. Salió barato solo porque Q2a es NO-OP: nada de lo hallado muerde hoy.
+
+| # | Hallazgo | Arreglo |
+|---|---|---|
+| 1 | 🔴 **El GET de `…/summary` NO es IA**: solo el POST llama al modelo; el GET lee de Postgres (`summary/route.ts` :9-41). Anotar el prefijo entero le habría quitado a un FREE la **lectura de un resumen que ya es suyo** | `methods: ['POST']` en la regla. Es el patrón que este repo YA pagó en vivo dos veces (`facturacion/csd/status`, `sat-descarga/fiel`, 2026-07-21) |
+| 2 | 🔴 **`feature ?? key` SUSTITUÍA la key**: las 3 rutas del expediente resolvían a `ia` en vez de `expedientes`, así que un plan que excluyera `expedientes` habría negado todo `/api/medical-records/*` **menos esas tres**. Una anotación cuyo contrato es "no cambia quién entra" **ampliaba** el acceso | `routeTierKeys()` devuelve las DOS keys y **se apilan**: bloquea si CUALQUIERA está excluida. `tierRouteDecision` reporta la que CAUSÓ el bloqueo, no la "bonita" |
+| 3 | **Las 2 rutas de `llm-assistant` no usaban `handleApiError`**: `TIER_EXCLUDED` caía al 500 genérico ⇒ el cliente recibiría un crash en vez de la pantalla de plan. Y ya se tragaba `PERMISSION_BLOCKED` desde ANTES de TIERS (bug vivo, ajeno a esta feature) | Las dos delegan los dos marcadores a `handleApiError` |
+| 4 | **`bank-statement-parse` parsea con LLM** y se dejó sin anotar porque ya resuelve a `conciliacion` — pero la exclusión de `conciliacion` en BÁSICO está DIFERIDA, así que un BÁSICO seguiría pagando parseo con modelo | `feature: 'ia'` (solo es seguro gracias al apilamiento del #2) |
+| 5 | `gate:routes` no verifica las 15 anotaciones hasta que `ia` esté excluida — y es el mecanismo que habría cazado #1 y #2 | Sin arreglo: es estructural. Por eso se prueba EJECUTANDO |
+
+**Verificación** (leída de los logs): `pnpm type-check` **5/5** con 3 cache misses · `pnpm gates`
+**76 OK / 0 FAIL** · **26/26 comprobaciones EJECUTADAS**, que demuestran cada arreglo: `summary`
+GET→`expedientes` y POST→`ia`; `keys` = `["ia","expedientes"]` en las tres del expediente;
+`bank-statement-parse` bloqueado en FREE **reportando `conciliacion`** (la causa real, no `ia`); y
+`ia` sigue sin morder en ningún tier.
+
+🔎 **Lo que NO está probado ejecutando: el #3.** Se verificó LEYENDO las dos ramas de
+`handleApiError` (`PERMISSION_BLOCKED` :34, `TIER_EXCLUDED` :44) y la delegación de tres líneas en
+cada ruta. Probarlo de verdad necesita una petición HTTP real desde una cuenta con recorte ⇒ va al
+runbook en vivo de Q2b. *Anotarlo es la diferencia entre "revisado" y "probado".*
+
+🔴 **Y la misma trampa del `*/`, DOS veces en la misma sesión.** El comentario nuevo de
+`routeTierKeys` volvió a citar una ruta con comodín dentro de un bloque `/** */` y volvió a partir
+el archivo (type-check exit 2, gates exit 1). Saber la regla no la aplica: **después de escribir un
+comentario de bloque, pásale `grep -n '^\s*\*.*\S\*/'`**. Los literales de string con `*` no
+molestan; solo los comentarios.
+
 ## 8.1 🔄 Handoff — cierre de sesión 2026-09-12
 
 - **Estado:** **Q1 CERRADO en prod** (`2779b2e6` + SQL + runbook A y B) y **Q2a construido**

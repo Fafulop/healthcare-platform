@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
+import { handleApiError } from '@/lib/api-error-handler';
 import { processQuery } from '@/lib/llm-assistant/query/pipeline';
 import { isLLMAssistantError, toErrorResponse } from '@/lib/llm-assistant/errors';
 import { CHAT_RATE_LIMIT_REQUESTS, CHAT_RATE_LIMIT_WINDOW_MS } from '@/lib/llm-assistant/constants';
@@ -88,6 +89,18 @@ export async function POST(request: NextRequest) {
         { success: false, error: errResponse.error, code: errResponse.code },
         { status: errResponse.statusCode }
       );
+    }
+
+    // El techo del PLAN y los toggles de member se delegan al handler
+    // compartido, para que el cuerpo sea idéntico al del resto de las rutas
+    // (403 + `featureKey`). Antes caían al 500 genérico del final: el cliente
+    // recibía un crash en vez de la pantalla de plan — y con PERMISSION_BLOCKED
+    // eso ya pasaba desde antes de TIERS. Hallazgo del review de Q2a.
+    if (
+      error instanceof Error &&
+      (error.message === 'TIER_EXCLUDED' || error.message === 'PERMISSION_BLOCKED')
+    ) {
+      return handleApiError(error);
     }
 
     // Handle auth errors
