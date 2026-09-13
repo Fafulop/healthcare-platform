@@ -381,10 +381,28 @@ ninguna `CORE`, **cero CHECK constraints** en `doctors` ⇒ el `UPDATE` no puede
 Descartados por el propio review (4): endurecer `EvalCase.tier` a la unión, reusar `fmtStorage`,
 una nota de diseño sobre `TierKey` a medias, un comentario en español en un archivo en inglés.
 
-**Pendiente de este PR al escribir esto:** type-check + gates tras los arreglos, re-review de los
-sitios arreglados, OK del usuario al diff, push, verificar `commitHash` por servicio, correr el SQL,
-leer de vuelta `PRO 12` + aserción `NOT IN = 0` + default `'FREE'`, y el runbook A en el admin (12
-chips azules `Pro`).
+**Corrida real (2026-09-13).** Commit **`2779b2e6`**, pusheado. `api` · `doctor` · `admin` los tres
+en ese hash con deploy **SUCCESS**; `@healthcare/public` se quedó en `6aba1f33` y **es correcto**:
+el commit no toca sus `watchPatterns` y no lee `tier` en runtime (su copia de `/producto` sigue
+describiendo FULL/CORE — eso es el hallazgo 7, va a Q6). Con los tres servicios verificados se
+aplicó el SQL (`prisma db execute --url`) y se leyó de vuelta:
+
+| | antes | después |
+|---|---|---|
+| filas por tier | `FULL` × 12 | **`PRO` × 12** |
+| aserción `tier NOT IN` los cuatro | 12 | **0** |
+| default de columna | `'FULL'::text` | **`'FREE'::text`** |
+
+⚠️ **El re-review de los arreglos NO se corrió** — el usuario lo detuvo, y en su lugar se **EJECUTÓ**
+el único arreglo en el camino caliente: `tierAllows` contra 17 entradas —`constructor` · `toString`
+· `__proto__` (que antes reventaban en `.includes` ⇒ 500 en cada request), `FULL` · `CORE` ·
+`ENTERPRISE` · `null` · `undefined` · `free` (⇒ PRO), y las cuatro formas canónicas— **17/17 OK,
+cero throws**. Los otros tres arreglos se leyeron hunk por hunk. Ejecutar el arreglo vale MÁS que
+una segunda lectura (la lección de `turnoEncolado`), pero no cubre el resto del diff: si algo de Q1
+muerde, el sospechoso #1 es lo que no se ejecutó.
+
+**Lo único que falta de Q1:** el **runbook A** en el admin — 12 chips azules `Pro`, y el modal con
+los cuatro planes (etiqueta + código + cupos). Son ojos humanos, no código.
 
 ## 8.1 🔄 Handoff — cierre de sesión 2026-09-12
 
