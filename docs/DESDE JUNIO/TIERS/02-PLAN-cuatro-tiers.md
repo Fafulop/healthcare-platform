@@ -844,6 +844,61 @@ El costo real de la ventana fue silencioso: mientras la tabla no existió, cada 
 medirse** y dejó un `[storage] no se pudo leer el uso` en los logs. Sin backfill, esos bytes no se
 recuperan.
 
+## 8.3 🔄 Handoff — cierre de sesión 2026-09-13 (Q4 EN PROD Y PROBADO)
+
+**Estado: Q1 · Q2a · Q2b · Q3 · Q4 en producción.** Commits de hoy: `0cbd76b4`
+(Q4) y `a8aea739` (corrección de estos docs).
+
+**Q4 quedó PROBADO punta a punta**, que es lo que ninguna de las Q anteriores
+alcanzó: el usuario subió una imagen y la fila apareció —`dr-prueba`,
+`kind: medicalImages`, 13,603 bytes, `file_key 63e9Mv5a…`, 08:07:31Z—. Se
+comprobó además contra `patient_media` (1 fila en 2h en cada tabla): la subida
+ocurrió Y se apuntó. Si el apunte hubiera fallado se habría visto 1 vs 0, porque
+`registrarArchivo` no lanza y `onUploadComplete` corre como daemon.
+
+O sea: `stored_files` existe y está verificada, `aggregate` corrió, `createMany`
+corrió, se le cobró al doctor DESTINO y la llave guardada es `fileKey`, no una URL.
+
+**Lo primero que hay que hacer (recomendación): EL MEDIDOR.** Es lo único que
+separa un cupo que funciona de un cupo vivible. Hoy el doctor no puede ver su uso
+en ningún lado: la primera señal que recibe es un rechazo a media consulta, con un
+número que no tiene cómo verificar. Y como nada borra filas, ese número sólo sube.
+
+**Abierto, por orden de mordida:**
+
+1. **No hay medidor** (arriba).
+2. **Nada borra filas de `stored_files`** ⇒ el uso sólo crece. El mensaje de
+   rechazo ya NO dice "borra archivos" porque sería mentira, pero la deuda sigue.
+3. **`fiscal-form` sube la constancia con `UTApi` fuera de los tres routers** ⇒
+   almacenamiento sin medir, en un formulario público de pacientes.
+4. **Los dropzones anuncian 32 MB / 256 MB** y el servidor rechaza a 25/200
+   (`FileSize` de uploadthing sólo admite potencias de 2).
+5. **`NEXT_PUBLIC_SALES_EMAIL` sigue sin ponerse en Railway** — es de Q2b, ya en
+   prod: el candado de IA funciona pero no ofrece salida.
+6. **Q5 (LAB)** sigue sin agendarse: `asistente_ia` a `TIER_EXCLUDED_KEYS` y
+   retirar `ASISTENTE_IA_VISIBLE`.
+
+**Lecciones de esta sesión que conviene no repetir:**
+
+- **Se desplegó el código ANTES del SQL**, al revés de la checklist de
+  `database-architecture.md`. No tronó sólo porque el fail-open del review entró
+  antes del push. Lo que se subió en esa ventana no se midió y no se recupera.
+- **Cinco listas cerradas resultaron falsas** (11 prefijos de IA eran 12; 2
+  caminos de alta eran 3; "14 rutas" eran 17 keys en 33 definiciones; 4 archivos
+  que suben eran 19; 2 bypasses, no 0). Si un plan trae una lista, cuéntala.
+- **El review encontró un fallo de diseño en CADA PR**, incluido Q4: el router de
+  admin estaba abierto a cualquier cuenta de Google y `.input()` lo volvía
+  "elige a quién cobrárselo". No saltárselo.
+- **Un `[]` no es una respuesta.** `stored_files` con 0 filas significaba "nadie
+  subió" o "el apunte falla", y son indistinguibles sin contrastar contra otra
+  tabla.
+
+**El working tree NO está limpio** (es trabajo ajeno a TIERS, nunca se commiteó
+hoy): informe médico BBVA (`formatos/index.ts`, `etiquetas-de-la-hoja.ts`,
+`dicts/bbva.ts`, el PDF, `reports/*/chat/route.ts`), `docs/DESDE JUNIO/ANALISIS
+CAT/` y `scripts/demo-seed/`. El BBVA lleva 3+ semanas sin commitear y necesita
+OJOS sobre la hoja, no código.
+
 ## 8.1 🔄 Handoff — cierre de sesión 2026-09-12
 
 - **Estado:** **Q1 CERRADO en prod** (`2779b2e6` + SQL + runbook A y B) y **Q2a construido**
