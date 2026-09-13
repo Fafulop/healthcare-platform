@@ -59,3 +59,7 @@ sat-metadata-*
 # porque `scripts/agent-cost-benchmark.ts` lee `agenda-evals-last-run.json` por
 # default: borrarlos rompería ese flujo hasta re-correr la suite completa.
 agenda-evals-*.json
+
+# Scripts de un solo uso contra prod (patrón de docs/NEW.MD-GUIDES/database-architecture.md
+# §"Read-only queries against prod": se crean, se corren, se borran). Nunca se commitean.
+packages/database/tmp-*.ts

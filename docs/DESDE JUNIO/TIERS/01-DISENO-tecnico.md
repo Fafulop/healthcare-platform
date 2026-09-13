@@ -8,6 +8,12 @@
 > §13 = T4).
 >
 > *(Hasta 2026-07-26 esta cabecera decía "DISEÑO, sin implementar" con cuatro PRs ya en producción.)*
+>
+> ⚠️ **2026-09-12 — el vocabulario cambió.** Ya no existen `FULL`/`CORE` en código: son
+> `FREE · BASICO · PRO · LAB` ([`02-PLAN-cuatro-tiers.md`](02-PLAN-cuatro-tiers.md), as-built en su
+> §8). Los snippets y decisiones de este doc siguen siendo la arquitectura vigente (un tier = techo
+> sobre `PermissionKey`), pero **léelos con la equivalencia** `FULL`→`PRO`/`LAB`, `CORE`→`FREE`
+> (para el agente, misma forma) y fail-open→`FALLBACK_TIER = PRO`, no "todo".
 
 ---
 

@@ -14,7 +14,7 @@
  */
 
 import { useSession } from "next-auth/react";
-import { hasPermission, tierAllows, type PermissionKey } from "@healthcare/database";
+import { hasPermission, tierAllows, FALLBACK_TIER, type PermissionKey } from "@healthcare/database";
 
 export interface ClientPermissions {
   /** true while the session is loading — callers should render nothing gated yet. */
@@ -44,9 +44,9 @@ export function usePermissions(): ClientPermissions {
   // minted before PR A have no isOwner and belong to owners).
   const isOwner = (session?.user as { isOwner?: boolean } | undefined)?.isOwner ?? true;
   const permissions = (session?.user as { permissions?: unknown } | undefined)?.permissions ?? null;
-  // Absent ⇒ FULL, same fail-open as the server (01-DISENO §3.1): never lock
-  // someone out of a paid feature because a field is missing.
-  const tier = (session?.user as { tier?: string } | undefined)?.tier ?? "FULL";
+  // Absent ⇒ FALLBACK_TIER, same fail-open as the server (01-DISENO §3.1): never
+  // lock someone out of a paid feature because a field is missing.
+  const tier = (session?.user as { tier?: string } | undefined)?.tier ?? FALLBACK_TIER;
 
   /** What the member's toggles alone allow (owner = everything). */
   const grantedToUser = (key: PermissionKey) => isOwner || hasPermission(permissions, key);

@@ -256,7 +256,7 @@ function checkScope(label: string, scope: ReturnType<typeof resolveAgentScope>) 
  */
 const ghosts: { where: string; name: string }[] = [];
 {
-  const full = resolveAgentScope({ isOwner: true, permissions: null, tier: 'FULL' });
+  const full = resolveAgentScope({ isOwner: true, permissions: null, tier: 'LAB' });
   const corpus: [string, string | undefined][] = [
     ['prompt compartido (STABLE_SYSTEM_PROMPT)', STABLE_SYSTEM_PROMPT],
   ];

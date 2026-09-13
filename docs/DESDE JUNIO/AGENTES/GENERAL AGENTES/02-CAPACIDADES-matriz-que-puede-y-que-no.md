@@ -46,6 +46,12 @@ evals: `../../NUEVOS USUARIOS/01-DISENO-tecnico.md` §7 ·
 
 ### 1.5.1 El SEGUNDO techo: el TIER de la cuenta (TIERS T3, 2026-07-25)
 
+> 🔄 **2026-09-12 — vocabulario nuevo:** los tiers son `FREE · BASICO · PRO · LAB`
+> (`TIERS/02-PLAN-cuatro-tiers.md`). Donde abajo dice **CORE**, lee **FREE** (misma forma para
+> el agente: excluye facturacion/sat/conciliacion); donde dice **FULL**, lee **PRO/LAB** (scope
+> completo). BASICO hoy no recorta nada del agente (su exclusión de `conciliacion` está
+> diferida hasta que tenga evals propios — 02-PLAN §8).
+
 Los toggles de member no son el único recorte. El **plan** de la cuenta (`Doctor.tier`) es un techo
 que aplica **también al DUEÑO**, y corta más fino: **a nivel de TOOL**, no de módulo. En CORE el
 módulo `flujo` SOBREVIVE pero sin `get_conciliacion_bancaria`, y del módulo `facturas` —que se
@@ -196,8 +202,10 @@ CORE (TIERS T3, 2026-07-25; +1 de la bitácora #28, 2026-07-27)** · 4 `f1-*` ·
 **Baseline 0 WARN** (un WARN se investiga, ya no es "normal"; los soft son guardas
 data-dependent justificadas).
 
-Los `tier-core-*` corren con `tier: 'CORE'` en el caso: sin `permissions` corren como **dueño**
-de una cuenta CORE (el techo del plan aplica al dueño, a diferencia de los toggles de member).
+Los `tier-core-*` corren con **`tier: 'FREE'`** en el caso (desde 2026-09-12; nacieron con `CORE`,
+que ya no existe — TIERS/02-PLAN §8): sin `permissions` corren como **dueño** de una cuenta FREE
+(el techo del plan aplica al dueño, a diferencia de los toggles de member). Para el agente FREE
+tiene exactamente la forma que tenía CORE, por eso los ids y los checks no cambiaron.
 ⚠️ **La última corrida completa (2026-07-22) dio `62/65 PASS · 3 WARN · 0 FAIL`. Ese 62 es el
 RESULTADO de una corrida, NO el tamaño de la suite** — confundirlos fue un error real que se
 propagó por varios docs (ver [`07-CONVENCIONES-docs.md`](07-CONVENCIONES-docs.md) §2.3).

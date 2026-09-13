@@ -1,5 +1,12 @@
 # 🔄 Refresco de sesión — AGENTE AGENDA — LÉEME PRIMERO
 
+> ### 🔄 2026-09-12 — los tiers cambiaron de nombre; el agente NO cambió
+> `FULL/CORE` → `FREE · BASICO · PRO · LAB` (TIERS/02-PLAN §8). Para el agente **FREE es CORE**
+> (misma composición); PRO y LAB son el scope completo; BASICO hoy no recorta nada. Los 13
+> evals `tier-core-*` corren con `tier: 'FREE'`, ids intactos, tripwire de #28 vivo. Lo que
+> viene en Q5: `asistente_ia` excluido fuera de LAB ⇒ `/api/agenda-agent` 403 (la RUTA, no la
+> composición — `resolveAgentScope` ignora esa key). El panel sigue oculto por flag (abajo).
+
 > ## 🚫 2026-08-27 — EL PANEL ESTÁ OCULTO DE LA UI (no borrado, no apagado)
 >
 > ### En una frase
@@ -312,6 +319,12 @@
 > sección Conciliación", mandando al doctor a una puerta cerrada. Familia B1, inventado en runtime;
 > el eval `tier-core-conciliacion-no-inventa` queda como tripwire `soft`. Detalle y medición en la
 > fila #28; contexto de plan en `../../TIERS/01-DISENO-tecnico.md` §11.6 y §12.6.
+> 🔄 **2026-09-12 — el vocabulario de tiers cambió a FREE · BASICO · PRO · LAB** (TIERS/02-PLAN §8).
+> Para el agente **FREE tiene exactamente la forma que tenía CORE** (excluye facturacion/sat/
+> conciliacion; ventas/compras/productos nunca fueron keys del agente), así que los 13 evals
+> `tier-core-*` corren ahora con `tier: 'FREE'` sin cambiar un check y el tripwire de #28 sigue
+> vivo. PRO y LAB = scope completo. `asistente_ia` (la ruta, no la composición) se excluye en Q5.
+>
 > Última actualización de ESTADO: **2026-07-25** — **TIERS T3: el agente lee el PLAN de la cuenta**
 > **SHIPPED Y DESPLEGADO** (`b26898f5`). Compone módulos **y tools** según `Doctor.tier` vía
 > `resolveAgentScope`: CORE conserva `flujo` sin `get_conciliacion_bancaria`, dropea `fiscal`, y

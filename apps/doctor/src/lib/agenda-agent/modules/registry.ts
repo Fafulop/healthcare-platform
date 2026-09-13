@@ -159,8 +159,10 @@ const AGENT_FEATURE_KEYS: PermissionKey[] = Array.from(
   ])
 );
 
-/** Does this tier exclude anything the agent composes with? FULL (and any
- * unknown tier, fail-open) ⇒ false ⇒ the owner fast path below. */
+/** Does this tier exclude anything the agent composes with? LAB/PRO ⇒ false ⇒
+ * the owner fast path below. An unknown tier resolves to FALLBACK_TIER (PRO)
+ * inside tierAllows — so it takes the fast path TODAY, and will stop doing so
+ * the day PRO excludes an agent key (Q5). Don't assume "unknown ⇒ full". */
 function tierTouchesAgent(tier: string | null | undefined): boolean {
   return AGENT_FEATURE_KEYS.some((key) => !tierAllows(tier, key));
 }

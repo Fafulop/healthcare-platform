@@ -293,11 +293,11 @@ Todo cambio que toque el agente ⇒ suite de evals.
 
 | PR | Qué | NO-OP en deploy | Riesgo |
 |---|---|---|---|
-| **Q1 — vocabulario** | `DOCTOR_TIERS`×4, `TierKey`, `DEFAULT_TIER`/`FALLBACK_TIER` separados, `TIER_EXCLUDED_KEYS` nuevos, `TIER_LIMITS` (solo declarado), labels; SQL de migración de filas | ✅ (11 → PRO; PRO excluye solo `asistente_ia`, que ya está oculto por flag) | bajo; **el orden código→SQL importa** |
+| **Q1 — vocabulario** ✅ | `DOCTOR_TIERS`×4, `TierKey`, `DEFAULT_TIER`/`FALLBACK_TIER` separados, `TIER_EXCLUDED_KEYS` nuevos, `TIER_LIMITS` (solo declarado), labels; SQL de migración de filas | ✅ (12 → PRO; **PRO no excluye NADA en Q1** — `asistente_ia` se movió a Q5, ver §8) | bajo; el orden código→SQL es seguro en ambos sentidos (fail-open simétrico), código primero acorta la ventana de chips rojos |
 | **Q2 — key `ia`** | campo `feature` en el route map, `nearestFeatureKey` lo honra, 11 prefijos + 3 rutas de informe/summary anotadas, gate de cobertura extendido, `can('ia')` en las ~20 puertas del cliente (política de §9.2) | ✅ mientras todos sean PRO | medio: **la lista de puertas es la parte que se escapa** (lección de T4 §13.4.1: dos greps, desktop Y móvil) |
 | **Q3 — cupo de pacientes** | `assertPatientQuota` en los 2 caminos, error tipado, contador en UI, columna en admin | ✅ (PRO = sin tope) | bajo |
 | **Q4 — cupo de archivos** | `fileSize` en las 14 rutas, `assertStorageQuota` en middleware, `storageUsedBytes`, backfill, medidor en UI, columna en admin. Helpers agnósticos de proveedor (§3.2.4) | ✅ (PRO = 50 GB, uso real ~0.2 GB) | medio: 14 rutas en 3 apps; backfill con reporte de lo no medible |
-| **Q5 — LAB** | retirar el flag, puertas del panel por `can('asistente_ia')`, excepción ocultar-no-candado, dr-prueba + usuario a LAB | ❌ **prende el panel para LAB** (2 cuentas) | bajo en código; alto en producto (por eso va al final) |
+| **Q5 — LAB** | **agregar `asistente_ia` a `TIER_EXCLUDED_KEYS` de FREE/BÁSICO/PRO** (heredado de Q1, §8), retirar el flag, puertas del panel por `can('asistente_ia')`, excepción ocultar-no-candado, dr-prueba + usuario a LAB | ❌ **prende el panel para LAB** (2 cuentas) y **cierra `/api/agenda-agent` con 403 para el resto** | bajo en código; alto en producto (por eso va al final) |
 | **Q6 — caza de bugs por tier** | Runbooks A/B/C por tier con dr-prueba en FREE, BÁSICO, PRO (rutas + UI desktop + móvil + agente); herencia de T6 (fuga read-only en reportes; residuo #28) | — | es la "pasada de bugs" que el usuario pidió ANTES del LAB |
 
 Q3 y Q4 son independientes de Q2 y entre sí; Q5 depende de Q1. Q6 cierra.
@@ -318,16 +318,84 @@ Q3 y Q4 son independientes de Q2 y entre sí; Q5 depende de Q1. Q6 cierra.
 
 ## 8. As-built (se llena al terminar cada PR)
 
-*(vacío — nada construido al 2026-09-12)*
+### Q1 — vocabulario (2026-09-12)
+
+**Decisiones del usuario que lo destrabaron:** nombres = los placeholders (`FREE` · `BASICO` ·
+`PRO` · `LAB`, guardados tal cual; el nombre comercial vive en `TIER_LABELS` y sí puede cambiar);
+`conciliacion` excluida en FREE/BÁSICO y el flag de ocultamiento sin tocar; fail-open a **PRO**.
+LAB por invitación vs de pago sigue abierto — no toca código.
+
+**Lo construido** (`packages/database/src/permissions.ts` es la fuente): `DOCTOR_TIERS` × 4 ·
+`TIER_LABELS` · `DEFAULT_TIER='FREE'` (columna) **separado de** `FALLBACK_TIER='PRO'` (fail-open;
+`tierAllows`, `membership.ts` ×4, `medical-auth.ts`, `permissions-client.ts` y el admin lo usan) ·
+`TierKey = PermissionKey | 'ia' | 'whatsapp'` + `TIER_KEY_LABELS` · `TIER_LIMITS` declarado
+(500 MB/50 pacientes · 15 GB · 50 GB · 50 GB) · el admin pinta un color por tier (mapa tipado,
+`TIER_CHIP_STYLE`) y una línea de cupos en el modal · `rename-tiers-to-four.sql`.
+
+**Dos correcciones al plan, encontradas al revisar contra el código antes de escribir:**
+
+1. **`ia`/`whatsapp` NO entran a `TIER_EXCLUDED_KEYS` en Q1.** `gate:routes`
+   (`check-route-permission-coverage.ts:93-112`) exige que toda key excluida resuelva a ≥1 ruta, y
+   ninguna ruta resuelve a esas dos hasta que Q2 agregue el campo `feature`. El tipo `TierKey` ya
+   existe; las listas las ganan en Q2 junto con sus rutas.
+2. **`asistente_ia` tampoco — se mueve a Q5.** Excluirlo no toca la composición del agente
+   (`resolveAgentScope` lo ignora: es el interruptor maestro, no está en
+   `AGENT_MODULE_REQUIREMENTS`); lo que hace es que el choke point devuelva **403
+   `TIER_EXCLUDED` en `/api/agenda-agent`** para toda cuenta que no sea LAB. Con las 12 cuentas en
+   PRO eso apagaba la ruta para todos — invisible solo porque `ASISTENTE_IA_VISIBLE=false` tapa el
+   panel, pero alcanzable por llamada directa (que es como se prueba el agente hoy). Va en Q5, junto
+   con las puertas `can('asistente_ia')` y el paso de dr-prueba + usuario a LAB. **Consecuencia:
+   en Q1 PRO y LAB son idénticos** (`[]`) y el modal del admin los muestra iguales; es cierto y es
+   temporal.
+
+**Y una corrección a una suposición mía que habría borrado un tripwire:** creí que "ningún tier
+con asistente excluye nada" dejaba sin sujeto a los 13 evals `tier-core-*` y a los ~25 asserts de
+`gate:prompt`, y propuse retirarlos. Falso: para el agente **FREE tiene exactamente la forma de
+CORE** (excluye facturacion/sat/conciliacion; las tres que CORE también quitaba —ventas, compras,
+productos— nunca fueron keys del agente). Los 13 casos corren ahora con `tier: 'FREE'` sin cambiar
+un check, conservan sus ids (los citan las bitácoras y los cuenta `gate:evals=65`), y el tripwire
+de la bitácora #28 sigue vivo. Lección para el repo: *el techo del tier tiene DOS efectos
+distintos —recortar la composición del agente y cerrar rutas— y la key `asistente_ia` solo hace el
+segundo.*
+
+**Verificación:** `pnpm gates` **76 OK / 0 FAIL** con los cuatro tiers en el loop de
+`gate:prompt` y `gate:prosa`; `gate:routes` reporta `facturacion, sat, conciliacion` con
+cobertura. Pre-flight read-only en prod: **12 filas `FULL`** (no 11: entró un doctor desde julio),
+ninguna `CORE`, **cero CHECK constraints** en `doctors` ⇒ el `UPDATE` no puede fallar.
+
+**Code review (`/code-review high`, 10 hallazgos, 0 refutados) — lo que cambió por él:**
+
+| # | Hallazgo | Qué se hizo |
+|---|---|---|
+| 1 | **BASICO `['conciliacion']` daba al dueño BÁSICO la prosa `FLUJO_RULES_PARTIAL`** (escrita para una cuenta SIN fiscal — le dice al modelo que no estime IVA "si no tienes la tool", y BÁSICO sí la tiene). Ningún eval ni assert corre con BASICO. Medido: 36/37 tools, prompt MÁS largo que el completo | **Entrada diferida** (`BASICO: []`). La decisión §9.3 se mantiene; entra cuando BASICO tenga sus asserts en `gate:prompt` y evals propios (→ Q6 o un Q1.5). Consecuencia: en Q1 **FREE es la única forma con recorte** |
+| 2 | El SQL solo mapeaba `FULL→PRO`: un `CORE` escrito en la ventana quedaría desconocido ⇒ PRO ⇒ **ascendido en silencio** | `UPDATE … 'FREE' WHERE tier='CORE'` + la lectura de vuelta es una ASERCIÓN (`NOT IN` los cuatro = 0), a repetir tras verificar cada servicio |
+| 3 | **Yo tenía invertido quién decide el tier de una cuenta nueva.** El cliente Prisma lleva el `@default` del schema DENTRO y lo mete él en el INSERT (medido en el cliente generado: `"default":"FULL"`); el DEFAULT de la columna solo aplica a inserts crudos. `DEFAULT_TIER` no tenía ningún lector | `POST /api/doctors` pasa `tier: DEFAULT_TIER` explícito; los tres comentarios reescritos. El `ALTER DEFAULT` se queda por coherencia |
+| 4 | `tierAllows('constructor')` reventaba en `.includes` (clave heredada de `Object.prototype` pasa el `??`) ⇒ 500 en cada request, no fail-open | `Object.hasOwn` |
+| 5 | `doctorTierAllows` devolvía `true` pelado en el catch — un tercer significado de "fail-open"; además **no tiene llamadores** y 01-DISENO §G3 dice que `fiscal-form` lo usa — falso, llama `tierAllows` directo | catch ⇒ `tierAllows(null, key)`. La afirmación de 01-DISENO queda corregida aquí (no se reescribe el doc congelado) |
+| 6 | Mi assert nuevo comparaba scopes por `===` y hardcodeaba `'PRO'`: pasaba solo porque ambos caen en el singleton | Importa `FALLBACK_TIER`, compara módulos/tools/parciales por nombre |
+| 7 | Cuenta nueva nace FREE **sin aviso en el alta del admin**; `/producto` sigue vendiendo FULL/CORE (`product-content.ts:10-14` lo advierte) | **Seguimiento, no en Q1:** nota en el formulario de alta (Q3, junto con el contador de pacientes) y la copia pública (Q6). Anotado en §9 |
+| 8 | Comentarios `FULL` obsoletos en `api/auth.ts`, `medical-auth.ts`, `membership.ts`, `registry.ts:162` ("unknown ⇒ fast path", ya semánticamente falso) | Reescritos |
+| 9 | `02-CAPACIDADES` (doc de referencia que 08-EMPIEZA-AQUI exige al día) decía `tier: 'CORE'` en presente; la cabecera del SESSION-REFRESCO de agenda no se tocó (§8: la cabecera va PRIMERO) | Ambos actualizados |
+| 10 | El script de pre-flight no estaba gitignoreado | `packages/database/tmp-*.ts` en `.gitignore`; se borra tras la lectura de vuelta |
+
+Descartados por el propio review (4): endurecer `EvalCase.tier` a la unión, reusar `fmtStorage`,
+una nota de diseño sobre `TierKey` a medias, un comentario en español en un archivo en inglés.
+
+**Pendiente de este PR al escribir esto:** type-check + gates tras los arreglos, re-review de los
+sitios arreglados, OK del usuario al diff, push, verificar `commitHash` por servicio, correr el SQL,
+leer de vuelta `PRO 12` + aserción `NOT IN = 0` + default `'FREE'`, y el runbook A en el admin (12
+chips azules `Pro`).
 
 ## 8.1 🔄 Handoff — cierre de sesión 2026-09-12
 
-- **Estado:** plan escrito, **nada en código, nada commiteado** (este archivo está sin commit;
-  hay además cambios ajenos en el working tree: informe BBVA, `scripts/demo-seed/`, `ANALISIS CAT/`
-  — no son de este plan, no mezclarlos en su commit).
-- **Siguiente paso:** el usuario contesta las decisiones de §9 → se arranca **Q1** (vocabulario).
-  Antes de escribir código, presentar el diff propuesto de `permissions.ts` y el SQL de migración
-  y recibir OK (regla del repo).
+- **Estado:** **Q1 construido** (as-built en §8), a la espera de type-check + OK al diff + push +
+  SQL. Sigue habiendo cambios ajenos en el working tree (informe BBVA, `scripts/demo-seed/`,
+  `ANALISIS CAT/`) — no son de este plan, no mezclarlos en su commit.
+- **Siguiente paso:** cerrar Q1 (los pendientes listados al final de §8). Después **Q2** (key `ia`
+  + campo `feature`) o **Q3/Q4** (cupos) — son independientes entre sí; §9.2 (candado vs ocultar el
+  micrófono) bloquea la parte de cliente de Q2, no la de servidor.
+- **§9 contestado el 2026-09-12:** 1 (placeholders como nombres), 3 (conciliación excluida) y 4
+  (fail-open PRO). Quedan 2, 5, 6 y 7.
 - **Contexto de la sesión** (por si se pierde): la visión "Jarvis" (hablarle al app, que navegue
   y llene plantillas) se analizó contra el código: el asistente unificado ya existe pero está
   oculto, tiene **cero escrituras en expediente** (privacidad v1 = solo metadatos), y la
@@ -359,6 +427,10 @@ Q3 y Q4 son independientes de Q2 y entre sí; Q5 depende de Q1. Q6 cierra.
    mensual.
 7. **Por encima del tope tras downgrade:** confirmar la política "ver y borrar sí, subir/crear
    no" (§3.2). Alternativa: periodo de gracia. Recomendación: sin gracia, con mensaje claro.
+8. *(nuevo, review de Q1)* **El alta nace en FREE sin aviso.** Desde Q1 toda cuenta nueva es FREE
+   (sin factura/SAT) hasta que el admin la sube en `/doctors`; el formulario de alta no lo dice.
+   ¿Selector de plan en el alta, o una nota "nace en FREE, súbela desde /doctors"? Recomendación:
+   la nota, en Q3 (que ya toca el admin). Y `/producto` sigue describiendo FULL/CORE → Q6.
 
 ---
 

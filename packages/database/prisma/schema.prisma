@@ -177,7 +177,12 @@ model Doctor {
   // Plan del producto (TIERS). String, no enum de PG, para agregar tiers sin
   // migración — docs/DESDE JUNIO/TIERS/01-DISENO-tecnico.md §3.1. Techo de
   // funciones sobre owner Y member (tierAllows). Migración = SQL manual.
-  tier               String   @default("FULL")
+  // Valores: FREE · BASICO · PRO · LAB (DOCTOR_TIERS). Este @default SÍ manda
+  // para Prisma: el cliente generado lo lleva dentro y lo mete en el INSERT
+  // (no lee el DEFAULT de la columna). El alta (POST /api/doctors) lo pasa
+  // explícito de todos modos (DEFAULT_TIER); el DEFAULT de la columna lo
+  // iguala `rename-tiers-to-four.sql` para inserts crudos y coherencia.
+  tier               String   @default("FREE")
   doctorFullName     String   @map("doctor_full_name")
   lastName           String   @map("last_name")
   primarySpecialty   String   @map("primary_specialty")

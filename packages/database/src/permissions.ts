@@ -118,42 +118,115 @@ export function hasPermission(perms: unknown, key: PermissionKey): boolean {
 // ---------------------------------------------------------------------------
 // TIERS (planes del producto) — feature-gating por CUENTA, apilado sobre los
 // permisos por-member de arriba. Un tier = TECHO a nivel de cuenta sobre el
-// MISMO vocabulario de PermissionKey (las 6 funciones que CORE excluye YA son
-// keys). Diseño: docs/DESDE JUNIO/TIERS/01-DISENO-tecnico.md
+// MISMO vocabulario de PermissionKey (más dos keys que solo existen a nivel de
+// tier, ver TierKey). Diseño: docs/DESDE JUNIO/TIERS/01-DISENO-tecnico.md;
+// los cuatro tiers: docs/DESDE JUNIO/TIERS/02-PLAN-cuatro-tiers.md.
 //
 // Acceso efectivo(key) = tierAllows(tier, key) AND (isOwner ? true : hasPermission(perms, key)).
 // El techo aplica a owner Y member; el check de toggles sigue siendo de members.
 // ---------------------------------------------------------------------------
 
-/** Tiers del producto. String (no enum de Postgres) para agregar tiers futuros
- * sin migración de BD — ver 01-DISENO §3.1. */
-export const DOCTOR_TIERS = ['FULL', 'CORE'] as const;
+/** Tiers del producto, de menor a mayor. String (no enum de Postgres) para
+ * agregar tiers sin migración de BD — ver 01-DISENO §3.1. El valor guardado es
+ * ESTE (case canónico); el nombre que ve la gente es TIER_LABELS. */
+export const DOCTOR_TIERS = ['FREE', 'BASICO', 'PRO', 'LAB'] as const;
 export type DoctorTier = (typeof DOCTOR_TIERS)[number];
 
-/** El tier por defecto de toda cuenta (columna default; fail-open target). */
-export const DEFAULT_TIER: DoctorTier = 'FULL';
+/** Nombre comercial de cada tier — lo que se pinta en el admin y en la
+ * pantalla de plan. El valor de BD no cambia; este texto sí puede. */
+export const TIER_LABELS: Record<DoctorTier, string> = {
+  FREE: 'Gratis',
+  BASICO: 'Básico',
+  PRO: 'Pro',
+  LAB: 'Lab',
+};
 
 /**
- * Keys que un tier EXCLUYE de toda la cuenta (owner incluido). Fuente única —
- * las 6 de CORE mapean 1:1 a las funciones del plan base (01-DISENO §1). CORE
- * CONSERVA flujo, pagos, citas, expedientes, etc.; solo pierde estas.
+ * DOS defaults, no uno (02-PLAN §3.3 / G7):
+ *
+ * - `DEFAULT_TIER` es lo que recibe una cuenta NUEVA. Lo escribe EXPLÍCITO el
+ *   `prisma.doctor.create` de `POST /api/doctors` (apps/api) — la única alta.
+ *   Ojo: el DEFAULT de la columna en Postgres NO es lo que decide para Prisma:
+ *   el cliente generado lleva el `@default` del schema dentro y lo mete él en
+ *   el INSERT (medido en el cliente generado: `"default":"FULL"` hasta que se
+ *   regenera). Por eso el valor viaja explícito, y el `@default` del schema y
+ *   el DEFAULT de la columna se mantienen iguales solo por coherencia (inserts
+ *   crudos, lectura humana).
+ * - `FALLBACK_TIER` es el fail-open: cómo se comporta una cuenta cuyo tier es
+ *   null/ausente/DESCONOCIDO. Va a PRO, no a LAB: no deja fuera a nadie que
+ *   paga y no regala el laboratorio. Antes ambas cosas eran `FULL`.
  */
-export const TIER_EXCLUDED_KEYS: Record<DoctorTier, readonly PermissionKey[]> = {
-  FULL: [],
-  CORE: ['facturacion', 'sat', 'conciliacion', 'ventas', 'compras', 'productos'],
+export const DEFAULT_TIER: DoctorTier = 'FREE';
+export const FALLBACK_TIER: DoctorTier = 'PRO';
+
+/**
+ * Lo que un tier puede excluir: cualquier PermissionKey MÁS dos keys que solo
+ * viven a nivel de tier — `ia` (los flujos de IA sueltos: dictado, chats por
+ * pantalla) y `whatsapp` (mensajes automáticos a pacientes). NO entran a
+ * PERMISSION_KEYS a propósito (G9): no son toggles de member (los flujos de IA
+ * siguen OWNER_ONLY para members), así que los 19 toggles no se mueven y el
+ * gate de rutas↔permisos no cambia de número.
+ */
+export type TierKey = PermissionKey | 'ia' | 'whatsapp';
+
+/** Etiquetas para TODA TierKey — las de PermissionKey más las dos de tier. Lo
+ * que el admin y la pantalla de plan pintan al listar exclusiones. */
+export const TIER_KEY_LABELS: Record<TierKey, string> = {
+  ...PERMISSION_LABELS,
+  ia: 'Funciones de IA',
+  whatsapp: 'WhatsApp a pacientes',
+};
+
+/**
+ * Keys que un tier EXCLUYE de toda la cuenta (owner incluido). Fuente única.
+ *
+ * FREE = todo el software MENOS facturación, descarga SAT y conciliación (que
+ * hoy está oculta para todos por flag; se excluye igual para no dejar la
+ * puerta abierta si el flag se prende). BÁSICO, PRO y LAB hoy no excluyen
+ * nada, y cada ausencia tiene su porqué:
+ *
+ *   ⚠️ BÁSICO SÍ excluye `conciliacion` por decisión de producto (02-PLAN §9.3),
+ *      pero la entrada se DIFIERE: excluir solo `conciliacion` saca al dueño
+ *      del fast path del agente y le da la prosa `FLUJO_RULES_PARTIAL`, escrita
+ *      para una cuenta SIN fiscal — y BÁSICO sí tiene facturación/SAT. Ningún
+ *      eval ni assert de gate:prompt corre con BASICO (todos corren con FREE),
+ *      así que entra cuando tenga los suyos (02-PLAN §8, hallazgo del review).
+ *   ⚠️ `ia` y `whatsapp` entran en Q2, JUNTO con las rutas que las gatean —
+ *      `gate:routes` exige que toda key excluida resuelva a ≥1 ruta, y hoy
+ *      ninguna ruta resuelve a `ia`/`whatsapp`.
+ *   ⚠️ `asistente_ia` (el panel 🟢, que solo LAB conserva) entra en Q5, junto
+ *      con las puertas del cliente y el retiro del flag ASISTENTE_IA_VISIBLE.
+ *      Excluirlo antes dejaría `/api/agenda-agent` en 403 para TODAS las
+ *      cuentas (todas son PRO) sin que el cliente sepa por qué.
+ *
+ * Mientras tanto Q1 es NO-OP en prod: las 12 cuentas pasan a PRO y PRO no
+ * excluye nada. FREE es la única forma con recorte, y es la única probada
+ * (para el agente es byte a byte la forma que tenía CORE).
+ */
+export const TIER_EXCLUDED_KEYS: Record<DoctorTier, readonly TierKey[]> = {
+  FREE: ['facturacion', 'sat', 'conciliacion'],
+  BASICO: [],
+  PRO: [],
+  LAB: [],
 };
 
 /**
  * ¿La cuenta con este tier tiene acceso a esta key?
- * FAIL-OPEN a permitido si el tier es null/ausente/desconocido — nunca bloquear
- * por un dato faltante (mismo espíritu que el fallback owner de membership.ts;
- * la columna default es FULL de todos modos). Contrasta con hasPermission, que
- * es fail-closed: un member sin toggle se DENIEGA, pero una cuenta sin tier se
- * trata como FULL.
+ * FAIL-OPEN a FALLBACK_TIER si el tier es null/ausente/desconocido — nunca
+ * bloquear por un dato faltante (mismo espíritu que el fallback owner de
+ * membership.ts). Contrasta con hasPermission, que es fail-closed: un member
+ * sin toggle se DENIEGA, pero una cuenta sin tier se trata como PRO.
+ *
+ * Ojo: un valor DESCONOCIDO no se trata como "todo permitido" sino como PRO —
+ * hoy es lo mismo (PRO no excluye nada), y dejará de serlo en Q5. El admin
+ * pinta esos valores en rojo (tierState 'unknown') para que se corrijan.
  */
-export function tierAllows(tier: string | null | undefined, key: PermissionKey): boolean {
-  const excluded = TIER_EXCLUDED_KEYS[(tier ?? DEFAULT_TIER) as DoctorTier];
-  if (!excluded) return true; // tier desconocido ⇒ fail-open
+export function tierAllows(tier: string | null | undefined, key: TierKey): boolean {
+  // `hasOwn`, no indexación directa: el tier viene CRUDO de la BD, y una clave
+  // heredada de Object.prototype ('constructor', 'toString'…) pasaría un `??`
+  // y reventaría en `.includes` — un 500 en cada request en vez del fail-open.
+  const known = typeof tier === 'string' && Object.hasOwn(TIER_EXCLUDED_KEYS, tier);
+  const excluded = TIER_EXCLUDED_KEYS[known ? (tier as DoctorTier) : FALLBACK_TIER];
   return !excluded.includes(key);
 }
 
@@ -163,7 +236,34 @@ export function tierAllows(tier: string | null | undefined, key: PermissionKey):
  * llamar tierAllows por fila (worker SAT, G3). Vacío ⇒ ningún tier la excluye
  * (no filtres; `notIn: []` es problemático en SQL). Se mantiene correcto al
  * agregar tiers porque deriva de TIER_EXCLUDED_KEYS.
+ *
+ * Nota: un valor desconocido en BD NO está en esta lista, así que un `notIn`
+ * lo deja pasar — coherente con el fail-open a PRO de tierAllows mientras PRO
+ * no excluya la key; revisar cuando PRO excluya algo (Q5).
  */
-export function tiersExcluding(key: PermissionKey): DoctorTier[] {
+export function tiersExcluding(key: TierKey): DoctorTier[] {
   return DOCTOR_TIERS.filter((t) => TIER_EXCLUDED_KEYS[t].includes(key));
 }
+
+// ---------------------------------------------------------------------------
+// Cupos por tier (02-PLAN §3.2). DECLARADOS en Q1, no impuestos: el cupo de
+// pacientes se impone en Q3 (los 2 caminos que crean pacientes) y el de
+// archivos en Q4 (las 14 rutas de subida). `null` = sin tope.
+// ---------------------------------------------------------------------------
+
+const MB = 1024 * 1024;
+const GB = 1024 * MB;
+
+export interface TierLimits {
+  /** Tope de almacenamiento de archivos del doctor, en bytes. */
+  storageBytes: number;
+  /** Tope de pacientes activos; null = sin tope. */
+  maxPatients: number | null;
+}
+
+export const TIER_LIMITS: Record<DoctorTier, TierLimits> = {
+  FREE: { storageBytes: 500 * MB, maxPatients: 50 },
+  BASICO: { storageBytes: 15 * GB, maxPatients: null },
+  PRO: { storageBytes: 50 * GB, maxPatients: null },
+  LAB: { storageBytes: 50 * GB, maxPatients: null },
+};

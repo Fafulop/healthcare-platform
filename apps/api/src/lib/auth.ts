@@ -19,8 +19,9 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  * if the account's tier excludes the feature this route belongs to, block with
  * 403 regardless of member toggles. Uses nearest-feature-key so OWNER_ONLY
  * sub-routes under an excluded feature (facturacion/csd, sat-descarga/fiel) are
- * caught too. Admins never reach it. Tier is FULL by default ⇒ no-op until an
- * account is downgraded.
+ * caught too. Admins never reach it. Every existing account is PRO (which
+ * excludes nothing) ⇒ no-op until an account is moved to FREE; a NEW account
+ * is born FREE (DEFAULT_TIER) and IS gated from day one.
  */
 function enforceTier(request: Request, tier: string): void {
   const { pathname } = new URL(request.url);
@@ -198,7 +199,7 @@ export async function validateAuthToken(
     const access = computeEffectiveAccess(user.memberships, user.doctorId, user.doctor?.tier);
 
     // Enforcement (ADMINs bypass all). TIERS T2: the tier ceiling applies to
-    // OWNER **and** MEMBER — a no-op while every account is FULL, and the only
+    // OWNER **and** MEMBER — a no-op while every account is PRO, and the only
     // thing owners are now subject to (they still bypass member TOGGLES). The
     // member route→toggle check stays members-only (PR B).
     // Gated on access.doctorId: a fully unlinked user (no membership, no legacy

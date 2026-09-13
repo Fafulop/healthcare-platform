@@ -43,15 +43,22 @@ paralelo.
   automatiza. Regla general que deja la experiencia: *el corte de tier barato excluye subsistemas
   completos; el caro carva dentro de uno que se describe a sí mismo.*
 
-## 🔴 HANDOFF 2026-09-12 — el producto pasa a CUATRO tiers (plan escrito, nada en código)
+## 🔴 HANDOFF 2026-09-12 — el producto pasa a CUATRO tiers (Q1 construido)
 
 **Lee primero [`02-PLAN-cuatro-tiers.md`](02-PLAN-cuatro-tiers.md).** FREE · BÁSICO (149) · PRO
 (299, con los flujos de IA de hoy + WhatsApp a pacientes cuando Meta apruebe) · LAB (el asistente
 🟢 y la línea "Jarvis"). El diseño v1 de abajo (FULL/CORE) **se reusa entero**; el plan solo
 cambia el vocabulario y agrega dos cosas que v1 no tenía: la key `ia` para los flujos de IA
 sueltos (hoy son OWNER_ONLY y **ningún tier puede apagarlos**) y **cupos** de almacenamiento y
-pacientes. Bloquea: las decisiones de su §9 (nombres, candado vs ocultar el micrófono en FREE,
-fail-open a PRO, alta self-service, créditos extra). Handoff detallado en su §8.1.
+pacientes.
+
+**Q1 (vocabulario) está construido** — as-built y dos correcciones al plan en su §8; estado del
+push/SQL en su §8.1. ⚠️ **Todo lo de abajo que diga `FULL`/`CORE` es historia de v1**: en código
+ya no existen. Equivalencias: `FULL` → `PRO` (las 12 cuentas de prod) / `LAB` (el tope);
+`CORE` → `FREE` (misma forma para el agente). **En Q1 solo FREE recorta algo**: BASICO existe pero
+su exclusión de `conciliacion` está diferida hasta que tenga evals (§8 hallazgo 1); PRO y LAB no
+excluyen nada. El fail-open ya no es "todo" sino `FALLBACK_TIER = PRO`. Quedan por decidir §9.2,
+5, 6, 7 y el nuevo 8 (el alta nace en FREE sin aviso).
 
 ## 🔴 HANDOFF — lee esto primero (cierre de sesión 2026-07-27)
 

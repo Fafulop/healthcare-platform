@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   // TIERS G3 (3er sitio de enforcement): el worker/cron no pasa por los choke
   // points. Saltar los doctores cuyo plan NO incluye Descarga SAT — o pagas
   // sync de una función que no tienen. Filtro en BD; correcto al agregar tiers.
-  const tiersBlockingSat = tiersExcluding('sat'); // ['CORE'] en v1
+  const tiersBlockingSat = tiersExcluding('sat'); // ['FREE'] con los cuatro tiers (era ['CORE'])
   const profiles = await prisma.doctorFiscalProfile.findMany({
     where: {
       fielUploaded: true,

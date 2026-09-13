@@ -13,7 +13,7 @@
  */
 
 import { Lock, Mail } from "lucide-react";
-import { PERMISSION_LABELS, type PermissionKey } from "@healthcare/database";
+import { TIER_KEY_LABELS, type TierKey } from "@healthcare/database";
 
 /**
  * Sales contact, from env so it is not hardcoded in a component. Absent ⇒ the
@@ -29,8 +29,10 @@ function mailtoLink(featureLabel: string): string | null {
   return `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-export function TierUpgradeNotice({ permissionKey }: { permissionKey: PermissionKey }) {
-  const label = PERMISSION_LABELS[permissionKey] ?? "Esta función";
+// TierKey (no PermissionKey): un tier puede excluir `ia`/`whatsapp`, que no son
+// toggles de member pero sí tienen pantalla de plan.
+export function TierUpgradeNotice({ permissionKey }: { permissionKey: TierKey }) {
+  const label = TIER_KEY_LABELS[permissionKey] ?? "Esta función";
   const href = mailtoLink(label);
 
   return (

@@ -3,7 +3,7 @@
 
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, DEFAULT_TIER } from '@healthcare/database';
 import { requireAdminAuth } from '@/lib/auth';
 import { createDoctorSchema } from '@healthcare/types';
 import { DOCTOR_PRIVATE_FIELDS } from '@/lib/doctor-public-fields';
@@ -98,6 +98,12 @@ export async function POST(request: Request) {
     const doctor = await prisma.doctor.create({
       data: {
         slug: body.slug,
+        // TIERS: a new account is born FREE — explicit, not left to a default.
+        // The Prisma client bakes the schema @default into its own INSERT, so a
+        // stale build would silently write whatever ITS schema said; naming the
+        // constant makes the decider this line, and the admin raises the plan
+        // from /doctors. (02-PLAN §3.3 / §8.)
+        tier: DEFAULT_TIER,
         doctorFullName: body.doctor_full_name,
         lastName: body.last_name,
         primarySpecialty: body.primary_specialty,

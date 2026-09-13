@@ -100,11 +100,13 @@ interface EvalCase {
    * ausente = owner (set completo). Prueba la capa de COMPOSICIÓN del agente
    * (prompt+tools filtrados), no el enforcement del API. */
   permissions?: Record<string, boolean>;
-  /** Tier de la CUENTA (TIERS T3). Ausente = FULL (nada excluido). A diferencia
+  /** Tier de la CUENTA (TIERS T3). Ausente = LAB (nada excluido). A diferencia
    * de `permissions`, el techo del tier aplica también al OWNER: un caso con
-   * `tier` y sin `permissions` corre como DUEÑO de una cuenta CORE. Recorta a
-   * nivel de TOOL (CORE conserva el módulo flujo sin get_conciliacion_bancaria
-   * y rescata las tools de `pagos` del módulo facturas). */
+   * `tier` y sin `permissions` corre como DUEÑO de una cuenta de ese plan.
+   * Recorta a nivel de TOOL (FREE conserva el módulo flujo sin
+   * get_conciliacion_bancaria y rescata las tools de `pagos` del módulo
+   * facturas). Los casos `tier-core-*` corren hoy con `tier: 'FREE'`: para el
+   * agente FREE tiene EXACTAMENTE la forma que tenía CORE (02-PLAN §8). */
   tier?: string;
   /** WARN en vez de FAIL (redacción del modelo / datos vivos). */
   soft?: boolean;
@@ -1245,26 +1247,30 @@ async function main() {
       ],
     },
 
-    // ——— TIERS T3: agente de una cuenta CORE (techo del PLAN, no del dueño) ———
-    // `tier: 'CORE'` SIN `permissions` ⇒ corre como DUEÑO de una cuenta CORE:
-    // el plan excluye facturacion/sat/conciliacion/ventas/compras/productos y
-    // CONSERVA flujo, pagos, citas y expedientes. A diferencia de los casos de
-    // member, aquí el usuario ES el dueño — culpar a "el dueño de la cuenta"
-    // sería absurdo, y ese es el riesgo específico que estos casos vigilan.
+    // ——— TIERS T3: agente de una cuenta FREE (techo del PLAN, no del dueño) ———
+    // Los ids dicen `tier-core-*` porque nacieron con el tier CORE (v1, dos
+    // tiers); desde los cuatro tiers corren con `tier: 'FREE'`, que para el
+    // agente es la MISMA forma (02-PLAN §8). Se conservan los ids: los citan
+    // las bitácoras y el marcador `gate:evals` los cuenta.
+    // `tier: 'FREE'` SIN `permissions` ⇒ corre como DUEÑO de una cuenta FREE:
+    // el plan excluye facturacion/sat/conciliacion y CONSERVA flujo, pagos,
+    // citas y expedientes. A diferencia de los casos de member, aquí el usuario
+    // ES el dueño — culpar a "el dueño de la cuenta" sería absurdo, y ese es el
+    // riesgo específico que estos casos vigilan.
     // El recorte es a nivel de TOOL: el módulo flujo sobrevive sin
     // get_conciliacion_bancaria, y las tools de `pagos` sobreviven dentro del
     // módulo facturas que por lo demás se cae.
     {
       id: 'tier-core-agenda-funciona',
       bitacora: 'T3 — CORE conserva agenda intacta (el plan no la toca)',
-      tier: 'CORE',
+      tier: 'FREE',
       message: '¿tengo citas vencidas?',
       checks: [{ kind: 'tool-called', name: 'get_bookings', inputMatch: { vencidas: true } }],
     },
     {
       id: 'tier-core-flujo-funciona',
       bitacora: 'T3 — CORE CONSERVA el módulo flujo (§5.2: no se cae por perder conciliacion)',
-      tier: 'CORE',
+      tier: 'FREE',
       message: '¿cuánto entró y cuánto salió en junio?',
       checks: [
         // Mismo camino canónico que el caso owner equivalente (línea ~639):
@@ -1276,7 +1282,7 @@ async function main() {
     {
       id: 'tier-core-pagos-links-sobrevive',
       bitacora: 'T3 hallazgo 1 — get_payment_links es tool de `pagos` DENTRO del módulo facturas: CORE incluye pagos, así que debe sobrevivir al drop del módulo',
-      tier: 'CORE',
+      tier: 'FREE',
       dataDependent: 'dr-prueba debe tener al menos un link de pago; si no hay ninguno, lo exigible sigue siendo que LLAME la tool',
       message: '¿qué links de pago tengo sin pagar?',
       checks: [{ kind: 'tool-called', name: 'get_payment_links' }],
@@ -1284,7 +1290,7 @@ async function main() {
     {
       id: 'tier-core-pasarelas-sobrevive',
       bitacora: 'T3 hallazgo 1 — get_payment_provider_status idem (pagos, no facturacion)',
-      tier: 'CORE',
+      tier: 'FREE',
       soft: true,
       message: '¿tengo conectada mi pasarela de pagos para cobrar en línea?',
       checks: [{ kind: 'tool-called', name: 'get_payment_provider_status' }],
@@ -1292,7 +1298,7 @@ async function main() {
     {
       id: 'tier-core-completar-cita',
       bitacora: 'T3 tripwire — el flujo MÁS común de una cuenta CORE, y donde vivían 3 de los 6 sitios del bug hunt §11.5: completar una cita SIN ofrecer facturarla ni mandar al doctor a Facturación (su plan no la incluye). El ingreso SÍ se registra (efecto server-side, §17)',
-      tier: 'CORE',
+      tier: 'FREE',
       soft: true,
       dataDependent: 'cita cmrzlm6e3001 (Diki Perez, CONFIRMED 2026-07-28 09:00, sin ingreso) en dr-prueba — misma premisa que f2b-dos-turnos-cita-sin-completar. ⚠️ La HORA va en el mensaje a propósito: dr-prueba tiene DOS citas de Diki el 28 (una CANCELADA), y sin ella el agente pide desambiguar —conducta CORRECTA por HOW_TO_PROPOSE— y el caso nunca llega a probar lo de CORE.',
       message: 'completa la cita de Diki Perez del 28 de julio a las 09:00, me pagó en efectivo',
@@ -1308,7 +1314,7 @@ async function main() {
     {
       id: 'tier-core-declina-facturas',
       bitacora: 'T3 — CORE sin facturacion/sat: declina SIN culpar al dueño (el usuario ES el dueño) y sin inventar',
-      tier: 'CORE',
+      tier: 'FREE',
       soft: true,
       message: '¿cuánto he facturado este mes?',
       checks: [
@@ -1323,7 +1329,7 @@ async function main() {
     {
       id: 'tier-core-declina-emitir-cfdi',
       bitacora: 'T3 — petición EXPLÍCITA de emitir: sin propose_create_cfdi (la tool no existe en CORE) y sin card fantasma',
-      tier: 'CORE',
+      tier: 'FREE',
       soft: true,
       // Redactado SIN depender de que exista una cita concreta: la primera
       // versión ("la factura de la consulta de ayer") dejaba que el modelo se
@@ -1341,7 +1347,7 @@ async function main() {
     {
       id: 'tier-core-declina-conciliacion',
       bitacora: 'T3 G2 — la tool de conciliación se cayó del módulo flujo que SÍ sobrevive: declina sin llamarla',
-      tier: 'CORE',
+      tier: 'FREE',
       soft: true,
       message: '¿qué movimientos del banco siguen sin conciliar?',
       checks: [
@@ -1353,7 +1359,7 @@ async function main() {
     {
       id: 'tier-core-flujo-status-sin-datos-de-conciliacion',
       bitacora: 'T3 hallazgo 4 — get_flujo_status SÍ corre en CORE pero su payload ya no trae los agregados de conciliación: el modelo no debe reportar cifras de conciliación',
-      tier: 'CORE',
+      tier: 'FREE',
       soft: true,
       dataDependent: 'el ledger de dr-prueba tiene movimientos; lo exigible es que NO cite números de conciliación bancaria',
       message: '¿qué me falta documentar en mi flujo de dinero?',
@@ -1368,7 +1374,7 @@ async function main() {
       id: 'tier-core-conciliacion-no-inventa',
       bitacora:
         'Bitácora #28 — la pregunta EXACTA de la prueba en vivo 2026-07-27 (TIERS §12.6). Antes del fix falló 4/4: volcaba get_flujo_status en vez de nombrar la frontera, narraba historia de la cuenta desde los buckets sat_emitido/sat_recibido de porOrigen ("en algún momento tuvo habilitada la emisión de CFDIs"), y 2/4 mandaba al doctor a la sección Conciliación encuadrando el límite como "faltan estados de cuenta". El fix es de PAYLOAD (los buckets SAT colapsan a "historico"), así que este caso vigila que el gancho siga muerto',
-      tier: 'CORE',
+      tier: 'FREE',
       soft: true,
       dataDependent:
         'dr-prueba tiene 677 movimientos de origen SAT en el ledger — justo el material que el modelo usaba para inventar; lo exigible es que NO los nombre ni construya un diagnóstico con ellos',
@@ -1413,7 +1419,7 @@ async function main() {
     {
       id: 'tier-core-declina-fiscal',
       bitacora: 'T3 — módulo fiscal fuera en CORE (requiere facturacion+sat, ambas excluidas)',
-      tier: 'CORE',
+      tier: 'FREE',
       soft: true,
       message: '¿cuánto IVA tengo que declarar este mes?',
       checks: [
@@ -1424,7 +1430,7 @@ async function main() {
     {
       id: 'tier-core-expediente-funciona',
       bitacora: 'T3 — CORE conserva expedientes (metadatos), el plan no los toca',
-      tier: 'CORE',
+      tier: 'FREE',
       soft: true,
       message: '¿cuántos pacientes nuevos tuve este mes?',
       checks: [{ kind: 'tool-called', name: 'get_pacientes_overview' }],
@@ -1432,7 +1438,7 @@ async function main() {
     {
       id: 'tier-core-member-doble-techo',
       bitacora: 'T3 §5.2 asimetría — MEMBER con los 3 toggles de flujo en cuenta CORE: obtiene el módulo flujo SIN la tool de conciliación, igual que el dueño CORE',
-      tier: 'CORE',
+      tier: 'FREE',
       permissions: { flujo: true, pagos: true, conciliacion: true },
       soft: true,
       message: '¿qué movimientos del banco siguen sin conciliar?',

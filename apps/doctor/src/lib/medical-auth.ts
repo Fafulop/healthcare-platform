@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { auth } from '@healthcare/auth';
-import { prisma, checkRoutePermission, tierRouteDecision, type PermissionSet } from '@healthcare/database';
+import { prisma, checkRoutePermission, tierRouteDecision, FALLBACK_TIER, type PermissionSet } from '@healthcare/database';
 
 export interface MedicalAuthContext {
   userId: string;
@@ -52,8 +52,8 @@ export async function requireDoctorAuth(
   const isOwner = (user.isOwner as boolean | undefined) ?? true; // legacy sessions = owner
   const permissions = (user.permissions as PermissionSet | null | undefined) ?? null;
   // Account tier — FRESH via database sessions (resolved every request in the
-  // session callback). Legacy/absent ⇒ FULL. TIERS T2.
-  const tier = (user.tier as string | undefined) ?? 'FULL';
+  // session callback). Legacy/absent ⇒ FALLBACK_TIER (fail-open). TIERS T2.
+  const tier = (user.tier as string | undefined) ?? FALLBACK_TIER;
 
   // Enforcement (owners/members; admins bypass all). TIERS T2: the tier ceiling
   // applies to OWNER and MEMBER; the member toggle check stays members-only.
@@ -63,7 +63,7 @@ export async function requireDoctorAuth(
 
     // TIER ceiling (owner + member): the account's plan doesn't include this
     // feature. Blocks regardless of toggles; nearest-feature-key catches
-    // OWNER_ONLY sub-routes. No-op while the account is FULL.
+    // OWNER_ONLY sub-routes. No-op while the account is PRO/LAB (nothing excluded).
     if (tierRouteDecision(pathname, method, tier).blocked) {
       throw new Error('TIER_EXCLUDED');
     }

@@ -7,9 +7,11 @@ import { authFetch } from "@/lib/auth-fetch";
 import ColorPaletteSelector from "@/components/ColorPaletteSelector";
 import {
   DOCTOR_TIERS,
-  DEFAULT_TIER,
+  FALLBACK_TIER,
   TIER_EXCLUDED_KEYS,
-  PERMISSION_LABELS,
+  TIER_KEY_LABELS,
+  TIER_LABELS,
+  TIER_LIMITS,
   type DoctorTier,
 } from "@healthcare/database";
 
@@ -36,7 +38,26 @@ interface Doctor {
 // (TIER_EXCLUDED_KEYS) — never a hand-written list, so a new tier or a changed
 // exclusion shows up here on its own.
 const tierExclusionLabels = (tier: DoctorTier): string[] =>
-  (TIER_EXCLUDED_KEYS[tier] ?? []).map((k) => PERMISSION_LABELS[k]);
+  (TIER_EXCLUDED_KEYS[tier] ?? []).map((k) => TIER_KEY_LABELS[k]);
+
+// Chip colour per tier — keyed by the canonical value so a new tier that is
+// missing here fails type-check instead of falling into a wrong colour.
+const TIER_CHIP_STYLE: Record<DoctorTier, string> = {
+  FREE: "bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-300",
+  BASICO: "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200",
+  PRO: "bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200",
+  LAB: "bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200",
+};
+
+// Quotas are DECLARED (Q1) and shown here so the admin sees what each plan
+// promises; they are not enforced until Q3 (patients) and Q4 (storage).
+const fmtStorage = (bytes: number): string =>
+  bytes >= 1024 ** 3 ? `${Math.round(bytes / 1024 ** 3)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`;
+const tierQuotaLine = (tier: DoctorTier): string => {
+  const l = TIER_LIMITS[tier];
+  const patients = l.maxPatients === null ? "pacientes sin tope" : `${l.maxPatients} pacientes`;
+  return `${fmtStorage(l.storageBytes)} de archivos · ${patients}`;
+};
 
 /**
  * Three distinct states, kept apart so the UI never points at the wrong cause:
@@ -44,7 +65,9 @@ const tierExclusionLabels = (tier: DoctorTier): string[] =>
  *                stale @healthcare/api deploy, NOT bad data. (This repo has been
  *                bitten by one service silently not redeploying.)
  * - 'unknown'  → a value IS stored but is not in DOCTOR_TIERS. Real alarm:
- *                tierAllows fails OPEN, so the account behaves as FULL.
+ *                tierAllows fails OPEN, so the account behaves as FALLBACK_TIER.
+ *                (Expected briefly right after the rename to four tiers, until
+ *                `rename-tiers-to-four.sql` runs: every row still says FULL.)
  * - 'known'    → canonical value.
  */
 const tierState = (tier: string | undefined): "missing" | "unknown" | "known" => {
@@ -66,7 +89,7 @@ export default function DoctorsListPage() {
   const [updatingAds, setUpdatingAds] = useState(false);
   const [tierModalOpen, setTierModalOpen] = useState(false);
   const [tierDoctor, setTierDoctor] = useState<Doctor | null>(null);
-  const [tierSelection, setTierSelection] = useState<DoctorTier>(DEFAULT_TIER);
+  const [tierSelection, setTierSelection] = useState<DoctorTier>(FALLBACK_TIER);
   const [updatingTier, setUpdatingTier] = useState(false);
 
   useEffect(() => {
@@ -379,10 +402,10 @@ export default function DoctorsListPage() {
 
   const handleOpenTierModal = (doctor: Doctor) => {
     setTierDoctor(doctor);
-    // An unrecognized (or absent) value is treated as FULL by tierAllows
-    // (fail-open), so that is what we preselect — and the modal says why.
+    // An unrecognized (or absent) value is treated as FALLBACK_TIER by
+    // tierAllows (fail-open), so that is what we preselect — and the modal says why.
     setTierSelection(
-      tierState(doctor.tier) === "known" ? (doctor.tier as DoctorTier) : DEFAULT_TIER
+      tierState(doctor.tier) === "known" ? (doctor.tier as DoctorTier) : FALLBACK_TIER
     );
     setTierModalOpen(true);
   };
@@ -564,23 +587,22 @@ export default function DoctorsListPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {(() => {
                           const state = tierState(doctor.tier);
-                          const isFull = doctor.tier === "FULL";
+                          const known = state === "known" ? (doctor.tier as DoctorTier) : null;
+                          const excluded = known ? tierExclusionLabels(known) : [];
                           const style =
                             state === "missing"
                               ? "bg-gray-100 hover:bg-gray-200 text-gray-500"
-                              : state === "unknown"
-                                ? "bg-red-50 hover:bg-red-100 text-red-700 border border-red-200"
-                                : isFull
-                                  ? "bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
-                                  : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200";
+                              : known
+                                ? TIER_CHIP_STYLE[known]
+                                : "bg-red-50 hover:bg-red-100 text-red-700 border border-red-200";
                           const title =
                             state === "missing"
                               ? "El API no devolvió el plan — revisa el deploy de @healthcare/api"
-                              : state === "unknown"
-                                ? `Valor no reconocido — la cuenta se comporta como ${DEFAULT_TIER}`
-                                : isFull
-                                  ? "Plan completo"
-                                  : `Sin: ${tierExclusionLabels(doctor.tier as DoctorTier).join(", ")}`;
+                              : known
+                                ? excluded.length === 0
+                                  ? `Plan ${known} — todas las funciones`
+                                  : `Plan ${known} — sin: ${excluded.join(", ")}`
+                                : `Valor no reconocido — la cuenta se comporta como ${FALLBACK_TIER}`;
                           return (
                             <button
                               onClick={() => handleOpenTierModal(doctor)}
@@ -589,11 +611,9 @@ export default function DoctorsListPage() {
                             >
                               {state === "missing"
                                 ? "—"
-                                : state === "unknown"
-                                  ? `⚠ ${doctor.tier || "(vacío)"}`
-                                  : isFull
-                                    ? "FULL"
-                                    : `🔒 ${doctor.tier}`}
+                                : known
+                                  ? `${excluded.length > 0 ? "🔒 " : ""}${TIER_LABELS[known]}`
+                                  : `⚠ ${doctor.tier || "(vacío)"}`}
                             </button>
                           );
                         })()}
@@ -691,7 +711,7 @@ export default function DoctorsListPage() {
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
                     <p className="text-sm text-red-800">
                       El valor guardado (<code className="bg-red-100 px-1 rounded">{tierDoctor.tier || "vacío"}</code>)
-                      no es un plan conocido. La cuenta se comporta como <strong>{DEFAULT_TIER}</strong> (fail-open).
+                      no es un plan conocido. La cuenta se comporta como <strong>{FALLBACK_TIER}</strong> (fail-open).
                       Guardar aquí lo corrige.
                     </p>
                   </div>
@@ -720,7 +740,8 @@ export default function DoctorsListPage() {
                           />
                           <div>
                             <div className="font-semibold text-gray-900">
-                              {tier}
+                              {TIER_LABELS[tier]}
+                              <code className="ml-2 text-xs font-normal text-gray-500 bg-gray-100 px-1 rounded">{tier}</code>
                               {tierDoctor.tier === tier && (
                                 <span className="ml-2 text-xs font-normal text-gray-500">(actual)</span>
                               )}
@@ -730,6 +751,7 @@ export default function DoctorsListPage() {
                                 ? "Todas las funciones."
                                 : `Sin: ${excluded.join(" · ")}.`}
                             </p>
+                            <p className="text-xs text-gray-500 mt-0.5">{tierQuotaLine(tier)}</p>
                           </div>
                         </div>
                       </label>

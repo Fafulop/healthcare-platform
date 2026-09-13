@@ -13,7 +13,7 @@
  */
 
 import type { PrismaClient } from '@prisma/client';
-import { DEFAULT_TIER, tierAllows, type PermissionKey, type PermissionSet } from './permissions';
+import { FALLBACK_TIER, tierAllows, type PermissionKey, type PermissionSet } from './permissions';
 
 export interface EffectiveAccess {
   /** Doctor the user acts on (ACTIVE membership first, legacy users.doctor_id fallback). */
@@ -26,7 +26,7 @@ export interface EffectiveAccess {
   membershipRevoked: boolean;
   /** TIER de la CUENTA (Doctor.tier) del doctor resuelto, leído FRESCO de la BD
    * (G4). Techo de funciones sobre owner Y member — ver tierAllows / TIERS
-   * 01-DISENO §2. Default FULL (fail-open) si no hay doctor o el dato falta.
+   * 01-DISENO §2. FALLBACK_TIER (fail-open, PRO) si no hay doctor o el dato falta.
    * Es `string` CRUDO (no la unión DoctorTier) a propósito: un tier futuro
    * (String column, sin migración) debe fluir sin tocar este archivo; tierAllows
    * ya hace fail-open ante un valor que no reconoce. */
@@ -38,7 +38,7 @@ export const NO_ACCESS: EffectiveAccess = {
   isOwner: false,
   permissions: null,
   membershipRevoked: false,
-  tier: DEFAULT_TIER,
+  tier: FALLBACK_TIER,
 };
 
 interface MembershipRow {
@@ -75,8 +75,8 @@ export function computeEffectiveAccess(
         ? null
         : ((active.permissions ?? {}) as PermissionSet),
       membershipRevoked: false,
-      // Crudo de la BD; falsy (null/''/undefined) ⇒ DEFAULT_TIER (fail-open).
-      tier: active.doctor?.tier || DEFAULT_TIER,
+      // Crudo de la BD; falsy (null/''/undefined) ⇒ FALLBACK_TIER (fail-open).
+      tier: active.doctor?.tier || FALLBACK_TIER,
     };
   }
 
@@ -88,7 +88,7 @@ export function computeEffectiveAccess(
       isOwner: true,
       permissions: null,
       membershipRevoked: false,
-      tier: legacyTier || DEFAULT_TIER,
+      tier: legacyTier || FALLBACK_TIER,
     };
   }
 
@@ -134,7 +134,7 @@ export async function resolveEffectiveAccess(
  * Techo del tier para un doctorId, consultado directo — el TERCER sitio de
  * enforcement (01-DISENO §5.3, hueco G3): flujos PÚBLICOS (fiscal-form) y de
  * FONDO (worker SAT) que NO pasan por los dos choke points de auth. Fail-open a
- * FULL ante doctor ausente o error de BD (no bloquear por dato faltante).
+ * FALLBACK_TIER ante doctor ausente o error de BD (no bloquear por dato faltante).
  */
 export async function doctorTierAllows(
   prisma: PrismaClient,
@@ -146,6 +146,9 @@ export async function doctorTierAllows(
     return tierAllows(doc?.tier, key);
   } catch (error) {
     console.error('[membership] doctorTierAllows failed:', error);
-    return true; // fail-open
+    // El MISMO fail-open que tierAllows (FALLBACK_TIER), no "todo permitido":
+    // hoy da igual (PRO no excluye nada), y en cuanto PRO excluya algo (Q5) un
+    // error de BD no debe regalar lo que el plan niega.
+    return tierAllows(null, key);
   }
 }

@@ -11,7 +11,7 @@
  * Run: pnpm exec tsx scripts/check-agent-prompt-identity.ts
  */
 import { createHash } from 'crypto';
-import { DOCTOR_TIERS } from '@healthcare/database';
+import { DOCTOR_TIERS, FALLBACK_TIER } from '@healthcare/database';
 import {
   AGENT_MODULES,
   ALL_TOOLS,
@@ -42,21 +42,42 @@ const ownerModules = resolveAgentScope({ isOwner: true, permissions: null }).mod
 check('owner scope modules === AGENT_MODULES (reference)', ownerModules === AGENT_MODULES);
 
 // 1b. TIERS T3: the owner fast path is keyed on the SCOPE, and an owner on a
-// FULL account (or with no tier stored at all — fail-open) must land on the
+// LAB account (or with no tier stored at all — fail-open) must land on the
 // shared FULL_SCOPE reference, not an equal-looking copy.
 check(
-  'owner + FULL → FULL_SCOPE (reference)',
-  resolveAgentScope({ isOwner: true, permissions: null, tier: 'FULL' }) === FULL_SCOPE
+  'owner + LAB → FULL_SCOPE (reference)',
+  resolveAgentScope({ isOwner: true, permissions: null, tier: 'LAB' }) === FULL_SCOPE
+);
+// PRO excludes nothing the agent composes with (Q1 — `asistente_ia` is the
+// route-level switch and lands in Q5), so PRO is the full scope too.
+check(
+  'owner + PRO → FULL_SCOPE (PRO excludes nothing the agent composes with)',
+  resolveAgentScope({ isOwner: true, permissions: null, tier: 'PRO' }) === FULL_SCOPE
 );
 check(
   'owner + absent tier → FULL_SCOPE (fail-open)',
   resolveAgentScope({ isOwner: true, permissions: null }) === FULL_SCOPE &&
     resolveAgentScope({ isOwner: true, permissions: null, tier: null }) === FULL_SCOPE
 );
-check(
-  'owner + UNKNOWN tier → FULL_SCOPE (fail-open, not a silent block)',
-  resolveAgentScope({ isOwner: true, permissions: null, tier: 'ENTERPRISE' }) === FULL_SCOPE
-);
+// Unknown ⇒ FALLBACK_TIER. Compared STRUCTURALLY, not by reference: only the
+// full scope is a shared singleton; every narrowed scope is a fresh object, so
+// `===` would go red the day FALLBACK_TIER excludes something even when the two
+// scopes are identical — failing for the wrong reason.
+{
+  const shape = (s: ReturnType<typeof resolveAgentScope>) =>
+    [
+      s.modules.map((m) => m.name).join(','),
+      s.tools.map((t) => t.name).join(','),
+      Array.from(s.partialModules).sort().join(','),
+      String(s.tierLimited),
+    ].join('|');
+  const unknown = resolveAgentScope({ isOwner: true, permissions: null, tier: 'ENTERPRISE' });
+  const fallback = resolveAgentScope({ isOwner: true, permissions: null, tier: FALLBACK_TIER });
+  check(
+    `owner + UNKNOWN tier → same scope as FALLBACK_TIER (${FALLBACK_TIER}) (fail-open, not a silent block)`,
+    shape(unknown) === shape(fallback)
+  );
+}
 
 // 2. buildSystemPrompt(full scope) === STABLE_SYSTEM_PROMPT (no scope note leaked in).
 const ownerPrompt = buildSystemPrompt(FULL_SCOPE);
@@ -101,8 +122,11 @@ check('member with null permissions → 0 modules (fail-closed)', modulesFor(nul
 
 // ---------------------------------------------------------------------------
 // TIERS T3 — the tier ceiling, which cuts at TOOL level (docs/DESDE JUNIO/TIERS
-// /01-DISENO-tecnico.md §5.2). CORE excludes facturacion/sat/conciliacion/
-// ventas/compras/productos and KEEPS flujo + pagos.
+// /01-DISENO-tecnico.md §5.2). FREE excludes facturacion/sat/conciliacion and
+// KEEPS flujo + pagos — for the agent it is exactly the shape the v1 tier
+// `CORE` had (the three keys v1 also dropped, ventas/compras/productos, never
+// touched the agent), so every assertion below was written for `CORE` and
+// runs against FREE unchanged. The `core*` variable names are that history.
 // ---------------------------------------------------------------------------
 
 const allToolNames = new Set(ALL_TOOLS.map((t) => t.name));
@@ -110,35 +134,35 @@ const strayKeys = Object.keys(TOOL_FEATURE_KEY).filter((n) => !allToolNames.has(
 // A rename would leave a dead entry here and silently stop filtering that tool.
 check(`every TOOL_FEATURE_KEY name is a real tool${strayKeys.length ? ` (stray: ${strayKeys.join(', ')})` : ''}`, strayKeys.length === 0);
 
-const coreOwner = resolveAgentScope({ isOwner: true, permissions: null, tier: 'CORE' });
+const coreOwner = resolveAgentScope({ isOwner: true, permissions: null, tier: 'FREE' });
 const coreNames = coreOwner.tools.map((t) => t.name);
 const coreModules = coreOwner.modules.map((m) => m.name);
 
-check('owner + CORE is NOT the full scope', !coreOwner.isFull && coreOwner.tierLimited && !coreOwner.memberLimited);
+check('owner + FREE is NOT the full scope', !coreOwner.isFull && coreOwner.tierLimited && !coreOwner.memberLimited);
 check(
-  `owner + CORE keeps agenda/facturas/flujo/expediente, drops fiscal (got: ${coreModules.join(',')})`,
+  `owner + FREE keeps agenda/facturas/flujo/expediente, drops fiscal (got: ${coreModules.join(',')})`,
   coreModules.join(',') === 'agenda,facturas,flujo,expediente'
 );
 // The rescue: pagos tools survive INSIDE the otherwise-dropped facturas module.
-check('CORE keeps get_payment_links (pagos, CORE includes it)', coreNames.includes('get_payment_links'));
-check('CORE keeps get_payment_provider_status', coreNames.includes('get_payment_provider_status'));
+check('FREE keeps get_payment_links (pagos, FREE includes it)', coreNames.includes('get_payment_links'));
+check('FREE keeps get_payment_provider_status', coreNames.includes('get_payment_provider_status'));
 // The original G2 case: a conciliacion tool dropped from a KEPT module.
-check('CORE drops get_conciliacion_bancaria (conciliacion excluded)', !coreNames.includes('get_conciliacion_bancaria'));
+check('FREE drops get_conciliacion_bancaria (conciliacion excluded)', !coreNames.includes('get_conciliacion_bancaria'));
 check(
-  'CORE keeps the other 4 flujo tools',
+  'FREE keeps the other 4 flujo tools',
   ['get_flujo_status', 'get_movimientos', 'get_balance', 'get_movimiento_detail'].every((n) => coreNames.includes(n))
 );
 check(
-  'CORE drops the CFDI tools (facturacion + sat excluded)',
+  'FREE drops the CFDI tools (facturacion + sat excluded)',
   !coreNames.includes('get_cfdis') && !coreNames.includes('get_sat_cfdis') && !coreNames.includes('propose_create_cfdi')
 );
-check('CORE drops the fiscal tools', !coreNames.includes('get_resumen_fiscal') && !coreNames.includes('get_ppd_cobranza'));
-check('CORE keeps every agenda tool', AGENT_MODULES[0].readTools.every((t) => coreNames.includes(t.name)));
+check('FREE drops the fiscal tools', !coreNames.includes('get_resumen_fiscal') && !coreNames.includes('get_ppd_cobranza'));
+check('FREE keeps every agenda tool', AGENT_MODULES[0].readTools.every((t) => coreNames.includes(t.name)));
 // facturas+flujo because their TOOLS were trimmed; agenda+expediente because
 // their PROSE routes to invoicing (prosaDependsOn) even though every tool of
 // theirs survives — the distinction the bug hunt exposed.
 check(
-  `CORE marks agenda+expediente+facturas+flujo as partial (got: ${Array.from(coreOwner.partialModules).sort().join(',')})`,
+  `FREE marks agenda+expediente+facturas+flujo as partial (got: ${Array.from(coreOwner.partialModules).sort().join(',')})`,
   Array.from(coreOwner.partialModules).sort().join(',') === 'agenda,expediente,facturas,flujo'
 );
 // A module kept with zero tools would put its prompt section in front of the
@@ -148,39 +172,39 @@ check('no kept module ended up with zero tools', coreOwner.modules.every((m) =>
 ));
 
 const corePrompt = buildSystemPrompt(coreOwner);
-check('CORE owner prompt has the TIER note', corePrompt.includes('Alcance del plan de esta cuenta'));
-check('CORE OWNER prompt does NOT blame the owner (no member note)', !corePrompt.includes('Nota de permisos de esta cuenta'));
-check('CORE prompt uses the partial flujo section (no reconciliation prose)', !corePrompt.includes('dos evidencias independientes'));
-check('CORE prompt drops the CFDI rules section', !corePrompt.includes('EMITIR una factura (propose_create_cfdi)'));
-check('CORE prompt is shorter than the owner prompt (cheaper prefix)', corePrompt.length < STABLE_SYSTEM_PROMPT.length);
-console.log(`    CORE prompt = ${corePrompt.length} chars vs FULL ${STABLE_SYSTEM_PROMPT.length} (${Math.round((1 - corePrompt.length / STABLE_SYSTEM_PROMPT.length) * 100)}% smaller), ${coreOwner.tools.length} tools vs ${ALL_TOOLS.length}`);
+check('FREE owner prompt has the TIER note', corePrompt.includes('Alcance del plan de esta cuenta'));
+check('FREE OWNER prompt does NOT blame the owner (no member note)', !corePrompt.includes('Nota de permisos de esta cuenta'));
+check('FREE prompt uses the partial flujo section (no reconciliation prose)', !corePrompt.includes('dos evidencias independientes'));
+check('FREE prompt drops the CFDI rules section', !corePrompt.includes('EMITIR una factura (propose_create_cfdi)'));
+check('FREE prompt is shorter than the owner prompt (cheaper prefix)', corePrompt.length < STABLE_SYSTEM_PROMPT.length);
+console.log(`    FREE prompt = ${corePrompt.length} chars vs FULL ${STABLE_SYSTEM_PROMPT.length} (${Math.round((1 - corePrompt.length / STABLE_SYSTEM_PROMPT.length) * 100)}% smaller), ${coreOwner.tools.length} tools vs ${ALL_TOOLS.length}`);
 
-// A member on a FULL account must see the member note and NOT the tier one.
-const memberFull = resolveAgentScope({ isOwner: false, permissions: { citas: true }, tier: 'FULL' });
+// A member on a LAB account must see the member note and NOT the tier one.
+const memberFull = resolveAgentScope({ isOwner: false, permissions: { citas: true }, tier: 'LAB' });
 const memberFullPrompt = buildSystemPrompt(memberFull);
-check('member on FULL: member note, no tier note',
+check('member on LAB: member note, no tier note',
   memberFullPrompt.includes('Nota de permisos de esta cuenta') && !memberFullPrompt.includes('Alcance del plan de esta cuenta'));
 
-// The asymmetry documented in §5.2: a member on a CORE account lands on the
-// SAME tool set the CORE owner would, for the modules they share.
+// The asymmetry documented in §5.2: a member on a FREE account lands on the
+// SAME tool set the FREE owner would, for the modules they share.
 const memberCore = resolveAgentScope({
   isOwner: false,
   permissions: { flujo: true, pagos: true, conciliacion: true },
-  tier: 'CORE',
+  tier: 'FREE',
 });
 const memberCoreNames = memberCore.tools.map((t) => t.name);
 check(
-  'member on CORE with all 3 flujo toggles → flujo module, WITHOUT the conciliacion tool',
+  'member on FREE with all 3 flujo toggles → flujo module, WITHOUT the conciliacion tool',
   memberCore.modules.map((m) => m.name).join(',') === 'flujo' &&
     !memberCoreNames.includes('get_conciliacion_bancaria') &&
     memberCoreNames.includes('get_flujo_status')
 );
 const memberCorePrompt = buildSystemPrompt(memberCore);
-check('member on CORE gets BOTH notes (plan ceiling + owner toggles)',
+check('member on FREE gets BOTH notes (plan ceiling + owner toggles)',
   memberCorePrompt.includes('Alcance del plan de esta cuenta') && memberCorePrompt.includes('Nota de permisos de esta cuenta'));
 
 // buildTools stays the toggle-only helper the rest of the code still uses.
-check('buildTools(CORE modules) is NOT the tier-filtered set (tier cuts at tool level)',
+check('buildTools(FREE modules) is NOT the tier-filtered set (tier cuts at tool level)',
   buildTools(coreOwner.modules).length > coreOwner.tools.length);
 
 // ---------------------------------------------------------------------------
@@ -219,7 +243,7 @@ for (const tier of DOCTOR_TIERS) {
 // completar una cita cuyo paciente YA tiene datos fiscales. El centinela nuevo es
 // la CONDICIÓN, no un destino — nombrar el expediente acoplaba la prosa de agenda
 // a un permiso que agenda no exige (ver el comentario de AGENDA_CITAS_RULES).
-// Sigue siendo una frase LITERAL a propósito: el `.replace()` de la variante CORE
+// Sigue siendo una frase LITERAL a propósito: el `.replace()` de la variante FREE
 // y el `from` del override de descripción son text-matching, y sin una aserción
 // que los ancle un reword los convierte en no-ops mudos (bitácora #26).
 // 2026-08-13: la casilla "Emitir factura (CFDI)" salió del modal de Completar, así
@@ -276,29 +300,29 @@ check(
   staleOverrides.length === 0
 );
 
-// End-to-end on the prose bugs: the CORE prompt and toolset must not route the
+// End-to-end on the prose bugs: the FREE prompt and toolset must not route the
 // doctor to features the plan excludes.
 const corePromptText = buildSystemPrompt(coreOwner);
 check(
-  'CORE prompt does NOT describe emitting the CFDI when completing a cita',
+  'FREE prompt does NOT describe emitting the CFDI when completing a cita',
   !corePromptText.includes(CONDICION_FACTURACION)
 );
 // NOTE: this targets the MODULE prose, not the whole prompt. INTRO is shared,
-// byte-frozen for owners, and enumerates every capability by design — a CORE
+// byte-frozen for owners, and enumerates every capability by design — a FREE
 // prompt WILL still mention get_billing_status there. Neutralizing that is the
 // scope notes' job (the PR C tradeoff, NUEVOS USUARIOS 01-DISENO §13); asserting
 // its absence would contradict the byte-identity invariant.
 check(
-  'CORE module prose does NOT route to the dropped facturas tools',
+  'FREE module prose does NOT route to the dropped facturas tools',
   !corePromptText.includes('dinero/facturas del paciente = get_billing_status') &&
     !corePromptText.includes('datos FISCALES y contacto =')
 );
 check(
-  'CORE tool descriptions do NOT route to the dropped facturas tools',
+  'FREE tool descriptions do NOT route to the dropped facturas tools',
   !coreOwner.tools.some((t) => t.description?.includes('dinero = get_billing_status'))
 );
 check(
-  'CORE tool descriptions do NOT describe emitting the CFDI at completion',
+  'FREE tool descriptions do NOT describe emitting the CFDI at completion',
   !coreOwner.tools.some((t) => t.description?.includes(CONDICION_FACTURACION))
 );
 // The FULL path keeps the route in BOTH places. Que aparezca en los dos es lo que

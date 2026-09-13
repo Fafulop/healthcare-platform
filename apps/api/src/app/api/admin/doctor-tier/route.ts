@@ -7,10 +7,11 @@
 //
 // ⚠️ HARD REQUIREMENT (§7): the value is validated against DOCTOR_TIERS with the
 // CANONICAL case. `tierAllows` is case-sensitive AND fail-open, so a stored
-// 'core' would not match TIER_EXCLUDED_KEYS and would silently disable gating —
-// the account would behave as FULL while the UI said CORE. That is the worst
-// failure mode of this feature because it *looks* like it worked. Non-canonical
-// values are REJECTED (not normalized) so the mistake is loud at the boundary.
+// 'free' would not match TIER_EXCLUDED_KEYS and would silently disable gating —
+// the account would behave as FALLBACK_TIER (PRO) while the UI said FREE. That
+// is the worst failure mode of this feature because it *looks* like it worked.
+// Non-canonical values are REJECTED (not normalized) so the mistake is loud at
+// the boundary.
 
 import { NextResponse } from 'next/server';
 import { prisma, DOCTOR_TIERS, TIER_EXCLUDED_KEYS, type DoctorTier } from '@healthcare/database';
