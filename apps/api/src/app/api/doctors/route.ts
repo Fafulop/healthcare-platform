@@ -209,6 +209,49 @@ export async function POST(request: Request) {
       },
     });
 
+    // 🔴 TIERS Q4 — el alta sube los archivos ANTES de que exista el doctor, así
+    // que el middleware de subida no tuvo a quién cobrárselos. Aquí ya hay fila:
+    // se apuntan en el libro mayor. Sin esto, TODO lo que el admin sube en el
+    // alta sería espacio que el doctor ocupa y que nadie mide.
+    //
+    // No se rechaza nada (opción B, la misma política que el router de admin):
+    // los bytes ya están subidos y el doctor acaba de nacer. Y si el apunte
+    // falla NO se tumba el alta: el doctor ya se creó, decirle que no se creó
+    // sería mentirle.
+    const pendientes: unknown[] = Array.isArray(body.uploaded_files) ? body.uploaded_files : [];
+    const filas = pendientes
+      .map((a) => a as { key?: unknown; url?: unknown; size?: unknown; kind?: unknown })
+      // `key` es obligatoria: es la llave de dedupe y la que empata al borrar.
+      // Una fila sin ella no se podría reconciliar nunca, así que se descarta.
+      .filter(
+        (a) =>
+          typeof a.key === 'string' &&
+          a.key.length > 0 &&
+          typeof a.url === 'string' &&
+          typeof a.size === 'number' &&
+          Number.isFinite(a.size) &&
+          a.size >= 0,
+      )
+      .map((a) => ({
+        doctorId: doctor.id,
+        fileKey: a.key as string,
+        url: a.url as string,
+        sizeBytes: Math.round(a.size as number),
+        kind: typeof a.kind === 'string' ? a.kind.slice(0, 40) : 'desconocido',
+      }));
+
+    if (filas.length > 0) {
+      try {
+        await prisma.storedFile.createMany({ data: filas, skipDuplicates: true });
+      } catch (e) {
+        console.error('[storage] no se pudieron registrar los archivos del alta', {
+          doctorId: doctor.id,
+          archivos: filas.length,
+          error: e instanceof Error ? e.message : e,
+        });
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: doctor,

@@ -313,6 +313,283 @@ export class QuotaExceededError extends Error {
   }
 }
 
+/**
+ * El tope de almacenamiento de un tier, en bytes. Nunca `null`: todos los
+ * planes tienen tope (a diferencia del cupo de pacientes). Tier desconocido ⇒
+ * `FALLBACK_TIER`, igual que `tierAllows`.
+ */
+export function storageBytesFor(tier: string | null | undefined): number {
+  const known = typeof tier === 'string' && Object.hasOwn(TIER_LIMITS, tier);
+  return TIER_LIMITS[known ? (tier as DoctorTier) : FALLBACK_TIER].storageBytes;
+}
+
+/**
+ * 🔴 Tope POR ARCHIVO (TIERS Q4, decisión del usuario 2026-09-13).
+ *
+ * 25 MB para documentos e imágenes… pero el VIDEO conserva 200 MB. Un tope
+ * global de 25 MB habría roto `medicalVideos` (128 MB hoy) y `doctorVideos`
+ * (1 GB hoy), y habría RECHAZADO el archivo más grande que ya existe: un video
+ * de 156.8 MB. Los 200 MB dejan pasar todo lo actual y a la vez impiden que
+ * **una sola subida supere el cupo FREE entero** (1 GB = 2× los 500 MB).
+ *
+ * Medido en prod el 2026-09-13: 6 videos pesan 380 MB — el 72% de TODO el
+ * bucket (489.5 MB). El video es lo que llena la cuenta, no lo clínico.
+ */
+export const MAX_BYTES_POR_ARCHIVO = 25 * MB;
+export const MAX_BYTES_POR_VIDEO = 200 * MB;
+
+/** El tope que aplica a un archivo, según su MIME. */
+export function maxBytesForMime(mime: string | null | undefined): number {
+  return typeof mime === 'string' && mime.startsWith('video/')
+    ? MAX_BYTES_POR_VIDEO
+    : MAX_BYTES_POR_ARCHIVO;
+}
+
+/** Un archivo que va a subir, tal como lo entrega el middleware de subida. */
+export interface ArchivoEntrante {
+  name: string;
+  size: number;
+  type: string;
+}
+
+/** Se pasó el tope POR ARCHIVO. Distinto de quedarse sin cupo de cuenta. */
+export class FileTooLargeError extends Error {
+  readonly limit: number;
+  readonly size: number;
+  readonly fileName: string;
+  constructor(limit: number, size: number, fileName: string) {
+    super('FILE_TOO_LARGE');
+    this.name = 'FileTooLargeError';
+    this.limit = limit;
+    this.size = size;
+    this.fileName = fileName;
+  }
+}
+
+/** Se pasó el cupo de ALMACENAMIENTO de la cuenta. */
+export class StorageQuotaExceededError extends Error {
+  readonly limit: number;
+  readonly current: number;
+  readonly incoming: number;
+  constructor(limit: number, current: number, incoming: number) {
+    super('STORAGE_QUOTA_EXCEEDED');
+    this.name = 'StorageQuotaExceededError';
+    this.limit = limit;
+    this.current = current;
+    this.incoming = incoming;
+  }
+}
+
+/** Bytes en algo que un humano pueda leer: "25 MB", "1.5 GB". */
+export function formatearBytes(bytes: number): string {
+  if (bytes >= GB) return `${Math.round((bytes / GB) * 10) / 10} GB`;
+  if (bytes >= MB) return `${Math.round(bytes / MB)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  // Sin `Math.max(1, …)`: a quien está EXACTAMENTE en su tope le decía "te
+  // queda 1 KB", y el siguiente archivo de 1 KB se le rechazaba igual. Un
+  // número que la UI afirma tiene que ser cierto.
+  return `${bytes} B`;
+}
+
+/**
+ * Traduce un rechazo de subida a algo que el doctor pueda leer.
+ *
+ * 🔴 Existe porque uploadthing SEPULTA el error del middleware: sólo deja pasar
+ * lo que ya es `UploadThingError`, y a cualquier otra cosa la envuelve en un
+ * genérico "Failed to run middleware" (upload-builder, `runRouteMiddleware`).
+ * Sin esto, al doctor que se queda sin espacio le aparece esa frase.
+ *
+ * Devuelve un tipo NEUTRO (`archivo` | `cuenta`), no el código de uploadthing:
+ * el mensaje tiene que sobrevivir a la migración a R2, y este paquete no debe
+ * aprenderse el vocabulario del proveedor de subidas. Cada router traduce el
+ * tipo a SU código.
+ *
+ * `null` = no es un rechazo nuestro; quien llama debe re-lanzar el original.
+ */
+export function explicarRechazoDeSubida(
+  e: unknown,
+): { tipo: 'archivo' | 'cuenta'; mensaje: string } | null {
+  if (e instanceof FileTooLargeError) {
+    return {
+      tipo: 'archivo',
+      mensaje: `"${e.fileName}" pesa ${formatearBytes(e.size)} y el máximo por archivo es ${formatearBytes(e.limit)}.`,
+    };
+  }
+  if (e instanceof StorageQuotaExceededError) {
+    const libre = Math.max(0, e.limit - e.current);
+    return {
+      tipo: 'cuenta',
+      // ⚠️ NO decir "borra archivos": HOY nada baja el uso. Ningún camino borra
+      // filas de `stored_files` (el borrado de un media del expediente deja el
+      // archivo en el bucket a propósito), así que un doctor que borrara todo
+      // seguiría topado. Prometer una salida que no existe es peor que no dar
+      // ninguna. Cuando exista el borrado de verdad, se cambia esta frase.
+      mensaje:
+        `No hay espacio en tu plan: ocupas ${formatearBytes(e.current)} de ${formatearBytes(e.limit)} ` +
+        `y estás subiendo ${formatearBytes(e.incoming)} (te quedan ${formatearBytes(libre)}). ` +
+        `Para subir más necesitas ampliar tu plan.`,
+    };
+  }
+  return null;
+}
+
+/** Cliente mínimo para el chequeo de almacenamiento. */
+interface StorageCounter {
+  storedFile: {
+    aggregate(args: {
+      where: Record<string, unknown>;
+      _sum: { sizeBytes: true };
+    }): Promise<{ _sum: { sizeBytes: number | null } }>;
+  };
+  doctor: {
+    findUnique(args: { where: { id: string }; select: { tier: true } }): Promise<{ tier: string } | null>;
+  };
+}
+
+/**
+ * Valida ANTES de subir un byte: primero el tope por archivo, después el cupo
+ * de la cuenta. Lanza `FileTooLargeError` o `StorageQuotaExceededError`.
+ *
+ * 🔴 Se llama desde el `middleware` de la subida, que es donde se conoce el
+ * tamaño y el archivo TODAVÍA no se transfirió. Verificado en los tipos de
+ * `uploadthing@7.7.4`: `MiddlewareFn` recibe `{ files }` y cada `FileUploadData`
+ * trae `size`. El mismo contrato vale para R2 (su plan §3.4: el servidor valida
+ * MIME y tamaño ANTES de firmar el PUT), así que esta función no sabe nada del
+ * proveedor — recibe tamaños, no un SDK.
+ *
+ * ⚠️ `doctorId` es el doctor DUEÑO del archivo, NO quien aprieta el botón: un
+ * admin sube al perfil de OTRO doctor, y cobrarle al admin dejaría al doctor
+ * sin medir, pareciendo que funciona.
+ */
+export async function assertStorageQuota(
+  db: StorageCounter,
+  doctorId: string,
+  // `readonly`: uploadthing entrega `readonly FileUploadData[]`. Pedir un array
+  // mutable rechazaba el de la librería (TS2345 × 21).
+  archivos: readonly ArchivoEntrante[],
+  tierYaConocido?: string | null,
+): Promise<void> {
+  for (const a of archivos) {
+    const tope = maxBytesForMime(a.type);
+    if (a.size > tope) throw new FileTooLargeError(tope, a.size, a.name);
+  }
+
+  const entrantes = archivos.reduce((n, a) => n + a.size, 0);
+  if (entrantes === 0) return;
+
+  // 🔴 FAIL-OPEN ante fallas de INFRAESTRUCTURA, igual que `FALLBACK_TIER`.
+  //
+  // Antes, cualquier error de la base (tabla que todavía no existe porque el
+  // SQL no se ha corrido, caída transitoria) salía por aquí, no era ninguno de
+  // nuestros errores de dominio, y el middleware lo re-lanzaba: uploadthing lo
+  // envolvía en "Failed to run middleware" y se moría TODA subida de `doctor` y
+  // `api` — 29 de las 33 definiciones. `admin` seguía vivo (no llama aquí), o
+  // sea que la caída parecía parcial y se diagnosticaba mal.
+  //
+  // Cobrar de más nunca vale una caída: si no se puede LEER el uso, se deja
+  // pasar y se registra. El cupo es un límite comercial, no una guarda de
+  // seguridad.
+  let limit: number;
+  let current: number;
+  try {
+    const tier =
+      tierYaConocido !== undefined
+        ? tierYaConocido
+        : (await db.doctor.findUnique({ where: { id: doctorId }, select: { tier: true } }))?.tier ?? null;
+
+    limit = storageBytesFor(tier);
+    const agg = await db.storedFile.aggregate({ where: { doctorId }, _sum: { sizeBytes: true } });
+    current = agg._sum.sizeBytes ?? 0;
+  } catch (e) {
+    console.error('[storage] no se pudo leer el uso; se deja pasar la subida', {
+      doctorId,
+      error: e instanceof Error ? e.message : e,
+    });
+    return;
+  }
+
+  if (current + entrantes > limit) throw new StorageQuotaExceededError(limit, current, entrantes);
+}
+
+/** Un archivo YA subido, tal como lo entrega `onUploadComplete`. */
+export interface ArchivoSubido {
+  /**
+   * 🔴 La llave ESTABLE del archivo (`file.key`), no la URL.
+   *
+   * En uploadthing v7 el mismo archivo tiene DOS URLs distintas (`url` legacy y
+   * `ufsUrl` nueva) y el repo guarda una u otra según el sitio: ~10 de las 17
+   * superficies guardan `url` (MediaUploader, certificados, blog, ledger) y el
+   * resto `ufsUrl`. Si el ledger se llavea por URL, el día que se escriba el
+   * borrado —o la reconciliación de la migración a R2— NO EMPATA con lo que
+   * guardan las tablas de dominio, y falla en silencio devolviendo 0 filas.
+   * `key` va DENTRO de las dos formas de URL, así que desde cualquiera se puede
+   * llegar a esta fila.
+   */
+  key: string;
+  url: string;
+  size: number;
+  /** La llave de la ruta que lo subió (`medicalImages`, `doctorVideos`, …). */
+  kind: string;
+}
+
+/** Cliente mínimo para ESCRIBIR en el libro mayor de archivos. */
+interface StorageLedger {
+  storedFile: {
+    createMany(args: {
+      data: { doctorId: string; fileKey: string; url: string; sizeBytes: number; kind: string }[];
+      skipDuplicates?: boolean;
+    }): Promise<{ count: number }>;
+  };
+}
+
+/**
+ * Apunta archivos en el libro mayor (`stored_files`). El uso de un doctor es
+ * SUM(size_bytes) sobre esta tabla, así que lo que NO se apunte aquí es espacio
+ * que el doctor ocupa y nadie le cobra.
+ *
+ * 🔴 Se llama desde `onUploadComplete`, NO desde el cliente. Verificado en los
+ * tipos de `uploadthing@7.7.4`: `UploadCompleteFn` recibe `{ metadata, file }`,
+ * o sea el `doctorId` que resolvió el middleware JUNTO AL tamaño y la URL
+ * definitivos. Ponerlo en el cliente lo volvería opcional: hay 19 archivos que
+ * suben y tres idiomas distintos para hacerlo (componente, hook y `uploadFiles`);
+ * el que se olvidara de llamar dejaría de medir sin que se note.
+ *
+ * `skipDuplicates` + el UNIQUE de `url` es lo que evita contar doble: las
+ * subidas se reintentan y `onUploadComplete` puede dispararse dos veces para el
+ * MISMO archivo. Contar doble le negaría espacio a quien no lo está usando.
+ *
+ * Nunca lanza: el archivo YA está subido y el doctor ya lo está viendo. Fallar
+ * aquí sería pintarle un error por algo que sí funcionó. Se registra en consola
+ * para que el hueco quede visible en los logs.
+ */
+export async function registrarArchivo(
+  db: StorageLedger,
+  doctorId: string,
+  archivo: ArchivoSubido,
+): Promise<void> {
+  try {
+    await db.storedFile.createMany({
+      data: [
+        {
+          doctorId,
+          fileKey: archivo.key,
+          url: archivo.url,
+          sizeBytes: archivo.size,
+          kind: archivo.kind,
+        },
+      ],
+      skipDuplicates: true,
+    });
+  } catch (e) {
+    console.error('[storage] no se pudo registrar el archivo', {
+      doctorId,
+      kind: archivo.kind,
+      fileKey: archivo.key,
+      error: e instanceof Error ? e.message : e,
+    });
+  }
+}
+
 /** Cliente mínimo que necesita el chequeo — sirve igual `prisma` que un `tx`. */
 interface PatientCounter {
   patient: { count(args: { where: Record<string, unknown> }): Promise<number> };

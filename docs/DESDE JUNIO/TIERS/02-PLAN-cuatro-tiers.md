@@ -305,7 +305,7 @@ Todo cambio que toque el agente ⇒ suite de evals.
 | **Q1 — vocabulario** ✅ | `DOCTOR_TIERS`×4, `TierKey`, `DEFAULT_TIER`/`FALLBACK_TIER` separados, `TIER_EXCLUDED_KEYS` nuevos, `TIER_LIMITS` (solo declarado), labels; SQL de migración de filas | ✅ (12 → PRO; **PRO no excluye NADA en Q1** — `asistente_ia` se movió a Q5, ver §8) | bajo; el orden código→SQL es seguro en ambos sentidos (fail-open simétrico), código primero acorta la ventana de chips rojos |
 | **Q2 — key `ia`** | campo `feature` en el route map, `nearestFeatureKey` lo honra, 11 prefijos + 3 rutas de informe/summary anotadas, gate de cobertura extendido, `can('ia')` en las ~20 puertas del cliente (política de §9.2) | ✅ mientras todos sean PRO | medio: **la lista de puertas es la parte que se escapa** (lección de T4 §13.4.1: dos greps, desktop Y móvil) |
 | **Q3 — cupo de pacientes** | `assertPatientQuota` en los 2 caminos, error tipado, contador en UI, columna en admin | ✅ (PRO = sin tope) | bajo |
-| **Q4 — cupo de archivos** | `fileSize` en las 14 rutas, `assertStorageQuota` en middleware, `storageUsedBytes`, backfill, medidor en UI, columna en admin. Helpers agnósticos de proveedor (§3.2.4) | ✅ (PRO = 50 GB, uso real ~0.2 GB) | medio: 14 rutas en 3 apps; backfill con reporte de lo no medible |
+| **Q4 — cupo de archivos** | ~~14 rutas~~ **17 keys en 33 definiciones**, `assertStorageQuota` en middleware, tabla `StoredFile`, ~~backfill~~ **sin backfill (decisión del usuario)**, ~~medidor~~ **el medidor NO se construyó**. Helpers agnósticos de proveedor (§3.2.4) | ✅ (PRO = 50 GB, uso real **489.5 MB**, no ~0.2 GB — ver la medición de §8.2) | medio: 33 definiciones en 3 apps |
 | **Q5 — LAB** | **agregar `asistente_ia` a `TIER_EXCLUDED_KEYS` de FREE/BÁSICO/PRO** (heredado de Q1, §8), retirar el flag, puertas del panel por `can('asistente_ia')`, excepción ocultar-no-candado, dr-prueba + usuario a LAB | ❌ **prende el panel para LAB** (2 cuentas) y **cierra `/api/agenda-agent` con 403 para el resto** | bajo en código; alto en producto (por eso va al final) |
 | **Q6 — caza de bugs por tier** | Runbooks A/B/C por tier con dr-prueba en FREE, BÁSICO, PRO (rutas + UI desktop + móvil + agente); herencia de T6 (fuga read-only en reportes; residuo #28) | — | es la "pasada de bugs" que el usuario pidió ANTES del LAB |
 
@@ -675,6 +675,149 @@ nuevo lo sirve `apps/api` en tiempo de ejecución — su modal ya lo muestra bie
 **Lo que NO está probado: los PÍXELES.** Nadie ha visto el contador ni el rechazo del admin. Runbook:
 en dr-prueba (FREE, 9 activos) el contador debe decir `9 / 50 activos` y NO cambiar al filtrar por
 archivados; en el admin, bajar a FREE a dr-david debe fallar con el mensaje que nombra 94 y 50.
+
+### Q4 — el cupo de almacenamiento (CONSTRUIDO, sin commitear — 2026-09-13)
+
+> **Estado: CÓDIGO ESCRITO Y EN VERDE (type-check + 5 gates), SIN COMMIT y SIN
+> SQL aplicado.** El as-built está en §8.2, al final de esta sección. Lo que el
+> plan de abajo prometía y NO se construyó (el medidor) está listado ahí.
+
+**Lo que se midió antes de decidir nada** (read-only contra prod, 2026-09-13). Esto ya cambió el
+plan dos veces, así que va primero:
+
+| | Archivos | Peso real |
+|---|---:|---:|
+| `carousel_items.src` (fotos **y VIDEOS**) | 36 | **315.8 MB** |
+| `patient_media.file_url` (imágenes clínicas) | 135 | 112.0 MB |
+| certificados · portadas y fotos del blog | 50 | 48.9 MB |
+| firmas, logos, hero, constancia, estados de cuenta, acuses | 30 | ~12.8 MB |
+| **TOTAL del bucket** | **~250 refs** | **489.5 MB** |
+
+🔴 **Los docs de IMAGE MIGRATION dicen "~150-200 MB" / "~0.2 GB": están mal por ~2.5×.** Nadie
+mintió — **todas** las estimaciones anteriores sumaron las columnas que TIENEN `file_size`, y el
+video es justo la categoría que no la tiene. **6 videos pesan 380 MB: el 72% de todo**, y el
+archivo más grande del sistema son **156.8 MB**. La conclusión de "bajarse al plan gratis de 2 GB"
+sigue siendo válida, pero con un margen 4× más delgado del que el doc afirma.
+
+*Lección: una categoría sin instrumento no pesa cero, pesa lo que nadie midió.* Y un corolario de
+método: el primer barrido midió 19 de 100 archivos con `HEAD` y yo reporté el subtotal como si
+fuera el total —"nada de lo que existe habría sido rechazado"— y era **falso**: el fallback con
+`Range: bytes=0-0` levantó 115 de 116 y apareció el archivo de 156.8 MB.
+
+**Decisiones del usuario (2026-09-13):**
+
+1. **Tope por archivo: 25 MB** para documentos e imágenes… **pero el VIDEO conserva tope propio de
+   200 MB**, igual en las TRES apps. Un tope global de 25 MB habría roto `medicalVideos` (128 MB) y
+   `doctorVideos` (1 GB), y habría rechazado el archivo de 156.8 MB que ya existe. Los 200 MB
+   dejan pasar todo lo actual y hacen imposible que **una sola subida supere el cupo FREE entero**
+   (hoy 1 GB = 2× los 500 MB del plan).
+2. **Se rechaza ANTES de subir los bytes**, en el `middleware`. Verificado en los tipos instalados
+   (`uploadthing@7.7.4`): `MiddlewareFn` recibe `{ files, input }` y cada `FileUploadData` trae
+   `size: number`. **Nuestro `authMiddleware` no declara parámetros y tira esa información** en las
+   33 definiciones. O sea: el gancho existe hoy, no hay que esperar a R2 — y en R2 el mismo
+   contrato es el §3.4 de su plan (el servidor valida MIME y tamaño ANTES de firmar el PUT).
+3. **NO hay backfill: se cuenta de hoy en adelante.** Y es lo correcto, no sólo lo barato: **toda
+   cuenta que algún día tope empieza vacía** (una cuenta nueva nace FREE). De las 12 actuales, la
+   única FREE es dr-prueba con 1.8 MB. Un backfill compraría precisión que nadie observaría.
+4. **Cómo se mide el uso: una tabla `StoredFile`** (`doctorId`, `url`, `sizeBytes`, `kind`,
+   `createdAt`), no sumar columnas ni un contador.
+
+**Por qué `StoredFile` y no las otras dos opciones:**
+
+- **Sumar `fileSize` de las tablas de dominio no alcanza**: de las 17 keys, **10 no tienen columna
+  de tamaño y 6 no tienen fila propia** — las fotos de perfil caen en `Certificate.src` /
+  `CarouselItem.src`, y las imágenes dentro de un artículo viven **incrustadas en el HTML** de
+  `articles.content` (13 URLs medidas ahí). No hay dónde poner la columna.
+- **Un contador `Doctor.storageUsedBytes` deriva** en cuanto algo borra fuera de la app, y sin
+  forma de detectarlo. Una suma sobre un ledger se recalcula y se audita. A ~250 filas el costo es
+  irrelevante.
+- **Y paga dos veces:** la Fase 3 de la migración a R2 necesita exactamente esto —un inventario de
+  cada archivo con su ubicación— para copiar y verificar antes de borrar.
+
+**El inventario real de superficies de subida: 17 keys definidas 33 veces en 3 routers**, más 5
+caminos que NO pasan por UploadThing. El plan decía "14 file routes": **es la TERCERA lista cerrada
+del día que no se sostiene** (los prefijos de IA eran 12 y no 11; los caminos que crean pacientes
+eran 3 y no 2).
+
+🔴 **Tres huecos que el cupo tiene que cubrir o no cuenta nada:**
+
+1. **El admin sube al perfil de OTRO doctor**, pero su `middleware` devuelve el `userId` del
+   ADMIN. Un cupo con llave en `metadata.userId` le cobraría al admin y dejaría al doctor sin
+   medir — *parece que funciona*. La llave tiene que ser el doctor DESTINO.
+2. **El router de `apps/api` (12 keys) no tiene ningún cliente en el repo** — los helpers de
+   `doctor` fijan `url: "/api/uploadthing"` (relativo, su propia app) y los de `admin` omiten
+   `url`. Está vivo y autenticado con JWT: es una vía sin medir.
+3. **`doctorVideos` es 1 GB en `doctor` y `admin` pero 64 MB en `api`** — misma key, dos topes.
+
+**Qué se construye (Q4, un solo PR):**
+
+| | |
+|---|---|
+| Tabla `StoredFile` + índice por `doctorId` | SQL manual (`prisma db execute`), nunca `db push` |
+| `assertStorageQuota(db, doctorId, entrantes[])` en `permissions.ts` | espejo de `assertPatientQuota`: `null` ⇒ sin tope ⇒ ni consulta |
+| `authMiddleware` pasa a recibir `{ files }` y valida **tamaño por archivo** y **cupo de la cuenta** antes de subir | las 33 definiciones |
+| Registro en `StoredFile` al completar la subida | `onUploadComplete` + los POST que persisten |
+| El doctor DESTINO como llave (no el admin) | routers de `admin` y `api` |
+| Medidor `usado / tope` y `QUOTA_EXCEEDED` con números | perfil/plan + `handleApiError` |
+
+**Verificación exigida:** type-check · gates · comprobaciones EJECUTADAS de la aritmética (frontera
+exacta, lote, tier corrupto) · smoke read-only de la forma de consulta nueva contra prod · review
+ANTES del commit · y el runbook con ojos humanos, que es lo único que prueba que un doctor VE el
+rechazo.
+
+## 8.2 As-built Q4 — el cupo de almacenamiento (2026-09-13)
+
+> **Estado: construido, en verde, SIN COMMIT.** No está en prod. El SQL tampoco.
+
+**Lo que se construyó, y en qué se APARTA del plan de arriba:**
+
+| Plan decía | Se construyó | Por qué |
+|---|---|---|
+| Registro en `onUploadComplete` **+ los POST que persisten** | **Sólo en `onUploadComplete`**, vía `registrarArchivo` | El plan daba por hecho ~6 handlers de cliente. Son **19 archivos** que suben, con **tres idiomas** (componente, `useUploadThing`, `uploadFiles`): `onClientUploadComplete` sólo matchea 4 de ellos. En el servidor no hay cliente que se pueda olvidar, y es el mismo seam que firmará el PUT en R2 |
+| `url` como llave del ledger | **`fileKey`** (`file.key`) | En v7 el mismo archivo tiene DOS URLs y el repo guarda una u otra según el sitio (~10 de 17 guardan `url`). Un ledger llaveado por URL no empata con las tablas de dominio: el borrado y la reconciliación de R2 devolverían 0 filas en silencio |
+| Medidor `usado / tope` en perfil/plan | **NO se construyó** | Queda abierto. Hoy el muro es invisible hasta que pega |
+| `fileSize` en las rutas = el tope real | `FileSize` de uploadthing sólo admite **potencias de 2** | 25 MB y 200 MB son inexpresables. Config = el permitido SUPERIOR (32MB/256MB); el tope REAL lo aplica el middleware |
+
+**Las decisiones del usuario, como quedaron en código:**
+
+1. **25 MB por archivo · 200 MB video** — `MAX_BYTES_POR_ARCHIVO` / `MAX_BYTES_POR_VIDEO`.
+   ⚠️ **Unificar video a 200 MB SUBE dos topes**, no sólo baja el de 1 GB: `medicalVideos` pasó de
+   128 MB a 200 MB (doctor y api) y `doctorVideos` de api, de 64 MB a 200 MB.
+2. **Se rechaza antes de subir bytes** — en el `middleware`, que recibe `{ files }` con `size`.
+3. **Sin backfill** — se cuenta de hoy en adelante.
+4. **Admin: se APUNTA pero no se rechaza** por cupo de cuenta (opción B). El tope POR ARCHIVO sí
+   aplica. Un límite comercial no debe bloquear al staff a media alta de un doctor.
+
+**El code review encontró 12 hallazgos. Los 7 que se arreglaron:**
+
+| # | Hallazgo | Arreglo |
+|---|---|---|
+| 1 | 🔴 **Cualquier cuenta de Google podía subir por el router de admin y ELEGIR a qué doctor cobrárselo** — `middleware.ts` exime `/api/uploadthing`, `AdminGuard` es de cliente, y `signIn` acepta cualquiera. Con `.input()` de Q4 eso se volvía "llénale el plan a un doctor ajeno", y sin tope (opción B) | Se exige `role === 'ADMIN'` en el middleware del router |
+| 2 | 🔴 **Desplegar antes de correr el SQL mataba TODA subida** de `doctor` y `api` (29 de 33 definiciones): el error de Prisma no era de dominio, se re-lanzaba y salía como "Failed to run middleware". `admin` seguía vivo ⇒ parecía caída parcial | `assertStorageQuota` **falla ABIERTO** ante errores de infraestructura, como `FALLBACK_TIER` |
+| 3 | Llave del ledger (`ufsUrl`) no empata con lo que guardan las tablas de dominio (`url`) | Se llavea por **`fileKey`**, que va dentro de las dos formas de URL |
+| 4 | El mensaje decía "borra archivos" y **nada baja el uso**: ningún camino borra filas de `stored_files` | El mensaje ya no promete una salida que no existe |
+| 5 | `formatearBytes(0)` devolvía `"1 KB"` — al que está exacto en su tope le decía que le quedaba espacio | Devuelve `0 B` |
+| 6 | `No existe el doctor` salía como "Failed to run middleware" | Traducido a `UploadThingError` |
+| 7 | **Exigir `doctorId` rompía subidas que ayer funcionaban**: antes de Q4 el middleware ni lo miraba, y `computeEffectiveAccess` devuelve null para un ADMIN (que `requireDoctorAuth` sí admite en endpoints de doctor) y para una membresía REVOKED. No se pudo contar cuántos son —el DNS de Railway no resuelve desde esta máquina—, así que se arregló en vez de medirlo | **Fail-open**: sin doctor no se mide ni se registra, pero se sube. Son cuentas que no tienen cupo que gastar |
+
+**Lo que el review dejó ABIERTO (no se arregló):**
+
+- **Nada borra filas de `stored_files`** ⇒ el uso sólo puede subir. Deuda real.
+- **`fiscal-form` sube la constancia con `UTApi` fuera de los routers** ⇒ almacenamiento sin medir.
+- **No hay medidor** ⇒ el doctor no puede ver su uso ni verificar el número del mensaje.
+- **Los dropzones anuncian 32 MB / 256 MB** y el servidor rechaza a 25/200.
+- **`registrarArchivo` nunca lanza** y `onUploadComplete` corre como daemon *fire-and-forget*: una
+  escritura perdida no se entera nadie. Sin borrado ni reconciliación, la deriva no se cura sola.
+
+**Verificación:** type-check ✅ (0 errores, 5/5; los cache misses cayeron en los paquetes que
+cambiaron en cada corrida) · 5 gates ✅ —pero
+**`gate:docs` no mira los docs de TIERS**, sólo AGENTES y NUEVOS USUARIOS, así que su verde no dice
+nada de esta sección— · code review ✅ (12 hallazgos) · **smoke read-only contra prod ❌ IMPOSIBLE
+HOY**: el DNS de Railway no resuelve, y además `stored_files` no existe todavía, así que
+`storedFile.aggregate` y `createMany` **no se han ejecutado nunca**.
+
+🔴 **Orden obligatorio al desplegar:** correr `add-stored-files.sql` en la consola SQL de Railway
+**ANTES** del push. La tabla es aditiva y nadie la lee hasta que el código llegue.
 
 ## 8.1 🔄 Handoff — cierre de sesión 2026-09-12
 

@@ -355,6 +355,9 @@ model Doctor {
   satAlerts          SatAlert[]
   satDeclarationReceipts SatDeclarationReceipt[]
 
+  // Almacenamiento (TIERS Q4) — el libro mayor de archivos de la cuenta.
+  storedFiles        StoredFile[]
+
   // Bank Reconciliation
   bankStatements     BankStatement[]
   bankCategorizationRules BankCategorizationRule[]
@@ -1325,6 +1328,58 @@ model LedgerEntry {
   @@index([doctorId, counterpartyRfc])
   @@map("ledger_entries")
   @@schema("practice_management")
+}
+
+// ============================================================================
+// ALMACENAMIENTO — el libro mayor de archivos por cuenta (TIERS Q4)
+// ============================================================================
+//
+// UNA fila por archivo subido, sin importar a qué función pertenezca. El uso de
+// almacenamiento de un doctor es `SUM(size_bytes)` sobre esta tabla.
+//
+// 🔴 Por qué una tabla y no columnas `file_size` en cada tabla de dominio: de
+// las 17 rutas de subida, DIEZ no tienen columna de tamaño y SEIS ni siquiera
+// tienen fila propia — las fotos de perfil caen en `certificates.src` /
+// `carousel_items.src`, y las imágenes de un artículo viven incrustadas en el
+// HTML de `articles.content`. No hay dónde colgar la columna. Un contador en
+// `doctors` tampoco: deriva en cuanto algo borra por fuera y no hay forma de
+// notarlo. Una suma se recalcula y se audita.
+//
+// 🔴 `url` es UNIQUE a propósito: las subidas se reintentan y `onUploadComplete`
+// puede dispararse más de una vez para el mismo archivo. Sin esto el mismo
+// archivo se contaría dos veces y a un doctor se le negaría espacio que no
+// ocupa. También hace la fila idempotente para la migración a R2, que va a
+// reescribir estas mismas URLs.
+//
+// ⚠️ `prisma db push` BORRA esta tabla igual que revierte el FK compuesto de
+// bookings y los índices parciales — ver `docs/NEW.MD-GUIDES/database-architecture.md` §6.
+// Migración = SQL manual con `prisma db execute`.
+model StoredFile {
+  id         String   @id @default(cuid())
+  doctorId   String   @map("doctor_id")
+  // 🔴 La llave ESTABLE del archivo (`file.key` de uploadthing). ES la llave de
+  // deduplicación y la que empata al borrar.
+  //
+  // NO se llavea por URL: en v7 el mismo archivo tiene dos URLs distintas
+  // (`url` legacy y `ufsUrl`) y el repo guarda una u otra según el sitio —~10
+  // de las 17 superficies guardan `url`—. Un ledger llaveado por URL no
+  // empataría con las tablas de dominio el día que exista el borrado o la
+  // reconciliación de R2: devolvería 0 filas en silencio. `key` va dentro de
+  // las dos formas de URL, así que desde cualquiera se llega a esta fila.
+  fileKey    String   @unique @map("file_key") @db.Text
+  // Sólo referencia/depuración: la URL tal como se subió. Sin UNIQUE.
+  url        String   @db.Text
+  sizeBytes  Int      @map("size_bytes")
+  // Qué superficie lo subió (`medicalImages`, `doctorVideos`, …). No se usa
+  // para el cupo: sirve para saber QUÉ llena la cuenta cuando alguien tope.
+  kind       String   @db.VarChar(40)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  doctor     Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@map("stored_files")
+  @@schema("public")
 }
 
 model LedgerAttachment {

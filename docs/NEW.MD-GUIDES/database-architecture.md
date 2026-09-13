@@ -299,6 +299,11 @@ npx prisma db execute --file prisma/migrations/add-booking-patient-composite-fk.
 ```
 
 Currently affected:
+- `add-stored-files.sql` — la tabla **`public.stored_files`** (TIERS Q4): el libro mayor de
+  archivos por cuenta, del que sale `SUM(size_bytes)` para el cupo de almacenamiento. Es una
+  tabla ENTERA, así que un `db push` que no la conozca la borra con todo su contenido — y como
+  no hay backfill (se cuenta de hoy en adelante), lo borrado no se puede reconstruir: habría que
+  volver a preguntarle el peso archivo por archivo al proveedor.
 - `add-booking-patient-composite-fk.sql` — composite FK `bookings(patient_id, doctor_id) →
   medical_records.patients(id, doctor_id)` (booking→patient tenancy enforcement, 2026-07-07).
   Prisma can't model it (shared `doctorId` scalar + column-list `SET NULL`), so `db push`

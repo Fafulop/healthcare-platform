@@ -12,7 +12,13 @@
 
 El plan de abajo sigue siendo correcto, pero **el disparador dejó de ser urgente**. UploadThing
 tiene un **plan gratuito de 2 GB** y nosotros usamos **~0.2 GB**: se puede **bajar al plan
-gratis y dejar de pagar los $10/mes SIN migrar nada**. Los 232 archivos siguen donde están,
+gratis y dejar de pagar los $10/mes SIN migrar nada**.
+
+> 🔴 **CORREGIDO 2026-09-13: no son ~0.2 GB, son 489.5 MB** — medido archivo por archivo contra el
+> proveedor (ver [`01-ANALISIS` §1](01-ANALISIS-uploadthing-vs-alternativas.md)). La conclusión de
+> este §0 **se sostiene** (489 MB caben de sobra en 2 GB), pero el margen es **4× más delgado** del
+> que decía, y quien lo mueve es el VIDEO: 6 archivos pesan 380 MB, el 72% de todo. El error venía
+> de sumar sólo las columnas con `file_size`, y el video es la única categoría que no la tiene. Los 232 archivos siguen donde están,
 todo sigue funcionando, y la migración se hace el día que de verdad convenga.
 
 **Eso hace desaparecer el argumento del dinero.** Quedan dos, y conviene tenerlos separados:

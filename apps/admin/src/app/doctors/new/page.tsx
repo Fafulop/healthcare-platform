@@ -41,6 +41,10 @@ export default function NewDoctorWizard() {
     subspecialties: [] as string[],
     cedula_profesional: "",
     hero_image: "/images/doctors/sample/doctor-placeholder.svg",
+    // TIERS Q4 — no es de este paso: acumula TODO lo que se sube en el wizard
+    // (foto, certificados, fotos de clínica, videos) para cobrárselo al doctor
+    // cuando se cree su fila. Ver `registrarPendiente`.
+    uploaded_files: [] as Array<{ key: string; url: string; size: number; kind: string }>,
     location_summary: "",
     city: "",
 
@@ -205,6 +209,29 @@ export default function NewDoctorWizard() {
 
   const prevStep = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  // 🔴 TIERS Q4 — en el ALTA el doctor todavía no existe, así que el middleware
+  // de subida no tiene a quién cobrarle el archivo ni fila que apuntar. Se
+  // acumulan aquí y el POST /api/doctors los registra al crear al doctor
+  // (decisión del usuario 2026-09-13: se cuenta desde hoy hacia adelante, y el
+  // libro mayor queda completo).
+  //
+  // Se guarda `ufsUrl` y NO `url`: en v7 son strings DISTINTAS para el mismo
+  // archivo, y el UNIQUE que evita contar doble vive sobre esa columna. El
+  // servidor apunta `ufsUrl` también, así que las dos vías escriben la misma
+  // llave.
+  const registrarPendiente = (
+    res: Array<{ key: string; ufsUrl: string; size: number }>,
+    kind: string,
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      uploaded_files: [
+        ...prev.uploaded_files,
+        ...res.map((f) => ({ key: f.key, url: f.ufsUrl, size: f.size, kind })),
+      ],
+    }));
   };
 
   const handleSubmit = async () => {
@@ -571,6 +598,8 @@ export default function NewDoctorWizard() {
                 <UploadButton
                   key={`hero-${uploadKey}`}
                   endpoint="doctorHeroImage"
+                  // null a propósito: el doctor aún no existe. Se cobra al crearlo.
+                  input={{ doctorSlug: null }}
                   onClientUploadComplete={(res) => {
                     console.log("✅ Hero image upload complete!");
                     console.log("Full response object:", res[0]);
@@ -582,6 +611,7 @@ export default function NewDoctorWizard() {
 
                     if (uploadedUrl) {
                       updateField("hero_image", uploadedUrl);
+                      registrarPendiente(res, "doctorHeroImage");
                       console.log("✅ Updated hero_image field to:", uploadedUrl);
                       setUploadKey(prev => prev + 1); // Reset upload button
                       alert("✅ Imagen subida exitosamente!");
@@ -924,6 +954,7 @@ export default function NewDoctorWizard() {
 
               <UploadDropzone
                 endpoint="doctorCertificates"
+                input={{ doctorSlug: null }}
                 onClientUploadComplete={(res) => {
                   console.log("✅ Certificates uploaded:", res.length, "files");
                   console.log("First file properties:", Object.keys(res[0] || {}));
@@ -944,6 +975,7 @@ export default function NewDoctorWizard() {
                     ...prev,
                     certificate_images: [...prev.certificate_images, ...newCerts],
                   }));
+                  registrarPendiente(res, "doctorCertificates");
                   alert(`✅ ${res.length} certificado(s) subido(s) exitosamente!`);
                 }}
                 onUploadError={(error: Error) => {
@@ -1259,6 +1291,7 @@ export default function NewDoctorWizard() {
 
                 <UploadDropzone
                   endpoint="clinicPhotos"
+                  input={{ doctorSlug: null }}
                   onClientUploadComplete={(res) => {
                     console.log("✅ Clinic photos uploaded:", res.length, "files");
                     console.log("First photo properties:", Object.keys(res[0] || {}));
@@ -1279,6 +1312,7 @@ export default function NewDoctorWizard() {
                       ...prev,
                       carousel_items: [...prev.carousel_items, ...newPhotos],
                     }));
+                    registrarPendiente(res, "clinicPhotos");
                     alert(`✅ ${res.length} foto(s) subida(s) exitosamente!`);
                   }}
                   onUploadError={(error: Error) => {
@@ -1308,6 +1342,7 @@ export default function NewDoctorWizard() {
 
                 <UploadDropzone
                   endpoint="doctorVideos"
+                  input={{ doctorSlug: null }}
                   onClientUploadComplete={(res) => {
                     console.log("✅ Videos uploaded:", res.length, "files");
                     console.log("First video properties:", Object.keys(res[0] || {}));
@@ -1328,6 +1363,7 @@ export default function NewDoctorWizard() {
                       ...prev,
                       carousel_items: [...prev.carousel_items, ...newVideos],
                     }));
+                    registrarPendiente(res, "doctorVideos");
                     alert(`✅ ${res.length} video(s) subido(s) exitosamente!`);
                   }}
                   onUploadError={(error: Error) => {

@@ -36,6 +36,27 @@ schemas buscando `utfs.io` / `ufs.sh` / `uploadthing`:
 **Peso real:** `patient_media` son **124 archivos / 99 MB / 0.8 MB de promedio**. Con el resto,
 el total anda por **~150–200 MB**.
 
+> 🔴 **CORREGIDO 2026-09-13 — ese "~150–200 MB" estaba mal por ~2.5×. El bucket son 489.5 MB.**
+> Medido pidiéndole el peso al proveedor archivo por archivo (`HEAD`, y `Range: bytes=0-0` cuando
+> `HEAD` no contesta): 115 de 116 URLs respondieron.
+>
+> | | Archivos | Peso |
+> |---|---:|---:|
+> | `carousel_items.src` — fotos **y VIDEOS** | 36 | **315.8 MB** |
+> | `patient_media.file_url` | 135 | 112.0 MB |
+> | certificados · portadas y contenido del blog | 50 | 48.9 MB |
+> | firmas · logos · hero · constancia · estados de cuenta · acuses | 30 | ~12.8 MB |
+>
+> **El error no fue de cuentas: fue de instrumento.** Toda estimación previa sumó las columnas que
+> tienen `file_size`, y el VIDEO es justo la categoría que no la tiene. **6 videos pesan 380 MB —
+> el 72% de todo** — y el archivo más grande del sistema son **156.8 MB**. Una categoría sin
+> instrumento no pesa cero: pesa lo que nadie midió.
+>
+> **Qué cambia y qué no:** la decisión por R2 no se mueve (a 0.5 GB sigue costando $0), y bajarse
+> al plan gratuito de 2 GB **sigue siendo viable** — pero el margen es 4× más delgado del que este
+> doc afirmaba, y el crecimiento lo manda el video, no las imágenes clínicas. El conteo de
+> referencias también subió: **244** (era 232).
+
 > ⚠️ **Esto cuenta REFERENCIAS EN LA BASE, no el bucket.** Un archivo subido y luego
 > desvinculado sigue ocupando lugar en UploadThing y aquí no aparece. Antes de dar por bueno el
 > 232, contrástalo con el panel de UploadThing.

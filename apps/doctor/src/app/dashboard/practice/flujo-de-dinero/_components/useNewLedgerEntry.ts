@@ -328,7 +328,15 @@ export function useNewLedgerEntry() {
           body: JSON.stringify(metadata),
         });
       } catch (err) {
+        // 🔴 TIERS Q4 — antes esto sólo iba a consola y el ciclo seguía: el
+        // movimiento se guardaba y el archivo desaparecía sin que el doctor se
+        // enterara. Con el cupo de almacenamiento la subida SÍ puede ser
+        // rechazada, así que callarlo sería afirmarle que se guardó algo que no
+        // está. Los otros cuatro caminos de subida ya avisaban con `toast`.
         console.error(`Error uploading file ${file.name}:`, err);
+        toast.error(
+          `No se pudo subir ${file.name}: ${err instanceof Error ? err.message : 'error desconocido'}`,
+        );
       }
     }
   };

@@ -730,6 +730,9 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
                 <UploadButton
                   key={`hero-${uploadKey}`}
                   endpoint="doctorHeroImage"
+                  // TIERS Q4 — el archivo se le cobra al doctor del perfil que
+                  // se está editando, no al admin que aprieta el botón.
+                  input={{ doctorSlug: slug }}
                   onClientUploadComplete={(res) => {
                     const uploadedUrl = res[0]?.url;
                     if (uploadedUrl) {
@@ -1057,6 +1060,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
 
               <UploadDropzone
                 endpoint="doctorCertificates"
+                input={{ doctorSlug: slug }}
                 onClientUploadComplete={(res) => {
                   const newCerts = res.map((file) => ({
                     src: file.url,
@@ -1356,6 +1360,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
 
                 <UploadDropzone
                   endpoint="clinicPhotos"
+                  input={{ doctorSlug: slug }}
                   onClientUploadComplete={(res) => {
                     const newPhotos = res.map((file) => ({
                       type: "image" as const,
@@ -1383,6 +1388,7 @@ export default function EditDoctorWizard({ params }: { params: Promise<{ slug: s
 
                 <UploadDropzone
                   endpoint="doctorVideos"
+                  input={{ doctorSlug: slug }}
                   onClientUploadComplete={(res) => {
                     const newVideos = res.map((file) => ({
                       type: "video" as const,
