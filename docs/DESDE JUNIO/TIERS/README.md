@@ -43,6 +43,22 @@ paralelo.
   automatiza. Regla general que deja la experiencia: *el corte de tier barato excluye subsistemas
   completos; el caro carva dentro de uno que se describe a sí mismo.*
 
+## 💳 2026-09-14 — el dinero: [`03-PLAN-cuenta-y-cobro.md`](03-PLAN-cuenta-y-cobro.md)
+
+Los planes anteriores construyeron el **techo** (qué puede hacer una cuenta). El plan 03 construye
+las dos caras del **dinero** que ese techo nunca tuvo: la página **Cuenta** del doctor (qué plan
+tengo, cuánto he consumido, cuánto debo, dónde pago) y la pantalla de **control de la empresa** en
+el admin (a quién le cobramos, con qué precio, en qué estado va cada suscripción). Decisiones del
+usuario: **Stripe Billing**, **el pago confirmado sube el tier solo**, **nada lo baja solo**, y
+**ningún precio se escribe en el código** (la lista comercial sigue sin decidirse).
+
+⚠️ Dos correcciones a lo que dice esta carpeta, medidas el 2026-09-14: **`/producto` ya no
+existe** (el hallazgo 7 de `02-PLAN` §8 y su §9.8 lo dan por vivo) — la home vende **un solo plan
+a $550 + IVA** desde el 2026-08-17, y el precio se pinta **también en la imagen Open Graph**. Y
+**derivar la lista de funciones de `TIER_EXCLUDED_KEYS` no sirve** para una pantalla que ve el
+doctor: hay tres sistemas de visibilidad distintos y la lista derivada afirma cuatro cosas falsas
+(plan 03 §2/H1).
+
 ## 🔴 HANDOFF 2026-09-12 — el producto pasa a CUATRO tiers (Q1 construido)
 
 **Lee primero [`02-PLAN-cuatro-tiers.md`](02-PLAN-cuatro-tiers.md).** FREE · BÁSICO (149) · PRO

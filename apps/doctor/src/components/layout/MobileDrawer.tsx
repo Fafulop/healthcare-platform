@@ -29,6 +29,7 @@ import {
   Download,
   Landmark,
   Lock,
+  Wallet,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -93,7 +94,7 @@ interface MobileDrawerProps {
 
 export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileDrawerProps) {
   const { data: session } = useSession();
-  const { can } = usePermissions();
+  const { can, isOwner } = usePermissions();
   const pathname = usePathname();
 
   return (
@@ -300,6 +301,19 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               active={pathname.startsWith("/dashboard/practice/products")}
               onClick={onClose}
             />
+            {/* TIERS C1 — misma entrada que el Sidebar, y por la misma razón
+                tiene que estar en LAS DOS: tapar una sola deja la sección
+                alcanzable justo en la vista donde no la buscaste (la regla que
+                ui-visibility.ts documenta). Sólo el DUEÑO. */}
+            {isOwner && (
+              <NavItem
+                icon={Wallet}
+                label="Mi Cuenta"
+                href="/dashboard/cuenta"
+                active={pathname.startsWith("/dashboard/cuenta")}
+                onClick={onClose}
+              />
+            )}
             <NavItem
               icon={HelpCircle}
               label="Ayuda"

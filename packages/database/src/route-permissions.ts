@@ -141,6 +141,22 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   // Diseño: docs/DESDE JUNIO/PACIENTE MIGRATION/
   { prefix: 'patient-import', key: 'OWNER_ONLY' },
 
+  // TIERS C1 — el estado de la CUENTA (plan contratado y consumo de cupos) que
+  // alimenta /dashboard/cuenta. OWNER_ONLY por DOS razones independientes:
+  //
+  //  1. Es información comercial del dueño: cuánto le cabe, qué contrató y —en
+  //     C3— qué debe. Un usuario secundario no tiene por qué verla.
+  //  2. 🔴 Y es lo que impide que la pantalla que VENDE el upgrade quede
+  //     bloqueada por el plan. `nearestFeatureKey` se salta las reglas
+  //     OWNER_ONLY salvo que lleven `feature` (route-permissions:238), así que
+  //     esta ruta NUNCA cae bajo el techo de un tier. Ponerle una key de
+  //     función sería una trampa circular: la cuenta FREE no podría abrir la
+  //     única pantalla que le explica qué le falta.
+  //
+  // Por eso tampoco lleva `feature`, y por eso /dashboard/cuenta NO va en
+  // PAGE_PERMISSION_MAP. Diseño: docs/DESDE JUNIO/TIERS/03-PLAN-cuenta-y-cobro.md §2/H6
+  { prefix: 'account', key: 'OWNER_ONLY' },
+
   // ── apps/doctor internal ────────────────────────────────────────────────
   { prefix: 'medical-records/tasks', key: 'tareas' }, // specific beats expedientes
   // TIERS Q2 — las TRES rutas de IA que viven DENTRO del expediente. Su `key`

@@ -31,6 +31,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Lock,
+  Wallet,
 } from "lucide-react";
 
 interface NavItemProps {
@@ -97,7 +98,7 @@ interface SidebarProps {
 
 export default function Sidebar({ doctorProfile }: SidebarProps) {
   const { data: session } = useSession();
-  const { can } = usePermissions();
+  const { can, isOwner } = usePermissions();
   const pathname = usePathname();
   // Icons-only mode so the content gets the width back (e.g. with the
   // assistant panel docked). Same persistence pattern as widgetsCollapsed.
@@ -287,6 +288,20 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             href="/dashboard/practice/products"
             active={pathname?.startsWith("/dashboard/practice/products")}
           />
+          {/* TIERS C1 — el plan de la cuenta. Sólo el DUEÑO: es información
+              comercial suya (y en C3 será dinero que debe), igual que la ruta
+              /api/account, que es OWNER_ONLY. No pasa por NavItem+permKey a
+              propósito: esta página NO está en PAGE_PERMISSION_MAP —así ningún
+              tier puede bloquear la pantalla que explica los tiers—, y sin key
+              NavItem la mostraría también a los usuarios secundarios. */}
+          {isOwner && (
+            <NavItem
+              icon={Wallet}
+              label="Mi Cuenta"
+              href="/dashboard/cuenta"
+              active={pathname?.startsWith("/dashboard/cuenta")}
+            />
+          )}
           <NavItem
             icon={HelpCircle}
             label="Ayuda"
