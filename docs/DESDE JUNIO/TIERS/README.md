@@ -45,6 +45,14 @@ paralelo.
 
 ## 💳 2026-09-14 — el dinero: [`03-PLAN-cuenta-y-cobro.md`](03-PLAN-cuenta-y-cobro.md)
 
+**Estado:** **C1 EN PROD** (`b22f5f3a`) — la pantalla «Mi Cuenta» del doctor: su plan, el catálogo
+curado de funciones y **los dos medidores de cupo** (el de almacenamiento era el hueco #1 del
+handoff de Q4). **C2 construido** — `TierPrice` · `Subscription` · `TierChangeLog`,
+`setDoctorTier()` como único camino de escritura del tier, y la pantalla «Cobro» del admin.
+**Todavía no cobra nadie:** el checkout, el webhook y el flip automático de tier son C3, y el CFDI
+al doctor va después (§6.1 — se decidió que SÍ se emite; se hará con la cuenta de Facturama
+Multiemisor que ya existe, registrando nuestro propio RFC como un emisor más).
+
 Los planes anteriores construyeron el **techo** (qué puede hacer una cuenta). El plan 03 construye
 las dos caras del **dinero** que ese techo nunca tuvo: la página **Cuenta** del doctor (qué plan
 tengo, cuánto he consumido, cuánto debo, dónde pago) y la pantalla de **control de la empresa** en

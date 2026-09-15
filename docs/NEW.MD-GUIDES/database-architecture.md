@@ -299,6 +299,16 @@ npx prisma db execute --file prisma/migrations/add-booking-patient-composite-fk.
 ```
 
 Currently affected:
+- `add-billing-tables.sql` — las tres tablas del cobro (TIERS C2): **`tier_prices`**,
+  **`subscriptions`** y **`tier_change_log`**. Son tablas enteras, así que un `db push` que no
+  las conozca se las lleva con todo su contenido — y `tier_change_log` es el ÚNICO rastro de
+  quién movió el plan de quién, incluido lo que mueva el webhook de Stripe. Además, dentro de
+  `tier_prices` vive un **índice único PARCIAL** que Prisma **no puede modelar** (`WHERE
+  activo`): `tier_prices_un_activo_por_tier`, que impide dos precios ACTIVOS para el mismo tier.
+  Prisma sí modela un `@@unique(tier)` a secas, así que al sincronizar lo reescribiría **sin** el
+  `WHERE` — y eso rompería el historial de precios viejos, que existe precisamente porque están
+  desactivados. Sin ese índice, "cuánto cuesta PRO" deja de tener una respuesta cierta y el
+  checkout elegiría uno de los dos precios sin criterio.
 - `add-stored-files.sql` — la tabla **`public.stored_files`** (TIERS Q4): el libro mayor de
   archivos por cuenta, del que sale `SUM(size_bytes)` para el cupo de almacenamiento. Es una
   tabla ENTERA, así que un `db push` que no la conozca la borra con todo su contenido — y como

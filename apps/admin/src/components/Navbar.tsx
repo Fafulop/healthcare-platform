@@ -39,6 +39,13 @@ export default function Navbar() {
           >
             Prestamos
           </Link>
+          {/* TIERS C2 — lo que los doctores nos pagan a NOSOTROS. */}
+          <Link
+            href="/billing"
+            className="text-gray-700 hover:text-blue-600 font-medium transition"
+          >
+            Cobro
+          </Link>
           <Link
             href="/guides"
             className="text-gray-700 hover:text-blue-600 font-medium transition"

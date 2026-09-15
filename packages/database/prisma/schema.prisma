@@ -358,6 +358,12 @@ model Doctor {
   // Almacenamiento (TIERS Q4) — el libro mayor de archivos de la cuenta.
   storedFiles        StoredFile[]
 
+  // Cobro de la suscripción (TIERS C2) — el dinero que el doctor nos paga A
+  // NOSOTROS. Ojo: es la dirección CONTRARIA a stripeAccountId / mp* de arriba,
+  // que son el doctor cobrándole a SUS pacientes.
+  subscription       Subscription?
+  tierChanges        TierChangeLog[]
+
   // Bank Reconciliation
   bankStatements     BankStatement[]
   bankCategorizationRules BankCategorizationRule[]
@@ -1379,6 +1385,103 @@ model StoredFile {
 
   @@index([doctorId])
   @@map("stored_files")
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COBRO DE LA SUSCRIPCIÓN (TIERS C2)
+// Diseño: docs/DESDE JUNIO/TIERS/03-PLAN-cuenta-y-cobro.md §3.2
+//
+// 🔴 DIRECCIÓN DEL DINERO. Estas tres tablas son lo que el DOCTOR NOS PAGA A
+// NOSOTROS. Todo lo demás que dice "stripe" o "mp" en este schema —
+// Doctor.stripeAccountId, stripeChargesEnabled, mpAccessToken, PaymentLink,
+// MpPaymentPreference— es la dirección CONTRARIA: el doctor cobrándole a sus
+// pacientes. No son reutilizables entre sí y confundirlas es el error más caro
+// disponible en esta feature.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// El mapa tier ↔ precio de Stripe. NO guarda el monto: el objeto Price de
+/// Stripe es la fuente de verdad del dinero (§3.3), y así cambiar un precio no
+/// necesita un deploy — se crea un Price nuevo y se re-apunta el mapa.
+/// Un tier puede no tener fila: LAB no se vende.
+model TierPrice {
+  id             String   @id @default(cuid())
+  /// Valor canónico de DOCTOR_TIERS (FREE · BASICO · PRO · LAB).
+  tier           String   @db.VarChar(20)
+  stripePriceId  String   @unique @map("stripe_price_id") @db.VarChar(120)
+  /// Sólo UNA fila activa por tier. Lo impone un índice ÚNICO PARCIAL
+  /// (`WHERE activo`) que Prisma NO puede modelar: vive sólo en la BD y
+  /// `prisma db push` lo revierte. Ver database-architecture.md §6.
+  activo         Boolean  @default(true)
+  notaInterna    String?  @map("nota_interna") @db.VarChar(300)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([tier])
+  @@map("tier_prices")
+  @@schema("public")
+}
+
+/// El estado de cobro de UNA cuenta. En C2 nadie la escribe todavía: la escribe
+/// el webhook de C3. Por eso la pantalla del admin tiene que distinguir
+/// "sin suscripción" de "no hay datos" — un [] no es una respuesta.
+model Subscription {
+  id                   String    @id @default(cuid())
+  doctorId             String    @unique @map("doctor_id")
+
+  /// A QUIÉN LE COBRAMOS. Vive aquí y NO en Doctor a propósito: junto a
+  /// `Doctor.stripeAccountId` (la cuenta Connect a la que le PAGAMOS) alguien
+  /// acabaría leyendo un pago de paciente como un pago de suscripción.
+  stripeCustomerId     String?   @unique @map("stripe_customer_id") @db.VarChar(120)
+  stripeSubscriptionId String?   @unique @map("stripe_subscription_id") @db.VarChar(120)
+  /// El Price vigente. Se compara contra TierPrice para saber qué tier pagó.
+  stripePriceId        String?   @map("stripe_price_id") @db.VarChar(120)
+
+  /// El status TAL CUAL lo manda Stripe (`active`, `past_due`, `canceled`,
+  /// `trialing`, `incomplete`…). NO se traduce: el webhook de C3 lo copia y
+  /// cualquier vocabulario propio sería un segundo diccionario que puede
+  /// contradecir al primero. Las etiquetas en español son sólo de pantalla.
+  /// `none` = nunca ha habido suscripción (valor NUESTRO, no de Stripe).
+  status               String    @default("none") @db.VarChar(30)
+
+  currentPeriodEnd     DateTime? @map("current_period_end")
+  cancelAtPeriodEnd    Boolean   @default(false) @map("cancel_at_period_end")
+  lastPaymentAt        DateTime? @map("last_payment_at")
+
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  doctor               Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("subscriptions")
+  @@schema("public")
+}
+
+/// Rastro de CADA cambio de tier. Antes de C2 la trazabilidad era un
+/// `console.log` en la ruta del admin: suficiente para un cambio manual y raro,
+/// inservible para uno automático movido por dinero. "Pagué y no pasó nada" se
+/// contesta con una fila, no con logs de Railway que rotan.
+model TierChangeLog {
+  id            String   @id @default(cuid())
+  doctorId      String   @map("doctor_id")
+  fromTier      String   @map("from_tier") @db.VarChar(20)
+  toTier        String   @map("to_tier") @db.VarChar(20)
+  /// `admin` · `webhook` · `script`.
+  origen        String   @db.VarChar(20)
+  /// Quién: el correo del admin, o `stripe:evt_…` cuando lo movió un evento.
+  actor         String   @db.VarChar(200)
+  /// UNIQUE y por eso es la llave de IDEMPOTENCIA: Stripe reintenta sus
+  /// webhooks, así que el mismo evento puede llegar dos veces. Null para los
+  /// cambios manuales, y en Postgres los NULL no chocan entre sí.
+  stripeEventId String?  @unique @map("stripe_event_id") @db.VarChar(120)
+  motivo        String?  @db.VarChar(300)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  doctor        Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@map("tier_change_log")
   @@schema("public")
 }
 

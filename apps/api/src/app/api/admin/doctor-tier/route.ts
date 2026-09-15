@@ -1,32 +1,29 @@
 // PATCH /api/admin/doctor-tier — admin-only write of Doctor.tier (product plan).
 // TIERS T5. Design: docs/DESDE JUNIO/TIERS/01-DISENO-tecnico.md §7.
 //
-// This is the ONLY write path for the tier, deliberately separate from
+// This is the only HUMAN write path for the tier, deliberately separate from
 // PUT /api/doctors/[slug] (which an owning DOCTOR may call for their own
 // profile — a doctor must never be able to set their own plan).
 //
-// ⚠️ HARD REQUIREMENT (§7): the value is validated against DOCTOR_TIERS with the
-// CANONICAL case. `tierAllows` is case-sensitive AND fail-open, so a stored
-// 'free' would not match TIER_EXCLUDED_KEYS and would silently disable gating —
-// the account would behave as FALLBACK_TIER (PRO) while the UI said FREE. That
-// is the worst failure mode of this feature because it *looks* like it worked.
-// Non-canonical values are REJECTED (not normalized) so the mistake is loud at
-// the boundary.
+// ⚠️ IT IS NO LONGER THE ONLY WRITE PATH, and this comment used to say it was.
+// TIERS C2 moved the rules —canonical case, the quota guard, the audit row and
+// idempotency— into `setDoctorTier()` in @healthcare/database, because C3's
+// Stripe webhook has to move the tier too when a payment clears. Had the
+// webhook written `doctor.update` directly it would have bypassed the quota
+// guard that lived only inside this handler: two paths, different rules, same
+// column — and it *looks* like it works. Every rule this handler used to own
+// now lives in that helper; this route only authenticates, parses and
+// translates the result to HTTP.
+//
+// The hard requirement of §7 survives inside the helper: a non-canonical value
+// is REJECTED, never normalized. `tierAllows` is case-sensitive AND fail-open,
+// so a stored 'free' would not match TIER_EXCLUDED_KEYS and would silently
+// disable gating — the account would behave as FALLBACK_TIER (PRO) while the
+// UI said FREE.
 
 import { NextResponse } from 'next/server';
-import {
-  prisma,
-  DOCTOR_TIERS,
-  TIER_EXCLUDED_KEYS,
-  maxPatientsFor,
-  PATIENT_STATUS_COUNTED_AGAINST_QUOTA,
-  type DoctorTier,
-} from '@healthcare/database';
+import { prisma, TIER_EXCLUDED_KEYS, setDoctorTier } from '@healthcare/database';
 import { requireAdminAuth, AuthError } from '@/lib/auth';
-
-function isCanonicalTier(value: unknown): value is DoctorTier {
-  return typeof value === 'string' && (DOCTOR_TIERS as readonly string[]).includes(value);
-}
 
 // GET — tiers for every doctor. Admin-only on purpose: the tier is deliberately
 // NOT part of the public GET /api/doctors payload (doctor-public-fields.ts), so
@@ -87,95 +84,55 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Canonical-case check — see the header note. No toUpperCase() on purpose.
-    if (!isCanonicalTier(tier)) {
+    // TIERS C2 — TODAS las reglas (case canónico, guard de cupo, bitácora e
+    // idempotencia) viven ahora en `setDoctorTier`, que comparten esta ruta y
+    // el webhook de C3. Esta ruta ya sólo autentica, parsea y traduce a HTTP.
+    const resultado = await setDoctorTier({
+      db: prisma,
+      doctorId,
+      tier,
+      origen: 'admin',
+      actor: admin.email,
+      motivo: typeof body?.motivo === 'string' ? body.motivo : null,
+    });
+
+    if (!resultado.ok) {
+      const status =
+        resultado.code === 'INVALID_TIER' ? 400 : resultado.code === 'NOT_FOUND' ? 404 : 409;
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid tier',
-          message:
-            `Tier inválido: ${JSON.stringify(tier)}. ` +
-            `Valores permitidos (case-sensitive): ${DOCTOR_TIERS.join(', ')}.`,
+          error: resultado.code === 'INVALID_TIER' ? 'Invalid tier' : resultado.code,
+          message: resultado.mensaje,
+          // El modal del admin lee `message`; los números van aparte para quien
+          // quiera pintarlos (Q3 los devolvía así y se conserva la forma).
+          ...(resultado.code === 'QUOTA_EXCEEDED'
+            ? { data: { current: resultado.current, limit: resultado.limit, tier: resultado.tier } }
+            : {}),
         },
-        { status: 400 }
+        { status }
       );
     }
 
-    const doctor = await prisma.doctor.findUnique({
-      where: { id: doctorId },
-      select: { id: true, slug: true, doctorFullName: true, tier: true },
-    });
-
-    if (!doctor) {
-      return NextResponse.json(
-        { success: false, error: 'Not found', message: `No existe el doctor ${doctorId}` },
-        { status: 404 }
-      );
-    }
-
-    if (doctor.tier === tier) {
-      // Idempotent: nothing to write, still report the current state.
-      return NextResponse.json({
-        success: true,
-        data: { doctorId: doctor.id, slug: doctor.slug, previousTier: doctor.tier, tier, changed: false },
+    if (resultado.changed) {
+      // El rastro DURADERO ya quedó en tier_change_log; esto sólo ayuda a
+      // seguirlo en los logs del deploy en caliente.
+      console.log('[TIERS] tier changed', {
+        admin: admin.email,
+        doctorId,
+        from: resultado.from,
+        to: resultado.to,
+        excludes: TIER_EXCLUDED_KEYS[resultado.to],
       });
     }
-
-    // TIERS Q3 — un downgrade que dejaría la cuenta POR ENCIMA de su cupo se
-    // RECHAZA aquí (decisión del usuario, 2026-09-13): la alternativa era
-    // dejarla existir por encima del tope, y entonces "cuántos pacientes tengo
-    // permitidos" deja de tener una respuesta cierta.
-    //
-    // ⚠️ Esto NO es teórico: medido en prod el 2026-09-13, dr-david-salazar-vela
-    // tiene 94 pacientes activos y dr-jose 60 — mover cualquiera de los dos a
-    // FREE (tope 50) se rechaza desde hoy. dra-mariana-serratos va en 46.
-    const nuevoTope = maxPatientsFor(tier);
-    if (nuevoTope !== null) {
-      const activos = await prisma.patient.count({
-        where: { doctorId: doctor.id, status: PATIENT_STATUS_COUNTED_AGAINST_QUOTA },
-      });
-      if (activos > nuevoTope) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'QUOTA_EXCEEDED',
-            message:
-              `${doctor.slug} tiene ${activos} pacientes activos y el plan ${tier} permite ` +
-              `${nuevoTope}. Archiva ${activos - nuevoTope} expediente(s) antes de bajar el plan ` +
-              `(archivar no borra nada y libera lugar).`,
-            data: { current: activos, limit: nuevoTope, tier },
-          },
-          { status: 409 }
-        );
-      }
-    }
-
-    const updated = await prisma.doctor.update({
-      where: { id: doctorId },
-      data: { tier },
-      select: { id: true, slug: true, tier: true },
-    });
-
-    // Traceability: tier changes are rare, manual, and change what a whole
-    // account can do. member_audit_log covers member writes only, so the log is
-    // the record here.
-    console.log('[TIERS] tier changed', {
-      admin: admin.email,
-      doctorId: updated.id,
-      slug: updated.slug,
-      from: doctor.tier,
-      to: updated.tier,
-      excludes: TIER_EXCLUDED_KEYS[tier],
-    });
 
     return NextResponse.json({
       success: true,
       data: {
-        doctorId: updated.id,
-        slug: updated.slug,
-        previousTier: doctor.tier,
-        tier: updated.tier,
-        changed: true,
+        doctorId,
+        previousTier: resultado.from,
+        tier: resultado.to,
+        changed: resultado.changed,
       },
     });
   } catch (error) {

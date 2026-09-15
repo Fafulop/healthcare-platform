@@ -393,7 +393,96 @@ del runbook, no solo antes.**
 
 ## 7. As-built
 
-### C1 — la página Cuenta, solo lectura (2026-09-14) — CONSTRUIDO, **sin commitear**
+### C2 — el modelo de cobro y la pantalla de la empresa (2026-09-14)
+
+**Esta vez el orden fue el correcto: el SQL llegó a la BD ANTES que el código** (la checklist de
+`database-architecture.md`, nacida del incidente de ventas del 2026-02-19). Q4 lo hizo al revés y
+se salvó de suerte; aquí no hizo falta suerte.
+
+| Qué | Dónde |
+|---|---|
+| `TierPrice` · `Subscription` · `TierChangeLog` | `schema.prisma` + `prisma/migrations/add-billing-tables.sql` |
+| `setDoctorTier()` — el único camino de escritura del tier | `packages/database/src/tier-change.ts` (nuevo) |
+| La ruta del admin refactorizada para llamarlo | `apps/api/src/app/api/admin/doctor-tier/route.ts` |
+| `GET`/`PATCH /api/admin/billing` | `apps/api/src/app/api/admin/billing/route.ts` (nuevo) |
+| La pantalla «Cobro» + su entrada en el menú | `apps/admin/src/app/billing/page.tsx`, `Navbar.tsx` |
+
+**Las decisiones que quedaron en código:**
+
+1. **El monto NO se guarda.** `TierPrice` sólo tiene el `stripePriceId`; el GET **lee el monto de
+   Stripe** en cada carga. Cambiar un precio es crear un Price nuevo y re-apuntar el mapa: cero
+   deploys, y ningún número en nuestra BD puede contradecir al que se le cobra a la tarjeta.
+2. **El price id se valida contra Stripe ANTES de guardarlo** (que exista, que sea recurrente,
+   que no esté archivado). Es la diferencia entre enterarse al pegarlo y enterarse en el primer
+   cobro real.
+3. **`stripeCustomerId` vive en `Subscription`, no en `Doctor`** — para que no quede junto a
+   `stripeAccountId`, que es la dirección contraria del dinero.
+4. **El status es el de Stripe, literal** (`active`, `past_due`…). Traducirlo crearía un segundo
+   vocabulario que puede contradecir al primero; las etiquetas en español son sólo de pantalla.
+5. **Un índice único PARCIAL** (`WHERE activo`) impide dos precios activos por tier y a la vez
+   deja conservar el historial de los viejos. Prisma no lo modela ⇒ anotado en
+   `database-architecture.md` §6.
+
+**Verificación:**
+
+- **La migración, verificada contra prod DESPUÉS de aplicarla**: las 3 tablas con sus columnas,
+  **12 índices** —incluido el parcial—, las 2 FK con `ON DELETE CASCADE`, y 0 filas.
+- 🔴 **El índice parcial se probó EJECUTÁNDOLO** (transacción con rollback): rechaza el segundo
+  precio activo de PRO con `23505 Key (tier)=(PRO) already exists`, y **sí** permite un precio
+  viejo inactivo junto al activo. *(El script imprimió «error inesperado» junto a su propia
+  prueba: el matcher de texto era más estrecho que el mensaje real de Postgres. La restricción
+  estaba bien; la prueba, mal escrita.)*
+- `pnpm gates` **77 OK / 0 FAIL** (250 rutas; la nueva la cubre la regla `admin` ⇒ OWNER_ONLY, sin
+  regla nueva). `pnpm type-check` **5/5, 0 errores**.
+- **23/23 comprobaciones de rama** de `setDoctorTier` con un cliente falso: case canónico
+  rechazado y no normalizado (`free`, `PRO `, `constructor`…), no-op sin bitácora, **el guard de
+  cupo corriendo para los TRES orígenes** (`admin`/`webhook`/`script`), la frontera exacta 50 pasa
+  / 51 rechaza, subir de plan nunca lo dispara, idempotencia por evento, y un P2002 ajeno que **se
+  propaga** en vez de tragarse como duplicado.
+- 🔴 **10/10 contra la BASE DE VERDAD**, que es lo que un falso no puede probar: `dr-david`
+  (**94 activos**) rechazado al bajarlo a FREE **sin mover su tier**; `dr-prueba` FREE→BASICO con
+  su fila de bitácora escrita; y la idempotencia real —el mismo `evt_` pidiendo LAB la segunda vez
+  **no movió nada**—. dr-prueba quedó restaurado en `FREE` y `tier_change_log` de vuelta en 0
+  filas.
+  *(El falso NO prueba la atomicidad: con Prisma, `doctor.update(...)` en forma de arreglo
+  devuelve una PrismaPromise que no se ejecuta hasta que `$transaction` la recibe, y en un doble
+  eso se ejecuta al construir el arreglo. Por eso existe el segundo script.)*
+
+**Code review (`/code-review high`) — 5 hallazgos; SÓLO 3 son de C2.** La primera corrida murió
+por el límite de sesión antes de producir nada y se re-lanzó; nada de lo de abajo salió de una
+revisión propia disfrazada.
+
+| # | Hallazgo | Qué se hizo |
+|---|---|---|
+| 3 | 🔴 **Un price se mudaba de tier en silencio.** El `upsert` iba por `stripePriceId` y su rama `update` reescribía `tier`; el `updateMany` sólo apagaba precios del tier DESTINO. Pegar el price activo de PRO en BÁSICO movía la fila y **dejaba a PRO sin precio**, con la ruta respondiendo éxito. (Lo encontré yo mismo justo antes de que el review lo reportara.) | Se rechaza con `PRICE_EN_OTRO_TIER` (409), nombrando el plan que ya lo usa. `tier` ya no se reescribe en el `update` |
+| 4 | **Cada «Cambiar» borraba la nota interna**: la pantalla nunca manda `notaInterna`, la ruta la leía como `null` y la escribía | `undefined` = no tocar; sólo un valor explícito la cambia |
+| 5 | Desplegar antes del SQL tumbaría cada cambio de tier (la bitácora va en la misma transacción) | **Ya estaba cubierto:** el SQL se aplicó y verificó antes de escribir código |
+
+La escritura del mapa se **sacó de la ruta** a `fijarPrecioDeTier` (`packages/database/src/tier-price.ts`),
+por la misma razón que `setDoctorTier`: la ruta también habla con Stripe, así que no se podía
+ejecutar en una prueba. **20/20 contra la base de verdad** con ids falsos `price_tmp_c2_*`: el
+price activo de PRO pegado en BÁSICO se **rechaza y PRO conserva su precio**; re-guardar sin nota
+**no la borra**; cambiar el precio apaga el viejo (historial) y deja exactamente 1 activo; un price
+viejo inactivo tampoco se muda; reactivarlo en su propio tier sí; un `null` explícito sí borra la
+nota; y `pro` en minúsculas no escribe. `tier_prices` terminó de vuelta en 0 filas. Gates
+**77 OK / 0 FAIL** y type-check **5/5, 0 errores** después de los arreglos.
+
+🔎 **No ejecutado:** el parseo del body en la ruta (`Object.hasOwn(body, 'notaInterna')` ⇒
+`undefined`). La regla está probada en el helper; que la ruta le pase `undefined` y no `null` se
+verificó LEYENDO, no corriendo.
+
+Los hallazgos **1 y 2 son del formato BBVA** (dos grupos de radio que mezclan respuestas
+compatibles: discapacidad Sí/No + Parcial/Total, y los antecedentes gineco-obstétricos). No son de
+TIERS y no entran en este commit; el #2 ya lo había reportado el review de C1.
+
+**Lo que C2 NO hace:** no cobra, no hay checkout, no hay webhook, no mueve tiers por pago, no
+emite CFDI. La sección de estado por doctor está **vacía para todos** y la pantalla lo **dice con
+palabras** — una tabla en blanco se leería como «nadie paga» cuando significa «esto aún no está
+conectado».
+
+🔴 **Lo que NO está probado: los PÍXELES.** Nadie ha visto la pantalla `/billing`.
+
+### C1 — la página Cuenta, solo lectura (2026-09-14) — EN PROD (`b22f5f3a`)
 
 **Sin schema, sin migración, sin dependencia nueva.** La checklist de
 `database-architecture.md` (schema → BD → código) **no aplica a C1**; aplica a C2/C3, que traen

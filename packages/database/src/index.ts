@@ -15,6 +15,8 @@ if (process.env.NODE_ENV !== 'production') {
 export * from '@prisma/client';
 export * from './permissions';
 export * from './plan-catalog';
+export * from './tier-change';
+export * from './tier-price';
 export * from './factura-verdict';
 export * from './membership';
 export * from './route-permissions';
