@@ -29,7 +29,10 @@ import {
   fijarPrecioDeTier,
   type DoctorTier,
 } from '@healthcare/database';
-import { stripe, isStripeError } from '@/lib/stripe';
+// TIERS C3: el cliente del COBRO (STRIPE_BILLING_SECRET_KEY), no `@/lib/stripe`.
+// Con la clave de prueba del cobro, un price de prueba NO lo reconoce la clave
+// viva de pagos de pacientes: validar con la clave equivocada rechazaría todo.
+import { stripeCobro, modoCobro, cobroListo, esErrorDeStripe } from '@/lib/stripe-cobro';
 import { requireAdminAuth, AuthError } from '@/lib/auth';
 
 function noAutorizado(error: unknown) {
@@ -56,8 +59,19 @@ interface PrecioResuelto {
 }
 
 async function resolverPrecio(stripePriceId: string): Promise<PrecioResuelto> {
+  const cliente = stripeCobro();
+  if (!cliente) {
+    return {
+      stripePriceId,
+      montoCentavos: null,
+      moneda: null,
+      intervalo: null,
+      activoEnStripe: null,
+      problema: 'Falta STRIPE_BILLING_SECRET_KEY en el api: no se puede consultar Stripe.',
+    };
+  }
   try {
-    const price = await stripe.prices.retrieve(stripePriceId);
+    const price = await cliente.prices.retrieve(stripePriceId);
     return {
       stripePriceId,
       montoCentavos: price.unit_amount ?? null,
@@ -76,7 +90,7 @@ async function resolverPrecio(stripePriceId: string): Promise<PrecioResuelto> {
       moneda: null,
       intervalo: null,
       activoEnStripe: null,
-      problema: isStripeError(e)
+      problema: esErrorDeStripe(e)
         ? `Stripe no reconoce este precio (${e.message})`
         : 'No se pudo consultar Stripe.',
     };
@@ -144,8 +158,18 @@ export async function GET(request: Request) {
           };
         }),
         // Se dice explícitamente, para que la pantalla no tenga que adivinar
-        // por qué todo viene vacío.
-        cobroConectado: false,
+        // por qué todo viene vacío. C3: "conectado" exige la clave Y el secreto
+        // del webhook (sin el webhook se cobraría sin subir planes).
+        cobroConectado: cobroListo(),
+        modo: modoCobro(),
+        faltantes: [
+          ...(stripeCobro() ? [] : ['STRIPE_BILLING_SECRET_KEY']),
+          ...(process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET ? [] : ['STRIPE_SUBSCRIPTION_WEBHOOK_SECRET']),
+          ...(process.env.TELEGRAM_ADMIN_CHAT_ID ? [] : ['TELEGRAM_ADMIN_CHAT_ID (avisos)']),
+          ...(modoCobro() === 'test' && !process.env.STRIPE_BILLING_TEST_DOCTORS
+            ? ['STRIPE_BILLING_TEST_DOCTORS (en modo prueba nadie ve el cobro sin esta lista)']
+            : []),
+        ],
       },
     });
   } catch (error) {
@@ -166,6 +190,17 @@ export async function PATCH(request: Request) {
   }
 
   try {
+    if (!stripeCobro()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Not configured',
+          message: 'Falta STRIPE_BILLING_SECRET_KEY en el api: no se puede validar el precio.',
+        },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json().catch(() => null);
     const tier = body?.tier;
     const stripePriceId = typeof body?.stripePriceId === 'string' ? body.stripePriceId.trim() : '';

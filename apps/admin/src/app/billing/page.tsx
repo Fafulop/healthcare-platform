@@ -60,6 +60,12 @@ interface Payload {
   tiers: FilaTier[];
   doctores: FilaDoctor[];
   cobroConectado: boolean;
+  // Opcionales A PROPÓSITO (review de C3, #3): sólo los manda el api de C3. Si
+  // admin despliega y api no —el fallo documentado de Railway—, un api viejo
+  // no los trae y leerlos a pelo tumbaba la pantalla que existe justo para ver
+  // qué está mal configurado.
+  modo?: "test" | "live" | null;
+  faltantes?: string[];
 }
 
 /** Los status son los de STRIPE, tal cual. Aquí sólo se traducen para leerlos. */
@@ -276,18 +282,40 @@ export default function BillingPage() {
                 <h2 className="text-sm font-semibold text-gray-900">Estado de cada cuenta</h2>
               </div>
 
+              {data.modo === "test" && (
+                <div className="mx-5 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+                  <p className="text-sm text-amber-900">
+                    <span className="font-medium">Modo de prueba.</span> No se cobra dinero real, y
+                    sólo los doctores de <code>STRIPE_BILLING_TEST_DOCTORS</code> ven el cobro.
+                  </p>
+                </div>
+              )}
+
               {!data.cobroConectado && (
                 <div className="mx-5 my-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
                   <Info className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
                   <div className="text-sm text-blue-900">
                     <p className="font-medium">El cobro todavía no está conectado.</p>
                     <p className="mt-1 text-blue-800">
-                      Ningún doctor tiene suscripción porque aún no existe el checkout ni el
-                      webhook que la crean — eso es C3. Los renglones de abajo dicen
-                      &ldquo;sin suscripción&rdquo; por esa razón,{" "}
+                      Los renglones de abajo dicen &ldquo;sin suscripción&rdquo; porque ningún
+                      doctor puede pagar todavía,{" "}
                       <strong>no porque hayan dejado de pagar</strong>.
                     </p>
                   </div>
+                </div>
+              )}
+
+              {(data.faltantes ?? []).length > 0 && (
+                <div className="mx-5 my-4 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+                  <p className="font-medium">Variables pendientes en el api:</p>
+                  <ul className="mt-1 list-disc list-inside text-gray-600">
+                    {(data.faltantes ?? []).map((f) => (
+                      <li key={f}>
+                        <code className="text-xs">{f}</code>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 

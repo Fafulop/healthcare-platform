@@ -47,10 +47,13 @@ paralelo.
 
 **Estado:** **C1 EN PROD** (`b22f5f3a`) — la pantalla «Mi Cuenta» del doctor: su plan, el catálogo
 curado de funciones y **los dos medidores de cupo** (el de almacenamiento era el hueco #1 del
-handoff de Q4). **C2 construido** — `TierPrice` · `Subscription` · `TierChangeLog`,
+handoff de Q4). **C2 EN PROD** (`606f2e38`) — `TierPrice` · `Subscription` · `TierChangeLog`,
 `setDoctorTier()` como único camino de escritura del tier, y la pantalla «Cobro» del admin.
-**Todavía no cobra nadie:** el checkout, el webhook y el flip automático de tier son C3, y el CFDI
-al doctor va después (§6.1 — se decidió que SÍ se emite; se hará con la cuenta de Facturama
+**C3 construido** — checkout de Stripe, webhook de suscripciones y **el plan que sube solo al
+confirmarse el pago**; en **modo prueba** y visible sólo para los doctores de
+`STRIPE_BILLING_TEST_DOCTORS`. **No cobra hasta que el usuario haga el runbook de §7/C3** (precios,
+portal y webhook en Stripe + 4 variables en Railway). El agente ("¿cuánto debo?") va en una PR
+aparte, y el CFDI al doctor va después (§6.1 — se decidió que SÍ se emite; se hará con la cuenta de Facturama
 Multiemisor que ya existe, registrando nuestro propio RFC como un emisor más).
 
 Los planes anteriores construyeron el **techo** (qué puede hacer una cuenta). El plan 03 construye

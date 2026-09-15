@@ -393,7 +393,152 @@ del runbook, no solo antes.**
 
 ## 7. As-built
 
-### C2 — el modelo de cobro y la pantalla de la empresa (2026-09-14)
+### C3 — cobrar de verdad: checkout, webhook y el plan que sube al pagar (2026-09-15)
+
+**Sin schema nuevo:** usa las tres tablas de C2, que ya estaban en prod.
+
+**Decisiones del usuario (2026-09-14):**
+
+1. **Clave de MODO PRUEBA primero**, en su propia variable `STRIPE_BILLING_SECRET_KEY`. La de
+   pagos de pacientes (`STRIPE_SECRET_KEY`, que en prod es `sk_live`) no se toca.
+2. **Sólo se suscribe quien no tiene suscripción.** Cambiar de plan siendo suscriptor = por el admin.
+3. **El agente ("¿cuánto debo?") va en una PR aparte**, después de C3.
+4. **Avisos por Telegram** a un chat de admin (`TELEGRAM_ADMIN_CHAT_ID`).
+
+| Qué | Dónde |
+|---|---|
+| Cliente de Stripe DEL COBRO (no revienta si falta la clave) · `cobroListo` · lista de prueba | `apps/api/src/lib/stripe-cobro.ts` |
+| El cerebro del webhook, con dependencias inyectadas (ejecutable en pruebas) | `apps/api/src/lib/cobro-webhook.ts` |
+| Qué planes se pueden vender (una sola función para la pantalla y el checkout) | `apps/api/src/lib/cobro-planes.ts` |
+| Puerta común owner-only · avisos por Telegram | `lib/cobro-auth.ts` · `lib/cobro-avisos.ts` |
+| `POST /api/stripe/subscription-webhook` | ruta nueva, **pública**, frontera = firma |
+| `GET /api/billing/status` · `POST /api/billing/checkout` · `POST /api/billing/portal` | rutas nuevas, OWNER_ONLY |
+| `{ prefix: 'billing', key: 'OWNER_ONLY' }` + el webhook en `UNMAPPED_PUBLIC_PREFIXES` | `route-permissions.ts` |
+| Sección «Pago de tu plan» | `apps/doctor/.../dashboard/cuenta/page.tsx` |
+| La pantalla Cobro valida con el cliente DEL COBRO y lista las variables que faltan | `admin/billing` (ruta y página) |
+
+**Cinco cosas encontradas ANTES de escribir, que cambiaron el diseño:**
+
+1. 🔴 **Prod sólo tiene clave VIVA.** Probar el checkout en prod con ella es cobrar tarjetas reales
+   ⇒ decisión 1.
+2. 🔴 **Una clave de prueba en prod regalaría planes.** Cualquier doctor podría "pagar" con
+   `4242 4242 4242 4242` y el webhook le subiría el plan. Por eso, **en modo prueba el cobro sólo
+   existe para los slugs de `STRIPE_BILLING_TEST_DOCTORS`** (lista vacía ⇒ nadie), impuesto en el
+   servidor. En modo vivo la lista deja de aplicar.
+3. 🔴 **La API `2026-04-22.dahlia` movió dos campos** (verificado en los tipos instalados, no de
+   memoria): `current_period_end` ya no está en la suscripción sino en cada ITEM, y la factura ya
+   no trae `invoice.subscription` sino `invoice.parent.subscription_details.subscription`. Un
+   webhook escrito con documentación vieja leería `undefined` en ambos, en silencio.
+4. **La regla `{ prefix: 'stripe', key: 'pagos' }` es la de pagos de PACIENTES**, y todo lo que
+   cuelgue de `stripe/` la hereda. Por eso las rutas del doctor viven en `billing/`, y el webhook
+   —que sí está bajo `stripe/`— es público y no pasa por esa regla.
+5. **Un checkout por cuenta PRO puesta a mano vendería BÁSICO**: se cobraría y `setDoctorTier` se
+   negaría a bajarla. `planesVendibles` **nunca ofrece un plan por debajo del actual**.
+
+**Las reglas del webhook** (cabecera de `cobro-webhook.ts`): **sólo `invoice.paid` sube el plan**
+(un checkout completado no garantiza dinero cobrado) · **nada lo baja** (pago fallido y
+cancelación sólo anotan y avisan) · se lee la suscripción **fresca** de Stripe en cada evento, así
+un evento viejo que llega tarde escribe el estado actual · idempotencia por `stripeEventId` vía
+`setDoctorTier` · lo que no se arregla reintentando se avisa y responde 200 · sin
+`STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` **no se ofrece el checkout** (cobrar sin poder subir el plan
+es peor que no cobrar).
+
+**Verificación** (leída de los logs, no del código de salida):
+
+- `pnpm gates` **77 OK / 0 FAIL** — 254 rutas, 74 reglas, el webhook en la lista pública.
+- `pnpm type-check` **5/5, 0 errores** (19 min: corrió junto con la prueba de BD).
+- Barrido de `*/` prematuros en comentarios de bloque: limpio.
+- 🔴 **41/41 contra la BASE DE VERDAD**, con suscripciones construidas a mano en la forma de dahlia
+  y ids falsos `*_tmp_c3_*` (Stripe no se tocó):
+  - route map: `billing/*` **no lo bloquea ningún tier**, un member con Pagos ON **no entra**, y
+    `stripe/payment-links` sigue siendo de Pagos;
+  - firma: la válida pasa, **el cuerpo manipulado y el secreto de Connect se rechazan**;
+  - `checkout.session.completed` amarra la suscripción **y NO sube el plan**; con el
+    `client_reference_id` de otro doctor no escribe y avisa;
+  - **`invoice.paid` sube a dr-prueba FREE→BÁSICO** con su bitácora (`origen webhook`,
+    `actor stripe:evt_…`); **el mismo evento otra vez no mueve nada** y deja una sola fila;
+  - precio fuera del mapa: no mueve el plan y avisa; **pago fallido y cancelación: anotan, avisan
+    y el plan SIGUE en BÁSICO**;
+  - **una segunda suscripción viva** conserva la primera y avisa «DOS suscripciones»; volver a
+    suscribirse tras cancelar reemplaza la vieja, y **un evento tardío de la vieja se ignora en
+    silencio**; cliente desconocido: no escribe y avisa.
+  - Limpieza: dr-prueba restaurado a `FREE`, las tres tablas de vuelta en 0 — **confirmado aparte
+    con una lectura independiente** después de que terminó el script.
+
+⚠️ **Trampa de método, otra vez la del código de salida:** la corrida se mandó con `| tail -70`, así
+que el "exit code 0" de la notificación era el de `tail`, no el de la prueba. Se leyó el log (41 OK
+· 0 FAIL). Y como el script escribe en prod y el `tail` retiene toda la salida hasta el final, se
+confirmó que no hubiera quedado nada a medias con una lectura de BD aparte.
+
+**Code review (`/code-review high`) — 3 hallazgos, los tres reales, los tres arreglados:**
+
+| # | Hallazgo | Arreglo |
+|---|---|---|
+| 1 | 🔴 **Una RENOVACIÓN podía BAJAR el plan.** `invoice.paid` aplicaba el tier del precio pagado y `setDoctorTier` no distingue subir de bajar (su único freno es el cupo). Un suscriptor de BÁSICO que pide cambio de plan —justo lo que el 409 del checkout le indica— queda en PRO por el admin, pero su precio en Stripe sigue siendo el de BÁSICO: el `invoice.paid` del mes siguiente trae un `evt_` NUEVO que la idempotencia no frena, y lo regresaba a BÁSICO avisando «✅ subió de PRO a BÁSICO». Rompía la regla 2 del propio archivo | En `invoice.paid`, si el tier pagado está **por debajo** del actual: se anota el pago, se avisa, y el plan **no se toca** |
+| 2 | **Pasar a vivo rompía el cobro de todos los doctores de prueba.** Su `stripeCustomerId` guardado es un Customer de MODO PRUEBA que la clave viva no reconoce: el checkout reventaba con «No such customer», el portal daba 409 aunque `status` decía que había portal, y su `active` de prueba los bloqueaba como «ya tienes suscripción». Sin salida: el Customer sólo se creaba si la columna era null | `filaDeCobroVigente()`: la fila sólo cuenta si su Customer **existe en el modo actual**. Si no (`resource_missing` o borrado), cuenta como inexistente, el checkout crea un Customer nuevo **y limpia todo lo que venía con el viejo**. Cualquier OTRO error de Stripe se propaga: una caída no puede leerse como «ya no tienes datos de pago». Lo usan las tres rutas |
+| 3 | La pantalla Cobro leía `data.faltantes.length`: si admin despliega y api no (el fallo documentado de Railway), un api viejo no manda el campo y **la pantalla que existe para ver qué está mal configurado tronaba entera** | `modo`/`faltantes` opcionales y `?? []` |
+
+**Los arreglos, EJECUTADOS — 16/16** (log leído directo, sin `| tail`):
+
+- **#1 contra la base de verdad:** dr-prueba en PRO con una renovación del precio de BÁSICO ⇒ el
+  plan **sigue en PRO**, aviso «NO se bajó» y ningún ✅, **sin fila de bitácora** pero **con**
+  `lastPaymentAt` anotado. Regresión: FREE + pago de BÁSICO **sigue subiendo** a BÁSICO con su
+  bitácora; BÁSICO + renovación de BÁSICO es «ya estaba en ese plan», sin aviso de bajada.
+  Limpieza: dr-prueba en `FREE`, tablas en 0.
+- **#2 con un cliente de Stripe falso** usando las clases de error REALES del SDK: Customer de otro
+  modo (`resource_missing`) ⇒ la fila cuenta como inexistente y **su `active` de prueba ya no
+  bloquea**; Customer borrado ⇒ igual; Customer vigente ⇒ la fila se conserva; fila sin Customer ⇒
+  no se consulta Stripe; y **Stripe caído (`StripeConnectionError`) se PROPAGA** en vez de leerse
+  como «ya no tienes datos de pago».
+- **#3:** leído, no ejecutado (dos `?? []` y dos campos opcionales).
+- Después de los arreglos: `pnpm gates` **77 OK / 0 FAIL**, `pnpm type-check` **5/5, 0 errores**
+  (con `api` y `admin` como cache miss — los dos que cambiaron), barrido de `*/`: limpio.
+
+🔎 **No ejecutado de #2:** el camino del checkout que **reemplaza** el Customer obsoleto y limpia la
+fila — necesita la clave real del cobro. Se prueba solo, de verdad, el día que se pase a vivo con
+un doctor que haya probado en modo prueba.
+
+🔎 **Lo que NO está ejecutado:** las tres rutas `billing/*` y la del webhook como HTTP de verdad
+(se probó su cerebro, no su envoltura de Next), el checkout real de Stripe, el portal, el aviso de
+Telegram llegando al chat, y **los píxeles** de la sección «Pago de tu plan». Todo eso es el
+runbook de abajo.
+
+#### ▶️ Runbook para prenderlo (acciones del USUARIO — no dejan rastro en git)
+
+1. **Stripe, en MODO PRUEBA** (toggle «Test mode» del dashboard):
+   - Crear un producto y **un precio recurrente mensual en MXN** por plan que se venda (BÁSICO, PRO).
+   - **Billing → Customer portal**: activarlo y **APAGAR el cambio de plan** (dejar sólo
+     tarjeta, facturas y cancelación). Esto no se puede imponer desde el código.
+   - **Developers → Webhooks → Add endpoint**:
+     `https://healthcareapi-production-fb70.up.railway.app/api/stripe/subscription-webhook`
+     con estos 5 eventos: `checkout.session.completed` · `invoice.paid` ·
+     `invoice.payment_failed` · `customer.subscription.updated` · `customer.subscription.deleted`.
+2. **Railway → `@healthcare/api` → Variables:**
+   `STRIPE_BILLING_SECRET_KEY=sk_test_…` · `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_…` (el del
+   endpoint de arriba) · `STRIPE_BILLING_TEST_DOCTORS=dr-prueba` · `TELEGRAM_ADMIN_CHAT_ID=…`.
+3. **Admin → Cobro:** deben desaparecer las variables pendientes y aparecer «Modo de prueba».
+   Pegar el `price_…` de cada plan: la pantalla debe mostrar el monto **leído de Stripe**.
+4. **Como dr-prueba (FREE) → Mi Cuenta:** debe aparecer «Pago de tu plan» con BÁSICO y PRO.
+   Suscribirse a BÁSICO con `4242 4242 4242 4242`, cualquier fecha futura y cualquier CVC.
+5. Al volver: el aviso azul **no debe afirmar que el plan ya cambió**. Actualizar: el plan debe
+   decir **Básico**. En BD: una fila en `tier_change_log` con `origen = 'webhook'`, y la
+   suscripción en `active`. En Telegram: el ✅.
+6. **Otro doctor (no en la lista) → Mi Cuenta:** la sección de pago **no debe existir**.
+7. **Revertir:** cancelar desde «Tarjeta, recibos y cancelación» → Telegram avisa, **el plan sigue
+   en Básico** (así debe ser) → regresar a dr-prueba a `FREE` desde `/doctors` del admin.
+
+**Pasar a VIVO después** = crear los precios en modo vivo, un endpoint de webhook vivo, cambiar
+las dos variables de Stripe por las vivas y borrar `STRIPE_BILLING_TEST_DOCTORS`. Los `price_…`
+de prueba que queden en el mapa aparecerán en Cobro como «Stripe no reconoce este precio» —
+imposible dejarlos en uso por accidente— y hay que re-pegarlos. Las filas de suscripción de
+prueba **se sanean solas** (hallazgo #2 del review): su Customer no existe en vivo, así que cuentan
+como inexistentes y el doctor puede suscribirse de verdad; al hacerlo se reemplazan. Lo que **sí**
+queda en la base son esas filas viejas hasta que el doctor vuelva a pagar: en la pantalla Cobro
+pueden seguir diciendo «Al corriente» aunque sean de prueba, así que al pasar a vivo conviene
+borrarlas (`DELETE FROM public.subscriptions WHERE status <> 'none'` sólo si **todas** son de
+prueba — verifícalo antes).
+
+### C2 — el modelo de cobro y la pantalla de la empresa (2026-09-14) — EN PROD (`606f2e38`)
 
 **Esta vez el orden fue el correcto: el SQL llegó a la BD ANTES que el código** (la checklist de
 `database-architecture.md`, nacida del incidente de ventas del 2026-02-19). Q4 lo hizo al revés y

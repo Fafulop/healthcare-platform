@@ -49,7 +49,14 @@ import {
   AlertCircle,
   Info,
   ShieldOff,
+  CreditCard,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
+import { authFetch } from "@/lib/auth-fetch";
+
+/** Las rutas de cobro viven en el api (es donde está Stripe). */
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 /** Mismo fallback que usa el sitio público: un CTA muerto es peor que ninguno,
  * y la variable sigue sin ponerse en Railway (pendiente desde julio). */
@@ -199,6 +206,9 @@ export default function CuentaPage() {
             )}
           </section>
 
+          {/* ── Pago (TIERS C3) ───────────────────────────────────────── */}
+          <SeccionPago />
+
           {/* ── Consumo ───────────────────────────────────────────────── */}
           <section className="mb-6 grid gap-4 sm:grid-cols-2">
             <Medidor
@@ -299,6 +309,230 @@ export default function CuentaPage() {
         </>
       )}
     </div>
+  );
+}
+
+interface EstadoCobro {
+  disponible: boolean;
+  modo?: "test" | "live" | null;
+  suscripcion?: {
+    status: string;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+    lastPaymentAt: string | null;
+  } | null;
+  planes?: {
+    tier: string;
+    label: string;
+    montoCentavos: number;
+    moneda: string;
+    intervalo: string;
+  }[];
+  puedeSuscribirse?: boolean;
+  tienePortal?: boolean;
+}
+
+const ETIQUETA_STATUS: Record<string, string> = {
+  active: "Al corriente",
+  trialing: "En periodo de prueba",
+  past_due: "Pago pendiente",
+  unpaid: "Sin pagar",
+  incomplete: "Pago incompleto",
+  incomplete_expired: "Pago no completado",
+  canceled: "Cancelada",
+  none: "Sin suscripción",
+};
+
+function fecha(iso: string | null | undefined): string | null {
+  return iso ? new Date(iso).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" }) : null;
+}
+
+function precio(centavos: number, moneda: string, intervalo: string): string {
+  const monto = (centavos / 100).toLocaleString("es-MX", { style: "currency", currency: moneda });
+  return `${monto} ${intervalo === "month" ? "al mes" : intervalo === "year" ? "al año" : `/ ${intervalo}`}`;
+}
+
+/**
+ * TIERS C3 — el pago del plan.
+ *
+ * Tres reglas que no son de estilo:
+ *
+ * 1. `disponible: false` ⇒ NO se pinta nada. El cobro puede no estar
+ *    configurado, o estar en modo prueba y esta cuenta no estar en la lista.
+ *    Para esa cuenta el cobro todavía no existe; no hay nada que explicar.
+ *
+ * 2. 🔴 Al volver de Stripe con `?pago=ok` NO se afirma que el plan ya subió.
+ *    El plan lo sube el webhook cuando Stripe confirma el cobro, y eso puede
+ *    tardar unos segundos después de que el navegador regresa. Decir "¡listo,
+ *    ya eres PRO!" y que la pantalla de arriba siga diciendo Gratis es
+ *    exactamente el tipo de afirmación falsa que esta app ya pagó.
+ *
+ * 3. Un fallo al leer el estado se DICE, no se oculta: "no pudimos leer tu pago"
+ *    y "no tienes pago" llevan a decisiones opuestas.
+ */
+function SeccionPago() {
+  const [estado, setEstado] = useState<EstadoCobro | null>(null);
+  const [error, setError] = useState(false);
+  const [retorno, setRetorno] = useState<"ok" | "cancelado" | null>(null);
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [errorAccion, setErrorAccion] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Se lee de `window` y no con `useSearchParams`: evita exigir un límite de
+    // Suspense sólo para esto.
+    const p = new URLSearchParams(window.location.search).get("pago");
+    if (p === "ok" || p === "cancelado") setRetorno(p);
+
+    let cancelado = false;
+    (async () => {
+      try {
+        const res = await authFetch(`${API_URL}/api/billing/status`);
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as EstadoCobro;
+        if (!cancelado) setEstado(data);
+      } catch {
+        if (!cancelado) setError(true);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  async function ir(ruta: "checkout" | "portal", tier?: string) {
+    setOcupado(tier ?? ruta);
+    setErrorAccion(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/billing/${ruta}`, {
+        method: "POST",
+        body: JSON.stringify(tier ? { tier } : {}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) {
+        setErrorAccion(data.error || "No se pudo abrir el pago. Intenta de nuevo.");
+        setOcupado(null);
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setErrorAccion("No se pudo abrir el pago. Intenta de nuevo.");
+      setOcupado(null);
+    }
+  }
+
+  if (error) {
+    return (
+      <section className="mb-6 p-4 bg-white border border-gray-200 rounded-lg flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+        <p className="text-sm text-gray-600">
+          No pudimos leer el estado de tu pago. Vuelve a cargar la página en un momento.
+        </p>
+      </section>
+    );
+  }
+  if (!estado || !estado.disponible) return null;
+
+  const sub = estado.suscripcion;
+  const viva = sub && ["active", "trialing", "past_due", "incomplete", "unpaid"].includes(sub.status);
+
+  return (
+    <section className="mb-6 p-5 bg-white border border-gray-200 rounded-lg">
+      <div className="flex items-center gap-2 mb-3">
+        <CreditCard className="w-4 h-4 text-gray-400" />
+        <h2 className="text-sm font-semibold text-gray-900">Pago de tu plan</h2>
+        {estado.modo === "test" && (
+          <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+            Modo de prueba · sin cargos reales
+          </span>
+        )}
+      </div>
+
+      {retorno === "ok" && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-900">
+          <p className="font-medium">Stripe recibió tu pago.</p>
+          <p className="mt-1 text-blue-800">
+            Tu plan se actualiza en cuanto Stripe nos confirma el cobro, normalmente en unos
+            segundos. Si arriba todavía no ves el cambio, actualiza la página.
+          </p>
+          <button
+            onClick={() => (window.location.href = "/dashboard/cuenta")}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 hover:text-blue-900"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Actualizar
+          </button>
+        </div>
+      )}
+      {retorno === "cancelado" && (
+        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-600">
+          No se completó el pago y no se hizo ningún cargo.
+        </div>
+      )}
+
+      {viva && sub && (
+        <div className="text-sm">
+          <p className="text-gray-900">
+            Suscripción:{" "}
+            <span className={sub.status === "active" ? "text-green-700 font-medium" : "text-amber-700 font-medium"}>
+              {ETIQUETA_STATUS[sub.status] ?? sub.status}
+            </span>
+          </p>
+          {sub.cancelAtPeriodEnd ? (
+            <p className="text-amber-700 mt-1">
+              Cancelada: termina el {fecha(sub.currentPeriodEnd) ?? "fin del periodo"}.
+            </p>
+          ) : (
+            fecha(sub.currentPeriodEnd) && (
+              <p className="text-gray-500 mt-1">Próximo cargo: {fecha(sub.currentPeriodEnd)}</p>
+            )
+          )}
+          {sub.status === "past_due" && (
+            <p className="text-amber-700 mt-1">
+              No pudimos cobrar el último pago. Revisa tu tarjeta para no perder el servicio.
+            </p>
+          )}
+        </div>
+      )}
+
+      {estado.puedeSuscribirse && estado.planes && (
+        <div className="space-y-2">
+          {sub?.status === "canceled" && (
+            <p className="text-sm text-gray-500 mb-2">Tu suscripción anterior está cancelada.</p>
+          )}
+          {estado.planes.map((plan) => (
+            <div
+              key={plan.tier}
+              className="flex items-center justify-between gap-3 flex-wrap p-3 border border-gray-200 rounded-md"
+            >
+              <div>
+                <p className="text-sm font-medium text-gray-900">Plan {plan.label}</p>
+                <p className="text-xs text-gray-500">{precio(plan.montoCentavos, plan.moneda, plan.intervalo)}</p>
+              </div>
+              <button
+                disabled={ocupado !== null}
+                onClick={() => ir("checkout", plan.tier)}
+                className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {ocupado === plan.tier ? "Abriendo…" : "Suscribirme"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {estado.tienePortal && (
+        <button
+          disabled={ocupado !== null}
+          onClick={() => ir("portal")}
+          className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-900 disabled:opacity-50"
+        >
+          <ExternalLink className="w-4 h-4" />
+          {ocupado === "portal" ? "Abriendo…" : "Tarjeta, recibos y cancelación"}
+        </button>
+      )}
+
+      {errorAccion && <p className="mt-3 text-sm text-red-600">{errorAccion}</p>}
+    </section>
   );
 }
 

@@ -157,6 +157,20 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   // PAGE_PERMISSION_MAP. Diseño: docs/DESDE JUNIO/TIERS/03-PLAN-cuenta-y-cobro.md §2/H6
   { prefix: 'account', key: 'OWNER_ONLY' },
 
+  // TIERS C3 — el COBRO de la suscripción del doctor (checkout, portal de
+  // Stripe, estado). OWNER_ONLY por las mismas dos razones que `account`:
+  //  1. Es dinero del dueño; un usuario secundario no paga ni ve el cobro.
+  //  2. 🔴 Una cuenta FREE TIENE que poder llegar aquí: es la única forma de
+  //     dejar de ser FREE. OWNER_ONLY sin `feature` nunca cae bajo el techo de
+  //     un tier, así que ningún plan puede bloquear la puerta para pagarlo.
+  //
+  // ⚠️ Vive en `billing` y NO bajo `stripe`, a propósito: la regla
+  // `{ prefix: 'stripe', key: 'pagos' }` de arriba es la de los PAGOS DE
+  // PACIENTES, y todo lo que cuelgue de `stripe` la heredaría — el cobro de la
+  // suscripción quedaría atado al toggle de "Pagos" y al techo de esa función.
+  // Es la dirección contraria del dinero; no comparte regla.
+  { prefix: 'billing', key: 'OWNER_ONLY' },
+
   // ── apps/doctor internal ────────────────────────────────────────────────
   { prefix: 'medical-records/tasks', key: 'tareas' }, // specific beats expedientes
   // TIERS Q2 — las TRES rutas de IA que viven DENTRO del expediente. Su `key`
@@ -243,6 +257,10 @@ export const UNMAPPED_PUBLIC_PREFIXES = [
   'telegram/webhook',
   'calendar/webhook',
   'stripe/webhook',
+  // TIERS C3 — webhook del COBRO de suscripciones. Lo llama Stripe: su frontera
+  // es la FIRMA (secreto propio), no una sesión. Separado de 'stripe/webhook',
+  // que es el de Connect / pagos de pacientes.
+  'stripe/subscription-webhook',
   'mercadopago/webhook',
   'mercadopago/connect/callback',
 ] as const;
