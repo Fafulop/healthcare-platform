@@ -420,6 +420,20 @@ lo re-valida contra el token de todas formas).
     lista de campos imaginada.
   - **Retención**: sin job, igual que `agent_tool_errors` y `llm_token_usage` (deuda aceptada en
     A2 — ahora la comparten TRES tablas, y esta escribe una fila por llamada, no por turno).
+  - 🔴 **`ok` NO significa "la tool funcionó" — significa "no tiró excepción"** (hallazgo
+    2026-09-14, primera lectura real de la tabla; bitácora #37). **5 de las 65 filas traen un
+    `error` dentro del `digest` y están marcadas `ok = true`.** La tabla que se creó para cazar
+    fallos silenciosos tiene uno propio, y la primera lectura de esa sesión concluyó "cero fallos"
+    — falso. **Consulta correcta mientras no se arregle:**
+    `WHERE ok = false OR digest::jsonb ? 'error'`.
+    **Fix pendiente (barato):** poner `ok = false` cuando el resultado trae `error`, o una columna
+    aparte. ⚠️ Hacerlo **antes** de sacar cualquier métrica de esta tabla — toda medición previa
+    está sesgada a la baja.
+  - **Lo que una fila NO contesta:** solo hay llamadas a tools. No están la pregunta del doctor, ni
+    la respuesta del agente, ni el texto del `error` (a propósito: `modules/facturas.ts:1442`
+    interpola el nombre del paciente ahí). Para reconstruir una conversación hacen falta además
+    `llm_token_usage` y `activity_logs` — y la regla de no diagnosticar un chat pasado contra el
+    estado ACTUAL de prod, porque ese chat lo mutó.
   - **Probada en vivo 2026-07-31 20:16 UTC**: primera fila real —
     `get_day_schedule | ok | 9ms | input {"date":"2026-08-01"} | digest {citas_n:0, bloqueos_n:0,
     rangosDisponibilidad_n:0}`— y el digest cuadra con lo que el agente le contestó al doctor.

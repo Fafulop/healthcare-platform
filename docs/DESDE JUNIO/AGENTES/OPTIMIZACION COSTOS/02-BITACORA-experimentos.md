@@ -211,6 +211,18 @@ decidir buscar; `plan-eliminar` pasó 1/3 aquí vs 2/2 sin 2d — con n=1 no es 
 
 ### 2026-07-24 — 🎯 VARIANZA CONTESTADA + fixes de calidad: cero fallos ESTABLES en ambos modelos
 
+> ⚠️ **CORRECCIÓN 2026-09-14 — el título de esta entrada sobre-afirma (se anota, no se borra).**
+> "VARIANZA CONTESTADA" se apoya en **UNA** corrida de control de Sonnet. Eso demuestra que Sonnet
+> **también flakea** — no le da una **banda**. Una semana después,
+> [`../GENERAL AGENTES/10-ANALISIS`](../GENERAL%20AGENTES/10-ANALISIS-especializar-agente-por-area.md) §3
+> dice que la varianza de Sonnet **nunca se midió** y que cuesta ~$4.3; **el estricto tiene razón**
+> y los dos docs llevaban un mes contradiciéndose. Es el mismo error que esta misma bitácora
+> documenta más abajo (*"una corrida no distingue regresión de ruido"*) — aplicado esta vez al
+> control, no al experimento. Lo sólido de esta entrada sigue en pie: **cero fallos ESTABLES en
+> ambos modelos**, y la diferencia medible es **tasa de flake al 1er intento** (5 y 3 vs 1).
+> Contexto de por qué volvió a importar: bitácora **#37** en
+> [`../AGENTE AGENDA/SESSION-REFRESCO.md`](../AGENTE%20AGENDA/SESSION-REFRESCO.md).
+
 **Qué se hizo (rama `agent/haiku-viability`, sin commitear):**
 1. **El instrumento primero:** `agenda-agent-evals.ts` re-corre solo cada caso no-PASS (hasta 2
    veces, `EVALS_RETRIES`) y clasifica **estable** (falla siempre = señal) vs **flaky** (pasa al

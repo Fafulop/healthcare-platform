@@ -1,5 +1,113 @@
 # 🔄 Refresco de sesión — AGENTE AGENDA — LÉEME PRIMERO
 
+> # 🔬 2026-09-14 — SE LEYÓ `agent_tool_calls` POR PRIMERA VEZ (bitácora #37)
+>
+> ## En una frase
+> La traza dice que **lo que falló no fue el modelo**: de las cuatro clases de fallo encontradas,
+> **ninguna es "Haiku se equivocó"** — son un resultado VACÍO que se tomó por verdad, el modelo de
+> SLOTS ya obsoleto filtrándose, falta de contexto de pantalla, y **el propio instrumento que
+> miente**. Y lo más importante: **la clase más dañina ya se arregló sola** — `get_availability`
+> se eliminó el 2026-08-05, **dos días después** de la traza. **Nadie ha vuelto a evaluar al
+> agente desde entonces.**
+>
+> ## 🔴 Hubo una DOCTORA REAL usándolo, y no estaba en ningún doc
+> **`mayra-loza` (tier PRO)** — 18 llamadas en 13 turnos, todas el **2026-08-03**. No es
+> dr-prueba. Todos los docs de costo dicen que el único usuario era dr-prueba
+> (`../GENERAL AGENTES/10-ANALISIS` §4: *"254 turnos en 30 días, UN doctor"*). **Su sesión
+> completa está en la tabla** y es la mejor evidencia de uso real que tenemos.
+> ⚠️ **Choca con los tiers:** `asistente_ia` es de LAB y ella es PRO — si el asistente vuelve tal
+> cual, **la única doctora real que lo usó se queda sin él**.
+>
+> ## Los números (read-only vs prod, método `TOOLING-acceso-railway-db`)
+> **65 llamadas · 37 turnos · 2 doctores · 2026-07-31 → 2026-08-12.** La tabla deja de registrar
+> **15 días ANTES** de que se ocultara el panel (08-27): primero se dejó de usar, después se ocultó.
+> - **18 tools distintas de 38** (foto: `../GENERAL AGENTES/02-CAPACIDADES` §4) ⇒ muere el miedo de
+>   `10-ANALISIS` §7 ("¿usará solo 2 de 39?").
+> - **Iteraciones por turno: 1→16 turnos · 2→16 · 3→3 · 4→2** (media ~1.8) ⇒ **tool search NO está
+>   causando thrashing** en el loop.
+> - **Escrituras = ~31% de las llamadas** (20 de 65) ⇒ se usa para lo difícil de descubrir, que es
+>   justo la tesis de `09-ANALISIS` §1.
+>
+> ## 🔴 #37.1 — El instrumento MIENTE: `ok=true` con `error` en el digest
+> `ok` significa *"la tool no tiró excepción"*, no *"la tool funcionó"*. **5 llamadas devolvieron
+> un payload con `error` y quedaron `ok=true`.** La tabla que se creó para cazar fallos silenciosos
+> tiene un fallo silencioso propio. En esta misma sesión la primera lectura concluyó *"cero
+> fallos"* — **falso**.
+> **Fix (barato, hacerlo ANTES de medir nada con esta tabla):** `ok=false` cuando el digest trae
+> `error`, o una columna aparte. Mientras no esté, **toda métrica sacada de aquí está sesgada**.
+>
+> ## 🔴 #37.2 — Un resultado VACÍO se tomó por verdad (la clase que de verdad dolió)
+> **2026-08-03 23:53, la doctora real, un turno:**
+> ```
+> find_patient("…")            → expedientes_n: 0, citasPrevias_n: 0    (paciente nuevo)
+> get_availability(2026-08-11) → fechasDisponibles_n: 0
+>                                horarios_keys: 0, diasSemana_keys: 0    ← vacío TOTAL
+> ```
+> Pero `get_day_schedule(2026-08-11)` el día anterior devolvió **`rangosDisponibilidad_n: 2,
+> citas_n: 3`**. Una tool dijo "no hay nada" de un día que otra tool decía que tenía 2 rangos y 3
+> citas. **68 segundos después la doctora corrió `propose_create_range(2026-08-11, 09:30–15:30)`**
+> — o sea **le dio la vuelta al agente a mano**. Y después `propose_create_booking(14:30)` → `error`.
+>
+> Misma forma en el incidente que originó la tabla (#32, 2026-07-31): su ÚNICA llamada del turno
+> fue `get_day_schedule(2026-08-01)` → `citas_n: 0, bloqueos_n: 0, rangosDisponibilidad_n: 0`, y de
+> ese vacío el agente ofreció **lunes 3, martes 4 y miércoles 5 a las 11:00 sin llamar una sola
+> tool para ninguna de esas fechas**.
+>
+> **Lección (ya es regla del repo):** si un fallo y un vacío legítimo aterrizan en el mismo `[]`,
+> el sistema afirma con seguridad algo FALSO sobre los datos del doctor. Hace falta un estado
+> explícito de *"no sé"*.
+>
+> ## #37.3 — El modelo inventó IDs, y en el formato de SLOTS
+> - `get_billing_status(bookingId: "2026-08-24 08:30")` — una fecha-hora como id.
+> - `get_billing_status(bookingId: "cmper8mol0001pj0lv9b6kgnd_20260717_070000")` — el id
+>   **compuesto estilo slot**, el mecanismo ya obsoleto filtrándose a la cabeza del modelo
+>   (`../../CITAS/` · memoria `slots obsoletos`).
+>
+> ✅ **Los DOS los rechazó el servidor — la regla 0 aguantó** — y el loop se recuperó solo:
+> `get_bookings` → id real → `propose_create_cfdi`, que a su vez chocó con lo que parece el hard
+> stop de `uso × régimen` (el digest trae `usoCfdi` y `regimenFiscal` junto al error). **El diseño
+> funcionó**; costó 4 iteraciones.
+>
+> ## #37.4 — Thrashing de `get_services`: 4 llamadas en 5 minutos
+> 23:56:45 · 23:57:07 · 23:57:33 · 23:58:23 — **cuatro turnos distintos**, siempre el mismo
+> `servicios_n: 2`. Es la evidencia MEDIDA que justifica el contexto de pantalla:
+> [`../GENERAL AGENTES/12-PLAN-contexto-de-pantalla.md`](../GENERAL%20AGENTES/12-PLAN-contexto-de-pantalla.md) §1.
+>
+> ## ⚖️ Qué dice esto del debate Haiku vs Sonnet
+> | Fallo | Causa real | ¿Del modelo? |
+> |---|---|---|
+> | Vacío tomado por verdad | regla 0 / arquitectura | ❌ |
+> | IDs inventados en formato slot | modelo de datos obsoleto | mayormente ❌ — **y el servidor lo cazó** |
+> | Thrash de `get_services` | falta contexto de pantalla | ❌ |
+> | `ok=true` con error | el instrumento | ❌ |
+>
+> **La evidencia NO sostiene "Haiku lo rompió".** Lo único con forma de modelo —inventar un ID—
+> fue atajado por el servidor. ⇒ **Antes de pagar Sonnet, replicar los escenarios de esta traza
+> contra el código de HOY**: si la clase de disponibilidad desapareció, la premisa cambia.
+> (El registro de lo que se midió de Haiku vs Sonnet: `../OPTIMIZACION COSTOS/02-BITACORA` —
+> Sonnet control **64/65 · 0 estables**, Haiku R2 **62/65 · 0 estables**; la diferencia es TASA DE
+> FLAKE, no capacidad.)
+>
+> ## ⚠️ Límites honestos de esta lectura
+> - **n minúsculo**: 65 llamadas, 37 turnos, 2 doctores, 13 días. Es direccional, no estadístico.
+> - El digest es un RESUMEN redactado a propósito: se ve **que** hubo error y su longitud, **nunca
+>   su texto** (`modules/facturas.ts:1442` interpola el nombre del paciente ahí).
+> - **No se ven las preguntas del doctor ni las respuestas del agente**, solo llamadas a tools. Lo
+>   de "ofreció lunes 3, martes 4, miércoles 5" sale del mensaje del commit `143f5cc3`, no de la tabla.
+> - Nada aquí explica **por qué** se dejó de usar el 2026-08-12.
+>
+> ## 📌 Contradicción entre docs, sin resolver
+> `../OPTIMIZACION COSTOS/02-BITACORA` titula una entrada **"VARIANZA CONTESTADA"** y afirma que la
+> pregunta #1 quedó resuelta — pero se apoya en **UNA** corrida de control de Sonnet.
+> `../GENERAL AGENTES/10-ANALISIS` §3, una semana DESPUÉS, dice que **nunca se midió la varianza de
+> Sonnet** y que cuesta ~$4.3. **El estricto tiene razón**: una corrida muestra que Sonnet también
+> flakea, no le da una banda. Hay que corregir uno de los dos docs.
+>
+> ## Cómo reproducir esta lectura
+> Scripts read-only con el método de `../../flujo de dinero permutaciones/TOOLING-acceso-railway-db.md`
+> (`railway run --service pgvector node <script>.cjs`). Tabla: `public.agent_tool_calls`; su
+> diseño y la invariante de privacidad están en `05-REFERENCIA-TECNICA` §10.
+
 > ### 🔄 2026-09-12 — los tiers cambiaron de nombre; el agente NO cambió
 > `FULL/CORE` → `FREE · BASICO · PRO · LAB` (TIERS/02-PLAN §8). Para el agente **FREE es CORE**
 > (misma composición); PRO y LAB son el scope completo; BASICO hoy no recorta nada. Los 13

@@ -62,7 +62,25 @@ Después, según lo que vengas a hacer:
 Conteos exactos (tools, evals, prefijo) y las fronteras completas:
 [`GENERAL AGENTES/02-CAPACIDADES`](GENERAL%20AGENTES/02-CAPACIDADES-matriz-que-puede-y-que-no.md) §4.
 
-## Qué sigue (2026-07-23 · actualizado 2026-07-27)
+## Qué sigue (2026-07-23 · actualizado 2026-07-27 · **2026-09-14**)
+
+- 🌱 **2026-09-14 — CONTEXTO DE PANTALLA: investigado, planeado, NADA construido (pausado por
+  prioridad).** Que el panel sepa qué pantalla está viendo el doctor, copiando la arquitectura
+  navegador↔LLM↔humano de *Gemini in Chrome* — con nuestro modelo y nuestras tools, **sin
+  integrarnos a Google**. El porqué:
+  [`GENERAL AGENTES/11-ANALISIS-contexto-de-pantalla.md`](GENERAL%20AGENTES/11-ANALISIS-contexto-de-pantalla.md) ·
+  el cómo (listo para retomarse):
+  [`GENERAL AGENTES/12-PLAN-contexto-de-pantalla.md`](GENERAL%20AGENTES/12-PLAN-contexto-de-pantalla.md).
+  Salieron tres cosas más de la misma sesión:
+  - 🔬 **Se leyó `agent_tool_calls` por primera vez** (bitácora **#37** en
+    [`AGENTE AGENDA/SESSION-REFRESCO.md`](AGENTE%20AGENDA/SESSION-REFRESCO.md)): hubo **una doctora
+    REAL** usándolo, el instrumento **miente** (`ok=true` con `error`), y **ninguna** de las 4
+    clases de fallo es del modelo ⇒ **antes de pagar Sonnet, replicar la traza contra el código de
+    hoy**.
+  - 🔴 **La disponibilidad tiene que VOLVER para los canales de paciente**, con un contrato de
+    tres estados: [`AGENTE ELEVENLABS/README.md`](AGENTE%20ELEVENLABS/README.md) §"Disponibilidad v2".
+  - ✂️ **Retirar tools de funcionalidad descontinuada** (conciliación) ya tiene disparador y corte
+    calculado: [`GENERAL AGENTES/09-ANALISIS`](GENERAL%20AGENTES/09-ANALISIS-recortar-superficie-del-agente.md) §3.1.
 
 - 🟡 **PARCIALMENTE CERRADO — bitácora #28 (2026-07-27): recortar tools y prosa no basta, falta
   recortar el PAYLOAD.** Primera prueba en vivo de una cuenta **CORE** (dr-prueba degradado y

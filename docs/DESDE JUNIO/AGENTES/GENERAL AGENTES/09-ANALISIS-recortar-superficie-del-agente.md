@@ -77,6 +77,33 @@ tocar esa prosa **es exactamente la bitácora #27** (la prosa apunta a tools aus
 NO declina, alucina con la tool más parecida). `gate:prosa` lo cazaría y `facturas` necesitaría su
 variante `partial`.
 
+### 3.1 🆕 2026-09-14 — apareció un DISPARADOR NUEVO, y no es el costo
+
+Este doc decidió "no se recorta" con un argumento de **costo**, y el costo resultó no ser el
+problema (§4). Pero el usuario planteó otro motivo, que este análisis no contemplaba:
+
+> *"Algunas tools ya no las vamos a usar porque parte de la funcionalidad se va a retirar — por
+> ejemplo la conciliación."*
+
+**Eso cambia el veredicto, y el corte ya está calculado justo aquí arriba.** Si una funcionalidad
+se retira del producto, su tool no es una candidata a poda por ahorro: es **código muerto que
+además le miente al modelo sobre lo que existe**. Y `get_conciliacion_bancaria` está en la lista
+limpia del §3 (las 7 lectura-respuesta de `flujo` + `fiscal`, **ninguna con escritura que dependa
+de ella**).
+
+Contexto de producto: `conciliacion` ya está oculta para todos por flag (`lib/ui-visibility.ts`) y
+`TIERS/02-PLAN` §3.3 la excluye en FREE/BÁSICO con su destino "a decidir aparte". **Este es ese
+aparte.**
+
+⚠️ **Al ejercerlo, el orden importa y ya hay precedente:**
+1. La dependencia de prosa de arriba **sigue aplicando** — cortar tool sin cortar prosa = bitácora #27.
+2. **Precedente de cómo retirar sin borrar:** `propose_prepare_factura_borrador` se PAUSÓ tras el
+   flag `BORRADORES_DE_FACTURA_HABILITADOS` (2026-08-13) dejando el código intacto y siguiendo
+   LEYENDO los borradores existentes (`02-CAPACIDADES` §2). Misma forma aquí.
+3. **Hacerlo ANTES de re-medir nada**, no después: mover el toolset mueve el prefijo, la prosa y
+   los evals. Tocar tools y medir en la misma pasada cuesta una corrida en vez de tres
+   ([`12-PLAN`](12-PLAN-contexto-de-pantalla.md) §10).
+
 ## 4. Los tres argumentos, con su peso real
 
 ### Costo — más débil de lo que parece, y ahora está medido

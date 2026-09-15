@@ -58,6 +58,16 @@ para ejercitar el loop COMPLETO contra dr-prueba sin verificación de negocio.
 sin rango/slot (ver `../../CITAS/SESSION-REFRESCO.md`) — un agente paciente-facing heredaría el
 mismo "no hay hueco" falso.
 
+🔴 **Y la otra mitad, anotada 2026-09-14: la DISPONIBILIDAD tiene que volver, con contrato nuevo.**
+`get_availability` se eliminó el 2026-08-05 porque el asistente del DOCTOR mejoró sin ella (él dice
+la hora y el servidor valida). **Un paciente no propone hora: hay que ofrecerle opciones**, así que
+este canal la necesita de vuelta — y con los **tres estados** (`sin_rangos_publicados` ·
+`sin_huecos` · `indeterminado`), nunca un `[]` que confunda "no hay" con "no pude calcular". Un
+"no hay horarios" falso al doctor es un estorbo; **a un paciente lo pierde en silencio.** El
+contrato completo, con la traza real que lo motivó, está en
+[`../AGENTE ELEVENLABS/README.md`](../AGENTE%20ELEVENLABS/README.md) §"Disponibilidad v2" — **se
+decide UNA vez para voz y WhatsApp**, igual que la política de identidad.
+
 ## Docs
 
 | Doc | Qué es |

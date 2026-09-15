@@ -147,6 +147,43 @@ mueve el `63/65` no es un ahorro.
 3. Comparar en la bitácora. Decidir arquitectura final (¿un solo modelo? ¿routing por tier?
    emisión CFDI se queda en el más confiable).
 
+## Lever 4 — 🆕 inferencia ON-DEVICE para las 8 `*-chat` de formulario (anotado 2026-09-14)
+
+⚠️ **No es del asistente.** Este plan trata del costo del agente; esto ataca **otras** superficies
+y se anota aquí porque es donde se registran los experimentos de costo. El asistente NO es
+candidato (necesita tools, loop y datos de la BD).
+
+**Qué:** la **Prompt API** de Chrome (Gemini Nano, **estable en Chrome 148**) corre un LLM
+**en la máquina del doctor**: gratis, sin red, con salida forzada por JSON Schema
+(`responseConstraint`), y *"no data is sent to Google or any third party"*. **Español soportado**
+(`en`, `ja`, `es`, `de`, `fr`).
+
+**Por qué encaja justo con esas 8:** `encounter-chat`, `prescription-chat`, `patient-chat`,
+`task-chat`, `ledger-chat`, `sale-chat`, `purchase-chat`, `quotation-chat` (hoy `gpt-4o` /
+`gpt-4o-mini`) hacen exactamente un trabajo: **texto libre → campos de un formulario**. Sin BD,
+sin tools, sin loop. Y hay un beneficio que no es de costo: `patient-chat` y `encounter-chat`
+manejan contenido clínico — on-device, **ese contenido no sale de la máquina**.
+
+**El vínculo con la deuda conocida:** la debilidad de la arquitectura C es que *el modelo aplana
+shapes o inventa nombres y el cliente aplica NADA mientras el chat dice "listo"*
+(`../GENERAL AGENTES/06-MAPA-superficie-IA.md`). `responseConstraint` es un schema **impuesto por
+el runtime** — más cerca de la migración C→B que ya está prescrita que del estado actual.
+
+⚠️ **Los tres catches, y son grandes:**
+
+1. **Piso de hardware brutal:** 22 GB de disco libre + 16 GB de RAM (4+ núcleos) **o** GPU con
+   4 GB de VRAM. Windows 10+/macOS 13+/Linux/ChromeOS.
+2. **Chrome-only.** Apple no ha anunciado nada para WebKit; Mozilla "evaluando".
+3. ⇒ **Solo puede ser mejora progresiva con fallback a la nube, nunca el único camino** — lo que
+   significa **dos caminos que probar** en flujos que ya tienen modos de fallo silencioso.
+
+**Cómo medirlo si se retoma:** UNA superficie (la más barata y menos clínica —
+`task-chat`/`quotation-chat`), con el mismo set de entradas contra los dos caminos, comparando
+**campos efectivamente aplicados** (no "el chat dijo listo" — regla del repo: un contador cuenta
+lo que se intentó, no lo que salió). Registrar en [`02-BITACORA`](02-BITACORA-experimentos.md).
+
+*Origen y fuentes: [`../GENERAL AGENTES/11-ANALISIS-contexto-de-pantalla.md`](../GENERAL%20AGENTES/11-ANALISIS-contexto-de-pantalla.md) §11.*
+
 ## Fuera de alcance técnico (anotado, decisión de producto)
 
 El agente como **tier/add-on** en vez de incluido en el plan base — la palanca más grande y no es
