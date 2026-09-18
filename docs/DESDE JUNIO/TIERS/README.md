@@ -8,6 +8,58 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## 🔴 URGENTE PARA LA SIGUIENTE SESIÓN (no es de TIERS): un correo de Google puede quedar dentro de la cuenta de OTRO
+
+**Encontrado el 2026-09-18 probando #4, y probado en vivo.** Al entrar con `quebradita.a@gmail.com`
+(rol DOCTOR, cuenta `dr-quebradita`) se entraba a la cuenta `gerardo` del usuario
+`lopez.fafutis@gmail.com` (ADMIN) — también en incógnito y después de cerrar sesión.
+
+**Causa (medida en la BD):** la tabla `accounts` tenía **las dos** identidades de Google
+(`107724…` y `114492…`) ligadas al usuario `lopez.fafutis`, creadas con minutos de diferencia el
+**2026-04-07** (el día de la migración a sesiones de base de datos). Auth.js, cuando alguien entra
+con una cuenta OAuth que no está ligada **mientras ya hay una sesión abierta**, NO cambia de usuario:
+**liga esa identidad al usuario que ya estaba dentro**. Desde entonces, cada login con quebradita.a
+resolvía (por `provider + providerAccountId`) al usuario lopez.fafutis. Cerrar sesión no lo arregla:
+el vínculo está guardado.
+
+**Efecto secundario:** el `signIn` callback de `packages/auth/src/nextauth-config.ts` copia los
+tokens de Google (Calendar/Gmail) **al usuario resuelto** — o sea, los tokens de una persona
+terminan en el usuario de otra.
+
+**Por qué es urgente:** en una computadora compartida del consultorio, si un auxiliar entra con su
+Google mientras la sesión del doctor sigue abierta, su Google queda ligado **al usuario del
+doctor** y desde ahí entra como el doctor — con expedientes, facturación y cobro. Silencioso y
+permanente.
+
+**Ya se arregló el DATO** (no el código): el vínculo `114492…` se movió al usuario quebradita.a
+con un script corrido por el usuario (`filas movidas: 1`); verificado entrando en incógnito.
+
+**Lo que falta — el CÓDIGO, para que no pueda volver a pasar:**
+
+1. **Nunca ligar una identidad OAuth a un usuario cuyo correo no coincide.** En el `signIn`
+   callback: si el correo del perfil de Google ≠ el correo del usuario resuelto, **rechazar**
+   (`return false` / a una página de error que diga «cierra la sesión actual antes de entrar con
+   otra cuenta»). Verificar en los tipos/código instalado de Auth.js qué trae `user` vs `profile`
+   en ese callback — no de memoria.
+2. **Revisar `allowDangerousEmailAccountLinking: true`** (liga por correo igual). Es aceptable con
+   Google como único proveedor, pero confirmar que no participa en este caso.
+3. **Auditar la BD**: `SELECT user_id, count(*) FROM accounts WHERE provider='google' GROUP BY 1
+   HAVING count(*) > 1` — cualquier usuario con más de una identidad de Google es el mismo defecto.
+   El 2026-09-18 sólo se revisaron estas dos cuentas.
+4. **Probarlo en vivo**: con la sesión de A abierta, entrar con el Google de B ⇒ debe rechazar, no
+   entrar como A.
+
+**Otro pendiente chico, mismo hallazgo:** `billing/*` responde 403 a un usuario con rol ADMIN
+(`getAuthenticatedDoctorStripe` exige rol DOCTOR) y «Mi Cuenta» lo pinta como *«No pudimos leer el
+estado de tu pago. Vuelve a cargar»* — un 403 definitivo presentado como falla pasajera.
+
+## ✅ 2026-09-18 (cierre): #1–#4 de `04` §12.6 en prod y probados
+
+Camino al pago · aviso del admin · subir de plan · comprar cualquier plan en el que quepas —
+los cuatro **probados a mano**, dos con cobro real en modo prueba. Detalle, commits y lecciones en
+[`04` §12.7](04-PLAN-cambio-de-plan.md). Sigue **#5 (borrar libera espacio)**; antes, el URGENTE
+de arriba.
+
 ## 🗺️ HANDOFF — 2026-09-18 (noche): el mapa completo de permutaciones
 
 👉 **[`04` §12](04-PLAN-cambio-de-plan.md)** — todas las permutaciones (GRATIS · BÁSICO · PRO ·

@@ -45,9 +45,9 @@ Necesita su propia sesión, con el PDF enfrente. **Nunca en un commit de cobro.*
 
 ### Lo siguiente a construir
 
-**§12.6**, en ese orden: camino al pago → aviso del admin → subir de plan → vender cualquier plan en
-el que quepa → borrar libera → dejar de pagar (§11) → bajar de plan → una cuenta por doctor
-(`05-PLAN-una-cuenta-por-doctor.md`). Cada uno se presenta como plan y espera el OK antes de código.
+**#1–#4 de §12.6 están en prod y probados (§12.7).** Sigue **#5 (borrar libera espacio)**, luego
+dejar de pagar (§11) → bajar de plan → una cuenta por doctor. Cada uno se presenta como plan y espera
+el OK antes de código. ⚠️ Antes que todo eso, ver el **URGENTE** del README (el login).
 
 ---
 
@@ -553,16 +553,53 @@ Stripe (modo prueba), configurado por el usuario el 2026-09-18: **Smart Retries,
 
 ### 12.6 Qué construir, en orden
 
-| # | Qué | Casos | Toca Stripe | Tamaño |
-|---|---|---|---|---|
-| 1 | **Camino al pago**: los tres avisos de tope/candado llevan a Mi Cuenta → pagar; P6 dice «libera espacio» | F1–F3 · B5 · P6 | No | Chico |
-| 2 | **Aviso en el admin** para cambios a mano sobre suscripciones vivas | B6 · P7 | No | Chico |
-| 3 | **Subir de plan** BÁSICO→PRO, prorrateado, quitando la cancelación | B4 a–c | Sí | Mediano |
-| 4 | **Vender cualquier plan en el que quepa** a quien no tiene suscripción viva, y que ese pago **fije** el plan | P3a · R4 | Sí (webhook) | Chico-mediano |
-| 5 | **Borrar libera espacio** | R3 · F2 · B5 | No | Mediano (su propia deuda, H5) |
-| 6 | **Dejar de pagar**: la fecha correcta (B2a), el reloj diario, margen, GRATIS/congelada, pantalla de congelado, descarga, aviso al doctor | B2 · B3b · B3d · P2 · §11 | Lee | Grande — partirlo |
-| 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande |
-| 8 | **Una cuenta por doctor** | `05` | No | Grande, empieza por investigar |
+| # | Qué | Casos | Toca Stripe | Tamaño | Estado |
+|---|---|---|---|---|---|
+| 1 | **Camino al pago**: los tres avisos de tope/candado llevan a Mi Cuenta → pagar; P6 dice «libera espacio» | F1–F3 · B5 · P6 | No | Chico | ✅ `280d13ac` — probado |
+| 2 | **Aviso en el admin** para cambios a mano sobre suscripciones vivas | B6 · P7 | No | Chico | ✅ `5ed3d09f` — probado |
+| 3 | **Subir de plan** BÁSICO→PRO, prorrateado, quitando la cancelación | B4 a–c | Sí | Mediano | ✅ `95152259` — probado con cobro |
+| 4 | **Vender cualquier plan en el que quepa** a quien no tiene suscripción viva, y que ese pago **fije** el plan | P3a · R4 | Sí (webhook) | Chico-mediano | ✅ `2bbbff32` — probado con cobro |
+| 5 | **Borrar libera espacio** | R3 · F2 · B5 | No | Mediano (su propia deuda, H5) | ⬜ siguiente |
+| 6 | **Dejar de pagar**: la fecha correcta (B2a), el reloj diario, margen, GRATIS/congelada, pantalla de congelado, descarga, aviso al doctor | B2 · B3b · B3d · P2 · §11 | Lee | Grande — partirlo | ⬜ |
+| 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande | ⬜ |
+| 8 | **Una cuenta por doctor** | `05` | No | Grande, empieza por investigar | ⬜ |
+
+### 12.7 As-built de #1–#4 (2026-09-18)
+
+Todo en prod y **probado a mano por el usuario** el mismo día. Método de cada uno: plan → OK →
+código → type-check + gates → **un** review → OK → commit/push → prueba con clic.
+
+- **#1 `280d13ac`** — `VerPlanesLink` (componente único) en el candado de página
+  (`TierUpgradeNotice`), el de IA (`AiUpgradeDialog`), el alta de paciente, la importación y el
+  `MediaUploader`; un member ve «pídele al titular». Ancla `#pago` en Mi Cuenta.
+  `explicarRechazoDeSubida` dice «cambia de plan en Mi Cuenta» sólo si hay plan mayor que vender
+  (a PRO/LAB: «el límite más alto que ofrecemos»). **Hallazgo lateral:** uploadthing v7 se TRAGA el
+  rechazo del servidor (`startUpload` devuelve `undefined`); el `MediaUploader` nunca le había
+  mostrado al doctor por qué no subía — ahora sí. **Pendiente:** el bloque «Escríbenos» del final de
+  Mi Cuenta sigue con correo; se quita al pasar a vivo (hoy es la única salida de quien no ve el
+  cobro).
+- **#2 `5ed3d09f`** — `apps/admin/src/lib/aviso-cobro.ts`. Sólo con suscripción `active`: «Este
+  doctor paga X por Stripe. Cambiar su plan aquí no cambia lo que Stripe le cobra», y «pagó hasta…
+  no hay reembolsos» si se elige por DEBAJO del plan pagado. `GET /api/admin/doctor-tier` devuelve
+  `planPagado`. 🔴 **Lección:** la primera versión tenía una frase por caso y dos reviews seguidos le
+  encontraron frases falsas en los bordes; se dejó en **dos frases ciertas en todo estado** —
+  cada rama es otra afirmación que puede mentir.
+- **#3 `95152259`** — `POST /api/billing/cambiar-plan`: preview con `invoices.createPreview` y
+  confirmación con `subscriptions.update` **todo o nada** (`error_if_incomplete`, sin 3DS a
+  propósito), mismo `proration_date` que el preview, quita la cancelación agendada (R8). El plan lo
+  sube el webhook ya existente. Probado: dr-prueba cobró **$145.26** (`subscription_update`), el
+  webhook subió BÁSICO→PRO a los 3 s, la renovación siguió el 17/10 a $299.
+- **#4 `2bbbff32`** — `cabeEnPlan()` en `packages/database` (mismos contadores que los topes);
+  `planesVendibles({ incluirMenores })` sólo sin suscripción viva y **nunca para LAB**; el webhook
+  deja que el **primer pago** (`subscription_create`) fije un plan menor; las renovaciones siguen
+  sin poder bajar. Probado: dr-quebradita en PRO puesto a mano compró BÁSICO ($149) y el webhook lo
+  bajó PRO→BÁSICO a los 4 s. **Aceptado a propósito:** no se vuelve a medir el almacenamiento al
+  llegar el pago.
+
+**Estado de las cuentas de prueba al cerrar:** dr-prueba **PRO** pagando (renueva 17/10 a $299);
+dr-quebradita **BÁSICO** pagando (renueva 18/10 a $149); ambas en modo prueba y en
+`STRIPE_BILLING_TEST_DOCTORS` junto con `gerardo`. ⚠️ `gerardo` está ligado a un usuario **ADMIN**:
+`billing/*` le responde 403 y Mi Cuenta dice «no pudimos leer…» — no sirve para probar cobro.
 
 **Cómo se prueba lo que depende del tiempo** (B1, B2/B2a, B3b, el margen): **test clocks** de Stripe —
 un cliente en un reloj simulado que se adelanta 30 días en segundos—, no esperando un mes.
