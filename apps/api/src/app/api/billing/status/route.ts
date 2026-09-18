@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, DOCTOR_TIERS } from '@healthcare/database';
 import { stripeCobro, modoCobro, doctorPuedeUsarCobro } from '@/lib/stripe-cobro';
 import { puertaDeCobro } from '@/lib/cobro-auth';
 import { planesVendibles, bloqueaOtroCheckout, filaDeCobroVigente } from '@/lib/cobro-planes';
@@ -50,6 +50,18 @@ export async function GET(request: Request) {
         : null,
       // Con una suscripción viva no se ofrece otro checkout: cobraría doble.
       planes: viva ? [] : planes,
+      // TIERS 04 §12.6 #3: con suscripción ACTIVA, los planes POR ENCIMA del
+      // actual se ofrecen como «Cambiar a…» (POST /api/billing/cambiar-plan),
+      // que cobra el prorrateo a la tarjeta guardada. `past_due` no: primero
+      // hay que ponerse al corriente.
+      subir:
+        fila?.status === 'active'
+          ? planes.filter(
+              (p) =>
+                (DOCTOR_TIERS as readonly string[]).indexOf(p.tier) >
+                (DOCTOR_TIERS as readonly string[]).indexOf(ctx.tier),
+            )
+          : [],
       puedeSuscribirse: !viva && planes.length > 0,
       // El portal necesita un Customer de Stripe, que existe desde el primer
       // intento de checkout.

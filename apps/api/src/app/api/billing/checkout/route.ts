@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'Ya tienes una suscripción activa. Para cambiar de plan escríbenos y lo hacemos por ti.',
+            'Ya tienes una suscripción activa, así que no puedes abrir otra.',
         },
         { status: 409 },
       );

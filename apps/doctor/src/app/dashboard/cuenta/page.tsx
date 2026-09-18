@@ -333,6 +333,26 @@ interface EstadoCobro {
   }[];
   puedeSuscribirse?: boolean;
   tienePortal?: boolean;
+  /** TIERS 04 §12.6 #3: planes a los que puede SUBIR con su suscripción activa. */
+  subir?: {
+    tier: string;
+    label: string;
+    montoCentavos: number;
+    moneda: string;
+    intervalo: string;
+  }[];
+}
+
+/** Lo que devuelve el preview de `POST /api/billing/cambiar-plan`. */
+interface PreviewCambio {
+  tier: string;
+  label: string;
+  montoHoyCentavos: number;
+  moneda: string;
+  precioCentavos: number;
+  intervalo: string;
+  renuevaEl: string;
+  prorationDate: number;
 }
 
 const ETIQUETA_STATUS: Record<string, string> = {
@@ -362,9 +382,13 @@ function fecha(iso: string | null | undefined): string | null {
     : null;
 }
 
+/** Un monto suelto, sin periodicidad (p.ej. el cobro de HOY al subir de plan). */
+function monto(centavos: number, moneda: string): string {
+  return (centavos / 100).toLocaleString("es-MX", { style: "currency", currency: moneda });
+}
+
 function precio(centavos: number, moneda: string, intervalo: string): string {
-  const monto = (centavos / 100).toLocaleString("es-MX", { style: "currency", currency: moneda });
-  return `${monto} ${intervalo === "month" ? "al mes" : intervalo === "year" ? "al año" : `/ ${intervalo}`}`;
+  return `${monto(centavos, moneda)} ${intervalo === "month" ? "al mes" : intervalo === "year" ? "al año" : `/ ${intervalo}`}`;
 }
 
 /**
@@ -391,6 +415,42 @@ function SeccionPago() {
   const [retorno, setRetorno] = useState<"ok" | "cancelado" | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
+  // Subir de plan (§12.6 #3): primero el preview con el monto, luego confirmar.
+  const [cambio, setCambio] = useState<PreviewCambio | null>(null);
+  const [subido, setSubido] = useState<string | null>(null);
+
+  async function cambiarPlan(tier: string, confirmar: boolean) {
+    setOcupado(confirmar ? "confirmar" : tier);
+    setErrorAccion(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/billing/cambiar-plan`, {
+        method: "POST",
+        body: JSON.stringify(
+          confirmar ? { tier, confirmar: true, prorationDate: cambio?.prorationDate } : { tier },
+        ),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErrorAccion(data.error || "No se pudo cambiar el plan. Intenta de nuevo.");
+        // Al fallar la confirmación se CIERRA el preview: reintentar obliga a
+        // recalcular, y el cálculo nuevo trae otra llave de idempotencia. Con el
+        // preview abierto, Stripe devolvía el MISMO rechazo guardado sin volver
+        // a intentar la tarjeta (review de #3, hallazgo 1).
+        if (confirmar) setCambio(null);
+        return;
+      }
+      if (confirmar) {
+        setSubido(cambio?.label ?? tier);
+        setCambio(null);
+      } else {
+        setCambio(data as PreviewCambio);
+      }
+    } catch {
+      setErrorAccion("No se pudo cambiar el plan. Intenta de nuevo.");
+    } finally {
+      setOcupado(null);
+    }
+  }
 
   // La sección se pinta DESPUÉS de leer el estado, así que el salto nativo al
   // `#pago` de la URL ya pasó cuando existe: se hace a mano en cuanto aparece.
@@ -566,6 +626,86 @@ function SeccionPago() {
             <p className="text-amber-700 mt-1">
               No pudimos cobrar el último pago. Revisa tu tarjeta para no perder el servicio.
             </p>
+          )}
+
+          {/* TIERS 04 §12.6 #3 — subir de plan con la suscripción activa. El
+              plan NO se afirma cambiado: lo sube el webhook al confirmarse el
+              cobro, igual que en el checkout (mismo aviso azul). */}
+          {subido ? (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-900">
+              <p className="font-medium">Stripe cobró el cambio a {subido}.</p>
+              <p className="mt-1 text-blue-800">
+                Tu plan se actualiza en cuanto Stripe nos confirma el cobro, normalmente en unos
+                segundos. Si arriba todavía no ves el cambio, actualiza la página.
+              </p>
+              <button
+                onClick={() => (window.location.href = "/dashboard/cuenta")}
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 hover:text-blue-900"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Actualizar
+              </button>
+            </div>
+          ) : cambio ? (
+            <div className="mt-4 p-3 border border-gray-200 rounded-md">
+              <p className="text-gray-900">
+                <strong>
+                  Hoy se te cobra {monto(cambio.montoHoyCentavos, cambio.moneda)}
+                </strong>{" "}
+                por lo que resta de tu periodo, para pasar al plan {cambio.label}.
+              </p>
+              <p className="mt-1 text-gray-600">
+                Desde el {fecha(cambio.renuevaEl)} pagarás{" "}
+                {precio(cambio.precioCentavos, cambio.moneda, cambio.intervalo)}.
+              </p>
+              {bajaAgendada && (
+                <p className="mt-1 text-gray-600">
+                  Al cambiar de plan se quita tu cancelación: tu suscripción seguirá renovándose.
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  disabled={ocupado !== null}
+                  onClick={() => cambiarPlan(cambio.tier, true)}
+                  className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {ocupado === "confirmar" ? "Cobrando…" : "Confirmar y pagar"}
+                </button>
+                <button
+                  disabled={ocupado !== null}
+                  onClick={() => setCambio(null)}
+                  className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            sub.status === "active" &&
+            (estado.subir ?? []).length > 0 && (
+              <div className="mt-4 space-y-2">
+                {(estado.subir ?? []).map((plan) => (
+                  <div
+                    key={plan.tier}
+                    className="flex items-center justify-between gap-3 flex-wrap p-3 border border-gray-200 rounded-md"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Plan {plan.label}</p>
+                      <p className="text-xs text-gray-500">
+                        {precio(plan.montoCentavos, plan.moneda, plan.intervalo)}
+                      </p>
+                    </div>
+                    <button
+                      disabled={ocupado !== null}
+                      onClick={() => cambiarPlan(plan.tier, false)}
+                      className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {ocupado === plan.tier ? "Calculando…" : `Cambiar a ${plan.label}`}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
           )}
         </div>
       )}
