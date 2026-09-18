@@ -24,17 +24,25 @@ let cliente: Stripe | null | undefined;
 /** `null` ⇒ el cobro no está configurado. Nunca lanza. */
 export function stripeCobro(): Stripe | null {
   if (cliente !== undefined) return cliente;
-  const clave = process.env.STRIPE_BILLING_SECRET_KEY;
+  // `.trim()`: un espacio o un salto de línea pegado en la UI de Railway
+  // viaja con el valor. Antes eso además tiraba el modo a 'live' y apagaba la
+  // lista de doctores de prueba (hallazgo #2 del review).
+  const clave = process.env.STRIPE_BILLING_SECRET_KEY?.trim();
   cliente = clave ? new Stripe(clave, { typescript: true }) : null;
   return cliente;
 }
 
 /** 'test' | 'live' según el prefijo de la clave; `null` si no hay clave. */
 export function modoCobro(): 'test' | 'live' | null {
-  const clave = process.env.STRIPE_BILLING_SECRET_KEY ?? '';
+  const clave = process.env.STRIPE_BILLING_SECRET_KEY?.trim() ?? '';
   if (clave.startsWith('sk_test') || clave.startsWith('rk_test')) return 'test';
   if (clave.startsWith('sk_live') || clave.startsWith('rk_live')) return 'live';
-  return clave ? 'live' : null;
+  // 🔴 Un prefijo que no reconocemos cae en 'test', NO en 'live'. Fallar hacia
+  // 'live' apagaba la lista de STRIPE_BILLING_TEST_DOCTORS —que sólo existe en
+  // modo prueba—, así que una clave rara dejaba a CUALQUIER doctor "pagar" con
+  // 4242 4242… y subir de plan gratis. Equivocarse hacia 'test' sólo esconde el
+  // cobro; equivocarse hacia 'live' lo regala (hallazgo #2 del review).
+  return clave ? 'test' : null;
 }
 
 /**

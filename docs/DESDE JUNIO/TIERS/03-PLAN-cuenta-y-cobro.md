@@ -393,7 +393,7 @@ del runbook, no solo antes.**
 
 ## 7. As-built
 
-### C3 — cobrar de verdad: checkout, webhook y el plan que sube al pagar (2026-09-15)
+### C3 — cobrar de verdad: checkout, webhook y el plan que sube al pagar (2026-09-15) — EN PROD `2edc58b6` (api · doctor · admin SUCCESS) · inactivo hasta el runbook
 
 **Sin schema nuevo:** usa las tres tablas de C2, que ya estaban en prod.
 

@@ -38,9 +38,52 @@ export async function POST(request: Request) {
     // modo cuenta como inexistente y su Customer se reemplaza abajo.
     const { fila, customerObsoleto } = await filaDeCobroVigente(prisma, cliente, ctx.doctorId);
 
+    // 🔴 `incomplete` = la suscripción se CREÓ pero nunca se cobró: el pago
+    // pedía 3DS o la tarjeta se rechazó DESPUÉS de completar el Checkout.
+    // Stripe la expira sola en ~23 h y, mientras tanto, contaba como
+    // suscripción viva: el doctor se quedaba sin botón de «Suscribirme» y con
+    // un 409 que le AFIRMABA que ya tenía una suscripción activa —falso, nadie
+    // le cobró— y sin forma de reintentar (el portal de Stripe tampoco puede
+    // pagar la primera factura de una `incomplete`). Se cancela ANTES de abrir
+    // otra, así que nunca quedan dos (hallazgo #1 del review de C3).
+    //
+    // ⚠️ Se le pregunta a STRIPE en qué status está de verdad antes de
+    // cancelar: si nos perdimos un webhook, nuestra fila puede decir
+    // `incomplete` mientras allá ya está `active` — y entonces cancelar sería
+    // darle de baja una suscripción PAGADA. Si Stripe dice que está viva, se
+    // guarda ese status y el 409 de abajo hace lo correcto, con el mensaje que
+    // sí es cierto.
+    let statusVigente = fila?.status ?? null;
+    if (fila && statusVigente === 'incomplete' && fila.stripeSubscriptionId) {
+      const enStripe = await cliente.subscriptions
+        .retrieve(fila.stripeSubscriptionId)
+        .catch((e: unknown) => {
+          // Ya no existe allá ⇒ el objetivo (que no bloquee) ya se cumplió.
+          if (esErrorDeStripe(e) && e.code === 'resource_missing') return null;
+          throw e;
+        });
+
+      if (enStripe && enStripe.status === 'incomplete') {
+        await cliente.subscriptions.cancel(fila.stripeSubscriptionId);
+        console.warn(
+          '[COBRO] suscripción incomplete cancelada para permitir el reintento',
+          ctx.slug,
+          fila.stripeSubscriptionId,
+        );
+      }
+
+      // `incomplete_expired` (expiró sola) y la que ya no existe caen aquí
+      // también: en los tres casos deja de bloquear.
+      statusVigente = enStripe && enStripe.status !== 'incomplete' ? enStripe.status : 'canceled';
+      await prisma.subscription.update({
+        where: { id: fila.id },
+        data: { status: statusVigente },
+      });
+    }
+
     // Decisión del usuario: en C3 sólo se suscribe quien NO tiene suscripción.
     // Un segundo checkout crearía una segunda suscripción y cobraría doble.
-    if (esSuscripcionViva(fila?.status)) {
+    if (esSuscripcionViva(statusVigente)) {
       return NextResponse.json(
         {
           error:

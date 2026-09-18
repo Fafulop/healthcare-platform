@@ -83,6 +83,25 @@ export function esSuscripcionViva(status: string | null | undefined): boolean {
 }
 
 /**
+ * ¿Su suscripción impide OFRECERLE otro plan? Es `esSuscripcionViva` menos
+ * `incomplete`, y la diferencia es la de "se le está cobrando" contra "existe
+ * un objeto en Stripe".
+ *
+ * 🔴 `incomplete` NUNCA se cobró: el Checkout se completó pero el pago quedó
+ * pendiente de 3DS o la tarjeta se rechazó. Contarla aquí le quitaba al doctor
+ * el botón de «Suscribirme» durante las ~23 h que Stripe tarda en expirarla,
+ * sin decirle por qué y sin nada que pudiera hacer —ni el portal de Stripe
+ * puede pagar esa primera factura— (hallazgo #1 del review de C3).
+ *
+ * No hay riesgo de cobro doble: `POST /api/billing/checkout` cancela esa
+ * suscripción muerta en Stripe ANTES de abrir la nueva, y sólo después de
+ * confirmar contra Stripe que sigue en `incomplete`.
+ */
+export function bloqueaOtroCheckout(status: string | null | undefined): boolean {
+  return esSuscripcionViva(status) && status !== 'incomplete';
+}
+
+/**
  * La fila de cobro del doctor, SÓLO si su Customer existe en el modo actual de
  * Stripe. Si no existe, la fila es de OTRO modo (o se borró en el dashboard) y
  * se trata como si no hubiera fila.

@@ -12,7 +12,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { stripeCobro, modoCobro, doctorPuedeUsarCobro } from '@/lib/stripe-cobro';
 import { puertaDeCobro } from '@/lib/cobro-auth';
-import { planesVendibles, esSuscripcionViva, filaDeCobroVigente } from '@/lib/cobro-planes';
+import { planesVendibles, bloqueaOtroCheckout, filaDeCobroVigente } from '@/lib/cobro-planes';
 
 export async function GET(request: Request) {
   const puerta = await puertaDeCobro(request);
@@ -32,7 +32,9 @@ export async function GET(request: Request) {
       filaDeCobroVigente(prisma, cliente, ctx.doctorId),
       planesVendibles(prisma, cliente, ctx.tier),
     ]);
-    const viva = esSuscripcionViva(fila?.status);
+    // `bloqueaOtroCheckout`, no `esSuscripcionViva`: una `incomplete` que nunca
+    // se cobró NO puede dejar la pantalla sin plan que comprar (hallazgo #1).
+    const viva = bloqueaOtroCheckout(fila?.status);
 
     return NextResponse.json({
       disponible: true,

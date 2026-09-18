@@ -8,6 +8,140 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## 🔄 HANDOFF — 2026-09-17: el cobro se probó en vivo, su review y los arreglos
+
+El usuario **pagó de verdad** en modo prueba (dr-prueba: FREE → BÁSICO) y luego **canceló desde
+Stripe**. La cancelación **no se detectó**: de ahí salió todo lo de abajo.
+
+### 🔴 Lo que enseñó la cancelación real (medido en prod, no leído en la doc de Stripe)
+
+En la API `2026-04-22.dahlia`, **una cancelación programada NO prende `cancel_at_period_end`**:
+Stripe deja ese flag en `false`, el status en `active`, y expresa la baja en `cancel_at` +
+`canceled_at`. Leer sólo el flag guardaba la baja como «no cancela» y «Mi Cuenta» le prometía al
+doctor un «próximo cargo» el día exacto en que se le acababa el servicio.
+
+Ya van **TRES** campos de dahlia que están donde la intuición dice que no (`current_period_end` en
+el ITEM · la suscripción de una factura en `parent.subscription_details` · esto). Los tres son el
+mismo error: **un campo que existe, responde sin lanzar, y miente**. Por eso nació `gate:cobro`.
+
+### El review (`/code-review high`) — 9 hallazgos, 4 arreglados
+
+| # | Qué | Estado |
+|---|---|---|
+| 1 | `incomplete` en `STATUS_VIVOS` encerraba ~23 h al doctor cuyo primer cargo falló, con un 409 que le afirmaba algo **falso** («ya tienes una suscripción activa») y sin salida | ✅ arreglado |
+| 2 | `modoCobro()` fallaba hacia `'live'`: un espacio pegado en Railway apagaba la lista de doctores de prueba y **regalaba planes** con la 4242 | ✅ arreglado |
+| 3 | El badge «Cancela» se quedaba para siempre con fecha pasada en una suscripción ya terminada — **la imagen en espejo** del bug que venía a arreglar | ✅ arreglado |
+| 6 | Dos guardas de dinero descansan en el ORDEN de `DOCTOR_TIERS`, sin nada que lo sostenga | ✅ arreglado (comentario + gate) |
+| 7 | `STATUS_VIVOS` duplicado a mano en la UI del doctor | ⬜ abierto (menor) |
+| 9 | `planesVendibles` se calcula y se tira en cada carga de Mi Cuenta | ⬜ abierto (eficiencia) |
+| 4 · 5 · 8 | **No son de TIERS**: son del trabajo BBVA del informe médico, que sigue sin commitear en el mismo árbol. El review mira TODO lo no commiteado y los juntó en una sola lista | ⬜ abiertos, en otra carpeta |
+
+### 🧭 Lo que dejó esta sesión como método
+
+- **`gate:cobro`** (`scripts/check-cobro-webhook-shapes.ts`, en `pnpm gates`): le pasa a
+  `extraerDatos` payloads con la forma REAL que devolvió prod. Un type-check no ve estos bugs
+  —los campos son válidos en el tipo— y no hay suite de unit tests en el monorepo.
+- **Cada caso del gate se verificó ROMPIENDO su arreglo** y viendo el gate en rojo: un gate escrito
+  junto a su propio arreglo no prueba nada mientras no se le vea fallar. Son 6 mutaciones, 6 rojos
+  en el caso correcto. Para `incomplete` se pin en las DOS direcciones (no bloquear la venta, y
+  seguir contando como viva para el webhook), porque la sobre-corrección también rompía algo.
+- **Antes de cancelar en Stripe se le PREGUNTA a Stripe.** El arreglo de #1 cancela la suscripción
+  a medio pagar, pero sólo después de confirmar contra Stripe que sigue en `incomplete`: si nos
+  perdimos un webhook, nuestra fila puede decir `incomplete` mientras allá ya está `active`, y
+  cancelar a ciegas sería dar de baja una suscripción **PAGADA**.
+- **El arreglo de #1 no servía de nada sólo en el checkout:** con una fila `incomplete`,
+  `/api/billing/status` devolvía `planes: []`, así que **no había botón que apretar** y el checkout
+  arreglado era inalcanzable. Un arreglo en el servidor que la pantalla no deja alcanzar no es un
+  arreglo.
+
+### ⚠️ Lo que NO está probado
+
+Nada de esto se ha probado con un clic. `gates` + `type-check` dicen que el código es coherente
+consigo mismo, no que funcione. Falta el camino de #1 en vivo: tarjeta **`4000 0025 0000 3155`**
+(fuerza la confirmación del banco), **abandonar** ese paso, y ver si vuelve el botón «Suscribirme»
+con el aviso de que no hubo cargo. El usuario lo prueba en prod.
+
+## 🔄 HANDOFF — cierre de sesión 2026-09-15 (COBRO: C1 · C2 · C3) — LEE ESTO PRIMERO
+
+**Plan vivo:** [`03-PLAN-cuenta-y-cobro.md`](03-PLAN-cuenta-y-cobro.md). El as-built de cada PR, sus
+hallazgos de review y el runbook para prender el cobro están en su **§7**; las decisiones que
+bloquean, en su **§6**.
+
+### Estado
+
+| PR | Qué | Estado |
+|---|---|---|
+| **C1** | «Mi Cuenta» del doctor: plan, catálogo curado (`plan-catalog.ts` + `gate:catalogo`), medidores de pacientes y almacenamiento | ✅ EN PROD `b22f5f3a` (doctor SUCCESS) |
+| **C2** | Tablas `tier_prices` · `subscriptions` · `tier_change_log` (SQL aplicado y verificado ANTES del código) · `setDoctorTier()` único camino de escritura del tier · `fijarPrecioDeTier()` · pantalla «Cobro» del admin | ✅ EN PROD `606f2e38` (api + admin SUCCESS) |
+| **C3** | Checkout de Stripe, webhook de suscripciones (sólo `invoice.paid` sube el plan, nada lo baja), portal, sección «Pago de tu plan», avisos Telegram | ✅ **EN PROD `2edc58b6`** — api · doctor · admin **los tres SUCCESS** en ese hash (verificado 00:43 del 2026-09-15). **Inactivo** hasta el runbook: nadie ve el cobro |
+| **C4** | Reconciliación Stripe ↔ `Doctor.tier` (reporta, no arregla) | ⬜ No empezado — bloqueado (abajo) |
+
+**Hoy NADIE puede pagar**, y es correcto: el cobro no aparece hasta que existan la clave y el
+secreto del webhook, y en modo prueba sólo para `STRIPE_BILLING_TEST_DOCTORS`. Verificado en prod
+al cerrar: **dr-prueba `FREE`**, dr-quebradita `BASICO`, las otras 10 `PRO`; las 3 tablas de cobro
+en **0 filas**.
+
+### ⚠️ Acciones del USUARIO pendientes (no dejan rastro en git — pregúntale antes de darlas por hechas)
+
+1. **Runbook de C3** (`03-PLAN` §7, C3): en Stripe **modo prueba** crear precios mensuales MXN de
+   BÁSICO y PRO · Customer portal **con cambio de plan APAGADO** · webhook
+   `…/api/stripe/subscription-webhook` con 5 eventos. En Railway `@healthcare/api`:
+   `STRIPE_BILLING_SECRET_KEY` (sk_test) · `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` ·
+   `STRIPE_BILLING_TEST_DOCTORS=dr-prueba` · `TELEGRAM_ADMIN_CHAT_ID`. Luego pegar los `price_…`
+   en Cobro y suscribir a dr-prueba con `4242 4242 4242 4242`.
+2. **Decidir cómo se marcan las 10 cuentas PRO que NO pagan** (puestas a mano): cortesía · periodo
+   de gracia con fecha · excluidas del chequeo. **Bloquea C4**: sin eso la reconciliación las marca
+   en rojo a las 10 cada vez, y un reporte siempre rojo se ignora.
+3. **CFDI a los doctores** (decidido que SÍ se emite): hace falta el **CSD de la empresa** (.cer,
+   .key, contraseña) + RFC, razón social, régimen y CP, y que el contador fije **clave de
+   producto/servicio, unidad e IVA** de la suscripción.
+
+### ⏭️ Qué sigue en código, en orden
+
+1. Cuando el usuario haga el runbook de C3, **leer lo que pasó en BD**: una fila en
+   `tier_change_log` con `origen='webhook'` y la suscripción en `active`. Una `subscriptions` vacía
+   no dice nada por sí sola ("nadie pagó" o "el webhook no escribe") — contrasta con Stripe y con
+   los logs de `[COBRO]` del api.
+2. **PR del agente** («¿cuánto debo?», «¿qué plan tengo?»): decidido que va APARTE de C3. Declinar
+   y enrutar a «Mi Cuenta» — nunca inventar un veredicto de dinero (regla 0). Se edita en
+   `prompt.ts`, pasa `gate:prosa` y la suite de evals; se documenta en `../AGENTES/`.
+3. **C4** en cuanto se decida el punto 2 de arriba: botón **«Reconciliar»** en Cobro, bajo demanda
+   (cron después). Divergencias: Stripe cobró pero el plan no subió · fila `active` vs Stripe
+   cancelada/vencida · suscripción viva en Stripe sin fila · **dos suscripciones vivas** · precio en
+   uso fuera del mapa.
+4. **CFDI (C3.5):** con la cuenta **Facturama Multiemisor que ya existe**
+   (`apps/api/src/lib/facturama.ts`) registrando NUESTRO RFC como un emisor más. Individual a quien
+   lo pida + **factura global mensual** a `XAXX010101000` para el resto (`GlobalInformation` ya está
+   en el tipo). **Semi-automático** (el admin da clic), no disparado por el webhook.
+
+### 🔴 Hallazgos abiertos FUERA de C1–C3 (medidos en esta sesión)
+
+- **`FACTURAMA_API_URL` en PROD = `https://apisandbox.facturama.mx`.** Lo que se "timbra" en prod
+  no es un CFDI real. Hoy sólo dr-prueba tiene perfil fiscal, así que probablemente nadie real está
+  afectado — pero hay que corregirlo antes de que alguien dependa de facturar.
+- **El trabajo BBVA del informe médico sigue SIN COMMITEAR** y dos code reviews le encontraron
+  errores medidos contra el PDF: las 6 etiquetas del grid de antecedentes nombran la caja
+  equivocada (Menarca/FUM son FECHAS), `undefined_3` es la caja de ALCOHOL y no la de pérdida de
+  peso, `Text42` mal etiquetado, y faltan en `GRUPOS_VETADOS_BBVA` los radios de
+  **antecedentes gineco-obstétricos** y **discapacidad (Sí/No + Parcial/Total)**. No es de TIERS y
+  **nunca debe viajar en un commit de cobro**.
+
+### 🧭 Trampas que esta sesión pagó (no las repitas)
+
+- **API de Stripe `2026-04-22.dahlia`** (la del SDK 22): `current_period_end` está en el **item**,
+  no en la suscripción; la factura trae la suscripción en `invoice.parent.subscription_details`, no
+  en `invoice.subscription`. Verifícalo en los tipos instalados, no de memoria.
+- **`{ prefix: 'stripe', key: 'pagos' }`** = pagos de PACIENTES: todo lo que cuelgue de `stripe/`
+  lo hereda. Por eso el cobro vive en `billing/`.
+- **Una clave de prueba en prod regala planes** si no hay lista de doctores permitidos.
+- **Un pago sólo SUBE el plan.** `setDoctorTier` no distingue subir de bajar: la comparación de
+  rango vive en el webhook (hallazgo #1 del review de C3).
+- **`cmd | tail` en segundo plano:** la notificación trae el exit code de `tail`. Redirige a un log
+  y léelo. Un script que escribe en prod y retiene su salida exige una lectura de BD aparte.
+- **`packages/**` no está en ningún watchPattern**: un commit sólo de paquete no despliega nada.
+- **Los handoff docs de esta sesión (este README y `03-PLAN` §7) quedaron SIN COMMITEAR** al
+  cerrar: pide OK y commitéalos solos (docs no disparan deploy).
+
 ## Los dos tiers (v1)
 
 | Tier | Incluye |

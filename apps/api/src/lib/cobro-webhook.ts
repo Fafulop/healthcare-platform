@@ -65,6 +65,12 @@ export interface DatosSuscripcion {
   priceId: string | null;
   currentPeriodEnd: Date | null;
   cancelAtPeriodEnd: boolean;
+  /**
+   * Cuándo TERMINA el servicio si hay cancelación programada. `cancel_at`
+   * manda sobre el fin de periodo: una cancelación puede agendarse a una fecha
+   * arbitraria, y entonces las dos NO coinciden.
+   */
+  terminaEn: Date | null;
   numeroDeItems: number;
 }
 
@@ -78,7 +84,24 @@ export function extraerDatos(sub: Stripe.Subscription): DatosSuscripcion {
     priceId: item?.price?.id ?? null,
     // En el ITEM, no en la suscripción (regla 5).
     currentPeriodEnd: item?.current_period_end ? new Date(item.current_period_end * 1000) : null,
-    cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+    // 🔴 `cancel_at_period_end` NO basta en dahlia (medido en prod el
+    // 2026-09-17): al programar una cancelación, Stripe deja ese flag en
+    // `false` y expresa la baja en `cancel_at` + `canceled_at`, con el status
+    // todavía en `active`. Leer sólo el flag hacía que la cancelación se
+    // guardara como "no cancela" y que «Mi Cuenta» prometiera un «próximo
+    // cargo» el día en que en realidad se acaba el servicio.
+    // `status === 'canceled'` gana: Stripe DEJA `cancel_at` puesto después de
+    // que la baja se ejecuta, así que sin esta guarda una suscripción ya
+    // terminada se quedaría para siempre en "va a cancelar" con una fecha
+    // pasada, en vez de "cancelada" (hallazgo #3 del review de este arreglo:
+    // la imagen en espejo de la mentira que este mismo commit corrige).
+    cancelAtPeriodEnd:
+      sub.status !== 'canceled' && (!!sub.cancel_at_period_end || !!sub.cancel_at),
+    terminaEn: sub.cancel_at
+      ? new Date(sub.cancel_at * 1000)
+      : item?.current_period_end
+        ? new Date(item.current_period_end * 1000)
+        : null,
     numeroDeItems: sub.items?.data?.length ?? 0,
   };
 }
@@ -169,7 +192,11 @@ async function sincronizar(
       stripeSubscriptionId: datos.subscriptionId,
       stripePriceId: datos.priceId,
       status: datos.status,
-      currentPeriodEnd: datos.currentPeriodEnd,
+      // `terminaEn`, no `currentPeriodEnd`: la columna alimenta LAS DOS frases
+      // de la pantalla —«próximo cargo» cuando sigue viva y «termina el»
+      // cuando ya se canceló— y sólo `terminaEn` es correcta en ambas. Sin
+      // cancelación agendada las dos valen lo mismo (ver `extraerDatos`).
+      currentPeriodEnd: datos.terminaEn,
       cancelAtPeriodEnd: datos.cancelAtPeriodEnd,
       ...(opciones.pagadoEn ? { lastPaymentAt: opciones.pagadoEn } : {}),
     },
@@ -306,7 +333,9 @@ export async function procesarEventoCobro(
       const fila = await sincronizar(deps, datos, { contexto: 'customer.subscription.updated' });
       if (!fila) return { accion: 'no atribuible' };
       if (!fila.cancelabaAntes && datos.cancelAtPeriodEnd) {
-        const hasta = datos.currentPeriodEnd?.toISOString().slice(0, 10) ?? 'fin de periodo';
+        // `terminaEn`, no `currentPeriodEnd`: con una cancelación agendada a
+        // una fecha propia, el fin de periodo NO es cuando se acaba.
+        const hasta = datos.terminaEn?.toISOString().slice(0, 10) ?? 'fin de periodo';
         await deps.avisar(
           `⚠️ ${fila.slug} programó la cancelación de su suscripción (termina ${hasta}). ` +
             `Su plan sigue en ${nombreTier(fila.tier)} hasta que alguien lo cambie en el admin.`,

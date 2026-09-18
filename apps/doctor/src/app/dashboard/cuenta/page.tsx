@@ -499,6 +499,12 @@ function SeccionPago() {
           {sub?.status === "canceled" && (
             <p className="text-sm text-gray-500 mb-2">Tu suscripción anterior está cancelada.</p>
           )}
+          {sub?.status === "incomplete" && (
+            <p className="text-sm text-gray-500 mb-2">
+              Tu intento de pago anterior no se completó y no se hizo ningún cargo. Puedes
+              intentarlo de nuevo.
+            </p>
+          )}
           {estado.planes.map((plan) => (
             <div
               key={plan.tier}

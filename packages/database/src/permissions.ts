@@ -128,7 +128,14 @@ export function hasPermission(perms: unknown, key: PermissionKey): boolean {
 
 /** Tiers del producto, de menor a mayor. String (no enum de Postgres) para
  * agregar tiers sin migración de BD — ver 01-DISENO §3.1. El valor guardado es
- * ESTE (case canónico); el nombre que ve la gente es TIER_LABELS. */
+ * ESTE (case canónico); el nombre que ve la gente es TIER_LABELS.
+ *
+ * 🔴 EL ORDEN CARGA DINERO. Dos guardas lo usan como ranking por posición:
+ * "nunca vender un plan por DEBAJO del actual" (`cobro-planes.ts`) y "un pago
+ * sólo SUBE el plan" (`cobro-webhook.ts`). Alfabetizar esta lista o insertar un
+ * tier a media lista invierte las dos EN SILENCIO — el segundo es justo el bug
+ * que encontró el review de C3. `gate:cobro` lo verifica; si agregas un tier,
+ * ponlo en su lugar por capacidad, no al final por comodidad. */
 export const DOCTOR_TIERS = ['FREE', 'BASICO', 'PRO', 'LAB'] as const;
 export type DoctorTier = (typeof DOCTOR_TIERS)[number];
 

@@ -325,7 +325,7 @@ export default function BillingPage() {
                     <th className="text-left font-medium px-5 py-2">Doctor</th>
                     <th className="text-left font-medium px-5 py-2">Plan</th>
                     <th className="text-left font-medium px-5 py-2">Cobro</th>
-                    <th className="text-left font-medium px-5 py-2">Próximo corte</th>
+                    <th className="text-left font-medium px-5 py-2">Próximo corte / fin</th>
                     <th className="text-left font-medium px-5 py-2">Último pago</th>
                   </tr>
                 </thead>
@@ -339,24 +339,45 @@ export default function BillingPage() {
                       <td className="px-5 py-3 text-gray-700">{d.tier}</td>
                       <td className="px-5 py-3">
                         {d.suscripcion ? (
-                          <span
-                            className={
-                              d.suscripcion.status === "active"
-                                ? "inline-flex items-center gap-1 text-green-700"
-                                : "text-amber-700"
-                            }
-                          >
-                            {d.suscripcion.status === "active" && <Check className="w-3.5 h-3.5" />}
-                            {STATUS_LABEL[d.suscripcion.status] ?? d.suscripcion.status}
-                          </span>
+                          // 🔴 `cancelAtPeriodEnd` MANDA sobre el status. Stripe
+                          // deja una suscripción cancelada en `active` hasta que
+                          // se acaba el periodo pagado: pintarla verde y «Al
+                          // corriente» afirmaría que ese doctor sigue con
+                          // nosotros el día que ya se dio de baja.
+                          d.suscripcion.cancelAtPeriodEnd ? (
+                            <span className="inline-flex items-center gap-1 text-amber-700">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              Cancela
+                            </span>
+                          ) : (
+                            <span
+                              className={
+                                d.suscripcion.status === "active"
+                                  ? "inline-flex items-center gap-1 text-green-700"
+                                  : "text-amber-700"
+                              }
+                            >
+                              {d.suscripcion.status === "active" && <Check className="w-3.5 h-3.5" />}
+                              {STATUS_LABEL[d.suscripcion.status] ?? d.suscripcion.status}
+                            </span>
+                          )
                         ) : (
                           <span className="text-gray-400">sin suscripción</span>
                         )}
                       </td>
                       <td className="px-5 py-3 text-gray-500">
-                        {d.suscripcion?.currentPeriodEnd
-                          ? new Date(d.suscripcion.currentPeriodEnd).toLocaleDateString("es-MX")
-                          : "—"}
+                        {d.suscripcion?.currentPeriodEnd ? (
+                          d.suscripcion.cancelAtPeriodEnd ? (
+                            <span className="text-amber-700">
+                              termina{" "}
+                              {new Date(d.suscripcion.currentPeriodEnd).toLocaleDateString("es-MX")}
+                            </span>
+                          ) : (
+                            new Date(d.suscripcion.currentPeriodEnd).toLocaleDateString("es-MX")
+                          )
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="px-5 py-3 text-gray-500">
                         {d.suscripcion?.lastPaymentAt
