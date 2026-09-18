@@ -8,6 +8,42 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## 🔄 HANDOFF — 2026-09-18: cambio de plan (mapa, decisiones y el paso 1)
+
+👉 **Todo el detalle vive en [`04-PLAN-cambio-de-plan.md`](04-PLAN-cambio-de-plan.md). Empieza por su
+bloque ⭐ ESTADO, que trae lo que está pusheado, lo que NO, y lo que nadie ha probado con un clic.**
+
+Lo mínimo que hay que saber antes de tocar nada:
+
+- **`1103200e` está commiteado en LOCAL y SIN PUSHEAR** (el usuario lo pidió así). Es el paso 1:
+  que «Mi Cuenta» y el modal del admin digan la verdad mientras una cancelación está agendada.
+  **Pregúntale antes de pushear.**
+- **Lo siguiente a construir es SUBIR de plan (BÁSICO→PRO)**, prorrateado. No depende de nada
+  pendiente. La baja automática al final del periodo **quedó en duda a propósito**: el usuario
+  propuso, en su lugar, **un margen de días y luego CONGELAR** la cuenta (entra y ve todo, no puede
+  crear). Eso **disuelve** el hueco G1 en vez de pelearse con él, y la forma barata de construirlo
+  es un **tier efectivo** (9 lugares leen el tier; 3 líneas en `auth.ts`) y no un flag nuevo que
+  tendrían que respetar **186 rutas de escritura**. Pros, contras y lo que falta decidir: §10.
+- **No congelar lo clínico.** Un doctor con el paciente enfrente tiene que poder escribir la
+  consulta aunque deba dinero.
+- **dr-prueba: NO bajarlo antes del 17 de octubre** — pagó hasta esa fecha.
+- **El trabajo BBVA del informe médico sigue en el árbol, sin commitear, y NO es shipeable**: el
+  review le encontró dos HIGH midiendo el PDF (seis etiquetas de la rejilla de antecedentes
+  apuntan a la caja equivocada; `undefined_3` es la de ALCOHOL). Nunca en un commit de cobro.
+
+### Lo que esta sesión dejó como método
+
+- **Un review corre sobre TODO lo no commiteado**, no sobre «tu» cambio: los 13 hallazgos del
+  2026-09-18 mezclaban cobro y BBVA en una sola lista numerada. Sepáralos antes de «arreglar lo que
+  encuentre».
+- **El hallazgo más caro fue una FRASE**: «ese día tu cuenta pasa a GRATIS» prometía una baja
+  automática que no existe. El código compilaba, los gates pasaban, y la pantalla le afirmaba al
+  doctor un hecho falso sobre su cuenta. Escribir en la UI una función **decidida pero no
+  construida** es exactamente así de fácil.
+- **Una fecha sin `timeZone` la formatea el navegador**: son timestamps, y un fin de periodo a las
+  03:00Z se pinta un día antes en México. El review NO lo vio; las dos pantallas fijan ahora
+  `America/Mexico_City`.
+
 ## 🔄 HANDOFF — 2026-09-17: el cobro se probó en vivo, su review y los arreglos
 
 El usuario **pagó de verdad** en modo prueba (dr-prueba: FREE → BÁSICO) y luego **canceló desde
