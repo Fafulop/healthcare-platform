@@ -24,8 +24,11 @@ Lo mínimo que hay que saber antes de tocar nada:
   crear). Eso **disuelve** el hueco G1 en vez de pelearse con él, y la forma barata de construirlo
   es un **tier efectivo** (9 lugares leen el tier; 3 líneas en `auth.ts`) y no un flag nuevo que
   tendrían que respetar **186 rutas de escritura**. Pros, contras y lo que falta decidir: §10.
-- **No congelar lo clínico.** Un doctor con el paciente enfrente tiene que poder escribir la
-  consulta aunque deba dinero.
+- **SÍ se congela lo clínico** (decisión del usuario, 2026-09-18): llevar el expediente es
+  obligación **del médico, no nuestra**, y quien dejó de pagar puede escribir donde quiera. Lo que
+  sí sigue en pie es **no destruir ni secuestrar sus datos**: queda PENDIENTE decidir la política de
+  **retención y exportación** (el usuario va a preguntar qué hacen otras empresas; su idea es poder
+  mandarles todo comprimido). Se cruza con G7.
 - **dr-prueba: NO bajarlo antes del 17 de octubre** — pagó hasta esa fecha.
 - **El trabajo BBVA del informe médico sigue en el árbol, sin commitear, y NO es shipeable**: el
   review le encontró dos HIGH midiendo el PDF (seis etiquetas de la rejilla de antecedentes

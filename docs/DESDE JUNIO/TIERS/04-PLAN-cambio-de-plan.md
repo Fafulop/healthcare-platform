@@ -299,7 +299,26 @@ El tier efectivo da, gratis, casi exactamente lo que el usuario describió: entr
 agregar pacientes más allá de 50, no puede subir archivos más allá de 500 MB**, y pierde
 facturación, SAT, conciliación e IA. Al pagar, el override se levanta y vuelve todo.
 
-### 🔴 La objeción que hay que respetar: NO congelar lo CLÍNICO
+### ~~La objeción de no congelar lo clínico~~ — DESCARTADA POR EL USUARIO (2026-09-18)
+
+> 🔴 **Decisión del usuario, no re-litigar:** **sí se puede congelar la escritura clínica.** Su
+> argumento, y es el correcto: la obligación de llevar el expediente es **del médico, no nuestra**.
+> Si dejó de pagar, puede escribir donde quiera — no es problema del producto. El párrafo de abajo
+> se conserva porque explica qué capa y qué no el «tratarlo como FREE», pero **su conclusión ya no
+> manda**.
+>
+> Lo que SÍ sigue en pie, y es otra cosa: **no destruir ni secuestrar sus datos.** El usuario lo
+> separó explícitamente y se lo llevó como tarea de investigación:
+>
+> - **Preguntar a empresas que dan este servicio qué hacen cuando un cliente deja de pagar** — antes
+>   de inventar una política.
+> - Probablemente haya que **conservar la información aunque no paguen**, y darles **siempre** una
+>   forma de bajarla (idea suya: comprimir todo en un zip y enviárselo).
+>
+> Eso se cruza con **G7** (§9): hoy nadie ha dicho qué pasa con los CFDI ya timbrados cuando una
+> cuenta pierde `facturacion`. **Retención + exportación es su propia decisión, pendiente.**
+
+### El detalle de qué capa «tratarlo como FREE» (para dimensionar, ya no para objetar)
 
 Esto es un expediente médico. Un doctor con el paciente enfrente, cuya tarjeta falló la semana
 pasada, **tiene que poder escribir esa consulta** — y en México tiene la obligación legal de
@@ -316,9 +335,8 @@ paciente que está enfrente.
 - **Un doctor con 3 GB de golpe no puede adjuntar UN solo estudio** (tope FREE: 500 MB). Correcto
   para cobrar, incómodo un martes por la tarde. Es la arista más dura y hay que decidirla a
   propósito, no descubrirla en producción.
-- **«No puede crear un paciente nuevo» es medio clínico**: un paciente nuevo que llega no se puede
-  dar de alta. Es lo mismo que el producto ya le hace a una cuenta GRATIS, así que es coherente —
-  pero consúlta si eso es lo que se quiere.
+- **«No puede crear un paciente nuevo»** — consultado con el usuario el 2026-09-18: **es lo que se
+  quiere.** Es lo mismo que el producto ya le hace a una cuenta GRATIS.
 - **El tier efectivo hace que el tier GUARDADO y el que MANDA dejen de coincidir.** Toda pantalla
   que hoy pinta `Doctor.tier` (admin incluido) empezaría a mentir un poquito si no dice «PRO,
   congelado». Es justo el tipo de doble fuente que este repo ya pagó caro; si se construye, el tier
@@ -333,7 +351,9 @@ paciente que está enfrente.
 1. **¿Cuántos días de margen** y desde cuándo se cuentan: ¿desde que se acaba lo pagado, o desde el
    primer cobro fallido? (Esto además se traslapa con **G3**, el camino de dunning, que sigue sin
    mapearse.)
-2. **¿El congelado capa lo clínico** (paciente nuevo, archivo nuevo) o sólo lo comercial?
+2. ~~¿El congelado capa lo clínico?~~ **RESUELTO: sí.** En su lugar queda abierta otra:
+   **¿qué política de retención y exportación** acompaña al congelamiento (ver el recuadro de arriba
+   y G7). El usuario va a investigar qué hacen otras empresas antes de decidirla.
 3. **¿Esto REEMPLAZA a D1 o convive con él?** (p.ej. congelar a los 15 días y bajar el tier de
    verdad a los 60, cuando ya es claro que no vuelve).
 4. Si se construye: **¿qué ve el doctor?** Una cuenta congelada sin explicación es peor que una
