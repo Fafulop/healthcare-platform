@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import ColorPaletteSelector from "@/components/ColorPaletteSelector";
+import { avisoDeCambioManual, fechaLarga } from "@/lib/aviso-cobro";
 import {
   DOCTOR_TIERS,
   FALLBACK_TIER,
@@ -39,6 +40,9 @@ interface Doctor {
     status: string;
     pagadoHasta: string | null;
     cancelaAlFinal: boolean;
+    /** El tier del precio que Stripe le COBRA (04 §12 R7). `null` ⇒ precio
+     *  fuera del mapa; ausente ⇒ API anterior a este cambio. */
+    planPagado?: string | null;
   } | null;
   createdAt: string;
 }
@@ -76,28 +80,6 @@ const tierQuotaLine = (tier: DoctorTier): string => {
   const patients = l.maxPatients === null ? "pacientes sin tope" : `${l.maxPatients} pacientes`;
   return `${fmtStorage(l.storageBytes)} de archivos · ${patients}`;
 };
-
-// Rango por POSICIÓN en DOCTOR_TIERS (de menor a mayor capacidad), el mismo
-// criterio que usan las guardas de dinero del api. Aquí sólo sirve para saber si
-// lo que el admin está por guardar es una BAJA.
-const rangoTier = (tier: string | undefined): number =>
-  (DOCTOR_TIERS as readonly string[]).indexOf(tier ?? "");
-
-// 🔴 `timeZone` FIJA: son timestamps, y sin esto los formatea la zona del
-// navegador del admin — la misma fecha se pintaría distinta aquí y en la
-// pantalla del doctor. Producto de México, una sola zona (igual que `fecha()`
-// en `cuenta/page.tsx`).
-const fechaLarga = (iso: string): string =>
-  new Date(iso).toLocaleDateString("es-MX", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "America/Mexico_City",
-  });
-
-/** Días que le faltan a una fecha; 0 si ya pasó. */
-const diasRestantes = (iso: string): number =>
-  Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000));
 
 /**
  * Three distinct states, kept apart so the UI never points at the wrong cause:
@@ -805,51 +787,28 @@ export default function DoctorsListPage() {
                   })}
                 </div>
 
-                {/* 🔴 04-PLAN §0. El 2026-09-17 se bajó aquí un plan pagado hasta el
-                    17 de octubre y la cuenta perdió el mes: no había NADA en esta
-                    pantalla que dijera que ese doctor tenía tiempo pagado. El aviso
-                    no bloquea —a veces bajar antes es justo lo que se quiere— pero
-                    obliga a verlo. */}
+                {/* 🔴 04-PLAN §0 + §12 R7. Cambiar aquí el plan de quien paga por
+                    Stripe deja DOS planes: el que tiene y el que se le cobra. El
+                    2026-09-17 se bajó aquí un plan pagado hasta el 17 de octubre y
+                    la cuenta perdió el mes; subirlo tiene el problema al revés
+                    (tiene PRO y Stripe le sigue cobrando BÁSICO, y la renovación no
+                    lo corrige: un pago nunca baja el plan). R7: NO se bloquea —a
+                    veces es justo lo que se quiere— pero obliga a verlo. */}
                 {(() => {
-                  const cobro = tierDoctor.cobro;
-                  const hasta = cobro?.pagadoHasta ?? null;
-
-                  // 🔴 SÓLO `active` afirma «pagó». `sincronizar()` escribe
-                  // `currentPeriodEnd` para CUALQUIER status: una suscripción
-                  // `incomplete` —creada y nunca cobrada, que vive ~23 h— trae
-                  // una fecha futura igual que una pagada, y con ella el aviso
-                  // diría «pagó hasta… no hay reembolsos» de dinero que nunca
-                  // entró. `trialing` tampoco: una prueba no es un pago. La
-                  // fecha existe siempre; el PAGO no.
-                  if (!cobro || cobro.status !== "active" || !hasta) return null;
-
-                  // `indexOf` devuelve -1 para un tier que no está en
-                  // DOCTOR_TIERS (el valor legacy `FULL` que esta misma pantalla
-                  // documenta arriba). Comparar rangos con -1 haría `esBaja`
-                  // SIEMPRE falso y el aviso no saldría justo en las cuentas más
-                  // sospechosas. Sin rango fiable se avisa ante CUALQUIER cambio:
-                  // de más es ruido, de menos es lo que pasó el 2026-09-17.
-                  const rangoActual = rangoTier(tierDoctor.tier);
-                  const esBaja =
-                    rangoActual < 0
-                      ? tierSelection !== tierDoctor.tier
-                      : rangoTier(tierSelection) < rangoActual;
-                  if (!esBaja) return null;
-
-                  const dias = diasRestantes(hasta);
-                  if (dias === 0) return null;
+                  const aviso = avisoDeCambioManual(tierDoctor.tier, tierSelection, tierDoctor.cobro);
+                  if (!aviso) return null;
                   return (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-4">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-4 space-y-2">
                       <p className="text-sm text-red-900">
-                        ⚠️ <strong>Pagó hasta el {fechaLarga(hasta)}</strong> — le quedan {dias}{" "}
-                        día{dias === 1 ? "" : "s"}. Si le bajas el plan hoy, pierde ese tiempo que ya
-                        pagó y <strong>no hay reembolsos</strong>.
+                        ⚠️ <strong>Este doctor paga {aviso.pagado ? `${aviso.pagado} ` : ""}por Stripe.</strong>{" "}
+                        Cambiar su plan aquí no cambia lo que Stripe le cobra.
                       </p>
-                      <p className="text-sm text-red-900 mt-2">
-                        {cobro.cancelaAlFinal
-                          ? "Ya canceló: su plan debe bajar ESE día, no antes."
-                          : "Su suscripción sigue viva en Stripe: bajarle el plan aquí NO la cancela, y se le seguirá cobrando el precio anterior."}
-                      </p>
+                      {aviso.perdida && (
+                        <p className="text-sm text-red-900">
+                          Pagó hasta el {fechaLarga(aviso.perdida.hasta)}; si le bajas hoy pierde ese
+                          tiempo y <strong>no hay reembolsos</strong>.
+                        </p>
+                      )}
                     </div>
                   );
                 })()}
@@ -859,11 +818,6 @@ export default function DoctorsListPage() {
                     Un downgrade <strong>bloquea, nunca borra</strong>: los datos de las funciones
                     excluidas siguen ahí y reaparecen al volver a subir de plan. Aplica de inmediato
                     (el servidor lee el plan fresco en cada request, sin re-login).
-                  </p>
-                  <p className="text-xs text-amber-900 mt-2">
-                    ⚠️ Mientras no exista la UI de candados, el doctor <strong>seguirá viendo</strong>{" "}
-                    esas secciones en su menú y recibirá un error al usarlas — sin explicación de que
-                    es por su plan.
                   </p>
                 </div>
 

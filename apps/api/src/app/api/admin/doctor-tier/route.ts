@@ -50,7 +50,7 @@ export async function GET(request: Request) {
     // forma de saberlo: `doctors` no dice nada del dinero. Se manda junto lo
     // mínimo para poder AVISAR antes de guardar — nunca para decidir el tier,
     // que sigue saliendo de `Doctor.tier`.
-    const [doctors, suscripciones] = await Promise.all([
+    const [doctors, suscripciones, precios] = await Promise.all([
       prisma.doctor.findMany({
         select: { id: true, slug: true, tier: true },
         orderBy: { slug: 'asc' },
@@ -61,9 +61,16 @@ export async function GET(request: Request) {
           status: true,
           currentPeriodEnd: true,
           cancelAtPeriodEnd: true,
+          stripePriceId: true,
         },
       }),
+      // 04 §12 R7: el modal dice QUÉ plan le cobra Stripe, para que subirlo o
+      // bajarlo a mano no deje dos planes distintos sin que nadie lo vea. SIN
+      // filtrar por `activo`, igual que el webhook: quien se suscribió con un
+      // precio que luego se reemplazó sigue pagando ESE plan.
+      prisma.tierPrice.findMany({ select: { stripePriceId: true, tier: true } }),
     ]);
+    const tierDePrecio = new Map(precios.map((p) => [p.stripePriceId, p.tier]));
 
     // 🔴 Una fila de OTRO modo de Stripe no puede afirmar que alguien pagó.
     // «Pasar a vivo» es cambiar la clave, pero las filas de MODO PRUEBA se
@@ -103,6 +110,9 @@ export async function GET(request: Request) {
               status: s.status,
               pagadoHasta: s.currentPeriodEnd,
               cancelaAlFinal: s.cancelAtPeriodEnd,
+              // `null` ⇒ el precio no está en el mapa (o no hay precio): el modal
+              // lo dice así en vez de inventar un plan.
+              planPagado: (s.stripePriceId && tierDePrecio.get(s.stripePriceId)) || null,
             }
           : null,
       };
