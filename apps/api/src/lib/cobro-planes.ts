@@ -10,7 +10,8 @@
  *   - Sólo precios ACTIVOS del mapa, que Stripe reconozca, recurrentes y no
  *     archivados. Un precio mal configurado simplemente no se ofrece.
  *   - LAB no se vende (es por invitación).
- *   - 🔴 NUNCA un plan por DEBAJO del actual. Hoy 10 cuentas están en PRO
+ *   - 🔴 Por defecto NUNCA un plan por DEBAJO del actual (excepción: `incluirMenores`,
+ *     sólo sin suscripción viva y nunca para LAB — 04 §12.6 #4). Hoy 10 cuentas están en PRO
  *     puestas a mano y no pagan nada; si pudieran contratar BÁSICO, el pago
  *     entraría y `setDoctorTier` se negaría a bajarlas (guard de cupo, o
  *     simplemente porque bajar no es lo que se pagó) — dinero cobrado sin nada
@@ -29,6 +30,8 @@ export interface PlanVendible {
   montoCentavos: number;
   moneda: string;
   intervalo: string;
+  /** Por DEBAJO del plan actual: pagarlo BAJA la cuenta (04 §12.6 #4). */
+  baja: boolean;
 }
 
 const rango = (tier: string) => (DOCTOR_TIERS as readonly string[]).indexOf(tier);
@@ -37,9 +40,15 @@ export async function planesVendibles(
   db: PrismaClient,
   cliente: Stripe,
   tierActual: string,
+  opciones: { incluirMenores?: boolean } = {},
 ): Promise<PlanVendible[]> {
   const rangoActual = rango(tierActual);
   if (rangoActual < 0) return [];
+  // TIERS 04 §12.6 #4 (P3a): quien NO tiene suscripción viva puede comprar un
+  // plan MENOR al suyo —p.ej. un PRO que canceló y vuelve en BÁSICO—; el que
+  // llama decide si cabe (R4, `cabeEnPlan`). NUNCA para LAB: son cortesías y
+  // ofrecerles un plan menor sería invitarlas a bajarse por accidente.
+  const permitirMenores = opciones.incluirMenores === true && tierActual !== 'LAB';
 
   const filas = await db.tierPrice.findMany({ where: { activo: true } });
   const planes: PlanVendible[] = [];
@@ -47,7 +56,7 @@ export async function planesVendibles(
   for (const fila of filas) {
     if (fila.tier === 'LAB') continue;
     const r = rango(fila.tier);
-    if (r < 0 || r < rangoActual) continue;
+    if (r < 0 || (r < rangoActual && !permitirMenores)) continue;
 
     try {
       const price = await cliente.prices.retrieve(fila.stripePriceId);
@@ -59,6 +68,7 @@ export async function planesVendibles(
         montoCentavos: price.unit_amount,
         moneda: price.currency.toUpperCase(),
         intervalo: price.recurring.interval,
+        baja: r < rangoActual,
       });
     } catch (e) {
       // Un id que Stripe no reconoce (p.ej. uno de prueba tras pasar a vivo) no

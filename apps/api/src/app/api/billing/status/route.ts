@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { prisma, DOCTOR_TIERS } from '@healthcare/database';
+import { prisma, DOCTOR_TIERS, cabeEnPlan } from '@healthcare/database';
 import { stripeCobro, modoCobro, doctorPuedeUsarCobro } from '@/lib/stripe-cobro';
 import { puertaDeCobro } from '@/lib/cobro-auth';
 import { planesVendibles, bloqueaOtroCheckout, filaDeCobroVigente } from '@/lib/cobro-planes';
@@ -28,13 +28,23 @@ export async function GET(request: Request) {
     // `filaDeCobroVigente`, no un findUnique pelado: una fila de OTRO modo de
     // Stripe (p.ej. de prueba, ya en vivo) se trata como inexistente — si no, su
     // `active` bloquearía la suscripción real y ofrecería un portal que falla.
-    const [{ fila }, planes] = await Promise.all([
-      filaDeCobroVigente(prisma, cliente, ctx.doctorId),
-      planesVendibles(prisma, cliente, ctx.tier),
-    ]);
+    const { fila } = await filaDeCobroVigente(prisma, cliente, ctx.doctorId);
     // `bloqueaOtroCheckout`, no `esSuscripcionViva`: una `incomplete` que nunca
     // se cobró NO puede dejar la pantalla sin plan que comprar (hallazgo #1).
     const viva = bloqueaOtroCheckout(fila?.status);
+    // 04 §12.6 #4: sin suscripción viva también se ofrecen los planes MENORES
+    // (un PRO que canceló puede volver en BÁSICO). Con suscripción viva, no:
+    // bajar es otro flujo (#7), al final del periodo.
+    const vendibles = await planesVendibles(prisma, cliente, ctx.tier, { incluirMenores: !viva });
+    // R4: un plan menor sólo se puede elegir si lo que usa CABE. El que no cabe
+    // se muestra deshabilitado con los números, en vez de esconderlo.
+    const planes = await Promise.all(
+      vendibles.map(async (p) => {
+        if (!p.baja) return p;
+        const r = await cabeEnPlan(prisma, ctx.doctorId, p.tier);
+        return r.cabe ? p : { ...p, noCabe: r.motivo };
+      }),
+    );
 
     return NextResponse.json({
       disponible: true,

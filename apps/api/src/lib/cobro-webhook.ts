@@ -270,8 +270,20 @@ export async function procesarEventoCobro(
       // la idempotencia no frena, lo regresaba a BÁSICO avisando "✅ subió de PRO
       // a BÁSICO". Eso rompía la regla 2. Ahora el pago se anota y se avisa, y el
       // plan se queda donde un humano lo dejó.
+      //
+      // 🔴 EXCEPCIÓN — el PRIMER pago de una suscripción NUEVA (TIERS 04
+      // §12.6 #4). Quien no tiene suscripción viva puede comprar un plan menor
+      // al suyo (un PRO que canceló y vuelve en BÁSICO); el checkout ya
+      // comprobó que cabe (R4). Ese primer cobro SÍ fija el plan pagado. Las
+      // RENOVACIONES (`subscription_cycle`) siguen sin poder bajar nada: es la
+      // protección de arriba, y lo que distingue un error de una compra.
+      // ⚠️ A PROPÓSITO no se vuelve a medir el almacenamiento aquí (decisión
+      // del usuario, 2026-09-18): si subió archivos entre abrir el checkout y
+      // pagar, baja igual y sólo se le bloquean subidas nuevas. No volver a
+      // medir: la alternativa lo deja en PRO pagando BÁSICO, un desajuste peor.
       const rango = (t: string) => (DOCTOR_TIERS as readonly string[]).indexOf(t);
-      if (rango(mapa.tier) < rango(fila.tier)) {
+      const esPrimerPago = factura.billing_reason === 'subscription_create';
+      if (rango(mapa.tier) < rango(fila.tier) && !esPrimerPago) {
         await deps.avisar(
           `⚠️ ${fila.slug} pagó su renovación de ${nombreTier(mapa.tier)}, pero su cuenta está en ` +
             `${nombreTier(fila.tier)}. El plan NO se bajó. Si el cambio fue a propósito, ajusta su ` +
@@ -298,8 +310,9 @@ export async function procesarEventoCobro(
         return { accion: `pagado pero rechazado: ${resultado.code}` };
       }
       if (resultado.changed) {
+        const verbo = rango(resultado.to) < rango(resultado.from) ? 'cambió' : 'subió';
         await deps.avisar(
-          `✅ ${fila.slug} pagó y subió de ${nombreTier(resultado.from)} a ${nombreTier(resultado.to)}.`,
+          `✅ ${fila.slug} pagó y ${verbo} de ${nombreTier(resultado.from)} a ${nombreTier(resultado.to)}.`,
         );
       }
       return {

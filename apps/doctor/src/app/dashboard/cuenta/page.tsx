@@ -330,6 +330,10 @@ interface EstadoCobro {
     montoCentavos: number;
     moneda: string;
     intervalo: string;
+    /** Por debajo del plan actual: pagarlo BAJA la cuenta (04 §12.6 #4). */
+    baja?: boolean;
+    /** Si no cabe (R4): por qué, con números. El plan se muestra deshabilitado. */
+    noCabe?: string;
   }[];
   puedeSuscribirse?: boolean;
   tienePortal?: boolean;
@@ -729,9 +733,17 @@ function SeccionPago() {
               <div>
                 <p className="text-sm font-medium text-gray-900">Plan {plan.label}</p>
                 <p className="text-xs text-gray-500">{precio(plan.montoCentavos, plan.moneda, plan.intervalo)}</p>
+                {/* 04 §12.6 #4: comprar un plan menor BAJA la cuenta al pagar
+                    (lo aplica el webhook con el primer cobro). Se dice antes. */}
+                {plan.baja && !plan.noCabe && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    Al pagar, tu cuenta pasa de {nombreDelPlan} a {plan.label}.
+                  </p>
+                )}
+                {plan.noCabe && <p className="text-xs text-amber-700 mt-1">{plan.noCabe}</p>}
               </div>
               <button
-                disabled={ocupado !== null}
+                disabled={ocupado !== null || !!plan.noCabe}
                 onClick={() => ir("checkout", plan.tier)}
                 className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
               >

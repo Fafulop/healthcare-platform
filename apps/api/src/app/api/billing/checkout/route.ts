@@ -11,7 +11,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, cabeEnPlan } from '@healthcare/database';
 import { stripeCobro, doctorPuedeUsarCobro, esErrorDeStripe } from '@/lib/stripe-cobro';
 import { puertaDeCobro, cobroNoDisponible } from '@/lib/cobro-auth';
 import { planesVendibles, esSuscripcionViva, filaDeCobroVigente } from '@/lib/cobro-planes';
@@ -93,10 +93,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const planes = await planesVendibles(prisma, cliente, ctx.tier);
+    // Aquí ya se sabe que NO hay suscripción viva (el 409 de arriba), así que se
+    // venden también los planes MENORES — la misma regla que usa la pantalla
+    // (04 §12.6 #4). Y el que no cabe se rechaza aquí también (R4): la pantalla
+    // no es la frontera.
+    const planes = await planesVendibles(prisma, cliente, ctx.tier, { incluirMenores: true });
     const plan = planes.find((p) => p.tier === tierPedido);
     if (!plan) {
       return NextResponse.json({ error: 'Ese plan no está disponible para tu cuenta.' }, { status: 400 });
+    }
+    if (plan.baja) {
+      const r = await cabeEnPlan(prisma, ctx.doctorId, plan.tier);
+      if (!r.cabe) return NextResponse.json({ error: r.motivo }, { status: 409 });
     }
 
     // El Customer de Stripe se crea UNA vez por doctor y se guarda ANTES del

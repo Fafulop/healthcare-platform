@@ -658,3 +658,53 @@ export async function assertPatientQuota(
   });
   if (current + incoming > limit) throw new QuotaExceededError(limit, current, incoming);
 }
+
+/**
+ * ¿Lo que la cuenta YA usa cabe en `tier`? — la regla R4 de TIERS 04 §12: sólo
+ * se puede pasar a un plan MENOR si lo que usas cabe en él.
+ *
+ * Mide con los MISMOS contadores que imponen los topes (`stored_files` y los
+ * pacientes `active`), para que el número que ve el doctor al elegir un plan
+ * sea el mismo con el que después choca al subir un archivo o dar de alta.
+ *
+ * `motivo` es texto para el doctor, con números. ⚠️ No dice «borra archivos»:
+ * hoy borrar NO baja el uso de almacenamiento (04 §12.6 #5). Archivar sí libera
+ * lugar de pacientes, así que eso sí se dice.
+ */
+export async function cabeEnPlan(
+  db: {
+    storedFile: StorageCounter['storedFile'];
+    patient: { count(args: { where: { doctorId: string; status: string } }): Promise<number> };
+  },
+  doctorId: string,
+  tier: DoctorTier,
+): Promise<{ cabe: true } | { cabe: false; motivo: string }> {
+  const nombre = TIER_LABELS[tier];
+
+  const topePacientes = maxPatientsFor(tier);
+  if (topePacientes !== null) {
+    const activos = await db.patient.count({
+      where: { doctorId, status: PATIENT_STATUS_COUNTED_AGAINST_QUOTA },
+    });
+    if (activos > topePacientes) {
+      return {
+        cabe: false,
+        motivo:
+          `Tienes ${activos} pacientes activos y ${nombre} permite ${topePacientes}. ` +
+          `Archiva ${activos - topePacientes} expediente(s) para elegirlo (archivar no borra nada).`,
+      };
+    }
+  }
+
+  const topeBytes = storageBytesFor(tier);
+  const agg = await db.storedFile.aggregate({ where: { doctorId }, _sum: { sizeBytes: true } });
+  const usados = agg._sum.sizeBytes ?? 0;
+  if (usados > topeBytes) {
+    return {
+      cabe: false,
+      motivo: `Usas ${formatearBytes(usados)} de archivos y ${nombre} permite ${formatearBytes(topeBytes)}.`,
+    };
+  }
+
+  return { cabe: true };
+}
