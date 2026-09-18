@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { borrarArchivoSubido } from '@/lib/borrar-archivo';
 
 // GET /api/medical-records/patients/:id/media/:mediaId
 export async function GET(
@@ -202,11 +203,20 @@ export async function DELETE(
       );
     }
 
-    // Delete media record (Note: This does not delete the actual file from storage)
-    // You may want to implement file deletion from UploadThing here
     await prisma.patientMedia.delete({
       where: { id: mediaId }
     });
+
+    // TIERS 04 §12.6 #5 (R3): borrar libera espacio. Sale del libro mayor (el
+    // cupo baja) y del bucket (deja de costar). Borrado DEFINITIVO por decisión
+    // del usuario. Sólo si NINGÚN otro registro usa el mismo archivo: borrarlo
+    // del bucket rompería ese otro. No lanza — el registro ya se borró.
+    const otrosUsos = await prisma.patientMedia.count({ where: { fileUrl: media.fileUrl } });
+    if (otrosUsos === 0) {
+      await borrarArchivoSubido(doctorId, media.fileUrl);
+    } else {
+      console.warn('[storage] archivo compartido por otro media; no se borra', { mediaId, otrosUsos });
+    }
 
     // Log audit
     await logAudit({

@@ -433,18 +433,16 @@ export function explicarRechazoDeSubida(
     );
     return {
       tipo: 'cuenta',
-      // ⚠️ NO decir "borra archivos": HOY nada baja el uso. Ningún camino borra
-      // filas de `stored_files` (el borrado de un media del expediente deja el
-      // archivo en el bucket a propósito), así que un doctor que borrara todo
-      // seguiría topado. Prometer una salida que no existe es peor que no dar
-      // ninguna. Cuando exista el borrado de verdad (04 §12.6 #5), se agrega
-      // aquí "o borra archivos para liberar espacio".
+      // 04 §12.6 #5: borrar un archivo DEL EXPEDIENTE ya libera espacio (sale
+      // del libro mayor). Sólo del expediente: las demás superficies (perfil,
+      // blog, flujo…) todavía no descuentan al borrar (#5b), por eso la frase
+      // dice «del expediente» y no «borra archivos» a secas.
       mensaje:
         `${PREFIJO_SIN_ESPACIO}: ocupas ${formatearBytes(e.current)} de ${formatearBytes(e.limit)} ` +
         `y estás subiendo ${formatearBytes(e.incoming)} (te quedan ${formatearBytes(libre)}). ` +
         (hayPlanMayor
-          ? `Para subir más, ${SUFIJO_CAMBIA_DE_PLAN}`
-          : `Llegaste al límite de almacenamiento más alto que ofrecemos.`),
+          ? `Borra archivos del expediente para liberar espacio, o ${SUFIJO_CAMBIA_DE_PLAN}`
+          : `Llegaste al límite de almacenamiento más alto que ofrecemos. Borra archivos del expediente para liberar espacio.`),
       // `hayPlanMayor` viaja para que la pantalla decida si pinta «Ver planes».
       hayPlanMayor,
     };
@@ -625,6 +623,35 @@ export async function registrarArchivo(
   }
 }
 
+/**
+ * La llave del archivo (`file.key` de uploadthing) a partir de su URL, o `null`
+ * si no es una URL de uploadthing. Las dos formas de v7 —`utfs.io/f/<key>` y
+ * `<app>.ufs.sh/f/<key>`— llevan la llave después de `/f/` (ver el comentario
+ * de `fileKey` en el schema). Medido 2026-09-18: las 160 filas de
+ * `patient_media` son `https://utfs.io/f/<key>`.
+ */
+export function claveDeArchivo(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = /\/f\/([^/?#]+)/.exec(url);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+/**
+ * Saca un archivo del libro mayor (`stored_files`) ⇒ deja de contar contra el
+ * cupo. TIERS 04 §12.6 #5 (regla R3: borrar libera espacio). Filtra también por
+ * `doctorId`: un doctor sólo puede liberar SU espacio. Devuelve cuántas filas
+ * salieron (0 si el archivo es de antes del 2026-09-13, cuando el ledger empezó:
+ * nunca contó, así que no hay nada que descontar).
+ */
+export async function olvidarArchivo(
+  db: { storedFile: { deleteMany(args: { where: { doctorId: string; fileKey: string } }): Promise<{ count: number }> } },
+  doctorId: string,
+  fileKey: string,
+): Promise<number> {
+  const r = await db.storedFile.deleteMany({ where: { doctorId, fileKey } });
+  return r.count;
+}
+
 /** Cliente mínimo que necesita el chequeo — sirve igual `prisma` que un `tx`. */
 interface PatientCounter {
   patient: { count(args: { where: Record<string, unknown> }): Promise<number> };
@@ -667,9 +694,9 @@ export async function assertPatientQuota(
  * pacientes `active`), para que el número que ve el doctor al elegir un plan
  * sea el mismo con el que después choca al subir un archivo o dar de alta.
  *
- * `motivo` es texto para el doctor, con números. ⚠️ No dice «borra archivos»:
- * hoy borrar NO baja el uso de almacenamiento (04 §12.6 #5). Archivar sí libera
- * lugar de pacientes, así que eso sí se dice.
+ * `motivo` es texto para el doctor, con números. Borrar archivos DEL EXPEDIENTE
+ * libera espacio desde 04 §12.6 #5 (las demás superficies todavía no, #5b), y
+ * archivar libera lugar de pacientes.
  */
 export async function cabeEnPlan(
   db: {
@@ -702,7 +729,9 @@ export async function cabeEnPlan(
   if (usados > topeBytes) {
     return {
       cabe: false,
-      motivo: `Usas ${formatearBytes(usados)} de archivos y ${nombre} permite ${formatearBytes(topeBytes)}.`,
+      motivo:
+        `Usas ${formatearBytes(usados)} de archivos y ${nombre} permite ${formatearBytes(topeBytes)}. ` +
+        `Borra archivos del expediente para liberar espacio.`,
     };
   }
 

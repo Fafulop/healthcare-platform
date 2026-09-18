@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Edit2, Save, Trash2, Download, Link2 } from 'lucide-react';
+import { practiceConfirm } from '@/lib/practice-confirm';
 
 interface MediaViewerProps {
   media: {
@@ -98,7 +99,14 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: M
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this media? This action cannot be undone.')) {
+    // TIERS 04 §12.6 #5: el borrado ya es DEFINITIVO (sin papelera — decisión
+    // del usuario). NO promete «libera espacio»: los archivos de antes del
+    // 2026-09-13 nunca contaron contra el cupo (review de #5, hallazgo 2).
+    const confirmado = await practiceConfirm(
+      'El archivo se borra definitivamente y no se puede recuperar.',
+      '¿Borrar este archivo?'
+    );
+    if (!confirmado) {
       return;
     }
 
@@ -117,7 +125,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: M
       onClose();
     } catch (error) {
       console.error('Error deleting media:', error);
-      alert('Failed to delete media');
+      alert('No se pudo borrar el archivo. Intenta de nuevo.');
     }
   };
 
