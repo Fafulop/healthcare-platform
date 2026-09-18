@@ -10,30 +10,28 @@
 
 ## ⭐ ESTADO AL CERRAR EL 2026-09-18 — LEE ESTO PRIMERO
 
-### 🔴 Hay un commit SIN PUSHEAR
+> 🗺️ **Actualizado el 2026-09-18 (noche): el plan vigente es §12 — el mapa completo de
+> permutaciones, las reglas R1–R9 y el orden de construcción (§12.6).** Donde §3–§7 choquen con §12,
+> manda §12.
 
-| Commit | Qué | Estado |
-|---|---|---|
-| `e27e42d3` | Arreglos del review de C3 + `gate:cobro` | ✅ pusheado y **desplegado** (api · doctor · admin, los tres SUCCESS) |
-| `c2db197c` | Este doc (§0–§9) | ✅ pusheado |
-| **`1103200e`** | **Paso 1: las pantallas dicen la verdad** | ⚠️ **COMMITEADO EN LOCAL, SIN PUSH.** El usuario pidió expresamente commitear sin pushear. **Pregúntale antes de pushear** |
+### ✅ Todo pusheado y desplegado
+
+`1103200e` (paso 1) y los docs se pushearon el 2026-09-18; api · doctor · admin **SUCCESS en
+`c92ccbed`**.
 
 ### Lo que NO se ha probado con un clic
 
-`type-check` + los 6 gates + una simulación contra la BD de prod dicen que el código es coherente.
-**Nadie ha MIRADO ninguna de las dos pantallas.** Falta:
+- **Las dos pantallas del paso 1** — y hoy **no se pueden ver**: dr-prueba ya **no está cancelada**
+  (abajo). Para verlas hay que volver a cancelar desde el portal.
+- **El camino `incomplete`** (`e27e42d3`): tarjeta **`4000 0025 0000 3155`**, empezar el pago y
+  **abandonar** la confirmación del banco. Debe volver «Suscribirme» con el aviso de que no hubo cargo.
 
-- **Las dos pantallas del paso 1.** dr-prueba está en el estado perfecto para verlas (cancelada,
-  pagada hasta el 17/10): «Mi Cuenta» debe decir la frase nueva, y el modal del admin debe sacar el
-  aviso rojo al intentar bajarlo. **Esto no está desplegado** (falta el push).
-- **El camino `incomplete`** que se arregló en `e27e42d3` (eso sí está en prod): tarjeta
-  **`4000 0025 0000 3155`**, empezar el pago y **abandonar** la confirmación del banco. Debe volver
-  el botón «Suscribirme» con el aviso de que no hubo cargo.
+### ⚠️ dr-prueba: BÁSICO, ACTIVA, renueva el 17 de octubre
 
-### ⚠️ dr-prueba: NO LO BAJES ANTES DEL 17 DE OCTUBRE
-
-Está en **BÁSICO**, cancelada, **pagada hasta el 2026-10-17**. Se restauró a mano el 2026-09-18
-(ver §8). Si el 17 de octubre sigue en BÁSICO, **eso NO es un bug: es que D1/§10 no se construyó.**
+Verificado el 2026-09-18 contra Stripe y la BD: `active`, **sin** `cancel_at` ni `canceled_at`,
+próximo cargo **2026-10-17** (modo prueba). Alguien **deshizo la cancelación** desde el portal —
+lo que prueba que el caso B3a ya funciona. Lo que decía este bloque («cancelada, pagada hasta el
+17/10») quedó viejo. El 17/10 se va a cobrar la renovación de prueba (primer B1 real).
 
 ### 🔴 En el árbol hay trabajo AJENO que no se debe commitear aquí
 
@@ -47,10 +45,9 @@ Necesita su propia sesión, con el PDF enfrente. **Nunca en un commit de cobro.*
 
 ### Lo siguiente a construir
 
-**El paso 3 (SUBIR de plan, BÁSICO→PRO).** Ver §7. El paso 2 **ya no está en duda: lo reemplaza
-§11** (15 días de margen → GRATIS si cabe, CONGELADA si no; adjuntos 1 año, datos 5 años), que
-está decidido pero sin diseño técnico. Y nació un proyecto aparte: **una cuenta por doctor**
-(`05-PLAN-una-cuenta-por-doctor.md`).
+**§12.6**, en ese orden: camino al pago → aviso del admin → subir de plan → vender cualquier plan en
+el que quepa → borrar libera → dejar de pagar (§11) → bajar de plan → una cuenta por doctor
+(`05-PLAN-una-cuenta-por-doctor.md`). Cada uno se presenta como plan y espera el OK antes de código.
 
 ---
 
@@ -227,7 +224,10 @@ Hoy no: «el plan no baja solo», lo baja una persona. Eso es lo que produjo el 
   distinción, una automatización bien intencionada le quita PRO a diez cuentas que se lo regalamos
   a propósito.
 
-### D2 — ¿Qué pasa si al llegar la fecha la cuenta YA NO CABE? → **bajar y congelar**
+### D2 — ¿Qué pasa si al llegar la fecha la cuenta YA NO CABE? → ~~bajar y congelar~~ **REEMPLAZADA por §12 R4 + R5**
+
+> 🔄 2026-09-18: el usuario decidió que **sólo se baja si cabe** (R4), y las subidas se topan desde
+> que se agenda la baja (R5), así que al llegar la fecha siempre cabe. Lo de abajo es historia.
 
 Agendó bajar a BÁSICO con 10 GB, y para el 17 de octubre subió a 22 GB.
 
@@ -454,6 +454,118 @@ La pantalla tiene que decir **hasta qué fecha se conservan sus adjuntos** (11.5
   quedar cerradas, y eso hay que dimensionarlo antes de prometerlo.
 - **Sigue abierto:** si la descarga también se ofrece a cuentas **activas** (en cualquier momento),
   o sólo al congelar.
+
+---
+
+## 12. 🗺️ EL MAPA COMPLETO — todas las permutaciones contra el código (2026-09-18)
+
+> **Esto manda sobre §3–§7 y §6 donde choquen.** Se armó con el usuario caso por caso, y cada
+> «Hoy» se verificó en el código y contra prod (BD + Stripe, sólo lectura) el 2026-09-18. Nada de
+> la columna «Debe ser» está construido salvo donde dice ✅.
+
+### 12.0 Las reglas que salieron de este mapa
+
+| # | Regla | Reemplaza a |
+|---|---|---|
+| R1 | **GRATIS nunca se congela.** Al llegar a su tope (50 pacientes · 500 MB) sólo se bloquea **agregar** (paciente nuevo, archivo nuevo). Todo lo demás sigue | — |
+| R2 | **Todo aviso de tope o de función no incluida lleva a «Mi Cuenta» → pagar.** Nunca a un correo | El CTA `mailto:` de `TierUpgradeNotice` |
+| R3 | **Borrar un archivo libera espacio.** | La deuda H5 de `03` (hoy el contador sólo sube) |
+| R4 | **Sólo se puede bajar de plan si lo que usas CABE en el plan de abajo** (almacenamiento, y pacientes si el destino es GRATIS). Si no cabe, se dice con números: «Usas 20 GB y BÁSICO permite 15 GB. Libera 5 GB» | D2 (§6) y P4c: ya NO se baja «igual y se congelan las subidas» |
+| R5 | **Con una baja AGENDADA, las subidas nuevas se topan al límite del plan destino** desde que se agenda. Así el día del cambio siempre cabe | — |
+| R6 | **Dejar de pagar ≠ bajar de plan.** Dejar de pagar: 15 días de margen → GRATIS si cabe, CONGELADA si no (§11). Bajar: R4 | — |
+| R7 | **El admin puede cambiar a mano el plan de quien paga por Stripe, con AVISO** («Stripe le seguirá cobrando X»). No se bloquea | — |
+| R8 | **Pagar un plan mayor con una cancelación agendada QUITA la cancelación.** | — |
+| R9 | **Las cortesías pasan a LAB** (lo hace el usuario en el admin). LAB = PRO hoy (mismas funciones, 50 GB), no se vende, no vence, no se congela. Desaparece el bloque de cortesías y **se destraba C4** (la reconciliación ya no las marca en rojo) | G4 (§9) |
+
+### 12.1 Bloque 1 — desde GRATIS
+
+| # | Caso | Hoy (verificado) | Debe ser |
+|---|---|---|---|
+| F1 | Llega a 50 pacientes activos | Se bloquea en los 3 caminos (alta · importación · **desarchivar**). Mensaje: «Archiva un expediente…». **Sin salida de pago** | Igual + botón a **Mi Cuenta → pagar** (R2) |
+| F2 | Llega a 500 MB | Se rechaza la subida: «necesitas ampliar tu plan». **Sin botón.** Borrar **no** libera (H5) | Botón a pagar (R2) + borrar libera (R3) |
+| F3 | Entra a una función no incluida | Candado + «Escríbenos». El botón sale sólo con `NEXT_PUBLIC_SALES_EMAIL`, **que no está puesta** ⇒ **sin salida** | Botón a **Mi Cuenta → pagar** (R2) |
+| F4 | GRATIS → BÁSICO | ✅ **Probado en vivo** el 2026-09-17 (checkout → `invoice.paid` → sube, con bitácora) | Igual |
+| F4a | Cierra el checkout sin pagar | ✅ «No se completó el pago…» | Igual |
+| F4b | Tarjeta rechazada en el checkout | ✅ Stripe lo dice ahí; no se crea nada | Igual |
+| F4c | 3DS abandonado (`incomplete`) | Arreglado en `e27e42d3`. **Nunca clicado** | Probar con `4000 0025 0000 3155` |
+| F4d | Paga en dos pestañas | Dos suscripciones; aviso a Telegram; **reembolso a mano** | Aceptable a esta escala |
+| F4e | Regresa antes del webhook | ✅ Aviso azul que no afirma el cambio | Igual |
+| F5 | GRATIS → PRO | Mismo camino que F4. **Nunca probado en vivo** | Probarlo una vez |
+
+### 12.2 Bloque 2 — BÁSICO (pagando)
+
+| # | Caso | Hoy (verificado) | Debe ser |
+|---|---|---|---|
+| B1 | Renovación cobrada | `invoice.paid` del mismo plan: sólo anota la fecha. La primera real será dr-prueba el **17/10** | Igual |
+| B2 | **Renovación falla** | `past_due`, aviso «revisa tu tarjeta», Telegram. **El tier se queda para siempre** | Línea de tiempo abajo (12.5) |
+| B2a | 🔴 **Desde qué fecha cuentan los 15 días** | Al fallar la renovación Stripe **igual avanza** `current_period_end` un mes, y es lo que guardamos ⇒ Mi Cuenta diría «Próximo cargo: 17/11» debiendo dinero, y el margen contaría mal | Contar desde **el fin del último periodo PAGADO**. **Verificar con test clocks ANTES de construir** |
+| B3 | Cancela (portal, al final del periodo) | ✅ «Tu plan BÁSICO sigue activo hasta el X… no hay reembolsos» (paso 1, en prod) | Igual |
+| B3a | Deshace la cancelación | ✅ **Ya funciona desde el portal** — es justo lo que le pasó a dr-prueba | **No hace falta construir «Reanudar»** (caso 7 de §3) |
+| B3b | Se acaba lo pagado | `subscription.deleted` ⇒ Telegram «bájala a mano». **El tier se queda para siempre** | Margen + GRATIS/congelada (§11) |
+| B3c | Se vuelve a suscribir en el margen | ✅ Con la suscripción cancelada, Mi Cuenta vuelve a ofrecer planes | Igual |
+| B3d | Congelada paga («Reactivar») | No existe | Checkout normal; con `invoice.paid` se descongela con todo |
+| B4 | **BÁSICO → PRO** | ❌ **Imposible**: checkout 409 «escríbenos» y el portal tiene el cambio de plan APAGADO (verificado en Stripe) | Inmediato, **prorrateado**, con `payment_behavior: 'pending_if_incomplete'`: el cambio sólo se aplica si se cobra. **El webhook ya sube el tier** con ese `invoice.paid` |
+| B4a | Falla el cobro del prorrateo | — | Nada cambia |
+| B4b | El banco pide 3DS | — | A la página de Stripe para confirmar |
+| B4c | Sube con cancelación agendada | — | Se quita la cancelación (R8) |
+| B5 | Llega a 15 GB | Rechazo de subida como F2 | Botón a pagar (→ PRO) + R3 |
+| B6 | Admin cambia su plan a mano | Permitido; sólo avisa si hay cancelación agendada | Permitido **con aviso** para cualquier suscripción viva (R7) |
+| B7 | Reembolso / contracargo | El webhook no escucha esos eventos | Baja prioridad |
+
+### 12.3 Bloque 3 — PRO (pagando)
+
+| # | Caso | Hoy (verificado) | Debe ser |
+|---|---|---|---|
+| P1 | Renovación cobrada | = B1 | Igual |
+| P2 | Renovación falla | = B2 | = B2; cae a **GRATIS** (nunca a BÁSICO) o congelada |
+| P3 | Cancela / deshace | = B3 / B3a | Igual |
+| P3a | PRO cancelado quiere volver en **BÁSICO** | ❌ **Imposible**: `planesVendibles` nunca vende por debajo del tier, que sigue en PRO. **Y** si se pudiera, el webhook se negaría a bajarlo (un pago sólo sube) | Una cuenta **sin suscripción viva** puede comprar cualquier plan **en el que quepa** (R4), y ese pago **fija** el plan aunque sea menor |
+| P4 | **PRO → BÁSICO** | ❌ **Imposible** (409 y portal sin cambio de plan) | Al **fin del periodo**, sin reembolso (D3), **sólo si cabe** (R4). Mi Cuenta: «Tienes PRO hasta el 17/10; ese día pasas a BÁSICO ($X)» |
+| P4a | Se arrepiente antes de la fecha | — | Botón **«Cancelar el cambio»** en Mi Cuenta (el portal no sirve: el cambio de plan está apagado) |
+| P4b | Llega la fecha: renovación al precio de BÁSICO | ⚠️ El webhook **se niega a bajarlo** («pagó BÁSICO pero está en PRO, NO se bajó») — G2 | Guardar **a qué plan va** (G6) para que el webhook reconozca la baja agendada |
+| P4c | ~~Llega la fecha pasado de 15 GB~~ | — | **No puede pasar:** R5 topa las subidas desde que se agenda |
+| P4d | Agenda la baja y luego cancela | — | Gana la cancelación: fin de periodo → margen → GRATIS/congelada |
+| P4e | Baja agendada y la renovación en BÁSICO falla | — | = B2, ya en BÁSICO |
+| P5 | PRO → GRATIS | = cancelar | Igual |
+| P6 | Llega a 50 GB | «necesitas ampliar tu plan» — **pero no hay plan mayor que comprar** (LAB no se vende) | «Libera espacio borrando archivos». **Sin botón de pago** |
+| P7 | Admin cambia su plan a mano | = B6 | Con aviso (R7) |
+
+### 12.4 Cortesías → LAB
+
+Las 10 cuentas PRO que no pagan pasan a **LAB** (R9), a mano por el usuario desde el admin.
+**dr-quebradita** (BÁSICO puesto a mano, sin suscripción): lo decide el usuario al hacerlo. Nota:
+cuando llegue **Q5**, LAB conserva el asistente 🟢 y PRO no — tendrán un poco MÁS que PRO.
+
+### 12.5 La línea de tiempo de una tarjeta que falla (configuración de Stripe verificada)
+
+Stripe (modo prueba), configurado por el usuario el 2026-09-18: **Smart Retries, hasta 8 intentos en
+1 semana · al agotarse: cancelar la suscripción · la factura: marcar como INCOBRABLE** (antes decía
+«dejar vencida», que permitía pagar una suscripción ya cancelada sin recuperar nada).
+
+| Día | Qué pasa |
+|---|---|
+| 0 | Falla la renovación (día 0 = **fin del último periodo pagado**, B2a). `past_due`, todo funciona, aviso con la fecha límite |
+| 0–7 | Stripe reintenta. Si uno pasa, todo vuelve a la normalidad |
+| ~7 | Se agotan: Stripe **cancela**. Sigue todo funcionando y Mi Cuenta ofrece suscribirse otra vez |
+| 15 | Fin del margen: **GRATIS** si cabe, **CONGELADA** si no (§11) |
+
+⚠️ Al pasar a VIVO hay que repetir esta configuración en modo vivo: es por modo.
+
+### 12.6 Qué construir, en orden
+
+| # | Qué | Casos | Toca Stripe | Tamaño |
+|---|---|---|---|---|
+| 1 | **Camino al pago**: los tres avisos de tope/candado llevan a Mi Cuenta → pagar; P6 dice «libera espacio» | F1–F3 · B5 · P6 | No | Chico |
+| 2 | **Aviso en el admin** para cambios a mano sobre suscripciones vivas | B6 · P7 | No | Chico |
+| 3 | **Subir de plan** BÁSICO→PRO, prorrateado, quitando la cancelación | B4 a–c | Sí | Mediano |
+| 4 | **Vender cualquier plan en el que quepa** a quien no tiene suscripción viva, y que ese pago **fije** el plan | P3a · R4 | Sí (webhook) | Chico-mediano |
+| 5 | **Borrar libera espacio** | R3 · F2 · B5 | No | Mediano (su propia deuda, H5) |
+| 6 | **Dejar de pagar**: la fecha correcta (B2a), el reloj diario, margen, GRATIS/congelada, pantalla de congelado, descarga, aviso al doctor | B2 · B3b · B3d · P2 · §11 | Lee | Grande — partirlo |
+| 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande |
+| 8 | **Una cuenta por doctor** | `05` | No | Grande, empieza por investigar |
+
+**Cómo se prueba lo que depende del tiempo** (B1, B2/B2a, B3b, el margen): **test clocks** de Stripe —
+un cliente en un reloj simulado que se adelanta 30 días en segundos—, no esperando un mes.
 
 ---
 

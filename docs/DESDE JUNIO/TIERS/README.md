@@ -8,6 +8,24 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## 🗺️ HANDOFF — 2026-09-18 (noche): el mapa completo de permutaciones
+
+👉 **[`04` §12](04-PLAN-cambio-de-plan.md)** — todas las permutaciones (GRATIS · BÁSICO · PRO ·
+cortesías) contra el código, **verificado en código y contra prod (BD + Stripe)**, con las reglas
+R1–R9 y el orden de construcción (§12.6). Lo esencial:
+
+- **GRATIS nunca se congela**: al tope sólo bloquea agregar; todo aviso lleva a **Mi Cuenta → pagar**
+  (no a un correo); **borrar libera espacio** (hoy no: deuda H5).
+- **Sólo se baja de plan si cabe**, y con una baja agendada las subidas se topan al plan destino.
+- **Cortesías → LAB** (el usuario lo hace en el admin): desbloquea C4.
+- **Hoy es IMPOSIBLE subir BÁSICO→PRO y bajar PRO→BÁSICO** (checkout 409 + portal con cambio de
+  plan apagado — verificado en la config de Stripe). **Deshacer una cancelación SÍ funciona** desde
+  el portal: dr-prueba ya no está cancelada.
+- **Stripe (prueba) configurado por el usuario**: 8 reintentos en 1 semana → cancela la suscripción
+  → factura INCOBRABLE. Hay que repetirlo en modo vivo.
+- 🔴 **B2a**: al fallar una renovación Stripe avanza `current_period_end` igual; el margen tiene que
+  contar desde el último periodo PAGADO. Verificar con test clocks antes de construir.
+
 ## 🔄 HANDOFF — 2026-09-18 (tarde): qué pasa cuando dejan de pagar + una cuenta por doctor
 
 Decidido con el usuario, **nada construido**:
@@ -31,9 +49,9 @@ bloque ⭐ ESTADO, que trae lo que está pusheado, lo que NO, y lo que nadie ha 
 
 Lo mínimo que hay que saber antes de tocar nada:
 
-- **`1103200e` está commiteado en LOCAL y SIN PUSHEAR** (el usuario lo pidió así). Es el paso 1:
-  que «Mi Cuenta» y el modal del admin digan la verdad mientras una cancelación está agendada.
-  **Pregúntale antes de pushear.**
+- ~~`1103200e` sin pushear~~ → **pusheado y desplegado el 2026-09-18** (api · doctor · admin en
+  `c92ccbed`). Es el paso 1: que «Mi Cuenta» y el modal del admin digan la verdad mientras una
+  cancelación está agendada.
 - **Lo siguiente a construir es SUBIR de plan (BÁSICO→PRO)**, prorrateado. No depende de nada
   pendiente. La baja automática al final del periodo **quedó en duda a propósito**: el usuario
   propuso, en su lugar, **un margen de días y luego CONGELAR** la cuenta (entra y ve todo, no puede
