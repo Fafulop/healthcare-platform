@@ -392,6 +392,14 @@ function SeccionPago() {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
 
+  // La sección se pinta DESPUÉS de leer el estado, así que el salto nativo al
+  // `#pago` de la URL ya pasó cuando existe: se hace a mano en cuanto aparece.
+  useEffect(() => {
+    if (estado?.disponible && window.location.hash === "#pago") {
+      document.getElementById("pago")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [estado]);
+
   useEffect(() => {
     // Se lee de `window` y no con `useSearchParams`: evita exigir un límite de
     // Suspense sólo para esto.
@@ -470,7 +478,9 @@ function SeccionPago() {
   const nombreDelPlan = tierVigente ? TIER_LABELS[tierVigente] : "actual";
 
   return (
-    <section className="mb-6 p-5 bg-white border border-gray-200 rounded-lg">
+    // `id="pago"`: el ancla a la que llevan TODOS los avisos de tope y candado
+    // (`VerPlanesLink`, TIERS 04 §12.6 #1). `scroll-mt` deja aire bajo el header.
+    <section id="pago" className="mb-6 p-5 bg-white border border-gray-200 rounded-lg scroll-mt-20">
       <div className="flex items-center gap-2 mb-3">
         <CreditCard className="w-4 h-4 text-gray-400" />
         <h2 className="text-sm font-semibold text-gray-900">Pago de tu plan</h2>

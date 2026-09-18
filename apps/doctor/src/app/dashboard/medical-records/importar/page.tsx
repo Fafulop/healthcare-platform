@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { ArrowLeft, Download, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { usePermissions } from '@/lib/permissions-client';
+import { VerPlanesLink } from '@/components/layout/VerPlanesLink';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -52,6 +53,9 @@ export default function ImportarPacientesPage() {
   const [result, setResult] = useState<CommitResult | null>(null);
   const [busy, setBusy] = useState<null | 'validate' | 'commit' | 'template'>(null);
   const [error, setError] = useState<string | null>(null);
+  // TIERS 04 §12.6 #1 (R2): el commit rechazó por cupo (la respuesta trae
+  // `quota`) ⇒ junto al mensaje se pinta «Ver planes».
+  const [sinCupo, setSinCupo] = useState(false);
 
   /**
    * La plantilla NO puede ser un `<a href>`.
@@ -112,6 +116,7 @@ export default function ImportarPacientesPage() {
     if (!file) return;
     setBusy(step);
     setError(null);
+    setSinCupo(false);
     try {
       const body = new FormData();
       body.append('file', file);
@@ -121,7 +126,10 @@ export default function ImportarPacientesPage() {
         body,
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'Error');
+      if (!res.ok) {
+        if (json.quota) setSinCupo(true);
+        throw new Error(json.error ?? 'Error');
+      }
 
       if (step === 'validate') setPreview(json.data);
       else setResult(json.data);
@@ -197,9 +205,10 @@ export default function ImportarPacientesPage() {
       </ol>
 
       {error && (
-        <p className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
-          {error}
-        </p>
+        <div className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+          <p>{error}</p>
+          {sinCupo && <VerPlanesLink className="mt-3" />}
+        </div>
       )}
 
       {/* Paso 3 — vista previa */}

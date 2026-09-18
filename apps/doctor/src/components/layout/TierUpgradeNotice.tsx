@@ -8,32 +8,20 @@
  * doctor must learn WHY the section is inert; before T4 they saw the section,
  * clicked, and got an error with no explanation.
  *
- * Contact-based on purpose: there is no self-serve billing (§10 no-meta v1), so
- * "Upgrade" opens an email instead of a checkout.
+ * TIERS 04 §12.6 #1: the CTA used to be a `mailto:` built from
+ * NEXT_PUBLIC_SALES_EMAIL — which is not set in Railway, so the button never
+ * rendered and the doctor hit a dead end. Self-serve billing exists now (C3):
+ * the way out is «Mi Cuenta» → pagar (rule R2), never an email.
  */
 
-import { Lock, Mail } from "lucide-react";
+import { Lock } from "lucide-react";
 import { TIER_KEY_LABELS, type TierKey } from "@healthcare/database";
-
-/**
- * Sales contact, from env so it is not hardcoded in a component. Absent ⇒ the
- * CTA is omitted rather than rendered broken: a dead "contact us" button is
- * worse than none, and the explanation above it is the part that matters.
- */
-const SALES_EMAIL = process.env.NEXT_PUBLIC_SALES_EMAIL ?? "";
-
-function mailtoLink(featureLabel: string): string | null {
-  if (!SALES_EMAIL) return null;
-  const subject = `Activar ${featureLabel} en mi cuenta`;
-  const body = `Hola, me interesa activar "${featureLabel}" en mi cuenta de TuSalud.`;
-  return `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
+import { VerPlanesLink } from "./VerPlanesLink";
 
 // TierKey (no PermissionKey): un tier puede excluir `ia`/`whatsapp`, que no son
 // toggles de member pero sí tienen pantalla de plan.
 export function TierUpgradeNotice({ permissionKey }: { permissionKey: TierKey }) {
   const label = TIER_KEY_LABELS[permissionKey] ?? "Esta función";
-  const href = mailtoLink(label);
 
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[60vh] px-6 text-center">
@@ -48,17 +36,9 @@ export function TierUpgradeNotice({ permissionKey }: { permissionKey: TierKey })
         activas esta función, todo reaparece tal como estaba.
       </p>
       <p className="text-sm text-gray-500 max-w-md mb-6">
-        Escríbenos y la activamos en tu cuenta.
+        Para activarla, cambia de plan.
       </p>
-      {href && (
-        <a
-          href={href}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Mail className="w-4 h-4" />
-          Escribir un correo
-        </a>
-      )}
+      <VerPlanesLink />
     </div>
   );
 }

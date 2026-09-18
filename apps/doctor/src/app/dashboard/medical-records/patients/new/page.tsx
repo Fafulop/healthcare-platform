@@ -6,6 +6,7 @@ import { PatientForm } from '@/components/medical-records/PatientForm';
 import { PatientChatPanel } from '@/components/medical-records/PatientChatPanel';
 import { AIDraftBanner, VoiceChatSidebar, VoiceRecordingModal } from '@/components/voice-assistant';
 import { useNewPatientPage } from '../_components/useNewPatientPage';
+import { VerPlanesLink } from '@/components/layout/VerPlanesLink';
 
 export default function NewPatientPage() {
   const {
@@ -28,6 +29,7 @@ export default function NewPatientPage() {
     chatFormData,
     handleChatFieldUpdates,
     handleSubmit,
+    sinCupo,
   } = useNewPatientPage();
 
   if (sessionStatus === 'loading') {
@@ -79,6 +81,16 @@ export default function NewPatientPage() {
           fieldsEmpty={aiMetadata.fieldsEmpty}
           onDismiss={() => setShowAIBanner(false)}
         />
+      )}
+
+      {/* TIERS 04 §12.6 #1: topó el cupo de pacientes ⇒ la salida es pagar (R2). */}
+      {sinCupo && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-amber-900">
+            Llegaste al límite de pacientes activos de tu plan.
+          </p>
+          <VerPlanesLink />
+        </div>
       )}
 
       <PatientForm

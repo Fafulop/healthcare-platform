@@ -19,27 +19,14 @@
  */
 
 import { useState } from "react";
-import { Lock, Mail, X } from "lucide-react";
+import { Lock, X } from "lucide-react";
 import { usePermissions } from "@/lib/permissions-client";
+import { VerPlanesLink } from "./VerPlanesLink";
 
-/**
- * Contacto de ventas. Con FALLBACK fijo a propósito (mismo patrón y misma
- * dirección que `apps/public/src/lib/product-content.ts`): es
- * `NEXT_PUBLIC_*`, se hornea en el BUILD, y al 2026-09-13 **no está puesta en
- * Railway**. Sin fallback, el diálogo diría "Escríbenos y las activamos" sin
- * ningún modo de escribir — un callejón sin salida, peor que ocultar la
- * puerta. Hallazgo del review de Q2b.
- */
-const SALES_EMAIL = process.env.NEXT_PUBLIC_SALES_EMAIL || "hola@tusalud.pro";
-
-const SUBJECT = "Activar las funciones de IA en mi cuenta";
-const BODY =
-  "Hola, me interesa activar las funciones de IA (dictado por voz y los chats que llenan formularios) en mi cuenta.";
-
-function mailtoLink(): string | null {
-  if (!SALES_EMAIL) return null;
-  return `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(SUBJECT)}&body=${encodeURIComponent(BODY)}`;
-}
+// TIERS 04 §12.6 #1: aquí vivía un `mailto:` con un correo FIJO de respaldo
+// (la variable NEXT_PUBLIC_SALES_EMAIL nunca se puso en Railway). La salida es
+// ahora «Mi Cuenta» → pagar (regla R2): hay cobro self-serve desde C3, y un
+// correo no le cambia el plan a nadie.
 
 /**
  * El estado del candado de IA para UNA puerta.
@@ -75,7 +62,6 @@ export function useAiLock() {
 /** Diálogo compartido por todas las puertas con candado. */
 export function AiUpgradeDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null;
-  const href = mailtoLink();
 
   return (
     <div
@@ -106,18 +92,10 @@ export function AiUpgradeDialog({ open, onClose }: { open: boolean; onClose: () 
           tu cuenta sigue igual.
         </p>
         <p className="mx-auto mb-6 max-w-xs text-sm text-gray-500">
-          Escríbenos y las activamos.
+          Para activarlas, cambia de plan.
         </p>
 
-        {href && (
-          <a
-            href={href}
-            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            <Mail className="h-4 w-4" />
-            Escribir un correo
-          </a>
-        )}
+        <VerPlanesLink />
       </div>
     </div>
   );

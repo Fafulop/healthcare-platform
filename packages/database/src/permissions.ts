@@ -415,7 +415,7 @@ export function formatearBytes(bytes: number): string {
  */
 export function explicarRechazoDeSubida(
   e: unknown,
-): { tipo: 'archivo' | 'cuenta'; mensaje: string } | null {
+): { tipo: 'archivo' | 'cuenta'; mensaje: string; hayPlanMayor?: boolean } | null {
   if (e instanceof FileTooLargeError) {
     return {
       tipo: 'archivo',
@@ -424,21 +424,49 @@ export function explicarRechazoDeSubida(
   }
   if (e instanceof StorageQuotaExceededError) {
     const libre = Math.max(0, e.limit - e.current);
+    // TIERS 04 §12.3 P6: a PRO (y LAB) no hay plan mayor que VENDERLE — LAB es
+    // por invitación y tiene el mismo tope. Decirle "amplía tu plan" le manda a
+    // una pantalla sin nada que comprar. Se deduce del TOPE y no del tier para
+    // no cambiar la firma: el error ya trae el límite con el que chocó.
+    const hayPlanMayor = (Object.keys(TIER_LIMITS) as DoctorTier[]).some(
+      (t) => t !== 'LAB' && TIER_LIMITS[t].storageBytes > e.limit,
+    );
     return {
       tipo: 'cuenta',
       // ⚠️ NO decir "borra archivos": HOY nada baja el uso. Ningún camino borra
       // filas de `stored_files` (el borrado de un media del expediente deja el
       // archivo en el bucket a propósito), así que un doctor que borrara todo
       // seguiría topado. Prometer una salida que no existe es peor que no dar
-      // ninguna. Cuando exista el borrado de verdad, se cambia esta frase.
+      // ninguna. Cuando exista el borrado de verdad (04 §12.6 #5), se agrega
+      // aquí "o borra archivos para liberar espacio".
       mensaje:
-        `No hay espacio en tu plan: ocupas ${formatearBytes(e.current)} de ${formatearBytes(e.limit)} ` +
+        `${PREFIJO_SIN_ESPACIO}: ocupas ${formatearBytes(e.current)} de ${formatearBytes(e.limit)} ` +
         `y estás subiendo ${formatearBytes(e.incoming)} (te quedan ${formatearBytes(libre)}). ` +
-        `Para subir más necesitas ampliar tu plan.`,
+        (hayPlanMayor
+          ? `Para subir más, ${SUFIJO_CAMBIA_DE_PLAN}`
+          : `Llegaste al límite de almacenamiento más alto que ofrecemos.`),
+      // `hayPlanMayor` viaja para que la pantalla decida si pinta «Ver planes».
+      hayPlanMayor,
     };
   }
   return null;
 }
+
+/**
+ * Cómo EMPIEZA el mensaje de «sin espacio». uploadthing sólo le entrega al
+ * navegador el TEXTO del error (ni el tipo ni campos extra), así que ésta es la
+ * única forma que tiene `MediaUploader` de reconocerlo para pintar el botón de
+ * «Ver planes». Una sola constante para que el que escribe y el que lee no
+ * puedan divergir.
+ */
+export const PREFIJO_SIN_ESPACIO = 'No hay espacio en tu plan';
+
+/**
+ * Lo que agrega el mensaje de «sin espacio» cuando SÍ hay un plan mayor que
+ * vender. `MediaUploader` lo busca para decidir si pinta «Ver planes»: a PRO no
+ * hay nada que venderle (P6) y el botón lo mandaría a una pantalla vacía.
+ */
+export const SUFIJO_CAMBIA_DE_PLAN = 'cambia de plan en Mi Cuenta.';
 
 /** Cliente mínimo para el chequeo de almacenamiento. */
 interface StorageCounter {

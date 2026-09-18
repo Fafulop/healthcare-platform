@@ -48,6 +48,9 @@ export function useNewPatientPage() {
   });
 
   const [doctorProfile, setDoctorProfile] = useState<PracticeDoctorProfile | null>(null);
+  // TIERS 04 §12.6 #1 (regla R2): al topar el cupo, la página pinta «Ver planes»
+  // junto al formulario. El mensaje en sí lo pinta PatientForm (lo lanzado abajo).
+  const [sinCupo, setSinCupo] = useState(false);
 
   // Voice recording modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -221,6 +224,7 @@ export function useNewPatientPage() {
   }), [currentFormSnapshot]);
 
   const handleSubmit = async (formData: PatientFormData) => {
+    setSinCupo(false);
     const res = await fetch('/api/medical-records/patients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -235,11 +239,12 @@ export function useNewPatientPage() {
       // plan, y no dice que archivar libera lugar.
       if (errorData.error === 'QUOTA_EXCEEDED') {
         const { current, limit } = errorData as { current?: number; limit?: number };
+        setSinCupo(true);
         throw new Error(
           current != null && limit != null
             ? `Tu plan incluye ${limit} pacientes activos y ya tienes ${current}. ` +
-              `Archiva un expediente para liberar lugar (archivar no borra nada).`
-            : 'Tu plan no permite más pacientes activos. Archiva un expediente para liberar lugar.'
+              `Archiva un expediente para liberar lugar (archivar no borra nada) o cambia de plan.`
+            : 'Tu plan no permite más pacientes activos. Archiva un expediente para liberar lugar o cambia de plan.'
         );
       }
       throw new Error(errorData.error || 'Error al crear paciente');
@@ -255,6 +260,8 @@ export function useNewPatientPage() {
   };
 
   return {
+    // Plan
+    sinCupo,
     // Session
     session,
     sessionStatus: status,

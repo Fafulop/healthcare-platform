@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Upload, X, Image as ImageIcon, Video, Mic, FileText, Loader2 } from 'lucide-react';
 import { useUploadThing } from '@/lib/uploadthing';
+import { SUFIJO_CAMBIA_DE_PLAN } from '@healthcare/database';
+import { VerPlanesLink } from '@/components/layout/VerPlanesLink';
 
 import { formatLocalDate as formatDateString } from '@/lib/dates';
 
@@ -61,11 +63,20 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🔴 `startUpload` NO lanza: si el servidor rechaza la subida, uploadthing
+  // (v7) se traga el error, llama `onUploadError` y devuelve `undefined`. Sin
+  // este callback el doctor sin espacio leía «Error al subir archivo» y nunca
+  // el motivo que arma `explicarRechazoDeSubida` (medido en
+  // node_modules/@uploadthing/react, 2026-09-18). Se guarda en un ref porque
+  // el callback corre DENTRO del `await` de abajo, antes de que regrese.
+  const rechazoDeSubida = useRef<string | null>(null);
+  const alRechazar = { onUploadError: (e: Error) => { rechazoDeSubida.current = e.message; } };
+
   // UploadThing hooks for different media types
-  const { startUpload: uploadImages } = useUploadThing('medicalImages');
-  const { startUpload: uploadVideos } = useUploadThing('medicalVideos');
-  const { startUpload: uploadAudio } = useUploadThing('medicalAudio');
-  const { startUpload: uploadDocuments } = useUploadThing('medicalDocuments');
+  const { startUpload: uploadImages } = useUploadThing('medicalImages', alRechazar);
+  const { startUpload: uploadVideos } = useUploadThing('medicalVideos', alRechazar);
+  const { startUpload: uploadAudio } = useUploadThing('medicalAudio', alRechazar);
+  const { startUpload: uploadDocuments } = useUploadThing('medicalDocuments', alRechazar);
 
   // Fetch patient encounters for linking
   useEffect(() => {
@@ -116,6 +127,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
 
     setIsUploading(true);
     setError(null);
+    rechazoDeSubida.current = null;
 
     try {
       // Step 1: Upload to UploadThing based on media type
@@ -131,7 +143,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
       }
 
       if (!uploadedFiles || uploadedFiles.length === 0) {
-        throw new Error('Error al subir archivo');
+        throw new Error(rechazoDeSubida.current || 'Error al subir archivo');
       }
 
       // Step 2: Create media records in database for each uploaded file
@@ -388,6 +400,16 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
           {error}
+          {/* TIERS 04 §12.6 #1 (regla R2): sin espacio y con un plan mayor que
+              vender ⇒ la salida es pagar. uploadthing sólo entrega el TEXTO del
+              error, así que se reconoce por la frase que escribe
+              `explicarRechazoDeSubida` (misma constante). A PRO no se le pinta:
+              no hay plan mayor (P6). */}
+          {error.includes(SUFIJO_CAMBIA_DE_PLAN) && (
+            <div className="mt-3">
+              <VerPlanesLink />
+            </div>
+          )}
         </div>
       )}
 

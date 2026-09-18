@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           error:
             `Tu plan incluye ${error.limit} pacientes activos y ya tienes ${error.current}. ` +
             `Este archivo agregaría ${error.incoming} más, así que no se importó nada. ` +
-            `Archiva expedientes para liberar lugar (archivar no borra nada).`,
+            `Archiva expedientes para liberar lugar (archivar no borra nada) o cambia de plan.`,
           quota: { limit: error.limit, current: error.current, incoming: error.incoming },
         },
         { status: 403 },
