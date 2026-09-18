@@ -315,6 +315,9 @@ export default function CuentaPage() {
 interface EstadoCobro {
   disponible: boolean;
   modo?: "test" | "live" | null;
+  /** El plan VIGENTE de la cuenta. El servidor ya lo mandaba; sin declararlo no
+   *  se podía nombrar el plan en la frase de la baja agendada. */
+  tier?: string;
   suscripcion?: {
     status: string;
     currentPeriodEnd: string | null;
@@ -344,7 +347,19 @@ const ETIQUETA_STATUS: Record<string, string> = {
 };
 
 function fecha(iso: string | null | undefined): string | null {
-  return iso ? new Date(iso).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" }) : null;
+  // 🔴 `timeZone` FIJA. Estos ISO son timestamps (no `@db.Date`), así que sin
+  // fijarla los formatea la zona del NAVEGADOR: un fin de periodo a las 03:00Z
+  // se pinta el día anterior para quien esté en México, y la fecha que ve el
+  // doctor deja de coincidir con la que ve el admin sobre el mismo dato.
+  // Producto de México: una sola zona para las dos pantallas.
+  return iso
+    ? new Date(iso).toLocaleDateString("es-MX", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "America/Mexico_City",
+      })
+    : null;
 }
 
 function precio(centavos: number, moneda: string, intervalo: string): string {
@@ -435,6 +450,25 @@ function SeccionPago() {
   const sub = estado.suscripcion;
   const viva = sub && ["active", "trialing", "past_due", "incomplete", "unpaid"].includes(sub.status);
 
+  // Baja AGENDADA: canceló, pero el periodo que ya pagó sigue corriendo. Es el
+  // hueco de hasta 30 días de 04-PLAN §4, y es el único estado en el que decir
+  // el plan a secas —«BÁSICO» o «GRATIS»— afirma algo falso.
+  //
+  // Sin `status !== 'canceled'` a propósito: `viva` (arriba) ya excluye
+  // `canceled`, así que aquí sería código muerto. Quien impide que una
+  // suscripción YA terminada diga «sigue activa hasta el <fecha pasada>» es
+  // `extraerDatos()` en `cobro-webhook.ts`, que apaga `cancelAtPeriodEnd`
+  // cuando el status es `canceled` — no esta línea. Si algún día se amplía
+  // `viva`, hay que volver a mirar ESO, no agregar una guarda aquí creyendo que
+  // ya estaba.
+  const bajaAgendada = !!sub && sub.cancelAtPeriodEnd;
+  const tierVigente =
+    estado.tier && (DOCTOR_TIERS as readonly string[]).includes(estado.tier)
+      ? (estado.tier as DoctorTier)
+      : null;
+  // Sin plan reconocible se dice «tu plan actual», no un nombre inventado.
+  const nombreDelPlan = tierVigente ? TIER_LABELS[tierVigente] : "actual";
+
   return (
     <section className="mb-6 p-5 bg-white border border-gray-200 rounded-lg">
       <div className="flex items-center gap-2 mb-3">
@@ -473,14 +507,46 @@ function SeccionPago() {
         <div className="text-sm">
           <p className="text-gray-900">
             Suscripción:{" "}
-            <span className={sub.status === "active" ? "text-green-700 font-medium" : "text-amber-700 font-medium"}>
-              {ETIQUETA_STATUS[sub.status] ?? sub.status}
-            </span>
+            {/* 🔴 `cancelAtPeriodEnd` MANDA sobre el status, igual que en el
+                admin: Stripe deja en `active` una suscripción ya cancelada
+                hasta que se acaba lo pagado, y pintar «Al corriente» en verde
+                le afirmaría al doctor que sigue suscrito el día que ya se dio
+                de baja. */}
+            {bajaAgendada ? (
+              <span className="text-amber-700 font-medium">Cancelada</span>
+            ) : (
+              <span className={sub.status === "active" ? "text-green-700 font-medium" : "text-amber-700 font-medium"}>
+                {ETIQUETA_STATUS[sub.status] ?? sub.status}
+              </span>
+            )}
           </p>
-          {sub.cancelAtPeriodEnd ? (
-            <p className="text-amber-700 mt-1">
-              Cancelada: termina el {fecha(sub.currentPeriodEnd) ?? "fin del periodo"}.
-            </p>
+          {bajaAgendada ? (
+            /* 04-PLAN §4. Decir sólo «Cancelada: termina el 17 de octubre» deja
+               fuera las dos cosas por las que el doctor pregunta: qué conserva
+               mientras tanto y a dónde cae ese día. Y «no hay reembolsos» se
+               dice AQUÍ, donde todavía se puede reaccionar, no cuando reclame. */
+            <div className="mt-1 text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3">
+              {/* 🔴 NO dice «ese día tu cuenta pasa a GRATIS». Esa baja
+                  automática está DECIDIDA pero NO construida (04-PLAN §6 D1, y
+                  el hueco G1: la guarda de cupo hoy la rechazaría para quien
+                  tenga más de 50 pacientes). Hoy el tier sólo lo mueve una
+                  persona en el admin. Prometerle al doctor una fecha en la que
+                  «su cuenta pasa a Gratis» sería afirmarle un hecho falso sobre
+                  su propia cuenta — justo lo que esta pantalla existe para no
+                  hacer. Lo que SÍ es cierto y automático es que la suscripción
+                  termina y deja de cobrar: eso es lo que se dice.
+                  Cuando D1 exista, aquí se agrega la frase del cambio de plan. */}
+              <p>
+                <strong>
+                  Tu plan {nombreDelPlan} sigue activo hasta el{" "}
+                  {fecha(sub.currentPeriodEnd) ?? "final del periodo pagado"}.
+                </strong>
+              </p>
+              <p className="mt-1">
+                Es el último día que pagaste: ese día termina tu suscripción y no se te hará ningún
+                cargo más. Conservas toda tu información. No hay reembolsos por el tiempo restante.
+              </p>
+            </div>
           ) : (
             fecha(sub.currentPeriodEnd) && (
               <p className="text-gray-500 mt-1">Próximo cargo: {fecha(sub.currentPeriodEnd)}</p>

@@ -31,6 +31,15 @@ interface Doctor {
   /** Optional on purpose: an API build older than TIERS T1 omits it entirely.
    * That is a DIFFERENT problem from a corrupt value — see tierState(). */
   tier?: string;
+  /** Lo que el doctor PAGÓ, para poder avisar antes de bajarle el plan
+   *  (04-PLAN §0). `null` ⇒ no hay fila de cobro; `undefined` ⇒ el API es
+   *  anterior a este cambio y no lo manda — no es lo mismo, y el aviso sólo se
+   *  pinta cuando hay una fecha de verdad. */
+  cobro?: {
+    status: string;
+    pagadoHasta: string | null;
+    cancelaAlFinal: boolean;
+  } | null;
   createdAt: string;
 }
 
@@ -67,6 +76,28 @@ const tierQuotaLine = (tier: DoctorTier): string => {
   const patients = l.maxPatients === null ? "pacientes sin tope" : `${l.maxPatients} pacientes`;
   return `${fmtStorage(l.storageBytes)} de archivos · ${patients}`;
 };
+
+// Rango por POSICIÓN en DOCTOR_TIERS (de menor a mayor capacidad), el mismo
+// criterio que usan las guardas de dinero del api. Aquí sólo sirve para saber si
+// lo que el admin está por guardar es una BAJA.
+const rangoTier = (tier: string | undefined): number =>
+  (DOCTOR_TIERS as readonly string[]).indexOf(tier ?? "");
+
+// 🔴 `timeZone` FIJA: son timestamps, y sin esto los formatea la zona del
+// navegador del admin — la misma fecha se pintaría distinta aquí y en la
+// pantalla del doctor. Producto de México, una sola zona (igual que `fecha()`
+// en `cuenta/page.tsx`).
+const fechaLarga = (iso: string): string =>
+  new Date(iso).toLocaleDateString("es-MX", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Mexico_City",
+  });
+
+/** Días que le faltan a una fecha; 0 si ya pasó. */
+const diasRestantes = (iso: string): number =>
+  Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000));
 
 /**
  * Three distinct states, kept apart so the UI never points at the wrong cause:
@@ -130,11 +161,17 @@ export default function DoctorsListPage() {
       // A failure here must NOT blank the page — the tier column degrades to
       // "—" (its "no data from the API" state) and everything else still works.
       let tierById: Record<string, string> = {};
+      let cobroById: Record<string, Doctor["cobro"]> = {};
       try {
         const tierResult = tierResponse ? await tierResponse.json() : null;
         if (tierResult?.success) {
           tierById = Object.fromEntries(
             tierResult.data.map((d: { id: string; tier: string }) => [d.id, d.tier])
+          );
+          // Un API anterior a 04-PLAN no manda `cobro`: queda `undefined` y el
+          // modal simplemente no pinta el aviso, en vez de afirmar que no pagó.
+          cobroById = Object.fromEntries(
+            tierResult.data.map((d: { id: string; cobro?: Doctor["cobro"] }) => [d.id, d.cobro])
           );
         }
       } catch (tierErr) {
@@ -142,7 +179,7 @@ export default function DoctorsListPage() {
       }
 
       setDoctors(
-        result.data.map((d: Doctor) => ({ ...d, tier: tierById[d.id] }))
+        result.data.map((d: Doctor) => ({ ...d, tier: tierById[d.id], cobro: cobroById[d.id] }))
       );
     } catch (err) {
       console.error("Error fetching doctors:", err);
@@ -767,6 +804,55 @@ export default function DoctorsListPage() {
                     );
                   })}
                 </div>
+
+                {/* 🔴 04-PLAN §0. El 2026-09-17 se bajó aquí un plan pagado hasta el
+                    17 de octubre y la cuenta perdió el mes: no había NADA en esta
+                    pantalla que dijera que ese doctor tenía tiempo pagado. El aviso
+                    no bloquea —a veces bajar antes es justo lo que se quiere— pero
+                    obliga a verlo. */}
+                {(() => {
+                  const cobro = tierDoctor.cobro;
+                  const hasta = cobro?.pagadoHasta ?? null;
+
+                  // 🔴 SÓLO `active` afirma «pagó». `sincronizar()` escribe
+                  // `currentPeriodEnd` para CUALQUIER status: una suscripción
+                  // `incomplete` —creada y nunca cobrada, que vive ~23 h— trae
+                  // una fecha futura igual que una pagada, y con ella el aviso
+                  // diría «pagó hasta… no hay reembolsos» de dinero que nunca
+                  // entró. `trialing` tampoco: una prueba no es un pago. La
+                  // fecha existe siempre; el PAGO no.
+                  if (!cobro || cobro.status !== "active" || !hasta) return null;
+
+                  // `indexOf` devuelve -1 para un tier que no está en
+                  // DOCTOR_TIERS (el valor legacy `FULL` que esta misma pantalla
+                  // documenta arriba). Comparar rangos con -1 haría `esBaja`
+                  // SIEMPRE falso y el aviso no saldría justo en las cuentas más
+                  // sospechosas. Sin rango fiable se avisa ante CUALQUIER cambio:
+                  // de más es ruido, de menos es lo que pasó el 2026-09-17.
+                  const rangoActual = rangoTier(tierDoctor.tier);
+                  const esBaja =
+                    rangoActual < 0
+                      ? tierSelection !== tierDoctor.tier
+                      : rangoTier(tierSelection) < rangoActual;
+                  if (!esBaja) return null;
+
+                  const dias = diasRestantes(hasta);
+                  if (dias === 0) return null;
+                  return (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-4">
+                      <p className="text-sm text-red-900">
+                        ⚠️ <strong>Pagó hasta el {fechaLarga(hasta)}</strong> — le quedan {dias}{" "}
+                        día{dias === 1 ? "" : "s"}. Si le bajas el plan hoy, pierde ese tiempo que ya
+                        pagó y <strong>no hay reembolsos</strong>.
+                      </p>
+                      <p className="text-sm text-red-900 mt-2">
+                        {cobro.cancelaAlFinal
+                          ? "Ya canceló: su plan debe bajar ESE día, no antes."
+                          : "Su suscripción sigue viva en Stripe: bajarle el plan aquí NO la cancela, y se le seguirá cobrando el precio anterior."}
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
                   <p className="text-xs text-amber-900">

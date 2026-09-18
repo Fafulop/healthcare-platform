@@ -23,6 +23,8 @@
 
 import { NextResponse } from 'next/server';
 import { prisma, TIER_EXCLUDED_KEYS, setDoctorTier } from '@healthcare/database';
+import { stripeCobro } from '@/lib/stripe-cobro';
+import { filaDeCobroVigente } from '@/lib/cobro-planes';
 import { requireAdminAuth, AuthError } from '@/lib/auth';
 
 // GET — tiers for every doctor. Admin-only on purpose: the tier is deliberately
@@ -43,11 +45,70 @@ export async function GET(request: Request) {
   }
 
   try {
-    const doctors = await prisma.doctor.findMany({
-      select: { id: true, slug: true, tier: true },
-      orderBy: { slug: 'asc' },
+    // 04-PLAN §0: el 2026-09-17 se bajó a mano un plan que estaba pagado hasta
+    // el 17 de octubre, y la cuenta perdió el mes. El modal del admin no tenía
+    // forma de saberlo: `doctors` no dice nada del dinero. Se manda junto lo
+    // mínimo para poder AVISAR antes de guardar — nunca para decidir el tier,
+    // que sigue saliendo de `Doctor.tier`.
+    const [doctors, suscripciones] = await Promise.all([
+      prisma.doctor.findMany({
+        select: { id: true, slug: true, tier: true },
+        orderBy: { slug: 'asc' },
+      }),
+      prisma.subscription.findMany({
+        select: {
+          doctorId: true,
+          status: true,
+          currentPeriodEnd: true,
+          cancelAtPeriodEnd: true,
+        },
+      }),
+    ]);
+
+    // 🔴 Una fila de OTRO modo de Stripe no puede afirmar que alguien pagó.
+    // «Pasar a vivo» es cambiar la clave, pero las filas de MODO PRUEBA se
+    // quedan en la BD con su `active` y su fecha futura — y sin esto el modal
+    // pintaría «pagó hasta el X, no hay reembolsos» sobre dinero que nunca
+    // existió. `filaDeCobroVigente` es la misma función que ya resuelve esto en
+    // el checkout y en el estado del doctor (review de C3, #2); se llama sólo
+    // para los doctores que TIENEN fila, que son un puñado.
+    //
+    // Si Stripe falla, la fila se CONSERVA: el aviso es una advertencia, y
+    // equivocarse mostrándola de más es ruido, mientras que esconderla es
+    // exactamente el error del 2026-09-17. Fail-open hacia avisar.
+    const cliente = stripeCobro();
+    const vigentes = new Map(suscripciones.map((s) => [s.doctorId, s]));
+    if (cliente) {
+      await Promise.all(
+        suscripciones.map(async (s) => {
+          try {
+            const { fila } = await filaDeCobroVigente(prisma, cliente, s.doctorId);
+            if (!fila) vigentes.delete(s.doctorId);
+          } catch (e) {
+            console.warn('[COBRO] no se pudo verificar el modo de la suscripción', s.doctorId, e);
+          }
+        }),
+      );
+    }
+
+    const porDoctor = new Map(vigentes);
+    const data = doctors.map((d) => {
+      const s = porDoctor.get(d.id);
+      return {
+        ...d,
+        // `null` ⇒ no hay fila de cobro (cortesía puesta a mano, o nunca pagó).
+        // Es un caso distinto de "pagó y ya venció", y el modal los separa.
+        cobro: s
+          ? {
+              status: s.status,
+              pagadoHasta: s.currentPeriodEnd,
+              cancelaAlFinal: s.cancelAtPeriodEnd,
+            }
+          : null,
+      };
     });
-    return NextResponse.json({ success: true, data: doctors });
+
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('GET /api/admin/doctor-tier failed:', error);
     return NextResponse.json(
