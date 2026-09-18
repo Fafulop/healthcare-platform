@@ -47,7 +47,10 @@ Necesita su propia sesión, con el PDF enfrente. **Nunca en un commit de cobro.*
 
 ### Lo siguiente a construir
 
-**El paso 3 (SUBIR de plan, BÁSICO→PRO).** Ver §7. El paso 2 está en duda — §10.
+**El paso 3 (SUBIR de plan, BÁSICO→PRO).** Ver §7. El paso 2 **ya no está en duda: lo reemplaza
+§11** (15 días de margen → GRATIS si cabe, CONGELADA si no; adjuntos 1 año, datos 5 años), que
+está decidido pero sin diseño técnico. Y nació un proyecto aparte: **una cuenta por doctor**
+(`05-PLAN-una-cuenta-por-doctor.md`).
 
 ---
 
@@ -267,7 +270,10 @@ El punto 1 se puede hacer sin decidir nada de §6. Los demás no.
 
 ## 10. 🔁 La alternativa al paso 2: margen + CONGELAR (propuesta del usuario, 2026-09-18)
 
-> **Estado: NO decidido.** El usuario la propuso al cerrar la sesión y se fue. Abajo está la idea,
+> ✅ **Ya DECIDIDO — ver §11**, que la afina (no todo queda visible: si no cabe en GRATIS, se
+> congela y sólo ve «Reactivar» y «Descargar»). Lo de abajo se conserva por su porqué.
+>
+> **Estado original: NO decidido.** El usuario la propuso al cerrar la sesión y se fue. Abajo está la idea,
 > lo que cuesta de verdad (medido), sus pros y contras, la objeción clínica y lo que falta decidir.
 
 ### La idea, en sus palabras
@@ -358,6 +364,96 @@ paciente que está enfrente.
    verdad a los 60, cuando ya es claro que no vuelve).
 4. Si se construye: **¿qué ve el doctor?** Una cuenta congelada sin explicación es peor que una
    cuenta bajada con explicación.
+
+---
+
+## 11. ✅ Qué pasa cuando dejan de pagar — DECIDIDO el 2026-09-18
+
+> Cierra §10. Salió de preguntarle a un competidor cómo lo hace (abajo) y de dos correcciones del
+> usuario a la primera propuesta. **Nada de esto está construido.**
+
+### 11.1 Lo que hace un competidor (chat de WhatsApp con su soporte, 2026-09-18)
+
+| Tema | Su política |
+|---|---|
+| Deja de pagar o cancela | **Bloqueo TOTAL**: ni lectura |
+| Respaldo | **Responsabilidad del doctor, y ANTES de cancelar.** Autoservicio, en **HTML** |
+| Retención | **5 años** en la nube (se cuelgan de la NOM del expediente) |
+| Regresa | Entra con su correo, paga, y **se reactiva solo** con todo — aunque sea 2 años después |
+| Adjuntos (PDFs) | Se les preguntó directo si el respaldo incluye los documentos cargados. **Esquivaron**: «todo su respaldo se entrega en HTML» |
+
+Su punto débil: el respaldo hay que hacerlo **antes** de dejar de pagar. Si la tarjeta falla (la
+forma más común de perder una suscripción), el doctor queda fuera de sus datos sin haberse
+respaldado. Aquí eso no pasa: **el botón de descarga sigue en la pantalla de congelado.**
+
+### 11.2 Por qué NO «tratarlo como GRATIS con todo visible» (corrección del usuario)
+
+La primera propuesta (§10) era dejarle leer todo con el tier efectivo en FREE. El usuario lo
+corrigió: **una cuenta que pagó y dejó 10 GB, leyéndolos en un plan cuyo tope es 500 MB, no cumple
+con lo que es el plan GRATIS.** Y guardar adjuntos por años tiene un costo real.
+
+Pero bloquear SIEMPRE tampoco cuadra: a quien **sí cabe** en GRATIS, bloquearlo sólo lo empuja a
+abrir otra cuenta gratis (que además ahora se prohíbe — ver `05-PLAN-una-cuenta-por-doctor.md`).
+De ahí la regla híbrida.
+
+### 11.3 La regla
+
+```
+se acaba lo pagado ──(15 días de margen, todo funciona)──▶ ¿cabe en GRATIS?
+                                                            ├─ SÍ → pasa a GRATIS, sin más
+                                                            └─ NO → CONGELADA
+```
+
+- **Margen: 15 días** (decisión del usuario). Se cuentan **desde que se acaba lo pagado**
+  (`current_period_end`) — **confirmado por el usuario**: así cubre igual la cancelación y la
+  tarjeta que falla en la renovación (los reintentos de Stripe corren DENTRO del margen). Resuelve
+  §10-1.
+- **«Cabe en GRATIS» = los DOS topes**: ≤ 50 pacientes activos **y** ≤ 500 MB. Las tres cuentas más
+  pesadas de hoy (94 · 65 · 52 pacientes) se congelarían por **pacientes**, no por megas.
+- **Las cuentas de cortesía (sin suscripción) no se tocan nunca** (G4).
+
+### 11.4 Qué ve una cuenta CONGELADA
+
+Entra con su correo y contraseña, y **sólo** ve dos cosas:
+
+1. **[Reactivar]** — paga y todo vuelve tal cual. No se restaura nada porque nunca se borró nada
+   (igual que el competidor).
+2. **[Descargar mi información]** — un **zip SIN los archivos adjuntos**:
+   - `pacientes.csv`, `citas.csv`, recetas… — lo tabular, para Excel;
+   - **un HTML por paciente** con su expediente completo (abre en cualquier navegador y se imprime a
+     PDF; CSV no sirve para notas largas y anidadas, Markdown no le dice nada a un doctor);
+   - **el LISTADO de adjuntos** (nombre · fecha · paciente) **sin los archivos** — para que sepa qué
+     existe y que al pagar vuelve;
+   - **los XML de sus CFDI** — pesan nada y son documentos fiscales que está obligado a conservar.
+     Cierra G7 para las cuentas congeladas.
+
+La pantalla tiene que decir **hasta qué fecha se conservan sus adjuntos** (11.5).
+
+### 11.5 Retención
+
+| Qué | Cuánto se guarda | Por qué |
+|---|---|---|
+| Datos (texto en la BD: expedientes, notas, citas, CFDI) | **5 años** | Pesa casi nada; los 5 años son lo que el mercado ya promete |
+| **Adjuntos** (PDFs, imágenes, videos) | **1 año** — decisión del usuario, «para empezar» | Es lo que cuesta: ~$0.02–0.03 USD/GB-mes ⇒ una cuenta de 40 GB son ~$50–70 USD en 5 años. Hoy el bucket ENTERO pesa ~0.5 GB, así que es previsión, no urgencia |
+
+- El año se cuenta **desde que la cuenta se congela** — **confirmado por el usuario**.
+- **Antes de borrar un adjunto hay que AVISARLE al doctor** (correo con tiempo, y el aviso en la
+  pantalla de congelado). Borrar sin avisar es exactamente «destruir sus datos», que es lo único que
+  el usuario dejó como línea roja (§10). **Esto hace obligatorio G8** (avisarle al doctor, no sólo
+  al admin) para este camino.
+
+### 11.6 Qué cambia en el resto del doc
+
+- **D1 queda sustituida en su comportamiento**: ya no es «el plan baja el día que se acaba lo
+  pagado», es «margen de 15 días y luego GRATIS o CONGELADA». El *cómo* (tier efectivo derivado de
+  la suscripción vs. mover `Doctor.tier`) está **por diseñar**; §10 da la razón para preferir el
+  derivado: no choca con la guarda de cupo (G1) y no ensucia `tier_change_log`.
+- **Congelar ≠ capar escrituras.** Es un **bloqueo de sesión**: la cuenta congelada sólo alcanza la
+  pantalla de congelado, el pago y la descarga. Eso se resuelve en un punto (la sesión / el
+  middleware), no en las 186 rutas de escritura — pero **las lecturas por API también** tienen que
+  quedar cerradas, y eso hay que dimensionarlo antes de prometerlo.
+- **Sigue abierto:** si la descarga también se ofrece a cuentas **activas** (en cualquier momento),
+  o sólo al congelar.
 
 ---
 

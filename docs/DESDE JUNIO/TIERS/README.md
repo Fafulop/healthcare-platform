@@ -8,6 +8,22 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## 🔄 HANDOFF — 2026-09-18 (tarde): qué pasa cuando dejan de pagar + una cuenta por doctor
+
+Decidido con el usuario, **nada construido**:
+
+- **[`04` §11](04-PLAN-cambio-de-plan.md)** — se acaba lo pagado → **15 días de margen** → si cabe
+  en GRATIS (≤ 50 pacientes **y** ≤ 500 MB) pasa a GRATIS; si no, **CONGELADA**: entra y sólo ve
+  **[Reactivar]** y **[Descargar mi información]** (zip con CSV + un HTML por paciente + listado de
+  adjuntos SIN los archivos + XML de CFDI). **Datos 5 años, adjuntos 1 año**, con aviso al doctor
+  antes de borrar. Reemplaza al paso 2 / D1. Sale de comparar con un competidor que bloquea todo y
+  exige respaldarse ANTES de cancelar.
+- **[`05-PLAN-una-cuenta-por-doctor.md`](05-PLAN-una-cuenta-por-doctor.md)** — proyecto nuevo:
+  cédula única (validada con la SEP) + teléfono único verificado + identificación **sólo en
+  disputa** (el copycat que registra la cédula de otro).
+- **Confirmado por el usuario:** el margen se cuenta desde `current_period_end`, y el año de
+  adjuntos desde que se congela.
+
 ## 🔄 HANDOFF — 2026-09-18: cambio de plan (mapa, decisiones y el paso 1)
 
 👉 **Todo el detalle vive en [`04-PLAN-cambio-de-plan.md`](04-PLAN-cambio-de-plan.md). Empieza por su
