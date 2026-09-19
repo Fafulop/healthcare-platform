@@ -562,8 +562,9 @@ Stripe (modo prueba), configurado por el usuario el 2026-09-18: **Smart Retries,
 | 5a | **Borrar libera espacio — expediente** | R3 · F2 · B5 | No | Mediano | ✅ `f94e12ae` — probado |
 | 5b | **Borrar libera espacio — las otras 16 superficies** (videos de perfil, blog, flujo, receta, reemplazar foto…) | R3 | No | Mediano | ⬜ |
 | 6.1 | **Dejar de pagar — parte 1**: `pagado_hasta` (B2a), cron diario, 15 días de margen → GRATIS si cabe | B2 · B3b · P2 · §11 | Lee | Mediano | ✅ `ff22b0f7` — dryRun probado |
-| 6.2 | Congelar a quien no cabe + pantalla [Reactivar]/[Descargar] | B3d · §11 | Lee | Mediano | ⬜ |
-| 6.3 | La descarga (zip) | §11.4 | No | Mediano | ⬜ |
+| 6.2 | Congelar a quien no cabe + pantalla [Reactivar] (sin [Descargar]: es 6.3) | B3d · §11 | Lee | Mediano | ✅ `62e36800` — probado con clic |
+| 6.2b | **La reserva pública de una cuenta congelada** — hoy los pacientes SIGUEN agendando (SMS/Calendar/Telegram) citas que el doctor no puede ver. Decidir qué ve el paciente y bloquear bookings/range-bookings/slots | §11 | No | Chico-mediano | ⬜ 🔴 **bloquea pasar a modo vivo** |
+| 6.3 | La descarga (zip) | §11.4 | No | Mediano | ⬜ 🔴 **bloquea pasar a modo vivo** (la pantalla congelada aún no ofrece descargar) |
 | 6.4 | Avisos por correo al doctor (G8) | §11.5 | No | Chico | ⬜ |
 | 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande | ⬜ |
 | 8 | **Una cuenta por doctor** | `05` | No | Grande, empieza por investigar | ⬜ |
@@ -623,8 +624,33 @@ código → type-check + gates → **un** review → OK → commit/push → prue
   antes de bajar** (activa y al corriente ⇒ webhook perdido; no existe en este modo ⇒ fila del otro
   modo — ninguno se toca). Mi Cuenta dice «después del X tu cuenta pasa a Gratis» **sólo cuando es
   cierto**. Probado en prod: dryRun `revisadas: 0`, fuera de ventana `skipped`, sin secreto 401.
-  **Falta:** que el usuario agregue la llamada al servicio `cron` de Railway (RAILWAY-CRON.md #6).
+  ✅ El usuario agregó la llamada al servicio `cron` de Railway (RAILWAY-CRON.md #6) el 2026-09-18.
   Primer caso real posible: ~1–2 de noviembre (dr-prueba y dr-quebradita, si no renuevan).
+
+- **#6.2 `62e36800`** — columna `doctors.congelada_desde` (SQL manual
+  `add-doctors-congelada-desde.sql`, aplicado ANTES del código por el usuario; el código la
+  SELECCIONA en cada request autenticado, así que desplegar primero habría tumbado todo).
+  `EffectiveAccess.congelada` (fail-open) y `rutaPermitidaCongelada()` en `membership.ts` = UNA
+  lista para las dos apps: `/api/auth/` · `/api/account/` · `/api/billing/`. Candados:
+  `validateAuthToken` (api; cubre `requireDoctorAuth`/`getAuthenticatedDoctorStripe` del api y su
+  uploadthing), `requireDoctorAuth` del doctor (y `requireOwnerAuth`, que pasa por él), y la subida
+  de archivos del doctor (lee `session.user.congelada`) ⇒ 403 `ACCOUNT_FROZEN`, dueño **y**
+  members; va ANTES del candado de plan. Congela: el cron `cobro-vencido` (vencido el margen y no
+  cabe en Gratis; un solo aviso 🧊, las ya congeladas salen de la consulta; el tier NO se toca).
+  Descongelan: `invoice.paid` (aviso 🔓) y un cambio de plan en el admin — que **sólo dura a LAB
+  (o GRATIS)**: a otro plan de pago, `pagado_hasta` sigue vencido y el cron la vuelve a congelar al
+  día siguiente (igual que #6.1 revierte un plan puesto a mano sin pago; la salida de un caso
+  especial es LAB). Pantalla (`dashboard/layout.tsx` + `CuentaCongelada.tsx`): el dueño sólo ve Mi
+  Cuenta, sin barra lateral ni widgets, con el aviso; un member ve el aviso «pídele al titular».
+  **Review (`/code-review high`, uno):** 4 hallazgos — 2 textos que prometían de más, arreglados
+  («todo vuelve como lo dejaste» era falso: puede comprar un plan MENOR en el que quepa, #4; y
+  «un cambio de plan en el admin la descongela» era falso salvo a LAB); la reserva pública ⇒
+  **6.2b**; congelada con cargo `past_due` vivo ⇒ no se ofrecen planes, improbable (Stripe cancela
+  tras ~1 semana de reintentos < 15 días de margen) y el texto «paga desde esta página» lo cubre.
+  **Probado con clic** (dr-quebradita congelada a mano ~minutos y descongelada): redirige a Mi
+  Cuenta sin barra, otra URL regresa a Mi Cuenta, `/api/medical-records/patients` ⇒
+  `ACCOUNT_FROZEN`, Mi Cuenta lee plan y pago; al descongelar vuelve todo. Sin probar: el
+  congelado/descongelado AUTOMÁTICO (cron y webhook) — su primer caso real es ~noviembre.
 
 **Estado de las cuentas de prueba al cerrar:** dr-prueba **PRO** pagando (renueva 17/10 a $299);
 dr-quebradita **BÁSICO** pagando (renueva 18/10 a $149); ambas en modo prueba y en

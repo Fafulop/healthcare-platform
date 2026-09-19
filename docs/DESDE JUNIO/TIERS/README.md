@@ -8,6 +8,15 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## ✅ 2026-09-18 (noche): #6.2 — congelar — en prod `62e36800` y probado con clic
+
+Quien dejó de pagar, venció el margen de 15 días y no cabe en Gratis queda **congelado**: sólo
+entra a Mi Cuenta para pagar; lo demás responde `ACCOUNT_FROZEN`. Detalle, review y prueba en
+[`04` §12.7](04-PLAN-cambio-de-plan.md). El job #6 del cron ya está en Railway.
+
+**⏭️ Sigue:** **#6.3 (la descarga)** → **6.2b (la reserva pública de una cuenta congelada: hoy
+los pacientes siguen agendando)** → 6.4 (correos). **6.2b y 6.3 bloquean pasar a modo vivo.**
+
 ## 🟡 LOGIN (no es de TIERS): un correo de Google quedaba dentro de la cuenta de OTRO — ARREGLADO, falta una prueba
 
 **Encontrado el 2026-09-18 probando #4, y probado en vivo.** Al entrar con `quebradita.a@gmail.com`
