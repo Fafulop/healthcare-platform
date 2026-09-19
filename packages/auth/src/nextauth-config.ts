@@ -3,6 +3,30 @@ import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma, resolveEffectiveAccess } from "@healthcare/database";
 
+/**
+ * 🔴 Una cuenta de Google por usuario (TIERS README, «URGENTE», 2026-09-18).
+ *
+ * Auth.js (@auth/core 0.41, `handle-login.js`): si alguien entra con una
+ * identidad de Google que no está ligada a nadie MIENTRAS ya hay una sesión
+ * abierta en ese navegador, NO cambia de usuario — la LIGA al usuario que ya
+ * estaba dentro. Desde ese momento ese Google entra como el otro, para
+ * siempre. En una computadora compartida del consultorio, un auxiliar que
+ * entra con su Google con la sesión del doctor abierta quedaba dentro de la
+ * cuenta del doctor. Pasó en prod (lopez.fafutis↔quebradita.a, corregido a
+ * mano; y dr-jose tiene 2 identidades).
+ *
+ * El `signIn` callback no ve la sesión abierta, así que la regla va aquí, en el
+ * único punto por el que pasa todo vínculo: si el usuario YA tiene una
+ * identidad de ese proveedor, se rechaza la segunda. El alta normal (usuario
+ * sin identidad todavía, p.ej. creado por el admin) sigue igual. Falla hacia
+ * «no entra», nunca hacia «entra como otro».
+ *
+ * ⚠️ Auth.js envuelve TODO error lanzado desde el adapter en un `AdapterError`
+ * (`@auth/core/lib/init.js`, `adapterErrorHandler`), así que esto llega a la
+ * pantalla de login como `?error=Configuration`, no con un código propio. Por
+ * eso el mensaje de `Configuration` en el login menciona la sesión abierta.
+ */
+
 // Wrap adapter to assign correct role on new user creation.
 // Default adapter only sets email, name, image — no knowledge of ADMIN_EMAILS.
 const adapter = PrismaAdapter(prisma);
@@ -12,6 +36,19 @@ const customAdapter = {
     const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map((e: string) => e.trim()).filter(Boolean);
     const role = adminEmails.includes(data.email) ? 'ADMIN' : 'DOCTOR';
     return prisma.user.create({ data: { ...data, role } });
+  },
+  linkAccount: async (data: any) => {
+    const yaTiene = await prisma.account.count({
+      where: { userId: data.userId, provider: data.provider },
+    });
+    if (yaTiene > 0) {
+      console.error('[AUTH] se rechazó ligar una SEGUNDA identidad al mismo usuario', {
+        userId: data.userId,
+        provider: data.provider,
+      });
+      throw new Error('El usuario ya tiene una cuenta de este proveedor (una cuenta de Google por usuario)');
+    }
+    return adapter.linkAccount!(data);
   },
 };
 

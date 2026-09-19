@@ -28,17 +28,21 @@ function AdminLoginContent() {
               <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-red-900">
-                  {error === "AccessDenied"
+                  {error === "OAuthAccountNotLinked"
+                    ? "Another session is open"
+                    : error === "AccessDenied"
                     ? "Access Denied"
                     : error === "Configuration"
                       ? "Connection Error"
                       : "Authentication Failed"}
                 </p>
                 <p className="text-xs text-red-700 mt-1">
-                  {error === "AccessDenied"
+                  {error === "OAuthAccountNotLinked"
+                    ? "This browser already has a session with another account. Sign out before signing in with a different Google account."
+                    : error === "AccessDenied"
                     ? "You do not have admin access. Contact support."
                     : error === "Configuration"
-                      ? "There was a problem connecting to Google. Make sure you don't click the button multiple times and try again."
+                      ? "Could not sign in with Google. If this browser already has a session with another account, sign out first. Otherwise, try again without clicking the button multiple times."
                       : "Authentication failed. Please try again."}
                 </p>
               </div>

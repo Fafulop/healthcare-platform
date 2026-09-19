@@ -45,17 +45,21 @@ function LoginContent() {
                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-red-900">
-                    {error === "AccessDenied"
+                    {error === "OAuthAccountNotLinked"
+                      ? "Hay otra sesión abierta"
+                      : error === "AccessDenied"
                       ? "Acceso Denegado"
                       : error === "Configuration"
                         ? "Error de Conexión"
                         : "Autenticación Fallida"}
                   </p>
                   <p className="text-xs text-red-700 mt-1">
-                    {error === "AccessDenied"
+                    {error === "OAuthAccountNotLinked"
+                      ? "Ya hay una sesión abierta con otra cuenta en este navegador. Cierra sesión antes de entrar con otra cuenta de Google."
+                      : error === "AccessDenied"
                       ? "No tienes acceso de médico. Por favor contacta a soporte para verificar tu cuenta."
                       : error === "Configuration"
-                        ? "Hubo un problema al conectar con Google. Asegúrate de no hacer clic varias veces en el botón e intenta de nuevo."
+                        ? "No se pudo entrar con Google. Si en este navegador ya hay una sesión abierta con otra cuenta, cierra sesión primero. Si no, intenta de nuevo sin hacer clic varias veces en el botón."
                         : "La autenticación falló. Por favor intenta de nuevo o contacta a soporte si el problema persiste."}
                   </p>
                 </div>
