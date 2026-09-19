@@ -128,7 +128,7 @@ interface FilaSincronizada {
 async function sincronizar(
   deps: DepsCobro,
   datos: DatosSuscripcion,
-  opciones: { contexto: string; doctorEsperado?: string | null; pagadoEn?: Date },
+  opciones: { contexto: string; doctorEsperado?: string | null; pagadoEn?: Date; pagadoHasta?: Date | null },
 ): Promise<FilaSincronizada | null> {
   // El Customer se crea en NUESTRO checkout, antes de que exista cualquier
   // evento, y su id queda en la fila. Por eso siempre hay de dónde agarrarse.
@@ -198,7 +198,15 @@ async function sincronizar(
       // cancelación agendada las dos valen lo mismo (ver `extraerDatos`).
       currentPeriodEnd: datos.terminaEn,
       cancelAtPeriodEnd: datos.cancelAtPeriodEnd,
-      ...(opciones.pagadoEn ? { lastPaymentAt: opciones.pagadoEn } : {}),
+      // TIERS 04 §12.6 #6.1 (B2a): «pagado hasta» se mueve SÓLO con un pago, y
+      // al fin del periodo que cubre LA FACTURA PAGADA — no el periodo actual
+      // de la suscripción: si alguien paga tarde la factura de octubre cuando
+      // noviembre también está sin pagar, el periodo actual ya es noviembre y
+      // se lo daríamos por pagado (review de #6.1, hallazgo 1). Sin pago
+      // —renovación fallida— no se toca.
+      ...(opciones.pagadoEn
+        ? { lastPaymentAt: opciones.pagadoEn, pagadoHasta: opciones.pagadoHasta ?? datos.currentPeriodEnd }
+        : {}),
     },
   });
 
@@ -242,7 +250,10 @@ export async function procesarEventoCobro(
 
       const datos = extraerDatos(await deps.obtenerSuscripcion(subId));
       const pagadoEn = new Date((factura.status_transitions?.paid_at ?? evento.created) * 1000);
-      const fila = await sincronizar(deps, datos, { contexto: 'invoice.paid', pagadoEn });
+      // El periodo que cubre ESTA factura: el fin más tardío de sus renglones.
+      const finesDeRenglon = (factura.lines?.data ?? []).map((l) => l.period?.end ?? 0).filter((n) => n > 0);
+      const pagadoHasta = finesDeRenglon.length ? new Date(Math.max(...finesDeRenglon) * 1000) : null;
+      const fila = await sincronizar(deps, datos, { contexto: 'invoice.paid', pagadoEn, pagadoHasta });
       if (!fila) return { accion: 'no atribuible' };
 
       if (!datos.priceId) {

@@ -150,3 +150,15 @@ export async function filaDeCobroVigente(
     throw e;
   }
 }
+
+/**
+ * El margen de «dejar de pagar» (TIERS 04 §11, decisión del usuario): 15 días
+ * contados desde el fin del último periodo PAGADO (`subscriptions.pagado_hasta`,
+ * no `current_period_end`: ver B2a). Una sola fuente para la pantalla y el cron,
+ * para que la fecha que ve el doctor sea la misma en que actúa el cron.
+ */
+export const DIAS_DE_MARGEN = 15;
+
+export function finDelMargen(pagadoHasta: Date): Date {
+  return new Date(pagadoHasta.getTime() + DIAS_DE_MARGEN * 24 * 60 * 60 * 1000);
+}

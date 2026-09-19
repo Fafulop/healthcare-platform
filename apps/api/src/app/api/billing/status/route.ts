@@ -12,7 +12,7 @@ import { NextResponse } from 'next/server';
 import { prisma, DOCTOR_TIERS, cabeEnPlan } from '@healthcare/database';
 import { stripeCobro, modoCobro, doctorPuedeUsarCobro } from '@/lib/stripe-cobro';
 import { puertaDeCobro } from '@/lib/cobro-auth';
-import { planesVendibles, bloqueaOtroCheckout, filaDeCobroVigente } from '@/lib/cobro-planes';
+import { planesVendibles, bloqueaOtroCheckout, filaDeCobroVigente, finDelMargen } from '@/lib/cobro-planes';
 
 export async function GET(request: Request) {
   const puerta = await puertaDeCobro(request);
@@ -46,6 +46,23 @@ export async function GET(request: Request) {
       }),
     );
 
+    // TIERS 04 §12.6 #6.1: si dejó de pagar (tarjeta que falla, o suscripción
+    // ya terminada) y CABE en Gratis, la pantalla le dice el día en que el cron
+    // lo pasa a Gratis. Sólo cuando es CIERTO: si no cabe, el cron hoy no le
+    // hace nada (congelar es #6.2), así que no se le promete una fecha.
+    let pasaAGratisEl: Date | null = null;
+    if (
+      fila?.pagadoHasta &&
+      ['past_due', 'unpaid', 'canceled', 'incomplete_expired'].includes(fila.status) &&
+      ctx.tier !== 'FREE' &&
+      ctx.tier !== 'LAB'
+    ) {
+      const limite = finDelMargen(fila.pagadoHasta);
+      if (limite > new Date() && (await cabeEnPlan(prisma, ctx.doctorId, 'FREE')).cabe) {
+        pasaAGratisEl = limite;
+      }
+    }
+
     return NextResponse.json({
       disponible: true,
       modo: modoCobro(),
@@ -56,6 +73,7 @@ export async function GET(request: Request) {
             currentPeriodEnd: fila.currentPeriodEnd,
             cancelAtPeriodEnd: fila.cancelAtPeriodEnd,
             lastPaymentAt: fila.lastPaymentAt,
+            pasaAGratisEl,
           }
         : null,
       // Con una suscripción viva no se ofrece otro checkout: cobraría doble.

@@ -323,6 +323,9 @@ interface EstadoCobro {
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
     lastPaymentAt: string | null;
+    /** TIERS 04 §12.6 #6.1: el día en que pasa a Gratis por no pagar. Sólo viene
+     *  cuando es cierto (dejó de pagar, cabe en Gratis y aún no llega). */
+    pasaAGratisEl?: string | null;
   } | null;
   planes?: {
     tier: string;
@@ -626,9 +629,13 @@ function SeccionPago() {
               <p className="text-gray-500 mt-1">Próximo cargo: {fecha(sub.currentPeriodEnd)}</p>
             )
           )}
-          {sub.status === "past_due" && (
+          {(sub.status === "past_due" || sub.status === "unpaid") && (
             <p className="text-amber-700 mt-1">
-              No pudimos cobrar el último pago. Revisa tu tarjeta para no perder el servicio.
+              {/* «después de», no «ese día»: el cron actúa una vez al día (9:00
+                  hora de México), así que puede ser el día siguiente. */}
+              {sub.pasaAGratisEl
+                ? `No pudimos cobrar el último pago. Ponte al corriente antes del ${fecha(sub.pasaAGratisEl)}; después de esa fecha tu cuenta pasa a Gratis.`
+                : "No pudimos cobrar el último pago. Revisa tu tarjeta para no perder el servicio."}
             </p>
           )}
 
@@ -717,7 +724,11 @@ function SeccionPago() {
       {estado.puedeSuscribirse && estado.planes && (
         <div className="space-y-2">
           {sub?.status === "canceled" && (
-            <p className="text-sm text-gray-500 mb-2">Tu suscripción anterior está cancelada.</p>
+            <p className="text-sm text-gray-500 mb-2">
+              {sub.pasaAGratisEl
+                ? `Tu suscripción terminó. Tu plan ${nombreDelPlan} sigue activo hasta el ${fecha(sub.pasaAGratisEl)}; después de esa fecha tu cuenta pasa a Gratis si no te vuelves a suscribir.`
+                : "Tu suscripción anterior está cancelada."}
+            </p>
           )}
           {sub?.status === "incomplete" && (
             <p className="text-sm text-gray-500 mb-2">

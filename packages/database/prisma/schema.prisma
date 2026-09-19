@@ -1447,6 +1447,12 @@ model Subscription {
   currentPeriodEnd     DateTime? @map("current_period_end")
   cancelAtPeriodEnd    Boolean   @default(false) @map("cancel_at_period_end")
   lastPaymentAt        DateTime? @map("last_payment_at")
+  /// Hasta cuándo está PAGADO de verdad (TIERS 04 §12.2 B2a). Lo escribe SÓLO
+  /// el webhook con `invoice.paid` (el fin del periodo de ESA factura). NO es
+  /// `currentPeriodEnd`: cuando una renovación FALLA, Stripe igual avanza el
+  /// periodo un mes, así que esa columna diría "cubierto" sin pago. De aquí
+  /// sale el margen de 15 días de «dejar de pagar» (§11).
+  pagadoHasta          DateTime? @map("pagado_hasta")
 
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
