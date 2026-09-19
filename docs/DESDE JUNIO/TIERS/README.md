@@ -53,12 +53,12 @@ con un script corrido por el usuario (`filas movidas: 1`); verificado entrando e
 (`getAuthenticatedDoctorStripe` exige rol DOCTOR) y «Mi Cuenta» lo pinta como *«No pudimos leer el
 estado de tu pago. Vuelve a cargar»* — un 403 definitivo presentado como falla pasajera.
 
-## ✅ 2026-09-18 (cierre): #1–#4 de `04` §12.6 en prod y probados
+## ✅ 2026-09-18 (cierre): #1–#4 y #5a de `04` §12.6 en prod y probados
 
-Camino al pago · aviso del admin · subir de plan · comprar cualquier plan en el que quepas —
-los cuatro **probados a mano**, dos con cobro real en modo prueba. Detalle, commits y lecciones en
-[`04` §12.7](04-PLAN-cambio-de-plan.md). Sigue **#5 (borrar libera espacio)**; antes, el URGENTE
-de arriba.
+Camino al pago · aviso del admin · subir de plan · comprar cualquier plan en el que quepas ·
+**borrar un archivo del expediente libera espacio y lo borra del almacenamiento** — los cinco
+**probados a mano**, dos con cobro real en modo prueba. Detalle, commits y lecciones en
+[`04` §12.7](04-PLAN-cambio-de-plan.md). Sigue **#6 (dejar de pagar)**; antes, el URGENTE de arriba.
 
 ## 🗺️ HANDOFF — 2026-09-18 (noche): el mapa completo de permutaciones
 

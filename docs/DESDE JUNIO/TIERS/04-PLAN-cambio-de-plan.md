@@ -45,8 +45,8 @@ Necesita su propia sesión, con el PDF enfrente. **Nunca en un commit de cobro.*
 
 ### Lo siguiente a construir
 
-**#1–#4 de §12.6 están en prod y probados (§12.7).** Sigue **#5 (borrar libera espacio)**, luego
-dejar de pagar (§11) → bajar de plan → una cuenta por doctor. Cada uno se presenta como plan y espera
+**#1–#4 y #5a de §12.6 están en prod y probados (§12.7).** Sigue dejar de pagar (§11, #6) → #5b →
+bajar de plan (#7) → una cuenta por doctor (#8). Cada uno se presenta como plan y espera
 el OK antes de código. ⚠️ Antes que todo eso, ver el **URGENTE** del README (el login).
 
 ---
@@ -559,7 +559,8 @@ Stripe (modo prueba), configurado por el usuario el 2026-09-18: **Smart Retries,
 | 2 | **Aviso en el admin** para cambios a mano sobre suscripciones vivas | B6 · P7 | No | Chico | ✅ `5ed3d09f` — probado |
 | 3 | **Subir de plan** BÁSICO→PRO, prorrateado, quitando la cancelación | B4 a–c | Sí | Mediano | ✅ `95152259` — probado con cobro |
 | 4 | **Vender cualquier plan en el que quepa** a quien no tiene suscripción viva, y que ese pago **fije** el plan | P3a · R4 | Sí (webhook) | Chico-mediano | ✅ `2bbbff32` — probado con cobro |
-| 5 | **Borrar libera espacio** | R3 · F2 · B5 | No | Mediano (su propia deuda, H5) | ⬜ siguiente |
+| 5a | **Borrar libera espacio — expediente** | R3 · F2 · B5 | No | Mediano | ✅ `f94e12ae` — probado |
+| 5b | **Borrar libera espacio — las otras 16 superficies** (videos de perfil, blog, flujo, receta, reemplazar foto…) | R3 | No | Mediano | ⬜ |
 | 6 | **Dejar de pagar**: la fecha correcta (B2a), el reloj diario, margen, GRATIS/congelada, pantalla de congelado, descarga, aviso al doctor | B2 · B3b · B3d · P2 · §11 | Lee | Grande — partirlo | ⬜ |
 | 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande | ⬜ |
 | 8 | **Una cuenta por doctor** | `05` | No | Grande, empieza por investigar | ⬜ |
@@ -595,6 +596,19 @@ código → type-check + gates → **un** review → OK → commit/push → prue
   sin poder bajar. Probado: dr-quebradita en PRO puesto a mano compró BÁSICO ($149) y el webhook lo
   bajó PRO→BÁSICO a los 4 s. **Aceptado a propósito:** no se vuelve a medir el almacenamiento al
   llegar el pago.
+
+- **#5a `f94e12ae`** — al borrar un archivo del expediente: sale del libro mayor (`olvidarArchivo`,
+  el cupo baja) y del bucket de uploadthing (`UTApi.deleteFiles`, deja de costar); **definitivo, sin
+  papelera** (decisión del usuario), y la confirmación lo dice en español. Hasta hoy **nada en el
+  repo borraba del bucket**. 🔴 **Hallazgo del review (seguridad):** la URL de un media llega del
+  navegador sin validar, así que sólo se borra del bucket lo que estaba en el libro mayor **de ese
+  doctor** — sin eso, un doctor podía borrar el archivo de otro. Consecuencia aceptada: lo subido
+  antes del 2026-09-13 (135 de 160 archivos del expediente) sale del expediente pero se queda en el
+  bucket. Los avisos de «sin espacio» ya dicen «borra archivos **del expediente**» (sólo eso libera;
+  el resto es #5b). Probado: dr-quebradita subió una foto, el contador subió, la borró, el contador
+  volvió y el libro mayor quedó en 0 filas, sin errores `[storage]` en el log.
+  ⚠️ El api no se redesplegó (sólo cambió el paquete): sus rutas de subida siguen con el texto
+  anterior de «sin espacio» hasta el próximo deploy del api — cierto, sólo sin la parte de «borra».
 
 **Estado de las cuentas de prueba al cerrar:** dr-prueba **PRO** pagando (renueva 17/10 a $299);
 dr-quebradita **BÁSICO** pagando (renueva 18/10 a $149); ambas en modo prueba y en
