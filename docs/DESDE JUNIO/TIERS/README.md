@@ -8,7 +8,7 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
-## 🔴 URGENTE PARA LA SIGUIENTE SESIÓN (no es de TIERS): un correo de Google puede quedar dentro de la cuenta de OTRO
+## 🟡 LOGIN (no es de TIERS): un correo de Google quedaba dentro de la cuenta de OTRO — ARREGLADO, falta una prueba
 
 **Encontrado el 2026-09-18 probando #4, y probado en vivo.** Al entrar con `quebradita.a@gmail.com`
 (rol DOCTOR, cuenta `dr-quebradita`) se entraba a la cuenta `gerardo` del usuario
@@ -31,10 +31,27 @@ Google mientras la sesión del doctor sigue abierta, su Google queda ligado **al
 doctor** y desde ahí entra como el doctor — con expedientes, facturación y cobro. Silencioso y
 permanente.
 
-**Ya se arregló el DATO** (no el código): el vínculo `114492…` se movió al usuario quebradita.a
-con un script corrido por el usuario (`filas movidas: 1`); verificado entrando en incógnito.
+**Ya se arregló el DATO:** el vínculo `114492…` se movió al usuario quebradita.a con un script
+corrido por el usuario (`filas movidas: 1`); verificado entrando en incógnito.
 
-**Lo que falta — el CÓDIGO, para que no pueda volver a pasar:**
+**✅ Y el CÓDIGO — `ab810f3d` (2026-09-18, en prod):** el `linkAccount` del adapter
+(`packages/auth/src/nextauth-config.ts`) rechaza ligar una SEGUNDA identidad de Google a un usuario
+que ya tiene una. Auth.js envuelve el error del adapter en `AdapterError`, así que llega como
+`?error=Configuration`; el mensaje de ese error en los logins de doctor y admin ya dice «cierra la
+sesión abierta». Auditoría de prod: sólo **dr-jose** tiene 2 identidades (ver abajo).
+
+**⏳ FALTA PROBAR el camino nuevo:** la prueba del 2026-09-18 (sesión de Quebradita abierta + entrar
+con el Google de lopez.fafutis) pasó, pero fue por el camino que Auth.js YA protegía (ese Google ya
+estaba ligado a otro usuario ⇒ `OAuthAccountNotLinked` nativo). La regla nueva sólo se prueba con
+**un Gmail que nunca haya entrado a la plataforma**: sesión abierta de A → entrar con ese Gmail ⇒
+debe rechazar, sin fila nueva en `accounts` y con `[AUTH] se rechazó ligar una SEGUNDA identidad`
+en el log del doctor. El usuario no tenía un Gmail así a la mano.
+
+**⏳ dr-jose:** su usuario tiene 2 identidades de Google (la segunda ligada ~junio). Puede ser su
+propio segundo Gmail (inofensivo) o uno ajeno. Sólo se resuelve preguntándole al doctor con qué
+Gmails entra. El fix NO lo afecta: sus dos identidades siguen funcionando.
+
+**Lo que se planeó para el código (hecho en `ab810f3d`, salvo lo marcado ⏳ arriba):**
 
 1. **Nunca ligar una identidad OAuth a un usuario cuyo correo no coincide.** En el `signIn`
    callback: si el correo del perfil de Google ≠ el correo del usuario resuelto, **rechazar**
