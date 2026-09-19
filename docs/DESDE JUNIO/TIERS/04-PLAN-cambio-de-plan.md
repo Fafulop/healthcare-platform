@@ -561,7 +561,10 @@ Stripe (modo prueba), configurado por el usuario el 2026-09-18: **Smart Retries,
 | 4 | **Vender cualquier plan en el que quepa** a quien no tiene suscripción viva, y que ese pago **fije** el plan | P3a · R4 | Sí (webhook) | Chico-mediano | ✅ `2bbbff32` — probado con cobro |
 | 5a | **Borrar libera espacio — expediente** | R3 · F2 · B5 | No | Mediano | ✅ `f94e12ae` — probado |
 | 5b | **Borrar libera espacio — las otras 16 superficies** (videos de perfil, blog, flujo, receta, reemplazar foto…) | R3 | No | Mediano | ⬜ |
-| 6 | **Dejar de pagar**: la fecha correcta (B2a), el reloj diario, margen, GRATIS/congelada, pantalla de congelado, descarga, aviso al doctor | B2 · B3b · B3d · P2 · §11 | Lee | Grande — partirlo | ⬜ |
+| 6.1 | **Dejar de pagar — parte 1**: `pagado_hasta` (B2a), cron diario, 15 días de margen → GRATIS si cabe | B2 · B3b · P2 · §11 | Lee | Mediano | ✅ `ff22b0f7` — dryRun probado |
+| 6.2 | Congelar a quien no cabe + pantalla [Reactivar]/[Descargar] | B3d · §11 | Lee | Mediano | ⬜ |
+| 6.3 | La descarga (zip) | §11.4 | No | Mediano | ⬜ |
+| 6.4 | Avisos por correo al doctor (G8) | §11.5 | No | Chico | ⬜ |
 | 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande | ⬜ |
 | 8 | **Una cuenta por doctor** | `05` | No | Grande, empieza por investigar | ⬜ |
 
@@ -609,6 +612,19 @@ código → type-check + gates → **un** review → OK → commit/push → prue
   volvió y el libro mayor quedó en 0 filas, sin errores `[storage]` en el log.
   ⚠️ El api no se redesplegó (sólo cambió el paquete): sus rutas de subida siguen con el texto
   anterior de «sin espacio» hasta el próximo deploy del api — cierto, sólo sin la parte de «borra».
+
+- **#6.1 `ff22b0f7`** — columna `subscriptions.pagado_hasta` (SQL manual, aplicado ANTES del
+  código por el usuario, con relleno: dr-prueba 17/10, dr-quebradita 18/10). La escribe SÓLO
+  `invoice.paid`, con el fin del periodo de **la factura pagada** (review: con el periodo actual,
+  pagar tarde una factura vieja daba por pagado el mes siguiente). `DIAS_DE_MARGEN`/`finDelMargen`
+  en `cobro-planes.ts` = una sola fuente para pantalla y cron. `POST /api/cron/cobro-vencido`:
+  una vez al día (09:00–09:14 MX), `?dryRun=1`; vencido el margen y si cabe en Gratis ⇒
+  `setDoctorTier(FREE)` + aviso; si no cabe ⇒ sólo aviso (congelar es #6.2); **pregunta a Stripe
+  antes de bajar** (activa y al corriente ⇒ webhook perdido; no existe en este modo ⇒ fila del otro
+  modo — ninguno se toca). Mi Cuenta dice «después del X tu cuenta pasa a Gratis» **sólo cuando es
+  cierto**. Probado en prod: dryRun `revisadas: 0`, fuera de ventana `skipped`, sin secreto 401.
+  **Falta:** que el usuario agregue la llamada al servicio `cron` de Railway (RAILWAY-CRON.md #6).
+  Primer caso real posible: ~1–2 de noviembre (dr-prueba y dr-quebradita, si no renuevan).
 
 **Estado de las cuentas de prueba al cerrar:** dr-prueba **PRO** pagando (renueva 17/10 a $299);
 dr-quebradita **BÁSICO** pagando (renueva 18/10 a $149); ambas en modo prueba y en

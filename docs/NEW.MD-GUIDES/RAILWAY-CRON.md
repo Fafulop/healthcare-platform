@@ -161,7 +161,45 @@ Renews Google Calendar push notification channels that are about to expire.
 
 ---
 
+### 6. Cobro vencido (dejar de pagar) — every 15 min, self-gates to once a day
+
+**Endpoint:** `POST /api/cron/cobro-vencido` (`?dryRun=1` = report only, no writes, no alerts)
+**File:** `apps/api/src/app/api/cron/cobro-vencido/route.ts` · TIERS `04` §12.6 #6.1 (2026-09-18)
+
+Runs its real pass only between **09:00 and 09:14 Mexico City**; any other call answers
+`skipped: fuera de la ventana diaria`.
+
+- Finds subscriptions whose `pagado_hasta` is more than **15 days** old (tier not FREE/LAB).
+- Asks Stripe first: still `active` and covering today ⇒ lost webhook, not touched; subscription
+  missing in the current Stripe mode ⇒ row from the other mode, not touched. Both alert the admin.
+- If the account fits FREE (≤ 50 active patients and ≤ 500 MB) ⇒ `setDoctorTier(FREE)` with a
+  `tier_change_log` row (`actor = cron:cobro-vencido`) + Telegram alert. If it doesn't fit ⇒ alert
+  only (freezing the account is #6.2).
+- Verified 2026-09-18 against prod: dryRun `revisadas: 0`; outside the window `skipped`; no secret
+  ⇒ 401.
+
+⚠️ Add it at the **end** of `index.ts`, wrapped in `try/catch` — the other jobs have none, and a
+throw there would stop every job after it:
+
+```typescript
+// --- Cobro vencido: dejar de pagar → GRATIS tras 15 días de margen (TIERS 04 §12.6 #6.1) ---
+try {
+  const cobroVencidoRes = await fetch(`${apiUrl}/api/cron/cobro-vencido`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${cronSecret}`, "Content-Type": "application/json" },
+  });
+  console.log(`[cobro-vencido] status=${cobroVencidoRes.status}`, await cobroVencidoRes.text());
+} catch (e) {
+  console.error("[cobro-vencido] failed", e);
+}
+```
+
+---
+
 ## Full `index.ts` (current)
+
+> ⚠️ Probably out of date: the SAT jobs (`sat-auto-sync`, `sat-sync-worker`) and #6 above were
+> added in Railway's editor after this copy. The source of truth is the service editor.
 
 ```typescript
 // index.ts (Bun v1.3 runtime)
