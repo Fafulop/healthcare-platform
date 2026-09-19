@@ -186,6 +186,16 @@ export async function PATCH(request: Request) {
     }
 
     if (resultado.changed) {
+      // TIERS 04 §12.6 #6.2: un cambio de plan a mano del admin DESCONGELA la
+      // cuenta. Sólo DURA si el plan es LAB (cortesía; el cron no lo revisa) o
+      // GRATIS: a otro plan de pago, `pagado_hasta` sigue vencido y el cron la
+      // vuelve a congelar al día siguiente (igual que #6.1 revierte un plan
+      // puesto a mano sin pago). A propósito: la salida de un caso especial es LAB.
+      await prisma.doctor.updateMany({
+        where: { id: doctorId, congeladaDesde: { not: null } },
+        data: { congeladaDesde: null },
+      });
+
       // El rastro DURADERO ya quedó en tier_change_log; esto sólo ayuda a
       // seguirlo en los logs del deploy en caliente.
       console.log('[TIERS] tier changed', {

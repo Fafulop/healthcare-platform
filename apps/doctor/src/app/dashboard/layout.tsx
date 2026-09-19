@@ -2,13 +2,14 @@
 
 import { useSession } from "next-auth/react";
 import { WIDGET_AYUDA_VISIBLE } from "@/lib/ui-visibility";
-import { redirect } from "next/navigation";
+import { redirect, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, ChevronRight, ChevronLeft } from "lucide-react";
 import { DoctorProfileProvider } from "@/contexts/DoctorProfileContext";
 import { useAgentActions } from "@/contexts/AgentContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import RevokedAccessScreen from "@/components/layout/RevokedAccessScreen";
+import { AvisoCuentaCongelada } from "@/components/layout/CuentaCongelada";
 import { GoogleCalendarBanner } from "@/components/GoogleCalendarBanner";
 import { ChatWidget } from "@/components/llm-assistant/ChatWidget";
 import { DayDetailsWidget } from "@/components/day-details/DayDetailsWidget";
@@ -100,6 +101,18 @@ export default function DashboardRootLayout({
     if (hasPendingInvite) redirect("/invitacion");
   }, [hasPendingInvite]);
 
+  // TIERS 04 §12.6 #6.2 — cuenta CONGELADA: el dueño sólo puede estar en «Mi
+  // Cuenta» (para volver a pagar); cualquier otra pantalla lo manda ahí. El
+  // servidor ya responde ACCOUNT_FROZEN a todo lo demás; esto es cortesía.
+  const pathname = usePathname();
+  const congelada = status === "authenticated" && session?.user?.congelada === true;
+  const esDueno = session?.user?.isOwner ?? true;
+  useEffect(() => {
+    if (congelada && esDueno && !pathname?.startsWith("/dashboard/cuenta")) {
+      redirect("/dashboard/cuenta");
+    }
+  }, [congelada, esDueno, pathname]);
+
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -127,6 +140,34 @@ export default function DashboardRootLayout({
       );
     }
     return <RevokedAccessScreen />;
+  }
+
+  if (congelada) {
+    // Sin barra lateral ni widgets: todos llaman rutas que la cuenta congelada
+    // ya no puede usar. Sólo el aviso y, para el dueño, «Mi Cuenta».
+    if (!esDueno || !pathname?.startsWith("/dashboard/cuenta")) {
+      return (
+        <div className="min-h-screen bg-gray-50 px-4 py-10">
+          <div className="max-w-2xl mx-auto">
+            {esDueno ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              </div>
+            ) : (
+              <AvisoCuentaCongelada esDueno={false} />
+            )}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-6 sm:py-10">
+        <div className="max-w-3xl mx-auto">
+          <AvisoCuentaCongelada esDueno />
+          {children}
+        </div>
+      </div>
+    );
   }
 
   return (

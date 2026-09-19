@@ -4,7 +4,8 @@
 // que ya terminó) conserva su plan DIAS_DE_MARGEN días después de lo último que
 // pagó (`subscriptions.pagado_hasta`). Pasado el margen:
 //   · si CABE en Gratis (≤ 50 pacientes y ≤ 500 MB) ⇒ pasa a Gratis;
-//   · si NO cabe ⇒ por ahora sólo se avisa al admin. Congelar es #6.2.
+//   · si NO cabe ⇒ se CONGELA (`doctors.congelada_desde`, #6.2): sólo entra a
+//     «Mi Cuenta» y al cobro hasta que vuelva a pagar.
 // Las cuentas LAB (cortesías) y las que no tienen suscripción no se tocan: no
 // entran en la consulta.
 //
@@ -50,7 +51,12 @@ export async function POST(request: Request) {
 
   const corte = new Date(ahora.getTime() - DIAS_DE_MARGEN * 24 * 60 * 60 * 1000);
   const vencidas = await prisma.subscription.findMany({
-    where: { pagadoHasta: { lt: corte }, doctor: { tier: { notIn: ['FREE', 'LAB'] } } },
+    // Las ya congeladas no se vuelven a revisar: no hay nada más que hacerles
+    // y el aviso se repetiría todos los días.
+    where: {
+      pagadoHasta: { lt: corte },
+      doctor: { tier: { notIn: ['FREE', 'LAB'] }, congeladaDesde: null },
+    },
     select: {
       stripeSubscriptionId: true,
       pagadoHasta: true,
@@ -100,13 +106,23 @@ export async function POST(request: Request) {
 
       const cabe = await cabeEnPlan(prisma, doctorId, 'FREE');
       if (!cabe.cabe) {
-        resultados.push({ slug, accion: `no cabe en Gratis; se queda en ${tier} (congelar es #6.2)` });
-        if (!dryRun) {
-          await avisarAdmin(
-            `🔴 ${slug} dejó de pagar (pagado hasta ${pagado}, margen hasta ${margen}) y NO cabe en Gratis: ` +
-              `${cabe.motivo} Sigue en ${nombre(tier)} hasta que exista congelar la cuenta.`,
-          );
+        // #6.2: no cabe ⇒ se CONGELA. No se toca su tier (así al pagar no hay
+        // nada que restaurar) ni se borra nada: sólo queda limitada a «Mi
+        // Cuenta» y pagar hasta que vuelva a pagar.
+        if (dryRun) {
+          resultados.push({ slug, accion: `no cabe en Gratis; se congelaría (sigue en ${tier})` });
+          continue;
         }
+        await prisma.doctor.updateMany({
+          where: { id: doctorId, congeladaDesde: null },
+          data: { congeladaDesde: ahora },
+        });
+        resultados.push({ slug, accion: `congelada (sigue en ${tier}, no cabe en Gratis)` });
+        await avisarAdmin(
+          `🧊 ${slug} quedó CONGELADA: dejó de pagar (pagado hasta ${pagado}, margen hasta ${margen}) y no cabe ` +
+            `en Gratis: ${cabe.motivo} Sólo puede entrar a Mi Cuenta para pagar. La descongela un pago, o ` +
+            `pasarla a LAB en el admin (otro plan de pago a mano se vuelve a congelar al día siguiente).`,
+        );
         continue;
       }
 

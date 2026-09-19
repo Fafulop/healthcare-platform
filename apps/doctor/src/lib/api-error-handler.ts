@@ -31,6 +31,12 @@ export function handleApiError(error: unknown, context: string = 'API request'):
 
     // Secondary user hit a route their toggles don't allow (medical-auth PR B).
     // Marker string is what the UI distinguishes from a generic 403.
+    // TIERS 04 §12.6 #6.2 — cuenta congelada. Marcador propio: la pantalla lo
+    // distingue de un permiso o de un candado de plan y manda a «Mi Cuenta».
+    if (error.message === 'ACCOUNT_FROZEN') {
+      return NextResponse.json({ error: 'ACCOUNT_FROZEN' }, { status: 403 });
+    }
+
     if (error.message === 'PERMISSION_BLOCKED') {
       return NextResponse.json(
         { error: 'PERMISSION_BLOCKED' },

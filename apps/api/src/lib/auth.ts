@@ -8,6 +8,7 @@ import {
   computeEffectiveAccess,
   checkRoutePermission,
   tierRouteDecision,
+  rutaPermitidaCongelada,
   type PermissionSet,
 } from '@healthcare/database';
 import jwt from 'jsonwebtoken';
@@ -120,6 +121,8 @@ export async function validateAuthToken(
   permissions: PermissionSet | null;
   /** Account tier (Doctor.tier), fresh. Threaded for TIERS T2 — no consumer yet. */
   tier: string;
+  /** TIERS 04 §12.6 #6.2: la cuenta está congelada (sólo se llega aquí en rutas permitidas). */
+  congelada: boolean;
 }> {
   const authHeader = request.headers.get('authorization');
 
@@ -160,14 +163,14 @@ export async function validateAuthToken(
           sessionVersion: true,
           // doctor.tier (legacy owner link) + memberships.doctor.tier: techo del
           // tier leído FRESCO (TIERS G4) en la misma query — nadie lo ENFORCE aún.
-          doctor: { select: { tier: true } },
+          doctor: { select: { tier: true, congeladaDesde: true } },
           memberships: {
             select: {
               doctorId: true,
               role: true,
               status: true,
               permissions: true,
-              doctor: { select: { tier: true } },
+              doctor: { select: { tier: true, congeladaDesde: true } },
             },
           },
         },
@@ -205,7 +208,12 @@ export async function validateAuthToken(
     // Effective doctor (secondary users): membership-first, legacy column as
     // owner fail-open fallback. Every downstream helper reads doctorId from
     // this return, so members are scoped to their portal here and nowhere else.
-    const access = computeEffectiveAccess(user.memberships, user.doctorId, user.doctor?.tier);
+    const access = computeEffectiveAccess(
+      user.memberships,
+      user.doctorId,
+      user.doctor?.tier,
+      (user.doctor as { congeladaDesde?: Date | null } | null)?.congeladaDesde,
+    );
 
     // Enforcement (ADMINs bypass all). TIERS T2: the tier ceiling applies to
     // OWNER **and** MEMBER — a no-op while every account is PRO, and the only
@@ -217,6 +225,12 @@ export async function validateAuthToken(
     // (getAuthenticatedDoctor etc.), which produce their own 403 — don't invent
     // a new blocking path ahead of them for an ambiguous case (02-METODO angle 9).
     if (user.role !== 'ADMIN' && access.doctorId) {
+      // TIERS 04 §12.6 #6.2: cuenta CONGELADA (dejó de pagar y no cabe en
+      // GRATIS) ⇒ sólo sesión, «Mi Cuenta» y cobro. Va ANTES del tier: no
+      // importa qué incluya su plan si la cuenta está congelada.
+      if (access.congelada && !rutaPermitidaCongelada(new URL(request.url).pathname)) {
+        throw new AuthError('ACCOUNT_FROZEN', 403);
+      }
       enforceTier(request, access.tier);
       if (!access.isOwner) {
         enforceMemberRoute(request, access, user.id);
@@ -232,6 +246,7 @@ export async function validateAuthToken(
       permissions: access.permissions,
       // Threaded for TIERS T2 enforcement; no consumer applies it yet.
       tier: access.tier,
+      congelada: access.congelada,
     };
   } catch (error) {
     if (error instanceof AuthError) throw error;

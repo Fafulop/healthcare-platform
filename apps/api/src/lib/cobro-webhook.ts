@@ -256,6 +256,16 @@ export async function procesarEventoCobro(
       const fila = await sincronizar(deps, datos, { contexto: 'invoice.paid', pagadoEn, pagadoHasta });
       if (!fila) return { accion: 'no atribuible' };
 
+      // TIERS 04 §12.6 #6.2: un pago DESCONGELA la cuenta, pase lo que pase
+      // después con el plan. No se toca nada más: nunca se le quitó nada.
+      const descongelada = await deps.db.doctor.updateMany({
+        where: { id: fila.doctorId, congeladaDesde: { not: null } },
+        data: { congeladaDesde: null },
+      });
+      if (descongelada.count > 0) {
+        await deps.avisar(`🔓 ${fila.slug} pagó y su cuenta se DESCONGELÓ.`);
+      }
+
       if (!datos.priceId) {
         await deps.avisar(`⚠️ ${fila.slug} pagó, pero la suscripción no trae precio. El plan NO se movió.`);
         return { accion: 'pagado sin precio' };

@@ -4,6 +4,7 @@ import {
   prisma,
   checkRoutePermission,
   tierRouteDecision,
+  rutaPermitidaCongelada,
   FALLBACK_TIER,
   type PermissionSet,
   type TierKey,
@@ -67,6 +68,13 @@ export async function requireDoctorAuth(
   if (user.role !== 'ADMIN') {
     const pathname = request.nextUrl.pathname;
     const method = request.method.toUpperCase();
+
+    // TIERS 04 §12.6 #6.2: cuenta CONGELADA (dejó de pagar y no cabe en
+    // GRATIS) ⇒ sólo sesión, «Mi Cuenta» y cobro, para dueño Y members. Va
+    // antes del tier: no importa qué incluya el plan si la cuenta está congelada.
+    if (user.congelada === true && !rutaPermitidaCongelada(pathname)) {
+      throw new Error('ACCOUNT_FROZEN');
+    }
 
     // TIER ceiling (owner + member): the account's plan doesn't include this
     // feature. Blocks regardless of toggles; nearest-feature-key catches

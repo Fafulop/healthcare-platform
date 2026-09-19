@@ -127,6 +127,9 @@ export const authConfig: NextAuthConfig = {
       // Account tier (fresh via database sessions). Threaded for TIERS T2 —
       // client courtesy only; no consumer enforces it yet.
       session.user.tier = access.tier;
+      // TIERS 04 §12.6 #6.2: cuenta congelada — la leen requireDoctorAuth, la
+      // subida de archivos y el layout del dashboard (manda todo a Mi Cuenta).
+      session.user.congelada = access.congelada;
 
       // Expose session row id so /api/auth/sessions can identify the current session
       session.sessionId = session.id;

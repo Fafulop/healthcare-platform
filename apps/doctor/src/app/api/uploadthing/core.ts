@@ -47,6 +47,16 @@ const authMiddleware = async ({ files }: { files: readonly ArchivoEntrante[] }) 
   // subidas sin medir de cuentas que no tienen cupo que gastar.
   const doctorId = (session.user as { doctorId?: string }).doctorId ?? null;
 
+  // TIERS 04 §12.6 #6.2: una cuenta CONGELADA no sube archivos (no pasa por
+  // requireDoctorAuth, así que se revisa aquí). La de `apps/api` ya queda
+  // cubierta por validateAuthToken.
+  if ((session.user as { congelada?: boolean }).congelada === true) {
+    throw new UploadThingError({
+      code: "FORBIDDEN",
+      message: "Tu cuenta está congelada. Reactívala desde Mi Cuenta para volver a subir archivos.",
+    });
+  }
+
   // uploadthing sólo deja pasar lo que YA es `UploadThingError`; cualquier otra
   // cosa la envuelve en "Failed to run middleware". Sin esta traducción, al
   // doctor sin espacio le aparecería esa frase.

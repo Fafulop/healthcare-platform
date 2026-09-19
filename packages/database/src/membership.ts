@@ -31,6 +31,10 @@ export interface EffectiveAccess {
    * (String column, sin migración) debe fluir sin tocar este archivo; tierAllows
    * ya hace fail-open ante un valor que no reconoce. */
   tier: string;
+  /** TIERS 04 §12.6 #6.2: la cuenta del doctor resuelto está CONGELADA (dejó de
+   * pagar, venció el margen y no cabe en GRATIS). Aplica al dueño Y a sus
+   * members. Fail-OPEN: si el dato falta, `false`. */
+  congelada: boolean;
 }
 
 export const NO_ACCESS: EffectiveAccess = {
@@ -39,6 +43,7 @@ export const NO_ACCESS: EffectiveAccess = {
   permissions: null,
   membershipRevoked: false,
   tier: FALLBACK_TIER,
+  congelada: false,
 };
 
 interface MembershipRow {
@@ -47,7 +52,7 @@ interface MembershipRow {
   status: string;
   permissions: unknown;
   /** Doctor.tier via la relación `doctor` del membership (incluir en el select). */
-  doctor?: { tier?: string | null } | null;
+  doctor?: { tier?: string | null; congeladaDesde?: Date | null } | null;
 }
 
 /**
@@ -60,7 +65,9 @@ export function computeEffectiveAccess(
   legacyDoctorId: string | null | undefined,
   /** Doctor.tier del legacy link (users.doctor_id) — solo se usa en el fallback
    * owner. El tier del path de membership sale de active.doctor.tier. */
-  legacyTier?: string | null
+  legacyTier?: string | null,
+  /** Doctor.congeladaDesde del legacy link — sólo para el fallback owner. */
+  legacyCongeladaDesde?: Date | null
 ): EffectiveAccess {
   const active = memberships.find((m) => m.status === 'ACTIVE');
 
@@ -77,6 +84,7 @@ export function computeEffectiveAccess(
       membershipRevoked: false,
       // Crudo de la BD; falsy (null/''/undefined) ⇒ FALLBACK_TIER (fail-open).
       tier: active.doctor?.tier || FALLBACK_TIER,
+      congelada: !!active.doctor?.congeladaDesde,
     };
   }
 
@@ -89,6 +97,7 @@ export function computeEffectiveAccess(
       permissions: null,
       membershipRevoked: false,
       tier: legacyTier || FALLBACK_TIER,
+      congelada: !!legacyCongeladaDesde,
     };
   }
 
@@ -112,16 +121,19 @@ export async function resolveEffectiveAccess(
         role: true,
         status: true,
         permissions: true,
-        doctor: { select: { tier: true } },
+        doctor: { select: { tier: true, congeladaDesde: true } },
       },
     });
     // Legacy owner path (no membership row): su tier vive en users.doctor_id →
     // Doctor.tier. Solo se consulta si hará falta el fallback (sin ACTIVE).
-    const legacyTier =
+    const legacy =
       legacyDoctorId && !memberships.some((m) => m.status === 'ACTIVE')
-        ? (await prisma.doctor.findUnique({ where: { id: legacyDoctorId }, select: { tier: true } }))?.tier
+        ? await prisma.doctor.findUnique({
+            where: { id: legacyDoctorId },
+            select: { tier: true, congeladaDesde: true },
+          })
         : undefined;
-    return computeEffectiveAccess(memberships, legacyDoctorId, legacyTier);
+    return computeEffectiveAccess(memberships, legacyDoctorId, legacy?.tier, legacy?.congeladaDesde);
   } catch (error) {
     // Table missing / transient DB error: owners fail OPEN to their legacy
     // link (never lock every doctor out); users without one fail CLOSED.
@@ -151,4 +163,16 @@ export async function doctorTierAllows(
     // error de BD no debe regalar lo que el plan niega.
     return tierAllows(null, key);
   }
+}
+
+/**
+ * TIERS 04 §12.6 #6.2 — lo ÚNICO que una cuenta CONGELADA puede tocar: iniciar
+ * y cerrar sesión, «Mi Cuenta» y el cobro (para volver a pagar). Todo lo demás
+ * responde 403 `ACCOUNT_FROZEN`. Una sola lista para las dos apps (api y
+ * doctor), así no pueden discrepar.
+ */
+export const RUTAS_DE_CUENTA_CONGELADA = ['/api/auth/', '/api/account/', '/api/billing/'] as const;
+
+export function rutaPermitidaCongelada(pathname: string): boolean {
+  return RUTAS_DE_CUENTA_CONGELADA.some((p) => pathname.startsWith(p));
 }

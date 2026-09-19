@@ -183,6 +183,12 @@ model Doctor {
   // explícito de todos modos (DEFAULT_TIER); el DEFAULT de la columna lo
   // iguala `rename-tiers-to-four.sql` para inserts crudos y coherencia.
   tier               String   @default("FREE")
+  // TIERS 04 §12.6 #6.2: desde cuándo la cuenta está CONGELADA (dejó de pagar,
+  // venció el margen y no cabe en GRATIS). null = no congelada. Congelada ⇒
+  // sólo puede entrar a «Mi Cuenta» y pagar; todo lo demás responde
+  // ACCOUNT_FROZEN. La pone el cron `cobro-vencido`; la quitan un pago
+  // (`invoice.paid`) o un cambio de plan a mano del admin.
+  congeladaDesde     DateTime? @map("congelada_desde")
   doctorFullName     String   @map("doctor_full_name")
   lastName           String   @map("last_name")
   primarySpecialty   String   @map("primary_specialty")
