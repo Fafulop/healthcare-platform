@@ -36,15 +36,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const dryRun = new URL(request.url).searchParams.get('dryRun') === '1';
+  const params = new URL(request.url).searchParams;
+  const dryRun = params.get('dryRun') === '1';
+  // `?forzar=1` — salta la ventana diaria para PROBAR el camino real.
+  //
+  // Existe porque `dryRun` enseña la decisión pero no escribe, y sin esto la
+  // única forma de ver una baja o un congelamiento de verdad era esperar a las
+  // 9 de la mañana. Un camino que sólo se puede probar una vez al día no se
+  // prueba. Va detrás del MISMO `CRON_SECRET`, así que quien puede forzarlo ya
+  // podía correr el cron.
+  //
+  // ⚠️ La ventana no es decorativa: evita repetir el aviso de «no cabe» cada 15
+  // minutos. Forzar dos veces el mismo día manda el aviso dos veces.
+  const forzar = params.get('forzar') === '1';
   const ahora = new Date();
 
-  if (!dryRun) {
+  if (!dryRun && !forzar) {
     const mx = ahora.toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' });
     if (mx.slice(11, 13) !== '09' || Number(mx.slice(14, 16)) >= 15) {
       return NextResponse.json({ success: true, skipped: 'fuera de la ventana diaria (09:00–09:14 MX)' });
     }
   }
+  if (forzar) console.log('[COBRO] cron FORZADO fuera de la ventana diaria');
 
   const cliente = stripeCobro();
   if (!cliente) return NextResponse.json({ success: true, skipped: 'cobro no configurado' });
