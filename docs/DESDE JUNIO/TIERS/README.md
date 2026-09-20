@@ -26,11 +26,12 @@ a cualquiera en la ruta pública, mientras `tier` sí estaba excluido. **Exposic
 expuesto), **nada que rotar**. El gate no lo atrapó porque su patrón estaba sólo en inglés; ahora
 habla español.
 
-**⏭️ Sigue, ya sin nada urgente:** **#6.3 sólo le falta el CLIC** → #6.4 (correos) → #6.5 (la
-descarga masiva de expedientes no deja rastro) → #5b. Para **modo vivo** lo que falta ya no es
-código: es **C4**, las 10 cuentas PRO que no pagan.
+**⏭️ Sigue, ya sin nada urgente:** #6.4 (correos al doctor — **ojo: no hay NINGUNA infraestructura
+de correo en el repo**, hay que elegir proveedor antes de escribir código) → #6.5 (la descarga
+masiva de expedientes no deja rastro en `patient_audit_logs`) → #5b. **C4 está aplazado a
+propósito** hasta decidir qué son las 10 cuentas PRO que no pagan (ver §Estado de C1–C4).
 
-## ✅ 2026-09-20: #6.3 — «Descargar mi información» — en prod `3bb783a1`, **falta el clic**
+## ✅ 2026-09-20: #6.3 — «Descargar mi información» — en prod `3bb783a1` y **probado con clic**
 
 Cualquier dueño —y sobre todo una cuenta **congelada**, que llega sin pagar— baja un zip con todo
 lo que capturó: `pacientes/consultas/citas/recetas/tareas/adjuntos.csv` y **el expediente completo
@@ -44,9 +45,11 @@ Desplegado y confirmado por servicio (api `4b27b52a` · doctor `41e59c64`, ambos
 responde 401 sin sesión ⇒ existe de verdad). Verificado corriendo el export **contra prod** y
 contando lo que quedó en el zip **contra la BD** (23/23 tareas, 7/7 adjuntos).
 
-🔴 **Pendiente: darle clic.** El botón y la descarga del blob nunca se ejecutaron; `tsc` sólo dice
-que compilan. Abrir Mi Cuenta → «Descargar mi información»: si baja un zip con `tareas.csv`
-adentro, #6.3 queda cerrado.
+✅ **El usuario lo probó y la descarga funciona (2026-09-20). CERRADO.**
+
+📌 No hace falta estar congelado para usarla: `account` es OWNER_ONLY y no tiene candado de tier
+—la ruta sólo comprueba `isOwner`—, así que cualquier dueño la usa en cualquier plan. Congelado es
+el caso más duro, no el único.
 
 **⏭️ Siguió 6.2b, y ya está** (arriba): era el último 🔴.
 
@@ -98,6 +101,11 @@ en el log del doctor. El usuario no tenía un Gmail así a la mano.
 **⏳ dr-jose:** su usuario tiene 2 identidades de Google (la segunda ligada ~junio). Puede ser su
 propio segundo Gmail (inofensivo) o uno ajeno. Sólo se resuelve preguntándole al doctor con qué
 Gmails entra. El fix NO lo afecta: sus dos identidades siguen funcionando.
+
+> 🟢 **2026-09-20 — el usuario cree que los dos correos son de dr-jose**, y con eso baja de
+> prioridad: si los dos son suyos no hay nada que arreglar. **Sigue sin CONFIRMARSE con el doctor**,
+> y esa confirmación es la única forma de descartarlo — nadie más puede saber de quién es el segundo
+> Gmail. Si resultara ajeno, esa persona entra como él, con expedientes y facturación.
 
 **Lo que se planeó para el código (hecho en `ab810f3d`, salvo lo marcado ⏳ arriba):**
 
@@ -264,7 +272,7 @@ bloquean, en su **§6**.
 | **C1** | «Mi Cuenta» del doctor: plan, catálogo curado (`plan-catalog.ts` + `gate:catalogo`), medidores de pacientes y almacenamiento | ✅ EN PROD `b22f5f3a` (doctor SUCCESS) |
 | **C2** | Tablas `tier_prices` · `subscriptions` · `tier_change_log` (SQL aplicado y verificado ANTES del código) · `setDoctorTier()` único camino de escritura del tier · `fijarPrecioDeTier()` · pantalla «Cobro» del admin | ✅ EN PROD `606f2e38` (api + admin SUCCESS) |
 | **C3** | Checkout de Stripe, webhook de suscripciones (sólo `invoice.paid` sube el plan, nada lo baja), portal, sección «Pago de tu plan», avisos Telegram | ✅ **EN PROD `2edc58b6`** — api · doctor · admin **los tres SUCCESS** en ese hash (verificado 00:43 del 2026-09-15). **Inactivo** hasta el runbook: nadie ve el cobro |
-| **C4** | Reconciliación Stripe ↔ `Doctor.tier` (reporta, no arregla) | ⬜ No empezado — bloqueado (abajo) |
+| **C4** | Reconciliación Stripe ↔ `Doctor.tier` (reporta, no arregla) | ⬜ No empezado — **APLAZADO A PROPÓSITO el 2026-09-20** (ver abajo), no olvidado |
 
 **Hoy NADIE puede pagar**, y es correcto: el cobro no aparece hasta que existan la clave y el
 secreto del webhook, y en modo prueba sólo para `STRIPE_BILLING_TEST_DOCTORS`. Verificado en prod
@@ -282,6 +290,15 @@ en **0 filas**.
 2. **Decidir cómo se marcan las 10 cuentas PRO que NO pagan** (puestas a mano): cortesía · periodo
    de gracia con fecha · excluidas del chequeo. **Bloquea C4**: sin eso la reconciliación las marca
    en rojo a las 10 cada vez, y un reporte siempre rojo se ignora.
+
+   > ⏸️ **APLAZADO por el usuario el 2026-09-20.** No es un olvido: se decidió seguir con otro
+   > trabajo y dejar C4 sin empezar hasta que estas 10 cuentas tengan una figura. **Qué falta,
+   > exactamente:** una sola línea de política —¿qué SON esas 10?— y después, en código, que
+   > `setDoctorTier` o una columna las distinga del resto para que la reconciliación no las cuente
+   > como divergencia. **Mientras tanto no se pierde nada** (C4 sólo REPORTA, nunca arregla), pero
+   > tampoco hay red: si el webhook de C3 dejara de escribir, «nadie pagó» y «el webhook no
+   > escribe» siguen siendo indistinguibles desde dentro de la app. Eso es lo que C4 venía a
+   > resolver y sigue sin resolverse.
 3. **CFDI a los doctores** (decidido que SÍ se emite): hace falta el **CSD de la empresa** (.cer,
    .key, contraseña) + RFC, razón social, régimen y CP, y que el contador fije **clave de
    producto/servicio, unidad e IVA** de la suscripción.

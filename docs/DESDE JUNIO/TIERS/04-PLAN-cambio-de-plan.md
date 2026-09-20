@@ -50,7 +50,7 @@ Necesita su propia sesión, con el PDF enfrente. **Nunca en un commit de cobro.*
 vivo deja de ser funcionalidad faltante y pasa a ser **C4: las 10 cuentas PRO que no pagan** — una
 decisión de negocio, no código.
 
-Sigue, ya sin nada urgente: **#6.3 sólo le falta el CLIC** (abrir Mi Cuenta y descargar) → #6.4
+Sigue, ya sin nada urgente: **#6.3 cerrado (probado con clic)** → #6.4
 (avisos por correo) → #6.5 (la descarga masiva no deja rastro en `patient_audit_logs`) → #5b → bajar
 de plan (#7) → una cuenta por doctor (#8). Cada uno se presenta como plan y espera el OK antes de
 código. ⚠️ Antes que todo eso, ver el **URGENTE** del README (el login).
@@ -576,7 +576,7 @@ Stripe (modo prueba), configurado por el usuario el 2026-09-18: **Smart Retries,
 | 6.1 | **Dejar de pagar — parte 1**: `pagado_hasta` (B2a), cron diario, 15 días de margen → GRATIS si cabe | B2 · B3b · P2 · §11 | Lee | Mediano | ✅ `ff22b0f7` — dryRun probado |
 | 6.2 | Congelar a quien no cabe + pantalla [Reactivar] (sin [Descargar]: es 6.3) | B3d · §11 | Lee | Mediano | ✅ `62e36800` — probado con clic |
 | 6.2b | **La reserva pública de una cuenta congelada** — los pacientes SEGUÍAN agendando (SMS/Calendar/Telegram) citas que el doctor no puede ver | §11 | No | Chico-mediano | ✅ `d7d04b20` — **probado en prod congelando dr-quebradita** (§12.9) |
-| 6.3 | La descarga (zip) | §11.4 | No | Mediano | ✅ `3bb783a1` — **falta el clic** (§12.8) |
+| 6.3 | La descarga (zip) | §11.4 | No | Mediano | ✅ `3bb783a1` — **probado con clic** (§12.8) |
 | 6.4 | Avisos por correo al doctor (G8) | §11.5 | No | Chico | ⬜ |
 | 6.5 | **La descarga masiva de expedientes no deja rastro** — `apps/doctor` escribe `patientAuditLog` en 42 caminos de datos de paciente; `apps/api` en ninguno, y #6.3 se lleva TODA la cuenta. Con una sesión de dueño robada, ver UN expediente queda registrado y bajárselos todos no. No es un defecto de #6.3: es que `apps/api` no tiene `logAudit` | §11.4 · LFPDPPP/NOM-024 | No | Chico-mediano | ⬜ |
 | 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande | ⬜ |
@@ -732,10 +732,16 @@ contra la BD**, no contra los contadores del propio script: 23/23 tareas, 7/7 ad
 constancia). `grep '"origin"'` sobre todo lo exportado ⇒ nada. Ningún `(draft)`. Ningún apóstrofo en
 ningún teléfono.
 
-🔴 **Lo que NO se probó: el clic.** El botón, la descarga del blob y la rama `estadoDesconocido`
-nunca se ejecutaron — `tsc` sólo dice que compilan. El usuario decidió pushear sin eso
-(2026-09-20). **Abrir Mi Cuenta y darle a «Descargar mi información» es la prueba pendiente**: si
-baja un zip con `tareas.csv` adentro, #6.3 está cerrado.
+✅ **Probado con clic por el usuario (2026-09-20): la descarga funciona.** #6.3 queda CERRADO.
+
+Se empujó a prod antes de ese clic, a decisión del usuario, con el botón y la descarga del blob sin
+haberse ejecutado nunca. Salió bien; no siempre sale. Nota para quien lea esto después: la descarga
+NO está atada a estar congelado —`account` es OWNER_ONLY y no tiene candado de tier, la ruta sólo
+comprueba `isOwner`—, así que se prueba desde cualquier cuenta propia y en cualquier plan. Creer
+que hacía falta congelar una cuenta fue justo lo que estuvo a punto de dejar la prueba sin hacer.
+
+Sigue sin ejecutarse una sola rama: `estadoDesconocido` (la frase que aparece cuando falla la
+lectura del resumen). Sólo se ve provocando un fallo de `/api/account/summary`.
 
 ### 12.9 As-built de #6.2b — la reserva pública de una cuenta congelada (2026-09-20)
 
