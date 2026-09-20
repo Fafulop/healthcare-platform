@@ -57,7 +57,7 @@ export function GoogleCalendarBanner() {
         <CalendarX2 className="w-4 h-4 shrink-0 text-amber-600" />
         <span>{message}</span>
         <button
-          onClick={() => signIn("google", { callbackUrl: "/dashboard/mi-perfil" })}
+          onClick={() => signIn("google", { callbackUrl: "/dashboard/cuenta" })}
           className="ml-1 font-medium underline underline-offset-2 hover:text-amber-700"
         >
           Re-autenticarse

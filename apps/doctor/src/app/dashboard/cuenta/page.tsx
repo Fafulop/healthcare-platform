@@ -28,6 +28,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { usePermissions } from "@/lib/permissions-client";
 import { redirect } from "next/navigation";
 import {
   catalogoAnunciable,
@@ -55,6 +56,8 @@ import {
   Download,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import IntegracionesSection from "@/components/profile/IntegracionesSection";
+import TeamSection from "@/components/profile/TeamSection";
 
 /** Las rutas de cobro viven en el api (es donde está Stripe). */
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -62,6 +65,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 /** Mismo fallback que usa el sitio público: un CTA muerto es peor que ninguno,
  * y la variable sigue sin ponerse en Railway (pendiente desde julio). */
 const SALES_EMAIL = process.env.NEXT_PUBLIC_SALES_EMAIL || "hola@tusalud.pro";
+
+const PESTANAS = [
+  { id: "plan", label: "Plan y uso" },
+  { id: "integraciones", label: "Integraciones" },
+  { id: "equipo", label: "Equipo" },
+] as const;
 
 interface ResumenCuenta {
   tier: string;
@@ -90,6 +99,26 @@ export default function CuentaPage() {
     },
   });
 
+  /**
+   * Pestañas. `plan` es la de siempre y la que abre por defecto: entrar a
+   * «Mi Cuenta» tiene que seguir enseñando lo mismo que hasta hoy.
+   *
+   * `integraciones` y `equipo` vivían en «Editar Perfil» (2026-09-20). No son
+   * perfil PÚBLICO: son las conexiones, la seguridad y la gente de la CUENTA.
+   * Eran OWNER_ONLY_TABS y esta ruta entera es OWNER_ONLY, así que quién las
+   * ve no cambia. Ningún tier las excluye (no están en TIER_EXCLUDED_KEYS),
+   * y por eso moverlas a una página exenta de candado de plan no destapa
+   * nada que antes estuviera tapado.
+   */
+  /**
+   * 🔴 El dueño se pregunta con `isOwner`, NO con «el resumen no dio 403».
+   * `error` vale "lectura" ante CUALQUIER fallo (500, red caída, JSON
+   * roto), y esta ruta no está en PAGE_PERMISSION_MAP a propósito, así
+   * que un member sí llega hasta aquí: con la API degradada, colgar las
+   * pestañas de «no fue 403» se las habría abierto.
+   */
+  const { isOwner } = usePermissions();
+  const [tab, setTab] = useState<"plan" | "integraciones" | "equipo">("plan");
   const [resumen, setResumen] = useState<ResumenCuenta | null>(null);
   const [cargando, setCargando] = useState(true);
   /**
@@ -146,18 +175,55 @@ export default function CuentaPage() {
     tier && (DOCTOR_TIERS as readonly string[]).includes(tier) ? (tier as DoctorTier) : null;
   const nombrePlan = tierCanonico ? TIER_LABELS[tierCanonico] : null;
 
+  /**
+   * 🔴 Una cuenta CONGELADA no puede abrir Integraciones ni Equipo.
+   *
+   * `dashboard/layout.tsx` la encierra EN ESTA PANTALLA y le quita barra y
+   * widgets porque «todos llaman rutas que la cuenta congelada ya no puede
+   * usar». Colgar aquí dos pestañas que llaman `google-calendar/status`,
+   * `telegram` y `team/members` —ninguna en RUTAS_DE_CUENTA_CONGELADA— repetía
+   * ese mismo error dentro de la única pantalla que le queda: al doctor que
+   * viene a PAGAR le habría salido un `ACCOUNT_FROZEN` en crudo.
+   *
+   * Se esconden, no se deshabilitan: lo que necesita hacer aquí es pagar.
+   */
+  const congelada = !!resumen?.congeladaDesde;
+
   const entradas = catalogoAnunciable();
   const grupos = [...new Set(entradas.map((e) => e.grupo))] as GrupoCatalogo[];
   const faltantes = entradas.filter((e) => !planIncluye(tier, e));
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-900">Mi cuenta</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Tu plan, lo que incluye y cuánto llevas usado.
+          Tu plan, tus conexiones y quién trabaja contigo.
         </p>
       </div>
+
+      {/* Pestañas. No se pintan para un member (`error === "permiso"`): abajo
+          ya se le explica que esto es sólo del titular, y unas pestañas que no
+          puede abrir sólo añaden ruido. */}
+      {isOwner && !congelada && error !== "permiso" && (
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="flex gap-1 -mb-px overflow-x-auto scrollbar-hide">
+            {PESTANAS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setTab(p.id)}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                  tab === p.id
+                    ? "border-blue-600 text-blue-700"
+                    : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      )}
 
       {error === "permiso" && (
         <div className="p-5 bg-gray-50 border border-gray-200 rounded-lg flex items-start gap-3">
@@ -173,6 +239,8 @@ export default function CuentaPage() {
         </div>
       )}
 
+      {tab === "plan" && (
+        <>
       {error === "lectura" && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
@@ -340,6 +408,13 @@ export default function CuentaPage() {
           estadoDesconocido={!resumen}
         />
       )}
+        </>
+      )}
+
+      {/* Las dos que se mudaron de «Editar Perfil». Sólo se montan al abrir su
+          pestaña, que es lo que dispara sus fetchs. */}
+      {tab === "integraciones" && isOwner && !congelada && <IntegracionesSection />}
+      {tab === "equipo" && isOwner && !congelada && <TeamSection />}
     </div>
   );
 }

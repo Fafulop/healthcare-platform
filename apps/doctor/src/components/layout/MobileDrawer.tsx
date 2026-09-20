@@ -8,7 +8,6 @@ import { pagePermissionKey } from "@healthcare/database";
 import { usePermissions } from "@/lib/permissions-client";
 import {
   User,
-  ExternalLink,
   LogOut,
   Package,
   ShoppingCart,
@@ -94,7 +93,7 @@ interface MobileDrawerProps {
 
 export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileDrawerProps) {
   const { data: session } = useSession();
-  const { can, isOwner } = usePermissions();
+  const { isOwner } = usePermissions();
   const pathname = usePathname();
 
   return (
@@ -159,28 +158,30 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
         <nav className="flex-1 overflow-y-auto">
           {/* Group 1 — Profile & content */}
           <div className="py-2">
+            {/* TIERS C1 — misma entrada que el Sidebar, y por la misma razón
+                tiene que estar en LAS DOS, y en el MISMO lugar: tapar o mover
+                una sola deja la sección donde no la buscaste justo en la vista
+                donde no la buscaste (la regla que ui-visibility.ts documenta).
+                Sólo el DUEÑO. Arriba del todo, encima de «Perfil Público». */}
+            {isOwner && (
+              <NavItem
+                icon={Wallet}
+                label="Mi Cuenta"
+                href="/dashboard/cuenta"
+                active={pathname.startsWith("/dashboard/cuenta")}
+                onClick={onClose}
+              />
+            )}
+            {/* Una sola entrada, igual que en el Sidebar: el enlace «ver mi
+                perfil público» se mudó DENTRO de /dashboard/mi-perfil. */}
             {doctorProfile && (
-              <>
-                <NavItem
-                  icon={UserCog}
-                  label="Editar Perfil"
-                  href="/dashboard/mi-perfil"
-                  active={pathname.startsWith("/dashboard/mi-perfil")}
-                  onClick={onClose}
-                />
-                {can('perfil_publico') && (
-                <a
-                  href={`${process.env.NEXT_PUBLIC_PUBLIC_URL || "http://localhost:3000"}/doctores/${doctorProfile.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={onClose}
-                  className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <ExternalLink className="w-5 h-5" />
-                  <span className="text-sm font-medium">Perfil Público</span>
-                </a>
-                )}
-              </>
+              <NavItem
+                icon={UserCog}
+                label="Perfil Público"
+                href="/dashboard/mi-perfil"
+                active={pathname.startsWith("/dashboard/mi-perfil")}
+                onClick={onClose}
+              />
             )}
             <NavItem
               icon={Video}
@@ -301,19 +302,6 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
               active={pathname.startsWith("/dashboard/practice/products")}
               onClick={onClose}
             />
-            {/* TIERS C1 — misma entrada que el Sidebar, y por la misma razón
-                tiene que estar en LAS DOS: tapar una sola deja la sección
-                alcanzable justo en la vista donde no la buscaste (la regla que
-                ui-visibility.ts documenta). Sólo el DUEÑO. */}
-            {isOwner && (
-              <NavItem
-                icon={Wallet}
-                label="Mi Cuenta"
-                href="/dashboard/cuenta"
-                active={pathname.startsWith("/dashboard/cuenta")}
-                onClick={onClose}
-              />
-            )}
             <NavItem
               icon={HelpCircle}
               label="Ayuda"

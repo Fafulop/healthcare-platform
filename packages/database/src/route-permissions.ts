@@ -173,6 +173,15 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
 
   // ── apps/doctor internal ────────────────────────────────────────────────
   { prefix: 'medical-records/tasks', key: 'tareas' }, // specific beats expedientes
+  // Cinturón y tirantes para la pantalla de Receta PDF, que se mudó aquí el
+  // 2026-09-20 desde una pestaña de «Editar Perfil».
+  //
+  // ⚠️ NO es esta línea la que protege la firma del doctor: quien lo hace es
+  // `{ prefix: 'prescription-template', key: 'OWNER_ONLY' }` (más abajo), que
+  // es la API que esa pantalla llama de verdad, y que ya existía. Esto cubre
+  // el prefijo por si algún día cuelga un endpoint de `medical-records/receta/…`:
+  // sin la línea heredaría `expedientes` y quedaría abierto a los auxiliares.
+  { prefix: 'medical-records/receta', key: 'OWNER_ONLY' }, // specific beats expedientes
   // TIERS Q2 — las TRES rutas de IA que viven DENTRO del expediente. Su `key`
   // sigue siendo `expedientes` (exactamente lo que heredaban de la regla de
   // abajo, así que para un member no cambia nada), pero su FUNCIÓN de plan es

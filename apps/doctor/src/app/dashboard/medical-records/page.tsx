@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Users, Loader2, FileText, List, LayoutGrid, Upload } from 'lucide-react';
+import { Plus, Users, Loader2, FileText, List, LayoutGrid, Upload, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
@@ -114,6 +114,19 @@ export default function PatientsPage() {
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Plantillas</span>
             </Link>
+            {/* Receta PDF: del TITULAR por la misma razón que Importar —
+                lleva su FIRMA y su CÉDULA. Se mudó aquí desde una pestaña de
+                «Editar Perfil» (2026-09-20): no es perfil, es cómo sale impresa
+                una receta. */}
+            {!permsLoading && isOwner && (
+              <Link
+                href="/dashboard/medical-records/receta"
+                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
+              >
+                <ClipboardList className="w-4 h-4" />
+                <span className="hidden sm:inline">Receta PDF</span>
+              </Link>
+            )}
             {/* Importar es del TITULAR: carga la base entera de pacientes de
                 golpe. La API lo rechaza igual (OWNER_ONLY), esto evita enseñar
                 un botón que terminaría en 403. */}

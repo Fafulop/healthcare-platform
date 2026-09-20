@@ -11,7 +11,6 @@ import {
   User,
   FileText,
   Calendar,
-  ExternalLink,
   LogOut,
   Users,
   DollarSign,
@@ -98,7 +97,7 @@ interface SidebarProps {
 
 export default function Sidebar({ doctorProfile }: SidebarProps) {
   const { data: session } = useSession();
-  const { can, isOwner } = usePermissions();
+  const { isOwner } = usePermissions();
   const pathname = usePathname();
   // Icons-only mode so the content gets the width back (e.g. with the
   // assistant panel docked). Same persistence pattern as widgetsCollapsed.
@@ -164,27 +163,41 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-2">
         <div className="space-y-1">
+          {/* TIERS C1 — el plan de la cuenta. Sólo el DUEÑO: es información
+              comercial suya (y con C3, dinero que debe), igual que la ruta
+              /api/account, que es OWNER_ONLY. No pasa por NavItem+permKey a
+              propósito: esta página NO está en PAGE_PERMISSION_MAP —así ningún
+              tier puede bloquear la pantalla que explica los tiers—, y sin key
+              NavItem la mostraría también a los usuarios secundarios.
+
+              Va ARRIBA DEL TODO, encima de «Perfil Público»: es por donde se
+              paga, se ve el consumo y se descarga la información, y desde
+              abajo del menú no se encontraba. */}
+          {isOwner && (
+            <NavItem
+              icon={Wallet}
+              label="Mi Cuenta"
+              href="/dashboard/cuenta"
+              active={pathname?.startsWith("/dashboard/cuenta")}
+            />
+          )}
+          {/* Una sola entrada: la de EDITAR. El enlace «ver mi perfil público»
+              vivía aquí al lado, suelto, y pertenece al flujo de edición —es el
+              resultado de lo que se edita—, así que ahora vive DENTRO de
+              /dashboard/mi-perfil.
+
+              ⚠️ OJO: eso deja el toggle `perfil_publico` SIN EFECTO. La página
+              que ahora lo contiene exige `perfil`, así que a un member con
+              `perfil_publico` pero sin `perfil` no le queda ningún camino para
+              ver el perfil público. Está anotado en NUEVOS USUARIOS para
+              decidirlo; NO es «el mismo permiso que antes». */}
           {doctorProfile && (
-            <>
-              <NavItem
-                icon={UserCog}
-                label="Editar Perfil"
-                href="/dashboard/mi-perfil"
-                active={pathname?.startsWith("/dashboard/mi-perfil")}
-              />
-              {can('perfil_publico') && (
-                <a
-                  href={`${process.env.NEXT_PUBLIC_PUBLIC_URL || "http://localhost:3000"}/doctores/${doctorProfile.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Perfil Público"
-                  className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-gray-700 hover:bg-gray-100 group-data-[collapsed]:justify-center group-data-[collapsed]:px-2"
-                >
-                  <ExternalLink className="w-5 h-5 shrink-0" />
-                  <span className="text-sm font-medium group-data-[collapsed]:hidden">Perfil Público</span>
-                </a>
-              )}
-            </>
+            <NavItem
+              icon={UserCog}
+              label="Perfil Público"
+              href="/dashboard/mi-perfil"
+              active={pathname?.startsWith("/dashboard/mi-perfil")}
+            />
           )}
           <NavItem
             icon={Video}
@@ -288,20 +301,6 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
             href="/dashboard/practice/products"
             active={pathname?.startsWith("/dashboard/practice/products")}
           />
-          {/* TIERS C1 — el plan de la cuenta. Sólo el DUEÑO: es información
-              comercial suya (y en C3 será dinero que debe), igual que la ruta
-              /api/account, que es OWNER_ONLY. No pasa por NavItem+permKey a
-              propósito: esta página NO está en PAGE_PERMISSION_MAP —así ningún
-              tier puede bloquear la pantalla que explica los tiers—, y sin key
-              NavItem la mostraría también a los usuarios secundarios. */}
-          {isOwner && (
-            <NavItem
-              icon={Wallet}
-              label="Mi Cuenta"
-              href="/dashboard/cuenta"
-              active={pathname?.startsWith("/dashboard/cuenta")}
-            />
-          )}
           <NavItem
             icon={HelpCircle}
             label="Ayuda"

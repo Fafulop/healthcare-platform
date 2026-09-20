@@ -247,8 +247,8 @@ export default function NewPrescriptionPage() {
               </ul>
               <p className="mt-2 text-xs text-gray-400">
                 Estos datos vienen de tu perfil y aparecerán en la receta y su PDF.{' '}
-                <Link href="/dashboard/mi-perfil" className="text-blue-600 hover:underline">
-                  Editar en Mi Perfil
+                <Link href="/dashboard/medical-records/receta" className="text-blue-600 hover:underline">
+                  Editar en Receta PDF
                 </Link>
               </p>
             </div>
@@ -256,8 +256,8 @@ export default function NewPrescriptionPage() {
             <>
               <p className="text-xs text-amber-700">
                 💡 Guarda tu nombre, cédulas y firma una sola vez en{' '}
-                <Link href="/dashboard/mi-perfil" className="underline">
-                  Mi Perfil → Receta
+                <Link href="/dashboard/medical-records/receta" className="underline">
+                  Expedientes → Receta PDF
                 </Link>{' '}
                 y este bloque se llenará automáticamente.
               </p>

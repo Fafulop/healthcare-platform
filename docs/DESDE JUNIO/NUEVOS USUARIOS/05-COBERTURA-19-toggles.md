@@ -28,7 +28,7 @@ por default — no se puede dejar un hueco abierto por olvido.
 | # | Toggle (key) | Enforcement server-side | UI |
 |---|---|---|---|
 | 1 | Editar Perfil (`perfil`) | ✅ `doctors`(write)/`reviews`/`settings`/`doctor`(write) | ✅ página |
-| 2 | Perfil Público (`perfil_publico`) | — por diseño (la página pública ES pública) | ✅ esconde el link externo |
+| 2 | Perfil Público (`perfil_publico`) | — por diseño (la página pública ES pública) | ⚠️ **ya no esconde nada** (2026-09-20, ver abajo) |
 | 3 | Contenido Audiovisual (`contenido`) | — sin feature aún (página "Próximamente") | ✅ página |
 | 4 | Mi Blog (`blog`) | ✅ `articles`, `doctors/*/articles` | ✅ |
 | 5 | Mis Citas (`citas`) | ✅ `appointments`/`calendar`/`doctors/*/availability` | ✅ |
@@ -50,7 +50,27 @@ por default — no se puede dejar un hueco abierto por olvido.
 ## Los 3 sin ruta server-side — correcto por diseño
 
 - **`perfil_publico`**: no hay nada que bloquear (la página pública es pública); el toggle solo
-  esconde el link de conveniencia en el sidebar (`Sidebar.tsx:148` — `{can('perfil_publico') && <a…>}`).
+  escondía el link de conveniencia en el sidebar.
+
+  > ⚠️ **2026-09-20 — este toggle ya NO controla nada, y es a propósito.** El link externo se
+  > quitó de los dos menús y se mudó DENTRO de `/dashboard/mi-perfil` (es el resultado de lo que
+  > se edita ahí). Esa página exige el toggle **`perfil`**, así que a un member con
+  > `perfil_publico` pero sin `perfil` ya no le queda ningún camino: el `can('perfil_publico')`
+  > que sigue dentro de la página no puede conceder nada que la puerta de afuera no conceda ya.
+  >
+  > **Se decidió dejarlo así** en vez de deshacer la mudanza o retirar el toggle. Lo que se
+  > "pierde" es un atajo a una **URL pública** —el member siempre pudo teclearla—, no un permiso:
+  > ningún dato queda más o menos expuesto. Retirar el toggle en cambio tocaría los 19, esta
+  > auditoría y `apps/public/src/lib/product-content.ts`, que lo anuncia como función aparte.
+  >
+  > **Dos consecuencias que hay que conocer antes de "arreglarlo":**
+  > 1. La entrada del menú que apunta al editor ahora se LLAMA «Perfil Público» (decisión del
+  >    usuario) pero la controla el toggle `perfil`, cuya etiqueta en `PERMISSION_LABELS` es
+  >    «Editar Perfil». La cabecera de ese archivo dice que es el ÚNICO lugar donde vive esa copia
+  >    «para que nunca se separe de la etiqueta del sidebar»: **hoy están separadas, a sabiendas.**
+  > 2. La pantalla de invitación sigue ofreciendo encender «Perfil Público», que no hará nada
+  >    visible. Es confuso para quien da de alta a un auxiliar, y es lo único que valdría la pena
+  >    limpiar algún día.
 - **`ayuda`**: ayuda estática, sin endpoint de datos. Gateada en UI (sidebar + PermissionGate).
 - **`contenido`**: la página `contenido-audiovisual` es un placeholder "Próximamente" (sin llamadas
   API). Gateada en UI. Cuando se construya la feature real, sus rutas deben mapearse a `contenido`
