@@ -8,6 +8,55 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## 📍 2026-09-20 — ESTADO REAL, medido contra la BD de prod (varias cosas de abajo estaban viejas)
+
+> Se contrastó lo que dicen estos docs contra lo que de verdad hay en prod. **Tres afirmaciones que
+> se repiten más abajo ya NO son ciertas.** Se corrigen aquí, con fecha, en lugar de reescribir lo
+> de antes: era verdad cuando se escribió, y saber QUÉ cambió vale más que un doc sin costuras.
+
+**Lo que hay HOY en la BD:**
+
+| | Dice el doc (2026-09-15) | Hay en prod (2026-09-20) |
+|---|---|---|
+| Tiers | dr-prueba `FREE` · dr-quebradita `BASICO` · **las otras 10 `PRO`** | **8 en `LAB`** · 2 `PRO` (dr-prueba y `fffffffff`) · 1 `BASICO` · 1 `FREE` |
+| Tablas de cobro | **las 3 en 0 filas** | `tier_prices` **2** · `subscriptions` **2** · `tier_change_log` **26** |
+| C3 | «**Inactivo** hasta el runbook: nadie ve el cobro» | **El runbook YA se hizo.** Precios puestos el 09-17 y 2 suscripciones VIVAS |
+
+**El cobro FUNCIONA de punta a punta en modo prueba.** No es suposición, está en la BD: dr-prueba
+`PRO` renueva el 17/10 y dr-quebradita `BASICO` el 18/10, las dos `active` con su `pagado_hasta`, y
+**el webhook ha escrito 3 veces** en `tier_change_log` (`origen='webhook'`, `actor='stripe:evt_…'`).
+O sea: pagar sube el plan, y el pago **fija** el plan aunque el admin lo hubiera puesto en otro — se
+ve un `PRO → BASICO` hecho por el webhook el 18/09.
+
+**⚠️ Dos cosas están apagadas EN SILENCIO:**
+
+1. **`TELEGRAM_ADMIN_CHAT_ID` no está puesta en `@healthcare/api`.** `avisarAdmin()` la comprueba y,
+   si falta, escribe un `console.warn` y **se va sin mandar nada**. O sea: pago fallido,
+   cancelación, precio fuera del mapa y «no se pudo pasar a Gratis» **hoy sólo existen en los
+   logs**. Es la red de seguridad de C3 y nadie la está mirando. Se arregla con UNA variable.
+2. **`NEXT_PUBLIC_SALES_EMAIL` no está puesta** en `@healthcare/doctor`: sigue siendo el
+   prerrequisito sin cumplir de Q2b.
+
+**C4 ya casi no está bloqueado.** Lo que lo frenaba era «las 10 cuentas PRO que no pagan», y esas
+cortesías **ya se movieron a LAB**. Queda UNA: **`fffffffff`**, en `PRO` y sin suscripción — una
+cuenta basura que la reconciliación marcaría en rojo. Decidir qué se hace con ella (borrarla o
+bajarla) es casi todo lo que falta para poder empezar C4.
+
+**Lo más grande que NO está construido** (`04` §12.6): **#7, bajar de plan (PRO→BÁSICO). Ni
+empezado, y es el único marcado «Grande».** Hoy un doctor **no puede escoger un plan más barato**:
+sólo se baja dejando de pagar 15 días (#6.1) o a mano desde el admin. Subir sí funciona y está
+probado con cobro real. También siguen abiertos #5b · #6.4 · #6.5 · #8 · C4.
+
+**Lo que falta por PROBAR, en orden de lo que más confianza da:**
+
+1. Poner `TELEGRAM_ADMIN_CHAT_ID`, provocar un fallo y ver que llega el mensaje. Hoy se está
+   volando a ciegas sobre el dinero.
+2. **Relojes de prueba (test clocks) de Stripe** para lo que depende del tiempo (dejar de pagar → 15
+   días de margen → GRATIS o congelada). Es la única forma de probarlo antes de que pase de verdad
+   con dr-prueba y dr-quebradita a mediados de octubre.
+3. El bloqueo por tier recorriendo FREE/BÁSICO/PRO/LAB en una cuenta de prueba: **sólo FREE se ha
+   ejercitado de verdad**.
+
 ## 🎉 2026-09-20: #6.2b — la reserva pública — en prod `d7d04b20` y PROBADO. **Ya no queda ningún 🔴**
 
 Un paciente agendaba en la cuenta de un doctor **congelado** y recibía su SMS de confirmación,
@@ -142,7 +191,8 @@ R1–R9 y el orden de construcción (§12.6). Lo esencial:
 - **GRATIS nunca se congela**: al tope sólo bloquea agregar; todo aviso lleva a **Mi Cuenta → pagar**
   (no a un correo); **borrar libera espacio** (hoy no: deuda H5).
 - **Sólo se baja de plan si cabe**, y con una baja agendada las subidas se topan al plan destino.
-- **Cortesías → LAB** (el usuario lo hace en el admin): desbloquea C4.
+- **Cortesías → LAB** (el usuario lo hace en el admin): desbloquea C4. ✅ **HECHO** — medido el
+  2026-09-20: 8 cuentas en LAB. Queda `fffffffff` en PRO sin suscripción.
 - **Hoy es IMPOSIBLE subir BÁSICO→PRO y bajar PRO→BÁSICO** (checkout 409 + portal con cambio de
   plan apagado — verificado en la config de Stripe). **Deshacer una cancelación SÍ funciona** desde
   el portal: dr-prueba ya no está cancelada.
@@ -271,18 +321,23 @@ bloquean, en su **§6**.
 |---|---|---|
 | **C1** | «Mi Cuenta» del doctor: plan, catálogo curado (`plan-catalog.ts` + `gate:catalogo`), medidores de pacientes y almacenamiento | ✅ EN PROD `b22f5f3a` (doctor SUCCESS) |
 | **C2** | Tablas `tier_prices` · `subscriptions` · `tier_change_log` (SQL aplicado y verificado ANTES del código) · `setDoctorTier()` único camino de escritura del tier · `fijarPrecioDeTier()` · pantalla «Cobro» del admin | ✅ EN PROD `606f2e38` (api + admin SUCCESS) |
-| **C3** | Checkout de Stripe, webhook de suscripciones (sólo `invoice.paid` sube el plan, nada lo baja), portal, sección «Pago de tu plan», avisos Telegram | ✅ **EN PROD `2edc58b6`** — api · doctor · admin **los tres SUCCESS** en ese hash (verificado 00:43 del 2026-09-15). **Inactivo** hasta el runbook: nadie ve el cobro |
-| **C4** | Reconciliación Stripe ↔ `Doctor.tier` (reporta, no arregla) | ⬜ No empezado — **APLAZADO A PROPÓSITO el 2026-09-20** (ver abajo), no olvidado |
+| **C3** | Checkout de Stripe, webhook de suscripciones (sólo `invoice.paid` sube el plan, nada lo baja), portal, sección «Pago de tu plan», avisos Telegram | ✅ **EN PROD `2edc58b6`** y **ACTIVO en modo prueba**: el runbook se hizo el 09-17/18 · 2 suscripciones vivas · el webhook ya escribió 3 veces. ⚠️ Los avisos NO salen: falta `TELEGRAM_ADMIN_CHAT_ID` (ver el bloque del 09-20 arriba) |
+| **C4** | Reconciliación Stripe ↔ `Doctor.tier` (reporta, no arregla) | ⬜ No empezado — **aplazado el 2026-09-20**, pero YA CASI SIN BLOQUEO: las cortesías se movieron a LAB y sólo queda `fffffffff` en PRO sin suscripción |
 
-**Hoy NADIE puede pagar**, y es correcto: el cobro no aparece hasta que existan la clave y el
-secreto del webhook, y en modo prueba sólo para `STRIPE_BILLING_TEST_DOCTORS`. Verificado en prod
-al cerrar: **dr-prueba `FREE`**, dr-quebradita `BASICO`, las otras 10 `PRO`; las 3 tablas de cobro
-en **0 filas**.
+~~**Hoy NADIE puede pagar**~~ — ⚠️ **ya no es cierto (2026-09-20).** Era verdad el 09-15. El
+runbook se hizo: la clave y el secreto del webhook están puestos y
+`STRIPE_BILLING_TEST_DOCTORS=dr-prueba,dr-quebradita,gerardo`, así que esos tres **sí ven el cobro y
+ya pagaron en modo prueba**. Estado medido el 09-20: **8 en `LAB`**, 2 `PRO`, 1 `BASICO`, 1 `FREE`;
+`tier_prices` 2 filas, `subscriptions` 2, `tier_change_log` 26. Detalle en el bloque del 09-20,
+arriba.
 
 ### ⚠️ Acciones del USUARIO pendientes (no dejan rastro en git — pregúntale antes de darlas por hechas)
 
-1. **Runbook de C3** (`03-PLAN` §7, C3): en Stripe **modo prueba** crear precios mensuales MXN de
-   BÁSICO y PRO · Customer portal **con cambio de plan APAGADO** · webhook
+1. ✅ **HECHO (09-17/18) — Runbook de C3.** Se deja escrito lo que pedía porque hay que
+   **REPETIRLO TAL CUAL en modo VIVO** (la configuración de Stripe es por modo). Lo que sigue
+   pendiente de esta lista es sólo `TELEGRAM_ADMIN_CHAT_ID`, sin la cual los avisos no salen.
+   ~~En Stripe **modo prueba** crear precios mensuales MXN de
+   BÁSICO y PRO · Customer portal **con cambio de plan APAGADO** · webhook~~
    `…/api/stripe/subscription-webhook` con 5 eventos. En Railway `@healthcare/api`:
    `STRIPE_BILLING_SECRET_KEY` (sk_test) · `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` ·
    `STRIPE_BILLING_TEST_DOCTORS=dr-prueba` · `TELEGRAM_ADMIN_CHAT_ID`. Luego pegar los `price_…`

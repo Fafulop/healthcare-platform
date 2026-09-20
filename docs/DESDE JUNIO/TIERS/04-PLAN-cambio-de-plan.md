@@ -579,8 +579,19 @@ Stripe (modo prueba), configurado por el usuario el 2026-09-18: **Smart Retries,
 | 6.3 | La descarga (zip) | §11.4 | No | Mediano | ✅ `3bb783a1` — **probado con clic** (§12.8) |
 | 6.4 | Avisos por correo al doctor (G8) | §11.5 | No | Chico | ⬜ |
 | 6.5 | **La descarga masiva de expedientes no deja rastro** — `apps/doctor` escribe `patientAuditLog` en 42 caminos de datos de paciente; `apps/api` en ninguno, y #6.3 se lleva TODA la cuenta. Con una sesión de dueño robada, ver UN expediente queda registrado y bajárselos todos no. No es un defecto de #6.3: es que `apps/api` no tiene `logAudit` | §11.4 · LFPDPPP/NOM-024 | No | Chico-mediano | ⬜ |
-| 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande | ⬜ |
+| 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande | ⬜ 🔻 **lo más grande que falta.** Hoy un doctor NO puede escoger un plan más barato: sólo se baja dejando de pagar 15 días (#6.1) o a mano en el admin. SUBIR sí funciona y está probado con cobro |
 | 8 | **Una cuenta por doctor** | `05` | No | Grande, empieza por investigar | ⬜ |
+
+> 📍 **Medido contra la BD de prod el 2026-09-20.** El cobro **funciona de punta a punta en modo
+> prueba**: 2 suscripciones vivas (dr-prueba `PRO` renueva 17/10 · dr-quebradita `BASICO` 18/10) y
+> **el webhook ya escribió 3 veces** en `tier_change_log`. Las cortesías se movieron a LAB (8
+> cuentas), así que lo que bloqueaba C4 prácticamente desapareció: queda `fffffffff`, en `PRO` sin
+> suscripción.
+>
+> ⚠️ **`TELEGRAM_ADMIN_CHAT_ID` NO está puesta en `@healthcare/api`**: `avisarAdmin()` se va sin
+> mandar nada, así que pago fallido, cancelación y «no se pudo pasar a Gratis» **hoy sólo viven en
+> los logs**. Es la red de C3 y está apagada en silencio. (`NEXT_PUBLIC_SALES_EMAIL` tampoco está,
+> prerrequisito de Q2b.) Ver el bloque del 09-20 en el README.
 
 ### 12.7 As-built de #1–#4 (2026-09-18)
 
