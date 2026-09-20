@@ -63,3 +63,7 @@ agenda-evals-*.json
 # Scripts de un solo uso contra prod (patrón de docs/NEW.MD-GUIDES/database-architecture.md
 # §"Read-only queries against prod": se crean, se corren, se borran). Nunca se commitean.
 packages/database/tmp-*.ts
+
+# TIERS — la foto del banco de pruebas es de UNA corrida concreta y trae ids
+# de cliente/suscripción de Stripe. No se commitea.
+scripts/tiers-lifecycle/foto.json

@@ -8,6 +8,16 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## 🩺 Operar el cobro y probarlo → [`06-OPERACION-y-pruebas.md`](06-OPERACION-y-pruebas.md)
+
+**Cómo probar el ciclo completo sin esperar un mes** (el banco de pruebas de
+`scripts/tiers-lifecycle/`: foto → ciclo → pago → restaurar) y, sobre todo, **cómo saber si el
+cobro va bien** el día que se le cobre a doctores de verdad: las tres consultas, qué es normal y
+qué es alarma, los prefijos de log, y **los cuatro puntos ciegos de hoy**.
+
+El primero de esos puntos ciegos se arregla con UNA variable: sin `TELEGRAM_ADMIN_CHAT_ID`, todos
+los avisos del cobro —pago fallido, cancelación, cuenta congelada— **sólo existen en los logs**.
+
 ## ✅ 2026-09-20: #7a — «quiero bajarme de plan» — en prod `80d23415`, **falta el clic**
 
 Era el último hueco del flujo del dinero: **subir** ya cobraba solo, pero un doctor **no podía
