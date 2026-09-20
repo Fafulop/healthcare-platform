@@ -10,9 +10,25 @@
 
 ---
 
+## 0. ¿Está esto listo para cobrarle a doctores de verdad?
+
+**El mecanismo sí; la operación todavía no.** Conviene tenerlo separado:
+
+| | |
+|---|---|
+| ✅ **Limpio, y verificado — no supuesto** | Un solo camino de escritura del tier (`setDoctorTier`) con su rastro completo · sólo un PAGO sube un plan · el cron le PREGUNTA a Stripe antes de bajar a nadie · congelar no borra nada y ni siquiera toca el tier · el checkout exige que quepas (R4) · el portal no deja cambiar de plan · el ciclo entero corrió de punta a punta el 2026-09-20 |
+| 🔴 **Lo que falta no es el mecanismo: es poder VERLO** | Los avisos no salen a ningún lado (§3.1) · nadie reconcilia contra Stripe (C4) · al doctor nunca se le avisa nada (#6.4) |
+
+Dicho corto: **alcanza para cobrar mirando**, no para cobrar y dejar de mirar. Con dos cuentas de
+prueba y alguien pendiente, va bien. El día que haya diez doctores pagando y nadie mire la
+pantalla durante una semana, el primer punto ciego de §3 se vuelve el problema.
+
+
+---
+
 ## 1. El banco de pruebas
 
-`scripts/tiers-lifecycle/` — tres scripts que corren **contra producción**, porque no hay otra
+`scripts/tiers-lifecycle/` — scripts que corren **contra producción**, porque no hay otra
 base de datos (ver `database-architecture.md`). Por eso lo primero que existe es cómo deshacer.
 
 | Script | Qué hace |
@@ -22,6 +38,7 @@ base de datos (ver `database-architecture.md`). Por eso lo primero que existe es
 | `estado.cjs restaurar` | Lo devuelve a la foto, **se comprueba a sí mismo** campo por campo y borra la foto |
 | `ciclo.cjs` | Corre los cuatro pasos del ciclo y comprueba cada uno |
 | `pago.cjs` | Manda un `invoice.paid` **firmado** al webhook real |
+| `portal.cjs` | Comprueba contra Stripe que el portal no deje cambiar de plan (§2.5) |
 
 ### Cómo se corre
 
@@ -150,6 +167,45 @@ de plan, y una lista de **`faltantes`**: las variables de entorno que hacen falt
 primero que hay que mirar cuando «algo no cobra».
 
 ---
+
+---
+
+## 2.5 El portal de Stripe — verificado el 2026-09-20
+
+El portal de clientes es por donde el doctor **cancela** y actualiza su tarjeta. Dos ajustes suyos
+cambian el comportamiento de todo lo demás, así que se comprobaron contra la API de Stripe (no
+contra el dashboard, ni de memoria) con `scripts/tiers-lifecycle/portal.cjs`:
+
+```
+configuración bpc_1UGmFIAh75vmZoEti7H1YE0i  (POR DEFECTO ← la que se usa)
+  activa: true
+  CAMBIAR DE PLAN (subscription_update): ✅ apagado
+  CANCELAR (subscription_cancel): ✅ encendido
+     modo: at_period_end · prorrateo: none
+```
+
+- **Cambiar de plan APAGADO** es lo que impide que un doctor se cambie de tier dentro del portal
+  y nuestra BD nunca se entere: Stripe le cambiaría el precio y aquí seguiría diciendo el plan
+  viejo. Es la razón de ser de la advertencia de `billing/portal/route.ts`.
+- **Cancelar `at_period_end`** es lo que hace coherente el margen: cancelar el día 3 de un mes ya
+  pagado **no corta el servicio**, sólo impide la renovación del día 30. El margen de 15 días
+  empieza cuando se acaba lo pagado, **no cuando se cancela**. Con `proration_behavior: none` no
+  hay devolución parcial: se queda con lo que pagó hasta el último día.
+
+### 🔴 La configuración del portal es POR MODO
+
+Lo de arriba es de **modo PRUEBA** (`sk_test`). Stripe guarda la configuración del portal por
+modo, así que **NADA de esto existe en modo VIVO hasta que se configure otra vez**. Si se pasa a
+vivo sin repetirlo, el portal sale con los valores por defecto de Stripe y **un doctor de verdad
+podrá cambiarse de plan ahí**, con nuestra BD creyendo que sigue en el viejo.
+
+Comprobarlo el día del cambio, con la clave viva:
+
+```bash
+railway run --service "@healthcare/api" node scripts/tiers-lifecycle/portal.cjs
+```
+
+Debe decir `modo: VIVO`, `CAMBIAR DE PLAN: ✅ apagado` y `CANCELAR: at_period_end`.
 
 ## 3. 🕳️ Los puntos ciegos de HOY (2026-09-20)
 

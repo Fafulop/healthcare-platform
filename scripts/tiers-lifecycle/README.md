@@ -29,6 +29,7 @@ railway run --service pgvector node scripts/tiers-lifecycle/estado.cjs restaurar
 | `estado.cjs` | `foto` · `ver` · `restaurar`. La red de seguridad. |
 | `ciclo.cjs` | Los 4 pasos del ciclo, cada uno con su comprobación. |
 | `pago.cjs` | Un `invoice.paid` FIRMADO al webhook real (descongela y restaura el plan). |
+| `portal.cjs` | Comprueba contra Stripe que el portal NO deje cambiar de plan. **Repetir en modo VIVO: la configuración del portal es por modo.** |
 | `foto.json` | El estado guardado. **No se commitea** — es de una corrida concreta. |
 
 ## Lo que hay que saber antes de tocarlo
