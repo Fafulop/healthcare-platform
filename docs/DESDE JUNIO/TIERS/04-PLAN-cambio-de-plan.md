@@ -45,9 +45,13 @@ Necesita su propia sesión, con el PDF enfrente. **Nunca en un commit de cobro.*
 
 ### Lo siguiente a construir
 
-**#1–#4 y #5a de §12.6 están en prod y probados (§12.7).** Sigue dejar de pagar (§11, #6) → #5b →
-bajar de plan (#7) → una cuenta por doctor (#8). Cada uno se presenta como plan y espera
-el OK antes de código. ⚠️ Antes que todo eso, ver el **URGENTE** del README (el login).
+**#1–#4 y #5a de §12.6 están en prod y probados (§12.7); #6.1 · #6.2 · #6.3 también están en prod
+(§12.7 y §12.8) — #6.3 con el clic pendiente.** Sigue **#6.2b, el último 🔴 que bloquea pasar a modo
+vivo**: hoy los pacientes SIGUEN agendando (SMS/Calendar/Telegram) citas que el doctor congelado no
+puede ver, o sea es el único que está produciendo estado malo ahora mismo. Luego #6.4 (avisos) →
+#6.5 (el rastro que no deja la descarga masiva) → #5b → bajar de plan (#7) → una cuenta por doctor
+(#8). Cada uno se presenta como plan y espera el OK antes de código. ⚠️ Antes que todo eso, ver el
+**URGENTE** del README (el login).
 
 ---
 
@@ -424,10 +428,16 @@ Entra con su correo y contraseña, y **sólo** ve dos cosas:
      PDF; CSV no sirve para notas largas y anidadas, Markdown no le dice nada a un doctor);
    - **el LISTADO de adjuntos** (nombre · fecha · paciente) **sin los archivos** — para que sepa qué
      existe y que al pagar vuelve;
-   - **los XML de sus CFDI** — pesan nada y son documentos fiscales que está obligado a conservar.
-     Cierra G7 para las cuentas congeladas.
+   - ~~**los XML de sus CFDI**~~ — ⚠️ **REVERTIDO al construirlo (2026-09-20, §12.8).** No van en el
+     zip: lo que se lleva es el expediente, no la contabilidad. Traerlos obligaba a bajar de
+     Facturama el XML de cada factura no descargada antes, en serie y sin tope, dentro de UNA
+     petición — y si el proxy la cortaba se perdía el zip completo. Siguen saliendo de Facturación.
 
 La pantalla tiene que decir **hasta qué fecha se conservan sus adjuntos** (11.5).
+
+> 📌 **Construido en `3bb783a1` (2026-09-20) — el as-built con lo que cambió está en §12.8.** Además
+> de lo de arriba, el zip lleva `tareas.csv` (los pendientes del doctor) y `adjuntos.csv` nombra
+> también la foto del paciente y su Constancia de Situación Fiscal, que no viven en `patientMedia`.
 
 ### 11.5 Retención
 
@@ -564,8 +574,9 @@ Stripe (modo prueba), configurado por el usuario el 2026-09-18: **Smart Retries,
 | 6.1 | **Dejar de pagar — parte 1**: `pagado_hasta` (B2a), cron diario, 15 días de margen → GRATIS si cabe | B2 · B3b · P2 · §11 | Lee | Mediano | ✅ `ff22b0f7` — dryRun probado |
 | 6.2 | Congelar a quien no cabe + pantalla [Reactivar] (sin [Descargar]: es 6.3) | B3d · §11 | Lee | Mediano | ✅ `62e36800` — probado con clic |
 | 6.2b | **La reserva pública de una cuenta congelada** — hoy los pacientes SIGUEN agendando (SMS/Calendar/Telegram) citas que el doctor no puede ver. Decidir qué ve el paciente y bloquear bookings/range-bookings/slots | §11 | No | Chico-mediano | ⬜ 🔴 **bloquea pasar a modo vivo** |
-| 6.3 | La descarga (zip) | §11.4 | No | Mediano | ⬜ 🔴 **bloquea pasar a modo vivo** (la pantalla congelada aún no ofrece descargar) |
+| 6.3 | La descarga (zip) | §11.4 | No | Mediano | ✅ `3bb783a1` — **falta el clic** (§12.8) |
 | 6.4 | Avisos por correo al doctor (G8) | §11.5 | No | Chico | ⬜ |
+| 6.5 | **La descarga masiva de expedientes no deja rastro** — `apps/doctor` escribe `patientAuditLog` en 42 caminos de datos de paciente; `apps/api` en ninguno, y #6.3 se lleva TODA la cuenta. Con una sesión de dueño robada, ver UN expediente queda registrado y bajárselos todos no. No es un defecto de #6.3: es que `apps/api` no tiene `logAudit` | §11.4 · LFPDPPP/NOM-024 | No | Chico-mediano | ⬜ |
 | 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande | ⬜ |
 | 8 | **Una cuenta por doctor** | `05` | No | Grande, empieza por investigar | ⬜ |
 
@@ -659,6 +670,70 @@ dr-quebradita **BÁSICO** pagando (renueva 18/10 a $149); ambas en modo prueba y
 
 **Cómo se prueba lo que depende del tiempo** (B1, B2/B2a, B3b, el margen): **test clocks** de Stripe —
 un cliente en un reloj simulado que se adelanta 30 días en segundos—, no esperando un mes.
+
+### 12.8 As-built de #6.3 — «Descargar mi información» (2026-09-20)
+
+**`3bb783a1` en prod** (api `4b27b52a` · doctor `41e59c64`, ambos SUCCESS, mismo disparo; la ruta
+responde **401** sin sesión ⇒ existe de verdad, no sólo «desplegada»). Con esto **6.2b queda como
+el único 🔴 que bloquea pasar a modo vivo.**
+
+`GET /api/account/exportar` (api) arma en memoria un zip y lo devuelve: `pacientes.csv` ·
+`consultas.csv` · `citas.csv` · `recetas.csv` · `tareas.csv` · `adjuntos.csv` · `LEEME.txt` ·
+`expedientes/<paciente>.html` (el expediente completo, se abre en cualquier navegador y se imprime
+a PDF). Contenido en `apps/api/src/lib/exportar-cuenta.ts`; la sección «Tu información» vive en Mi
+Cuenta (`#descargar`) y el aviso de cuenta congelada la señala.
+
+Vive bajo `/api/account/` **a propósito**: es uno de los prefijos de `RUTAS_DE_CUENTA_CONGELADA`,
+así que una cuenta congelada llega sin pagar. Sólo el dueño (`account` es OWNER_ONLY y además se
+revisa `isOwner`: saca TODOS los expedientes).
+
+**Los CFDI NO van en el zip** — decisión del usuario, 2026-09-20: lo que se lleva es el
+EXPEDIENTE, no la contabilidad. Traerlos obligaba a bajar de Facturama, en serie y sin tope, el XML
+de cada factura que nadie hubiera descargado antes (`xmlContent` sólo se llena cuando alguien ya la
+bajó) ⇒ decenas de segundos en UNA petición, y si el proxy la cortaba se perdía el zip **completo**.
+Al quitarlos, armar el zip es **sólo lectura**: se fue también el `cfdiEmitted.update` que guardaba
+el XML de vuelta. El XML sigue saliendo de Facturación, y el LEEME y la pantalla lo dicen.
+
+**Lo que atraparon los reviews antes de que existiera en prod** (dos pasadas, `/code-review high`:
+una sobre el código de la sesión anterior, otra sobre los arreglos de esa misma —**un arreglo salido
+de un review no viene bendecido**, y así fue: el tercer punto de abajo es un hoyo que dejó mi propio
+arreglo):
+
+- **Una receta de PLANTILLA no tiene NI UN renglón de medicamento** (sus valores viven en
+  `customData`; el include no traía `template`): salía con fecha, paciente, estatus y la columna
+  «Medicamentos» **vacía**. En prod eran **25 de las 33 recetas** de `dr-david-salazar-vela`, la
+  cuenta más grande. Para un feature que promete «todo lo que capturaste» y cuyo usuario principal
+  es quien se está yendo, eso es pérdida silenciosa.
+- **`MedicalReport.answers` guarda `{value,source,origin}`, nunca el valor suelto**: cada renglón
+  del informe se imprimía como el JSON entero contra su clave interna, y los cientos de blancos
+  declarados (`origin:'empty'`) no los podía tirar el filtro de vacíos — su JSON no es cadena vacía.
+- **La sección vivía dentro de `{resumen && …}`** mientras el aviso de congelada dice «descarga tu
+  información, más abajo»: si fallaba la lectura del resumen, la frase apuntaba a nada, en la única
+  pantalla que le queda a quien no paga. Al sacarla, `congeladaDesde` seguía viniendo de
+  `resumen?.… ?? null` ⇒ un null que significa «no sé» se veía **idéntico** a «no está congelada» y
+  la frase de retención desaparecía sin que nada lo dijera. Por eso existe `estadoDesconocido`.
+- **`adjuntos.csv` decía ser la lista de archivos y sólo traía `patientMedia`**: la foto del
+  paciente (`photoUrl`) y su Constancia de Situación Fiscal (`constanciaFiscalUrl`) quedaban fuera.
+  El único artefacto cuyo trabajo es decir qué tienes guardado afirmaba que no existen.
+- **Inyección de fórmulas en CSV**: Excel ejecuta la celda que empieza con `=` o `@`, y el nombre,
+  correo y notas de una cita los teclea un extraño en el formulario público de reservas. Se antepone
+  `'` **sólo** en `=` y `@`: en `+` y `-` el apóstrofo es invisible en Excel pero un carácter de
+  verdad en Google Sheets, y `+52 33 …` es un teléfono, no un ataque.
+
+También de los reviews: las **tareas** no iban (se agregaron: son datos del doctor y no cuestan
+nada); `esc(i.status)` imprimía «draft» en un documento por lo demás en español; y `porPaciente`
+recopiaba el arreglo entero por renglón (cuadrático con miles de adjuntos).
+
+**Cómo se verificó.** `armarExportacion` corrido **de verdad contra prod** (sólo lectura, método de
+`TOOLING-acceso-railway-db.md`) para `dr-prueba` y `dr-david-salazar-vela`, y el resultado **contado
+contra la BD**, no contra los contadores del propio script: 23/23 tareas, 7/7 adjuntos (6 media + 1
+constancia). `grep '"origin"'` sobre todo lo exportado ⇒ nada. Ningún `(draft)`. Ningún apóstrofo en
+ningún teléfono.
+
+🔴 **Lo que NO se probó: el clic.** El botón, la descarga del blob y la rama `estadoDesconocido`
+nunca se ejecutaron — `tsc` sólo dice que compilan. El usuario decidió pushear sin eso
+(2026-09-20). **Abrir Mi Cuenta y darle a «Descargar mi información» es la prueba pendiente**: si
+baja un zip con `tareas.csv` adentro, #6.3 está cerrado.
 
 ---
 

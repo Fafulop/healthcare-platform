@@ -8,14 +8,35 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## ✅ 2026-09-20: #6.3 — «Descargar mi información» — en prod `3bb783a1`, **falta el clic**
+
+Cualquier dueño —y sobre todo una cuenta **congelada**, que llega sin pagar— baja un zip con todo
+lo que capturó: `pacientes/consultas/citas/recetas/tareas/adjuntos.csv` y **el expediente completo
+de cada paciente en HTML** (se abre sin nosotros y se imprime a PDF). Sin los adjuntos: trae su
+LISTA. **Sin los CFDI** — decisión del usuario: lo que se lleva es el expediente, no la
+contabilidad, y traerlos obligaba a bajar de Facturama cada XML en serie dentro de una sola
+petición. Detalle, los dos reviews y cómo se verificó en
+[`04` §12.8](04-PLAN-cambio-de-plan.md).
+
+Desplegado y confirmado por servicio (api `4b27b52a` · doctor `41e59c64`, ambos SUCCESS; la ruta
+responde 401 sin sesión ⇒ existe de verdad). Verificado corriendo el export **contra prod** y
+contando lo que quedó en el zip **contra la BD** (23/23 tareas, 7/7 adjuntos).
+
+🔴 **Pendiente: darle clic.** El botón y la descarga del blob nunca se ejecutaron; `tsc` sólo dice
+que compilan. Abrir Mi Cuenta → «Descargar mi información»: si baja un zip con `tareas.csv`
+adentro, #6.3 queda cerrado.
+
+**⏭️ Sigue: 6.2b — ya es el ÚNICO 🔴 que bloquea pasar a modo vivo** (la reserva pública de una
+cuenta congelada: hoy los pacientes SIGUEN agendando por SMS/Calendar/Telegram citas que el doctor
+no puede ver — es lo único que está produciendo estado malo ahora mismo) → 6.4 (correos) → **6.5
+(nuevo: la descarga masiva de expedientes no deja rastro en `patient_audit_logs`; `apps/api` no
+tiene `logAudit` y #6.3 se lleva la cuenta entera)**.
+
 ## ✅ 2026-09-18 (noche): #6.2 — congelar — en prod `62e36800` y probado con clic
 
 Quien dejó de pagar, venció el margen de 15 días y no cabe en Gratis queda **congelado**: sólo
 entra a Mi Cuenta para pagar; lo demás responde `ACCOUNT_FROZEN`. Detalle, review y prueba en
 [`04` §12.7](04-PLAN-cambio-de-plan.md). El job #6 del cron ya está en Railway.
-
-**⏭️ Sigue:** **#6.3 (la descarga)** → **6.2b (la reserva pública de una cuenta congelada: hoy
-los pacientes siguen agendando)** → 6.4 (correos). **6.2b y 6.3 bloquean pasar a modo vivo.**
 
 ## 🟡 LOGIN (no es de TIERS): un correo de Google quedaba dentro de la cuenta de OTRO — ARREGLADO, falta una prueba
 
