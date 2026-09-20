@@ -8,6 +8,28 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## ✅ 2026-09-20: #7a — «quiero bajarme de plan» — en prod `80d23415`, **falta el clic**
+
+Era el último hueco del flujo del dinero: **subir** ya cobraba solo, pero un doctor **no podía
+escoger un plan más barato** — sólo bajaba dejando de pagar 15 días o a mano en el admin, sin
+pedirlo. Ahora lo pide desde Mi Cuenta (con el chequeo R4 delante, que le dice qué archivar si no
+cabe) y un humano lo hace desde la bandeja de Cobro. Detalle en
+[`04` §12.10](04-PLAN-cambio-de-plan.md).
+
+**No es #7 completo** (prorrateo, baja a fin de periodo, webhook, «cancelar el cambio» siguen sin
+construirse, ahora #7b). Es lo que decidió el usuario: con 12 doctores, una bandeja basta.
+
+⚠️ **Lo que hay que recordar al atenderla: son DOS pasos.** Cambiar la suscripción **en Stripe** Y
+el plan en el admin. Sólo el segundo deja al doctor con el plan menor mientras Stripe le sigue
+cobrando el mayor — el incidente del 2026-09-17, donde una cuenta perdió un mes pagado. Los dos
+pasos están escritos al lado del botón, y el botón dice «Marcar como hecha», no «Aplicar».
+
+🗄️ La tabla se creó con SQL a mano **antes** del push y se leyó de vuelta. Su índice único parcial
+(una pendiente por doctor) se probó dentro de una transacción con rollback: la segunda rebota.
+
+🔴 **Falta clicarlo.** Pedir una baja con dr-quebradita (BÁSICO ⇒ puede pedir GRATIS), verla en
+Cobro y cerrarla. No hace falta congelar nada.
+
 ## 📍 2026-09-20 — ESTADO REAL, medido contra la BD de prod (varias cosas de abajo estaban viejas)
 
 > Se contrastó lo que dicen estos docs contra lo que de verdad hay en prod. **Tres afirmaciones que
@@ -75,10 +97,10 @@ a cualquiera en la ruta pública, mientras `tier` sí estaba excluido. **Exposic
 expuesto), **nada que rotar**. El gate no lo atrapó porque su patrón estaba sólo en inglés; ahora
 habla español.
 
-**⏭️ Sigue, ya sin nada urgente:** #6.4 (correos al doctor — **ojo: no hay NINGUNA infraestructura
-de correo en el repo**, hay que elegir proveedor antes de escribir código) → #6.5 (la descarga
-masiva de expedientes no deja rastro en `patient_audit_logs`) → #5b. **C4 está aplazado a
-propósito** hasta decidir qué son las 10 cuentas PRO que no pagan (ver §Estado de C1–C4).
+**⏭️ Sigue, ya sin nada urgente:** clicar #7a → #6.4 (correos al doctor — **ojo: no hay NINGUNA
+infraestructura de correo en el repo**, hay que elegir proveedor antes de escribir código) → #6.5
+(la descarga masiva de expedientes no deja rastro en `patient_audit_logs`) → #5b → #7b (bajar de
+plan de verdad). **C4 está aplazado a propósito** (ver §Estado de C1–C4).
 
 ## ✅ 2026-09-20: #6.3 — «Descargar mi información» — en prod `3bb783a1` y **probado con clic**
 

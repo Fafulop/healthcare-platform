@@ -50,7 +50,11 @@ Necesita su propia sesión, con el PDF enfrente. **Nunca en un commit de cobro.*
 vivo deja de ser funcionalidad faltante y pasa a ser **C4: las 10 cuentas PRO que no pagan** — una
 decisión de negocio, no código.
 
-Sigue, ya sin nada urgente: **#6.3 cerrado (probado con clic)** → #6.4
+**#7a (pedir bajar de plan) también está en prod** (§12.10): con eso el flujo del dinero queda
+cerrado de punta a punta — subir cobra solo, bajar se pide y lo hace un humano, y dejar de pagar
+baja o congela sin que nadie intervenga.
+
+Sigue, ya sin nada urgente: **#7a falta clicarlo** → #6.4
 (avisos por correo) → #6.5 (la descarga masiva no deja rastro en `patient_audit_logs`) → #5b → bajar
 de plan (#7) → una cuenta por doctor (#8). Cada uno se presenta como plan y espera el OK antes de
 código. ⚠️ Antes que todo eso, ver el **URGENTE** del README (el login).
@@ -579,7 +583,8 @@ Stripe (modo prueba), configurado por el usuario el 2026-09-18: **Smart Retries,
 | 6.3 | La descarga (zip) | §11.4 | No | Mediano | ✅ `3bb783a1` — **probado con clic** (§12.8) |
 | 6.4 | Avisos por correo al doctor (G8) | §11.5 | No | Chico | ⬜ |
 | 6.5 | **La descarga masiva de expedientes no deja rastro** — `apps/doctor` escribe `patientAuditLog` en 42 caminos de datos de paciente; `apps/api` en ninguno, y #6.3 se lleva TODA la cuenta. Con una sesión de dueño robada, ver UN expediente queda registrado y bajárselos todos no. No es un defecto de #6.3: es que `apps/api` no tiene `logAudit` | §11.4 · LFPDPPP/NOM-024 | No | Chico-mediano | ⬜ |
-| 7 | **Bajar de plan** PRO→BÁSICO: chequeo R4, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande | ⬜ 🔻 **lo más grande que falta.** Hoy un doctor NO puede escoger un plan más barato: sólo se baja dejando de pagar 15 días (#6.1) o a mano en el admin. SUBIR sí funciona y está probado con cobro |
+| 7a | **Bajar de plan, versión corta**: el doctor lo PIDE desde Mi Cuenta (con el chequeo R4 delante) y un humano lo hace a mano desde el admin | P4 a | No | Chico-mediano | ✅ `80d23415` (§12.10) — **falta el clic** |
+| 7b | **Bajar de plan de verdad**: prorrateo, baja agendada a fin de periodo, tope R5, plan destino guardado (G6), webhook (G2), «Cancelar el cambio» | P4 a–e | Sí | Grande | ⬜ Ya no urge: 7a le da salida al doctor. Cuando se construya, la tabla de 7a es su bandeja de entrada o se retira |
 | 8 | **Una cuenta por doctor** | `05` | No | Grande, empieza por investigar | ⬜ |
 
 > 📍 **Medido contra la BD de prod el 2026-09-20.** El cobro **funciona de punta a punta en modo
@@ -829,6 +834,75 @@ La rejilla del calendario se sigue pintando arriba de la tarjeta, en gris y con 
 deshabilitados, bajo el encabezado «Reserva tu Cita — Selecciona fecha y hora»; y los botones
 siguen diciendo «Agendar Cita» (el clic explica, no lleva a un formulario condenado). No es un
 error: es que la página dice dos cosas a la vez.
+
+
+### 12.10 As-built de #7a — «quiero bajarme de plan» (2026-09-20)
+
+**`80d23415` en prod** (api · doctor · admin). Cierra el último hueco del flujo del dinero:
+**subir** ya funcionaba y cobraba, pero un doctor **no podía escoger un plan más barato** — sólo
+bajaba dejando de pagar 15 días (#6.1) o a mano desde el admin, sin haberlo pedido.
+
+**Esto NO es #7.** Es la versión corta que decidió el usuario: con 12 doctores, una bandeja basta.
+Prorrateo, baja agendada a fin de periodo, webhook y «cancelar el cambio» siguen sin construirse
+(#7b). Cuando se construyan, esta tabla es su bandeja de entrada o se retira.
+
+#### Cómo quedó
+
+- **Mi Cuenta**: un selector con los planes **por debajo** del suyo y «Solicitar cambio». Si no
+  cabe (R4) se le dice **antes** de mandar nada, con el texto que ya devuelve `cabeEnPlan()` —que
+  trae los números: «Tienes 312 pacientes activos y Básico permite 200. Archiva 112…»—. Ya enviada,
+  ve la solicitud con su fecha y puede cancelarla.
+- **El admin** ve la bandeja arriba de la pantalla Cobro, con las que **no caben** marcadas en
+  ámbar, y **los dos pasos escritos al lado**:
+  1. cambiar la **suscripción en Stripe** al precio del plan nuevo;
+  2. cambiar el plan del doctor en «Doctores».
+
+  Hacer sólo el 2 deja al doctor con el plan menor **mientras Stripe le sigue cobrando el mayor**.
+  No es hipotético: es el incidente del **2026-09-17**, donde se bajó en el admin un plan pagado
+  hasta el 17 de octubre y la cuenta perdió el mes (`apps/admin/src/lib/aviso-cobro.ts` lo explica).
+  Por eso el botón dice **«Marcar como hecha»** y no «Aplicar»: registra que un humano YA lo hizo,
+  no ordena que pase.
+- **Es una FILA, no un aviso.** `avisarAdmin()` hoy no manda nada (falta `TELEGRAM_ADMIN_CHAT_ID`),
+  un mensaje se pierde, y el doctor necesita VER que su solicitud existe y poder cancelarla. Se
+  llama igual, para que el día que se ponga la variable empiece a funcionar solo.
+- **Sólo hacia ABAJO.** Subir ya funciona y cobra de verdad; ofrecer por aquí un camino peor al que
+  ya existe sería empeorarlo.
+
+#### La tabla
+
+`public.solicitudes_cambio_plan` — SQL a mano (`add-solicitudes-cambio-plan.sql`), **aplicado a
+prod ANTES del push** y leído de vuelta: 12 columnas, 3 índices, la FK, y
+`prisma.solicitudCambioPlan.count()` respondiendo.
+
+Guarda el veredicto de `cabeEnPlan()` **del momento en que se pidió**, en vez de recalcularlo: el
+admin tiene que ver lo mismo que vio el doctor, que pudo haber archivado expedientes desde
+entonces.
+
+Su índice **único PARCIAL** (`WHERE estado = 'PENDIENTE'`) es el que impide que cinco clics dejen
+cinco filas. Se comprobó de verdad, dentro de una transacción con rollback: la segunda pendiente
+**rebota con 23505**. ⚠️ Un `prisma db push` **no** lo tira —Prisma sólo pisa lo que modela, y aquí
+no se declara ningún unique sobre `doctor_id`—; lo que **sí** lo rompería es que alguien agregue
+`@@unique([doctorId])` al modelo creyendo que documenta la regla: ese día el índice se reescribe
+sin el `WHERE` y un doctor no podría pedir un segundo cambio nunca más.
+
+#### Del review (8 hallazgos, los 8 arreglados) — los tres que valen
+
+- **La bandeja podía tumbar la pantalla de Cobro entera.** Estaba dentro del mismo `Promise.all`
+  que precios, doctores y suscripciones: entre el push y el SQL a mano hay una ventana en la que la
+  tabla no existe, y en esa ventana moría **la pantalla que existe justo para ver qué está mal
+  configurado**, por culpa de lo más nuevo que tiene. Ahora va aparte y se traga su propio error.
+- **Los fallos de «Marcar como hecha» eran INVISIBLES.** Reusé `errorGuardar`, que sólo se pinta
+  dentro de la fila de precios que se está editando. Un 409 —el doctor canceló mientras el admin
+  tenía la pantalla abierta— no mostraba nada: clic, no pasa nada, clic otra vez, nada.
+- **Un fallo de lectura se veía como «no tienes ninguna».** El GET devolvía `{solicitud:null}` con
+  **200** ante cualquier error, así que la pantalla pintaba el formulario, el doctor pedía otra vez
+  y chocaba con un 409 sobre una solicitud **que no podía ver ni cancelar**. La misma trampa de
+  siempre: un fallo que aterriza en el mismo vacío que un vacío legítimo.
+
+#### 🔴 Falta el clic
+
+Nadie ha usado el flujo. Probarlo es: pedir una baja con dr-quebradita (BÁSICO ⇒ puede pedir
+GRATIS), verla aparecer en Cobro del admin, y cerrarla. **No hace falta congelar nada.**
 
 ---
 
