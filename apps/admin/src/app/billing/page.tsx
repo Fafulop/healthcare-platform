@@ -56,6 +56,18 @@ interface FilaDoctor {
   } | null;
 }
 
+/** TIERS #7 (versión corta): un doctor pidió bajarse de plan y espera a un humano. */
+interface SolicitudDePlan {
+  id: string;
+  slug: string;
+  tierActual: string;
+  tierSolicitado: string;
+  cabe: boolean;
+  motivoNoCabe: string | null;
+  solicitadoPor: string;
+  creadoEn: string;
+}
+
 interface Payload {
   tiers: FilaTier[];
   doctores: FilaDoctor[];
@@ -66,6 +78,8 @@ interface Payload {
   // qué está mal configurado.
   modo?: "test" | "live" | null;
   faltantes?: string[];
+  /** Opcional por lo mismo: un api viejo no manda la bandeja. */
+  solicitudes?: SolicitudDePlan[];
 }
 
 /** Los status son los de STRIPE, tal cual. Aquí sólo se traducen para leerlos. */
@@ -96,6 +110,12 @@ export default function BillingPage() {
   const [editando, setEditando] = useState<string | null>(null);
   const [priceId, setPriceId] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [resolviendo, setResolviendo] = useState<string | null>(null);
+  /** Error propio: `errorGuardar` sólo se pinta dentro de la fila de precios
+   *  que se está editando, así que un fallo aquí era INVISIBLE — se clicaba
+   *  «Marcar como hecha», no pasaba nada, y no había forma de distinguir un
+   *  409 (la solicitud ya no estaba) de una sesión vencida. */
+  const [errorSolicitud, setErrorSolicitud] = useState<string | null>(null);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
 
   useEffect(() => {
@@ -115,6 +135,30 @@ export default function BillingPage() {
       setError(e instanceof Error ? e.message : "No se pudo cargar");
     } finally {
       setCargando(false);
+    }
+  }
+
+  /**
+   * Marca una solicitud como atendida. NO cambia el plan de nadie: el cambio lo
+   * hace el admin a mano, en Stripe Y en el modal del doctor, y esto sólo
+   * registra que ya lo hizo. Por eso el botón dice «hecha» y no «aplicar».
+   */
+  async function resolver(id: string, estado: "HECHA" | "RECHAZADA") {
+    setResolviendo(id);
+    setErrorSolicitud(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/admin/cambios-de-plan`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, estado }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message || "No se pudo actualizar");
+      await cargar();
+    } catch (e) {
+      setErrorSolicitud(e instanceof Error ? e.message : "No se pudo actualizar");
+    } finally {
+      setResolviendo(null);
     }
   }
 
@@ -179,6 +223,74 @@ export default function BillingPage() {
 
         {data && !cargando && (
           <>
+            {/* ── 0. Solicitudes de bajar de plan (TIERS #7, versión corta) ── */}
+            {(data.solicitudes?.length ?? 0) > 0 && (
+              <section className="bg-white border border-amber-300 rounded-lg overflow-hidden">
+                <div className="px-5 py-3 border-b border-amber-200 bg-amber-50">
+                  <h2 className="text-sm font-semibold text-gray-900">
+                    Piden bajar de plan ({data.solicitudes!.length})
+                  </h2>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Bajar de plan todavía no es automático. Son DOS pasos, y hacer sólo el
+                    segundo le cobra de más al doctor:
+                  </p>
+                  <ol className="text-xs text-gray-700 mt-1.5 ml-4 list-decimal space-y-0.5">
+                    <li>Cambiar la <strong>suscripción en Stripe</strong> al precio del plan nuevo.</li>
+                    <li>Cambiar el plan del doctor en <strong>Doctores</strong>.</li>
+                  </ol>
+                  <p className="text-xs text-gray-600 mt-1.5">
+                    «Marcar como hecha» sólo cierra la solicitud: no cambia nada por su cuenta.
+                  </p>
+                </div>
+                <ul className="divide-y divide-gray-100">
+                  {data.solicitudes!.map((s) => (
+                    <li key={s.id} className="px-5 py-3 flex items-start justify-between gap-4 flex-wrap">
+                      <div className="text-sm">
+                        <p className="font-medium text-gray-900">
+                          {s.slug}: {s.tierActual} → {s.tierSolicitado}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {/* timeZone FIJA: es un timestamp, no un @db.Date. Sin
+                              esto, el doctor y un admin con el navegador en UTC
+                              leen fechas distintas del MISMO dato. */}
+                          {s.solicitadoPor} · {new Date(s.creadoEn).toLocaleDateString("es-MX", {
+                            day: "numeric", month: "long", year: "numeric",
+                            timeZone: "America/Mexico_City",
+                          })}
+                        </p>
+                        {!s.cabe && (
+                          <p className="text-xs text-amber-700 mt-1">
+                            ⚠️ No cabe: {s.motivoNoCabe}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => resolver(s.id, "HECHA")}
+                          disabled={resolviendo === s.id}
+                          className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-60"
+                        >
+                          Marcar como hecha
+                        </button>
+                        <button
+                          onClick={() => resolver(s.id, "RECHAZADA")}
+                          disabled={resolviendo === s.id}
+                          className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 disabled:opacity-60"
+                        >
+                          Descartar
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {errorSolicitud && (
+                  <p className="px-5 py-3 text-sm text-red-600 border-t border-gray-100">
+                    {errorSolicitud}
+                  </p>
+                )}
+              </section>
+            )}
+
             {/* ── 1. Precios ─────────────────────────────────────────────── */}
             <section className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-200">

@@ -1,6 +1,26 @@
 # Database Architecture Guide
 
-**Last Updated:** 2026-02-19
+**Last Updated:** 2026-09-20
+
+> ## ⚠️ 2026-09-20 — YA NO HAY BASE DE DATOS LOCAL
+>
+> **Se trabaja SÓLO contra producción (Railway).** El Postgres de `localhost:5432` ya no
+> existe: `prisma db execute --schema prisma/schema.prisma` falla con
+> «Can't reach database server at localhost:5432».
+>
+> Lo que eso cambia de este doc, que abajo sigue escrito como si hubiera dos entornos:
+>
+> - **«Always test locally first» ya no se puede cumplir.** En su lugar, para validar un DDL
+>   sin dejar nada: correrlo contra prod **dentro de una transacción que siempre revienta al
+>   final** (el patrón de *write probes* de la sección de consultas read-only). Así se validó
+>   `add-solicitudes-cambio-plan.sql` el 2026-09-20 — incluido comprobar que su índice único
+>   parcial de verdad rebotaba la segunda fila— sin escribir una sola fila definitiva.
+> - **El paso 3 del «Development Workflow» (ejecutar contra la BD local) se salta.**
+> - **Lo que NO cambia, y ahora importa más:** la migración va **ANTES** del push, porque el
+>   código se despliega solo y ya no hay ningún entorno donde equivocarse primero.
+> - `DATABASE_URL` de `packages/database/.env` apunta a `localhost` y por lo tanto **no sirve
+>   para nada**. La URL buena es `LLM_DATABASE_URL` del mismo archivo (es la pública de
+>   Railway), o `DATABASE_PUBLIC_URL` del servicio `pgvector`.
 
 ---
 
@@ -187,7 +207,10 @@ CREATE INDEX IF NOT EXISTS your_table_name_doctor_id_idx
 - `Json` → `JSONB`
 - `String[]` → `TEXT[]`
 
-#### 3. Execute Against Local Database
+#### 3. ~~Execute Against Local Database~~ ⚠️ YA NO APLICA (2026-09-20: no hay BD local)
+
+> Se salta. Para validar el SQL sin dejar rastro, correrlo contra prod dentro de una
+> transacción que termine lanzando un error (ver el aviso del principio).
 
 ```powershell
 cd packages/database
@@ -213,7 +236,8 @@ Verify the table exists and your code works with it.
 
 ### Production Deployment: Syncing to Railway
 
-**Only push to Railway after testing locally!**
+~~**Only push to Railway after testing locally!**~~ ⚠️ **Ya no hay BD local (2026-09-20).**
+Railway es el único entorno: la prueba previa es el *write probe* con rollback.
 
 When you're ready to deploy your schema changes to the Railway database:
 

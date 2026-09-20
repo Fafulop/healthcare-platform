@@ -369,6 +369,7 @@ model Doctor {
   // que son el doctor cobrándole a SUS pacientes.
   subscription       Subscription?
   tierChanges        TierChangeLog[]
+  solicitudesDePlan  SolicitudCambioPlan[]
 
   // Bank Reconciliation
   bankStatements     BankStatement[]
@@ -1494,6 +1495,52 @@ model TierChangeLog {
 
   @@index([doctorId])
   @@map("tier_change_log")
+  @@schema("public")
+}
+
+/// TIERS 04 §12.6 #7 (versión corta) — «quiero bajarme de plan».
+///
+/// Bajar de plan de VERDAD (prorrateo, baja agendada a fin de periodo, webhook,
+/// «cancelar el cambio») sigue sin construirse. Mientras tanto el doctor lo
+/// PIDE desde Mi Cuenta, queda esta fila, y un humano lo hace a mano en el
+/// admin. Una fila y no sólo un aviso: `avisarAdmin()` no manda nada mientras
+/// falte TELEGRAM_ADMIN_CHAT_ID, un mensaje se pierde, y el doctor necesita ver
+/// que su solicitud existe.
+///
+/// ⚠️ El índice que garantiza UNA pendiente por doctor es PARCIAL y vive en
+/// `migrations/add-solicitudes-cambio-plan.sql`: `prisma db push` lo revierte.
+model SolicitudCambioPlan {
+  id              String    @id @default(cuid())
+  doctorId        String    @map("doctor_id")
+
+  /// El plan que tenía AL PEDIRLO: si el admin se lo cambia mientras tanto, la
+  /// solicitud sigue diciendo de dónde venía.
+  tierActual      String    @map("tier_actual") @db.VarChar(20)
+  tierSolicitado  String    @map("tier_solicitado") @db.VarChar(20)
+
+  /// `cabeEnPlan()` al momento de pedirlo (R4). Se GUARDA en vez de
+  /// recalcularse: el admin tiene que ver lo mismo que vio el doctor.
+  cabe            Boolean
+  motivoNoCabe    String?   @map("motivo_no_cabe") @db.VarChar(400)
+
+  /// PENDIENTE · HECHA · CANCELADA (la cancela el doctor) · RECHAZADA.
+  estado          String    @default("PENDIENTE") @db.VarChar(20)
+
+  solicitadoPor   String    @map("solicitado_por") @db.VarChar(200)
+  creadoEn        DateTime  @default(now()) @map("creado_en")
+  resueltaEn      DateTime? @map("resuelta_en")
+  resueltaPor     String?   @map("resuelta_por") @db.VarChar(200)
+  notaAdmin       String?   @map("nota_admin") @db.VarChar(400)
+
+  doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  /// `map` + `Desc` para que coincida EXACTAMENTE con el índice que crea
+  /// `add-solicitudes-cambio-plan.sql`. Sin esto Prisma ve deriva permanente y
+  /// un `db push` agregaría un segundo índice casi igual, además de tirar el
+  /// único parcial (el de «una pendiente por doctor»), que no se puede
+  /// declarar aquí porque Prisma no soporta índices parciales.
+  @@index([estado, creadoEn(sort: Desc)], map: "solicitudes_cambio_plan_estado_creado")
+  @@map("solicitudes_cambio_plan")
   @@schema("public")
 }
 

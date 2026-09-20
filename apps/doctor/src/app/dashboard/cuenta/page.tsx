@@ -71,6 +71,17 @@ interface ResumenCuenta {
   congeladaDesde?: string | null;
 }
 
+/** TIERS #7 (versión corta): la solicitud de bajar de plan que atiende un humano. */
+interface SolicitudCambioPlan {
+  id: string;
+  tierActual: string;
+  tierSolicitado: string;
+  cabe: boolean;
+  motivoNoCabe: string | null;
+  estado: string;
+  creadoEn: string;
+}
+
 export default function CuentaPage() {
   const { status: sessionStatus } = useSession({
     required: true,
@@ -211,6 +222,9 @@ export default function CuentaPage() {
 
           {/* ── Pago (TIERS C3) ───────────────────────────────────────── */}
           <SeccionPago />
+
+          {/* ── Bajar de plan (TIERS #7, versión corta) ───────────────── */}
+          <SeccionBajarDePlan tier={tierCanonico} />
 
           {/* ── Consumo ───────────────────────────────────────────────── */}
           <section className="mb-6 grid gap-4 sm:grid-cols-2">
@@ -528,6 +542,183 @@ function precio(centavos: number, moneda: string, intervalo: string): string {
  * 3. Un fallo al leer el estado se DICE, no se oculta: "no pudimos leer tu pago"
  *    y "no tienes pago" llevan a decisiones opuestas.
  */
+/**
+ * TIERS 04 §12.6 #7 (versión corta) — «Cambiar a un plan menor».
+ *
+ * NO baja el plan: deja una solicitud que un humano atiende desde el admin. El
+ * flujo completo (prorrateo, baja a fin de periodo, webhook) sigue sin existir,
+ * y con 12 doctores una bandeja es suficiente.
+ *
+ * Lo que el texto NO hace es prometer un plazo que nadie se comprometió a
+ * cumplir: dice que lo vamos a atender, no «en 24 horas».
+ *
+ * Sólo aparece si hay algo por debajo: en GRATIS no se pinta nada.
+ */
+function SeccionBajarDePlan({ tier }: { tier: DoctorTier | null }) {
+  const [solicitud, setSolicitud] = useState<SolicitudCambioPlan | null>(null);
+  /** true = no se pudo LEER (distinto de «no tienes ninguna»). */
+  const [noSeSabe, setNoSeSabe] = useState(false);
+  const [cargando, setCargando] = useState(true);
+  const [destino, setDestino] = useState<string>("");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const menores = tier
+    ? (DOCTOR_TIERS as readonly string[]).slice(
+        0,
+        (DOCTOR_TIERS as readonly string[]).indexOf(tier),
+      )
+    : [];
+
+  /** Se extrae para poder RELEERLO cuando el servidor dice algo que contradice
+   *  lo que la pantalla creía (un 409, o un DELETE que no canceló nada). */
+  async function leer(): Promise<void> {
+    try {
+      const res = await authFetch(`${API_URL}/api/account/cambio-de-plan`);
+      if (!res.ok) throw new Error(String(res.status));
+      const d = await res.json();
+      setSolicitud(d?.solicitud ?? null);
+      setNoSeSabe(false);
+    } catch {
+      // No se asume «no tienes ninguna»: eso pintaría el formulario y el
+      // siguiente clic chocaría con una solicitud invisible.
+      setSolicitud(null);
+      setNoSeSabe(true);
+    }
+  }
+
+  useEffect(() => {
+    let cancelado = false;
+    leer().finally(() => {
+      if (!cancelado) setCargando(false);
+    });
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function pedir() {
+    if (!destino) return;
+    setEnviando(true);
+    setError(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/account/cambio-de-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: destino }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.status === 409) {
+        // Ya había una pendiente que esta pantalla no estaba viendo: se relee
+        // en vez de dejar al doctor con un error y sin forma de cancelarla.
+        await leer();
+        throw new Error(data?.error || "Ya tienes una solicitud pendiente.");
+      }
+      if (!res.ok) throw new Error(data?.error || "No se pudo enviar la solicitud");
+      setSolicitud(data.solicitud);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo enviar la solicitud");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function cancelar() {
+    setEnviando(true);
+    setError(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/account/cambio-de-plan`, { method: "DELETE" });
+      if (!res.ok) throw new Error("No se pudo cancelar");
+      const data = await res.json().catch(() => null);
+      // El DELETE responde 200 con `cancelada:false` cuando NO había nada
+      // pendiente — o sea, el admin ya la atendió. Decir «cancelada» ahí sería
+      // afirmar que no va a pasar algo que quizá ya pasó en Stripe.
+      if (data?.cancelada === false) {
+        await leer();
+        throw new Error("Tu solicitud ya había sido atendida. Escríbenos si necesitas revertirlo.");
+      }
+      setSolicitud(null);
+      setDestino("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cancelar");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  // Sin solicitud y sin planes menores no hay nada que ofrecer. PERO si hay
+  // una pendiente se pinta igual: si el admin ya bajó el plan y olvidó cerrar
+  // la solicitud, `menores` queda vacío y el doctor se quedaba sin poder ver
+  // ni cancelar algo que sigue en la bandeja del admin.
+  if (cargando) return null;
+  if (menores.length === 0 && !solicitud) return null;
+
+  return (
+    <section className="mb-6 p-5 bg-white border border-gray-200 rounded-lg">
+      <h2 className="text-sm font-semibold text-gray-900">Cambiar a un plan menor</h2>
+
+      {solicitud ? (
+        <>
+          <p className="text-sm text-gray-600 mt-1">
+            Pediste cambiar a{" "}
+            <span className="font-medium text-gray-900">
+              {TIER_LABELS[solicitud.tierSolicitado as DoctorTier] ?? solicitud.tierSolicitado}
+            </span>{" "}
+            el {fecha(solicitud.creadoEn)}. Te contactamos para hacer el cambio.
+          </p>
+          {!solicitud.cabe && solicitud.motivoNoCabe && (
+            <p className="text-sm text-amber-700 mt-2">{solicitud.motivoNoCabe}</p>
+          )}
+          <button
+            onClick={cancelar}
+            disabled={enviando}
+            className="mt-4 text-sm text-gray-600 underline hover:text-gray-900 disabled:opacity-60"
+          >
+            Cancelar solicitud
+          </button>
+        </>
+      ) : noSeSabe ? (
+        <p className="text-sm text-gray-500 mt-1">
+          No pudimos leer si tienes una solicitud en curso. Vuelve a cargar la página; si
+          sigue igual, escríbenos antes de pedir otra.
+        </p>
+      ) : menores.length === 0 ? null : (
+        <>
+          <p className="text-sm text-gray-600 mt-1">
+            Escribe a qué plan quieres cambiarte y lo revisamos contigo. Tu información no se
+            toca: cambiar de plan no borra nada.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <select
+              value={destino}
+              onChange={(e) => setDestino(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
+            >
+              <option value="">Elige un plan…</option>
+              {menores.map((t) => (
+                <option key={t} value={t}>
+                  {TIER_LABELS[t as DoctorTier] ?? t}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={pedir}
+              disabled={!destino || enviando}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-60 transition-colors"
+            >
+              {enviando && <Loader2 className="w-4 h-4 animate-spin" />}
+              Solicitar cambio
+            </button>
+          </div>
+        </>
+      )}
+
+      {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+    </section>
+  );
+}
+
 function SeccionPago() {
   const [estado, setEstado] = useState<EstadoCobro | null>(null);
   const [error, setError] = useState(false);

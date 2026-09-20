@@ -114,6 +114,26 @@ export async function GET(request: Request) {
       prisma.subscription.findMany(),
     ]);
 
+    // TIERS #7 (versión corta): la bandeja de «quiero bajarme de plan».
+    //
+    // FUERA del Promise.all y tragándose su propio error A PROPÓSITO. La tabla
+    // `solicitudes_cambio_plan` se crea con SQL a mano, y `apps/api` se
+    // despliega solo en cuanto alguien empuja: entre el push y el SQL hay una
+    // ventana en la que la tabla NO existe. Adentro del Promise.all, ese error
+    // se llevaba por delante precios, doctores, suscripciones y la lista de
+    // `faltantes` — o sea, la pantalla que existe justo para ver qué está mal
+    // configurado moría por lo más nuevo que tiene.
+    const solicitudes = await prisma.solicitudCambioPlan
+      .findMany({
+        where: { estado: 'PENDIENTE' },
+        orderBy: { creadoEn: 'asc' },
+        include: { doctor: { select: { slug: true } } },
+      })
+      .catch((e) => {
+        console.error('[CAMBIO-PLAN] no se pudo leer la bandeja', e);
+        return [];
+      });
+
     const porDoctor = new Map(suscripciones.map((s) => [s.doctorId, s]));
 
     // Se resuelven en paralelo, pero cada uno falla por su cuenta.
@@ -160,6 +180,20 @@ export async function GET(request: Request) {
         // Se dice explícitamente, para que la pantalla no tenga que adivinar
         // por qué todo viene vacío. C3: "conectado" exige la clave Y el secreto
         // del webhook (sin el webhook se cobraría sin subir planes).
+        // Las solicitudes de BAJAR de plan que esperan a un humano. Bajar de
+        // plan de verdad (#7) no está construido: esto es la bandeja. Va ANTES
+        // del bloque de diagnóstico para no quedar entre su comentario y sus
+        // claves.
+        solicitudes: solicitudes.map((s) => ({
+          id: s.id,
+          slug: s.doctor.slug,
+          tierActual: s.tierActual,
+          tierSolicitado: s.tierSolicitado,
+          cabe: s.cabe,
+          motivoNoCabe: s.motivoNoCabe,
+          solicitadoPor: s.solicitadoPor,
+          creadoEn: s.creadoEn,
+        })),
         cobroConectado: cobroListo(),
         modo: modoCobro(),
         faltantes: [
