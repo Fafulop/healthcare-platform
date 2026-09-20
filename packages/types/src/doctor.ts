@@ -150,4 +150,18 @@ export interface DoctorProfile {
 
   // Scheduling mode detection
   hasRanges?: boolean;
+
+  /**
+   * TIERS #6.2b — si este doctor está recibiendo citas en línea. Falso cuando su
+   * cuenta está CONGELADA (dejó de pagar y no cabe en Gratis).
+   *
+   * Booleano DERIVADO a propósito: el porqué —`congeladaDesde`— no sale de la
+   * API pública. El paciente necesita saber si puede agendar, no la situación
+   * de cobro de su doctor.
+   *
+   * ⚠️ Esta interfaz está DUPLICADA en `apps/public/src/types/doctor.ts` (la
+   * capa de datos usa ésta; los componentes, la otra). Un campo nuevo hay que
+   * ponerlo en las dos o el type-check truena en una sola de ellas.
+   */
+  aceptaCitasEnLinea?: boolean;
 }

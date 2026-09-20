@@ -17,7 +17,7 @@ export async function GET(
     // Find doctor by slug
     const doctor = await prisma.doctor.findUnique({
       where: { slug },
-      select: { id: true, doctorFullName: true },
+      select: { id: true, doctorFullName: true, congeladaDesde: true },
     });
 
     if (!doctor) {
@@ -25,6 +25,23 @@ export async function GET(
         { success: false, error: 'Doctor not found' },
         { status: 404 }
       );
+    }
+
+    // TIERS #6.2b — cuenta congelada: no se ofrece ni un horario. El candado que
+    // de verdad cuenta es el POST (regla 0); esto es para que el calendario no
+    // pinte huecos que al hacer clic van a dar 409, y porque el sitio público
+    // cachea 60 s. `aceptaCitasEnLinea` va explícito para que el widget diga
+    // «no está recibiendo citas» en vez de «no hay horarios» — que sería otra
+    // cosa, y falsa.
+    if (doctor.congeladaDesde) {
+      return NextResponse.json({
+        success: true,
+        doctor: { id: doctor.id, name: doctor.doctorFullName },
+        aceptaCitasEnLinea: false,
+        availableDates: [],
+        slotsByDate: {},
+        totalSlots: 0,
+      });
     }
 
     // Build date filter

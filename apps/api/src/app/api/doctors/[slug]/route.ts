@@ -3,7 +3,7 @@
 // DELETE /api/doctors/[slug] - Delete doctor (future)
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, doctorCongelado } from '@healthcare/database';
 import { DOCTOR_PRIVATE_FIELDS } from '@/lib/doctor-public-fields';
 
 export async function GET(
@@ -59,15 +59,21 @@ export async function GET(
       : 0;
 
     // Check if doctor uses range-based scheduling
-    const rangeCount = await prisma.availabilityRange.count({
-      where: { doctorId: doctor.id },
-    });
+    const [rangeCount, congelada] = await Promise.all([
+      prisma.availabilityRange.count({ where: { doctorId: doctor.id } }),
+      // TIERS #6.2b. `congeladaDesde` NO puede viajar (dice que este doctor dejó
+      // de pagarnos, y cuándo: está en DOCTOR_PRIVATE_FIELDS). Lo que el sitio
+      // público necesita es otra cosa — si se puede agendar o no—, así que se
+      // sirve el booleano DERIVADO. Nunca el porqué.
+      doctorCongelado(prisma, doctor.id),
+    ]);
 
     return NextResponse.json({
       success: true,
       data: {
         ...doctor,
         hasRanges: rangeCount > 0,
+        aceptaCitasEnLinea: !congelada,
         reviewStats: {
           averageRating: Number(averageRating.toFixed(1)),
           reviewCount,

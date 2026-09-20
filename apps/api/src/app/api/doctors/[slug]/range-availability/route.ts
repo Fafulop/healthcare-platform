@@ -102,6 +102,7 @@ export async function GET(
         doctorFullName: true,
         appointmentBufferMinutes: true,
         defaultIntervalMinutes: true,
+        congeladaDesde: true,
       },
     });
 
@@ -110,6 +111,22 @@ export async function GET(
         { success: false, error: 'Doctor not found' },
         { status: 404 }
       );
+    }
+
+    // TIERS #6.2b — cuenta congelada: ningún horario. Igual que en la ruta de
+    // slots; el candado que cuenta es el POST, esto evita pintar huecos que al
+    // hacer clic dan 409. `aceptaCitasEnLinea` distingue «no está recibiendo
+    // citas» de «no hay horarios», que no es lo mismo.
+    if (doctor.congeladaDesde) {
+      return NextResponse.json({
+        success: true,
+        doctor: { id: doctor.id, name: doctor.doctorFullName },
+        aceptaCitasEnLinea: false,
+        service: null,
+        bufferMinutes: doctor.appointmentBufferMinutes,
+        availableDates: [],
+        timeSlots: {},
+      });
     }
 
     // --- freeform=1 REQUIRES auth; this endpoint is otherwise public ---

@@ -19,6 +19,7 @@ import StickyMobileCTA from "./StickyMobileCTA";
 import SidebarContactInfo from "./SidebarContactInfo";
 import SidebarCTA from "./SidebarCTA";
 import BookingModal from "./BookingModal";
+import AgendaNoDisponible from "./AgendaNoDisponible";
 
 // Client-side components via dynamic wrapper (no SSR)
 import { DynamicMediaCarousel, DynamicBookingWidget, DynamicRangeBookingWidget } from "./DynamicSections";
@@ -40,6 +41,11 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
       window.gtag('config', doctor.google_ads_id);
     }
   }, [doctor.slug, doctor.doctor_full_name, doctor.primary_specialty, doctor.google_ads_id]);
+
+  // TIERS #6.2b. Default a `true`: si el campo no viene, se ofrece la agenda —
+  // el POST rechaza igual (regla 0), y esconderla por una lectura rara le
+  // costaría citas a un doctor que sí está al corriente.
+  const aceptaCitas = doctor.aceptaCitasEnLinea ?? true;
 
   const openBookingModal = (dateStr?: string) => {
     if (dateStr) {
@@ -115,7 +121,11 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
             <div className="flex flex-col max-h-screen bg-white">
               {/* Appointment Booking Widget */}
               <div className="flex-shrink-0">
-                {doctor.hasRanges ? (
+                {/* TIERS #6.2b: cuenta congelada ⇒ en vez del calendario, se dice
+                    que no está recibiendo citas. Los CTA de contacto se quedan. */}
+                {!aceptaCitas ? (
+                  <AgendaNoDisponible telefono={doctor.clinic_info?.phone} />
+                ) : doctor.hasRanges ? (
                   <DynamicRangeBookingWidget doctorSlug={doctor.slug} onDayClick={openBookingModal} googleAdsId={doctor.google_ads_id} services={doctor.services_list} appointmentModes={doctor.appointment_modes} />
                 ) : (
                   <DynamicBookingWidget doctorSlug={doctor.slug} onDayClick={openBookingModal} googleAdsId={doctor.google_ads_id} services={doctor.services_list} appointmentModes={doctor.appointment_modes} />
@@ -159,6 +169,8 @@ export default function DoctorProfileClient({ doctor }: DoctorProfileClientProps
         services={doctor.services_list}
         appointmentModes={doctor.appointment_modes}
         hasRanges={doctor.hasRanges}
+        aceptaCitasEnLinea={aceptaCitas}
+        telefono={doctor.clinic_info?.phone}
       />
     </>
   );

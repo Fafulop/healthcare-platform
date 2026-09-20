@@ -4,7 +4,7 @@
 // Always CONFIRMED (no PENDING state).
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, doctorCongelado } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent } from '@/lib/google-calendar';
@@ -59,6 +59,18 @@ export async function POST(request: Request) {
       }
     } else if (role !== 'ADMIN') {
       return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 403 });
+    }
+
+    // TIERS 04 §12.6 #6.2b — una cuenta CONGELADA no recibe citas nuevas,
+    // tampoco por aquí. Un DOCTOR congelado ya rebota en validateAuthToken,
+    // pero un ADMIN no: el chequeo de congelada se salta con role==='ADMIN'
+    // (auth.ts). Sin esto, un admin creaba una cita CONFIRMADA —con evento de
+    // Calendar y SMS al paciente— en una agenda que el doctor no puede abrir.
+    if (await doctorCongelado(prisma, doctorId)) {
+      return NextResponse.json(
+        { success: false, error: 'Esta cuenta está congelada: no puede recibir citas nuevas.', code: 'ACCOUNT_FROZEN' },
+        { status: 409 }
+      );
     }
 
     // Fetch doctor with instant field settings

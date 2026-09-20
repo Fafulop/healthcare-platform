@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Calendar, Clock, DollarSign, User, Mail, Phone, MessageSquare, CheckCircle, Loader2, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { trackSlotSelected, trackBookingComplete } from "@/lib/analytics";
 import type { Service } from "@/types/doctor";
+import AgendaNoDisponible from "./AgendaNoDisponible";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
@@ -62,6 +63,9 @@ export default function RangeBookingWidget({
     initialDate && typeof initialDate === "string" && initialDate.includes("-") ? initialDate.split("T")[0] : null
   );
   const [availableDates, setAvailableDates] = useState<string[]>([]);
+  // TIERS #6.2b — ver el comentario en BookingWidget: se pregunta en el widget,
+  // no en la pagina que lo hospeda (perfil, modal y blog lo montan).
+  const [aceptaCitas, setAceptaCitas] = useState(true);
   const [timeSlots, setTimeSlots] = useState<Record<string, AvailableTime[]>>({});
   const [loadingAvailability, setLoadingAvailability] = useState(false);
 
@@ -167,6 +171,7 @@ export default function RangeBookingWidget({
         );
         const data = await res.json();
         if (data.success) {
+          setAceptaCitas(data.aceptaCitasEnLinea ?? true);
           setAvailableDates(data.availableDates || []);
         }
       } catch (err) {
@@ -703,10 +708,14 @@ export default function RangeBookingWidget({
                   </div>
 
                   {availableDates.length === 0 && (
-                    <div className="text-center py-3">
-                      <Calendar className="w-6 h-6 text-gray-300 mx-auto mb-1" />
-                      <p className="text-xs text-gray-500">No hay citas disponibles este mes</p>
-                    </div>
+                    !aceptaCitas ? (
+                      <AgendaNoDisponible />
+                    ) : (
+                      <div className="text-center py-3">
+                        <Calendar className="w-6 h-6 text-gray-300 mx-auto mb-1" />
+                        <p className="text-xs text-gray-500">No hay citas disponibles este mes</p>
+                      </div>
+                    )
                   )}
                 </>
               )}

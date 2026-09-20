@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Calendar, Clock, DollarSign, User, Mail, Phone, MessageSquare, CheckCircle, Loader2, ChevronLeft, ChevronRight, Stethoscope } from "lucide-react";
 import { trackSlotSelected, trackBookingComplete } from "@/lib/analytics";
 import type { Service } from "@/types/doctor";
+import AgendaNoDisponible from "./AgendaNoDisponible";
 
 // API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
@@ -61,6 +62,7 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(initialDate);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [aceptaCitas, setAceptaCitas] = useState(true);
   const [slotsByDate, setSlotsByDate] = useState<Record<string, Slot[]>>({});
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -170,6 +172,13 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
       const data = await response.json();
 
       if (data.success) {
+        // TIERS #6.2b: la cuenta del doctor esta congelada. Se pregunta AQUI,
+        // en el widget, y no en cada pagina que lo hospeda: el widget vive en
+        // el perfil, en el modal y en el blog, y el que se olvide de pasar la
+        // bandera pintaria "No hay citas disponibles" — que no es lo mismo y
+        // es falso (el paciente entiende que el doctor esta lleno y vuelve
+        // manana). Ausente = true: no se apaga la agenda por una lectura rara.
+        setAceptaCitas(data.aceptaCitasEnLinea ?? true);
         setAvailableDates(data.availableDates || []);
         setSlotsByDate(data.slotsByDate || {});
       }
@@ -779,10 +788,16 @@ export default function BookingWidget({ doctorSlug, isModal = false, onDayClick,
               )}
 
               {availableDates.length === 0 && (
-                <div className="text-center py-4">
-                  <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-1" />
-                  <p className="text-xs text-gray-500">No hay citas disponibles</p>
-                </div>
+                // Congelada y sin fechas NO son lo mismo: "no hay citas" dice
+                // que el doctor esta lleno. Mismo texto que el resto del sitio.
+                !aceptaCitas ? (
+                  <AgendaNoDisponible />
+                ) : (
+                  <div className="text-center py-4">
+                    <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-1" />
+                    <p className="text-xs text-gray-500">No hay citas disponibles</p>
+                  </div>
+                )
               )}
             </>
           )}

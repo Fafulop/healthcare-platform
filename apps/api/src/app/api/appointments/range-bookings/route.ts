@@ -71,6 +71,8 @@ export async function POST(request: Request) {
       where: { id: doctorId },
       select: {
         id: true,
+        // TIERS #6.2b: ¿la cuenta está congelada? Ya estábamos leyendo al doctor.
+        congeladaDesde: true,
         doctorFullName: true,
         primarySpecialty: true,
         clinicAddress: true,
@@ -94,6 +96,17 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Doctor no encontrado' },
         { status: 404 }
+      );
+    }
+
+    // TIERS 04 §12.6 #6.2b — una cuenta CONGELADA no recibe citas nuevas. Mismo
+    // veredicto y mismo mensaje que la ruta de slots; ver el comentario largo
+    // ahí. Va antes de crear nada porque después vienen Calendar, los dos SMS y
+    // Telegram: el paciente quedaba confirmado y el doctor sin poder verlo.
+    if (doctor.congeladaDesde) {
+      return NextResponse.json(
+        { success: false, error: 'Este doctor no está recibiendo citas en línea por ahora.', code: 'ACCOUNT_FROZEN' },
+        { status: 409 }
       );
     }
 

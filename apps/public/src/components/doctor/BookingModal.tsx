@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { X } from "lucide-react";
 import BookingWidget from "./BookingWidget";
 import RangeBookingWidget from "./RangeBookingWidget";
+import AgendaNoDisponible from "./AgendaNoDisponible";
 import type { Service } from "@/types/doctor";
 
 interface BookingModalProps {
@@ -15,9 +16,16 @@ interface BookingModalProps {
   services?: Service[];
   appointmentModes?: ('in_person' | 'teleconsult')[];
   hasRanges?: boolean;
+  /** TIERS #6.2b — false = cuenta congelada: el modal dice que no se puede
+   *  agendar en vez de pintar el formulario. Se cubre aqui porque al modal se
+   *  llega desde CUATRO lados (hero, sidebar, barra movil y el calendario), y
+   *  un boton que abre un formulario condenado a dar 409 es peor que uno que
+   *  explica. */
+  aceptaCitasEnLinea?: boolean;
+  telefono?: string | null;
 }
 
-export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate = null, googleAdsId, services = [], appointmentModes = ['in_person', 'teleconsult'], hasRanges = false }: BookingModalProps) {
+export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate = null, googleAdsId, services = [], appointmentModes = ['in_person', 'teleconsult'], hasRanges = false, aceptaCitasEnLinea = true, telefono }: BookingModalProps) {
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -101,7 +109,9 @@ export default function BookingModal({ isOpen, onClose, doctorSlug, initialDate 
 
         {/* Content */}
         <div style={{ padding: '24px' }}>
-          {hasRanges ? (
+          {!aceptaCitasEnLinea ? (
+            <AgendaNoDisponible telefono={telefono} />
+          ) : hasRanges ? (
             <RangeBookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} googleAdsId={googleAdsId} services={services} appointmentModes={appointmentModes} />
           ) : (
             <BookingWidget doctorSlug={doctorSlug} isModal={true} initialDate={initialDate} googleAdsId={googleAdsId} services={services} appointmentModes={appointmentModes} />

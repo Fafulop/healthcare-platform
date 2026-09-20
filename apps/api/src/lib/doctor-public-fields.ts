@@ -21,6 +21,14 @@
 export const DOCTOR_PRIVATE_FIELDS = {
   // Product plan (TIERS) — commercial data, not profile data.
   tier: true,
+  // When the account was FROZEN for non-payment (TIERS #6.2). Same class as
+  // `tier`, and worse: it publishes that this doctor stopped paying us, and
+  // when. A patient deciding whether to book has no business reading it, and a
+  // competitor scraping the endpoint even less. Found 2026-09-20 while building
+  // #6.2b — it had been public since the column shipped on 2026-09-18.
+  // What the public site needs instead is `aceptaCitasEnLinea`, a DERIVED
+  // boolean added by the route: whether you can book, never why you cannot.
+  congeladaDesde: true,
   // Payment provider credentials and account identifiers.
   mpAccessToken: true,
   mpRefreshToken: true,

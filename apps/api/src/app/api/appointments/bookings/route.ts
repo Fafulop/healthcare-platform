@@ -143,6 +143,9 @@ export async function POST(request: Request) {
     const doctorFieldSettings = await prisma.doctor.findUnique({
       where: { id: slotForValidation.doctorId },
       select: {
+        // TIERS #6.2b: ¿la cuenta está congelada? Va en este select y no en una
+        // consulta aparte porque ya estábamos leyendo al doctor.
+        congeladaDesde:                  true,
         bookingPublicEmailRequired:      true,
         bookingPublicPhoneRequired:      true,
         bookingPublicWhatsappRequired:   true,
@@ -151,6 +154,25 @@ export async function POST(request: Request) {
         bookingHorariosWhatsappRequired: true,
       },
     });
+
+    // TIERS 04 §12.6 #6.2b — una cuenta CONGELADA no recibe citas nuevas.
+    //
+    // Va ANTES de crear nada: la cita dispara después evento de Google Calendar,
+    // SMS al paciente Y al doctor, y Telegram. Hasta hoy el paciente agendaba,
+    // recibía su SMS de confirmación, y el doctor no podía abrir la app para
+    // verla — la peor combinación posible.
+    //
+    // El auth de esta ruta es OPCIONAL (agendar en público es el camino de
+    // diseño), así que el `ACCOUNT_FROZEN` que lanza `validateAuthToken` se lo
+    // traga el `catch {}` de arriba: aquí hay que preguntar a mano. Aplica a
+    // cualquiera, con token o sin él: una cita que el doctor no puede ver no
+    // sirve, la haya creado quien la haya creado.
+    if (doctorFieldSettings?.congeladaDesde) {
+      return NextResponse.json(
+        { success: false, error: 'Este doctor no está recibiendo citas en línea por ahora.', code: 'ACCOUNT_FROZEN' },
+        { status: 409 }
+      );
+    }
 
     const emailRequired    = isDoctor
       ? (doctorFieldSettings?.bookingHorariosEmailRequired    ?? true)

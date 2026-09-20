@@ -176,3 +176,32 @@ export const RUTAS_DE_CUENTA_CONGELADA = ['/api/auth/', '/api/account/', '/api/b
 export function rutaPermitidaCongelada(pathname: string): boolean {
   return RUTAS_DE_CUENTA_CONGELADA.some((p) => pathname.startsWith(p));
 }
+
+/**
+ * TIERS 04 §12.6 #6.2b — ¿esta CUENTA está congelada?
+ *
+ * `EffectiveAccess.congelada` contesta lo mismo para el usuario que trae una
+ * sesión. Esto es para el otro lado del producto: la reserva PÚBLICA, donde no
+ * hay sesión ninguna y el doctor es simplemente el dueño de un slot. Hasta hoy
+ * un paciente podía agendar en una cuenta congelada —con su SMS de confirmación
+ * y todo— una cita que el doctor no puede abrir la app para ver.
+ *
+ * Fail-OPEN a propósito: si la BD parpadea, se sigue pudiendo agendar. Una cita
+ * de más en una cuenta congelada se arregla; cerrarle la agenda a TODOS los
+ * doctores por un error transitorio, no.
+ */
+export async function doctorCongelado(
+  prisma: PrismaClient,
+  doctorId: string
+): Promise<boolean> {
+  try {
+    const doc = await prisma.doctor.findUnique({
+      where: { id: doctorId },
+      select: { congeladaDesde: true },
+    });
+    return !!doc?.congeladaDesde;
+  } catch (error) {
+    console.error('[membership] doctorCongelado failed:', error);
+    return false;
+  }
+}

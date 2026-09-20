@@ -122,6 +122,10 @@ function transformDoctorToProfile(doctor: any): DoctorProfile {
 
     // Scheduling mode detection
     hasRanges: doctor.hasRanges ?? false,
+
+    // TIERS #6.2b — cuenta congelada ⇒ sin agenda en línea. `?? true` para que
+    // una respuesta sin el campo no le apague la agenda a quien sí paga.
+    aceptaCitasEnLinea: doctor.aceptaCitasEnLinea ?? true,
   };
 }
 

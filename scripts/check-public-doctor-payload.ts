@@ -37,7 +37,13 @@ const PUBLIC_ROUTES = [
 
 /** Name patterns that mean "this is a credential, a private handle, or commercial data". */
 const SENSITIVE_PATTERN =
-  /token|secret|password|credential|apikey|api_key|accountid|chatid|channelid|calendarid|signature|tier/i;
+  // ⚠️ El patrón estaba SÓLO en inglés + `tier`, y por eso dejó pasar
+  // `congeladaDesde` (2026-09-20): la fecha en que la cuenta de un doctor se
+  // congeló por no pagar se estuvo sirviendo a cualquiera que llamara la ruta
+  // pública, mientras `tier` —el mismo tipo de dato— sí estaba excluido. Las
+  // columnas de este repo se nombran en español cuando son de negocio, así que
+  // el patrón tiene que hablar los dos idiomas o sólo atrapa la mitad.
+  /token|secret|password|credential|apikey|api_key|accountid|chatid|channelid|calendarid|signature|tier|congelad|pagado|suscripcion|cobro|facturacion/i;
 
 /**
  * Sensitive-LOOKING fields that are deliberately public, each with the reason.
