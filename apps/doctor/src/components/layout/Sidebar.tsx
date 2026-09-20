@@ -9,7 +9,6 @@ import { pagePermissionKey } from "@healthcare/database";
 import { usePermissions } from "@/lib/permissions-client";
 import {
   User,
-  FileText,
   Calendar,
   LogOut,
   Users,
@@ -17,7 +16,6 @@ import {
   ShoppingCart,
   ShoppingBag,
   Package,
-  Video,
   CheckSquare,
   NotebookPen,
   UserCog,
@@ -199,18 +197,12 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
               active={pathname?.startsWith("/dashboard/mi-perfil")}
             />
           )}
-          <NavItem
-            icon={Video}
-            label="Contenido Audiovisual"
-            href="/dashboard/contenido-audiovisual"
-            active={pathname?.startsWith("/dashboard/contenido-audiovisual")}
-          />
-          <NavItem
-            icon={FileText}
-            label="Mi Blog"
-            href="/dashboard/blog"
-            active={pathname?.startsWith("/dashboard/blog")}
-          />
+          {/* Contenido Audiovisual y Mi Blog se fueron a «Perfil Publico»
+              como pestanas (2026-09-20): los dos SON perfil publico. Sus rutas
+              `/dashboard/blog` y `/dashboard/contenido-audiovisual` siguen
+              vivas —la pestana esta detras del toggle `perfil`, y un member con
+              `blog` pero sin `perfil` necesita llegar por URL—, pero ya no
+              ocupan un renglon del menu. */}
         </div>
 
         <hr className="my-3 border-gray-200" />

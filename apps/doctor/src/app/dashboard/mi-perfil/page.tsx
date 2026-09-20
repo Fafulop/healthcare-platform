@@ -14,6 +14,8 @@ import MediaSection from "@/components/profile/MediaSection";
 import FaqsSocialSection from "@/components/profile/FaqsSocialSection";
 import ReviewsSection from "@/components/profile/ReviewsSection";
 import GuiaSeoSection from "@/components/profile/GuiaSeoSection";
+import BlogSection from "@/components/profile/BlogSection";
+import ContenidoSection from "@/components/profile/ContenidoSection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
 
@@ -25,6 +27,8 @@ const TABS = [
   { id: "media", label: "Multimedia" },
   { id: "faqs", label: "FAQs y Social" },
   { id: "reviews", label: "Opiniones" },
+  { id: "blog", label: "Mi Blog" },
+  { id: "contenido", label: "Audiovisual" },
   { id: "guia", label: "Guía SEO" },
 ] as const;
 
@@ -387,7 +391,12 @@ export default function MiPerfilPage() {
           onScroll={updateTabArrows}
           className="flex gap-0 sm:gap-1 overflow-x-auto -mb-px scrollbar-hide"
         >
-          {TABS.filter((tab) => isOwner || !OWNER_ONLY_TABS.includes(tab.id)).map((tab) => (
+          {TABS.filter((tab) => isOwner || !OWNER_ONLY_TABS.includes(tab.id))
+            // Blog y Audiovisual tienen TOGGLE PROPIO (`blog`, `contenido`).
+            // Entrar aqui ya exige `perfil`, pero eso no es razon para
+            // ensenarle a un member una pestana que su duenio no le dio.
+            .filter((tab) => (tab.id === "blog" ? can("blog") : tab.id === "contenido" ? can("contenido") : true))
+            .map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -448,10 +457,13 @@ export default function MiPerfilPage() {
           <ReviewsSection reviews={reviews} reviewStats={reviewStats} onDelete={handleDeleteReview} />
         )}
         {activeTab === "guia" && <GuiaSeoSection />}
+        {activeTab === "blog" && <BlogSection />}
+        {activeTab === "contenido" && <ContenidoSection />}
       </div>
 
-      {/* Save Bar — oculta en Guía SEO, que no guarda nada. */}
-      <div className={`fixed bottom-16 lg:bottom-0 left-0 right-0 lg:sticky bg-white border-t border-gray-200 p-3 sm:p-4 flex items-center justify-between gap-3 z-40 ${(activeTab === "guia") ? "hidden" : ""}`}>
+      {/* Save Bar — oculta donde no aplica: Guía SEO no guarda nada, y Blog y
+          Audiovisual guardan por su cuenta. */}
+      <div className={`fixed bottom-16 lg:bottom-0 left-0 right-0 lg:sticky bg-white border-t border-gray-200 p-3 sm:p-4 flex items-center justify-between gap-3 z-40 ${(activeTab === "guia" || activeTab === "blog" || activeTab === "contenido") ? "hidden" : ""}`}>
         {saveMessage && (
           <p
             className={`text-xs sm:text-sm font-medium truncate ${

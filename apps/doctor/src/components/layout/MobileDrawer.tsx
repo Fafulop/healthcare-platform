@@ -13,8 +13,6 @@ import {
   ShoppingCart,
   ShoppingBag,
   X,
-  FileText,
-  Video,
   CheckSquare,
   NotebookPen,
   UserCog,
@@ -183,20 +181,12 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
                 onClick={onClose}
               />
             )}
-            <NavItem
-              icon={Video}
-              label="Contenido Audiovisual"
-              href="/dashboard/contenido-audiovisual"
-              active={pathname.startsWith("/dashboard/contenido-audiovisual")}
-              onClick={onClose}
-            />
-            <NavItem
-              icon={FileText}
-              label="Mi Blog"
-              href="/dashboard/blog"
-              active={pathname.startsWith("/dashboard/blog")}
-              onClick={onClose}
-            />
+            {/* Contenido Audiovisual y Mi Blog se fueron a «Perfil Publico»
+                como pestanas (2026-09-20): los dos SON perfil publico. Sus rutas
+                `/dashboard/blog` y `/dashboard/contenido-audiovisual` siguen
+                vivas —la pestana esta detras del toggle `perfil`, y un member con
+                `blog` pero sin `perfil` necesita llegar por URL—, pero ya no
+                ocupan un renglon del menu. */}
           </div>
 
           <hr className="border-gray-200" />

@@ -29,8 +29,8 @@ por default — no se puede dejar un hueco abierto por olvido.
 |---|---|---|---|
 | 1 | Editar Perfil (`perfil`) | ✅ `doctors`(write)/`reviews`/`settings`/`doctor`(write) | ✅ página |
 | 2 | Perfil Público (`perfil_publico`) | — por diseño (la página pública ES pública) | ⚠️ **ya no esconde nada** (2026-09-20, ver abajo) |
-| 3 | Contenido Audiovisual (`contenido`) | — sin feature aún (página "Próximamente") | ✅ página |
-| 4 | Mi Blog (`blog`) | ✅ `articles`, `doctors/*/articles` | ✅ |
+| 3 | Contenido Audiovisual (`contenido`) | — sin feature aún (página "Próximamente") | ✅ página **+ pestaña** (2026-09-20) |
+| 4 | Mi Blog (`blog`) | ✅ `articles`, `doctors/*/articles` | ✅ página **+ pestaña** (2026-09-20) |
 | 5 | Mis Citas (`citas`) | ✅ `appointments`/`calendar`/`doctors/*/availability` | ✅ |
 | 6 | Expedientes (`expedientes`) | ✅ `medical-records`/`custom-templates`/`doctor/pdf-settings` | ✅ |
 | 7 | Tareas (`tareas`) | ✅ `medical-records/tasks` (más específico gana) | ✅ |
@@ -46,6 +46,26 @@ por default — no se puede dejar un hueco abierto por olvido.
 | 17 | Productos (`productos`) | ✅ `products`/`product-attributes`/`areas` | ✅ |
 | 18 | Ayuda (`ayuda`) | — contenido estático, sin API | ✅ página/PermissionGate |
 | 19 | Asistente IA (`asistente_ia`) | ✅ `agenda-agent` (+ filtrado de módulos, PR C) | ✅ gate del panel |
+
+### ⚠️ 2026-09-20 — `blog` y `contenido` ahora se ven en DOS lugares
+
+Las dos entradas salieron del menú y son **pestañas de «Perfil Público»**
+(`/dashboard/mi-perfil`): un artículo del blog ES perfil público. Lo que hay que
+saber para que esta auditoría siga siendo cierta:
+
+- **Sus rutas siguen vivas** (`/dashboard/blog`, `/dashboard/contenido-audiovisual`).
+  No se duplicó nada: el contenido vive en `components/profile/BlogSection.tsx` y
+  `ContenidoSection.tsx`, y las rutas son cáscaras que los renderizan.
+- **Las rutas se conservaron A PROPÓSITO.** La pestaña está dentro de una página
+  que exige `perfil`, así que un member con `blog` pero **sin** `perfil` sólo
+  puede llegar por URL. Sigue teniendo el permiso entero; lo que perdió es el
+  renglón del menú. Se aceptó ese costo (decisión del usuario) porque ese reparto
+  —blog sí, perfil no— hoy no lo usa nadie.
+- **Cada pestaña se filtra por SU toggle** (`can('blog')`, `can('contenido')`), no
+  por el de la página: entrar ya exige `perfil`, pero eso no es razón para
+  enseñarle a un member una pestaña que su dueño no le dio.
+- El bloqueo **server-side no cambió**: `articles` y `doctors/*/articles` siguen
+  bajo `blog`. La frontera real está donde estaba.
 
 ## Los 3 sin ruta server-side — correcto por diseño
 
