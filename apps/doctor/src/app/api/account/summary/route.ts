@@ -27,11 +27,12 @@ export async function GET(request: NextRequest) {
   try {
     const { doctorId, tier } = await requireOwnerAuth(request);
 
-    const [pacientesActivos, agregadoArchivos] = await Promise.all([
+    const [pacientesActivos, agregadoArchivos, doctor] = await Promise.all([
       prisma.patient.count({
         where: { doctorId, status: PATIENT_STATUS_COUNTED_AGAINST_QUOTA },
       }),
       prisma.storedFile.aggregate({ where: { doctorId }, _sum: { sizeBytes: true } }),
+      prisma.doctor.findUnique({ where: { id: doctorId }, select: { congeladaDesde: true } }),
     ]);
 
     return NextResponse.json({
@@ -51,6 +52,9 @@ export async function GET(request: NextRequest) {
         usadoBytes: agregadoArchivos._sum.sizeBytes ?? 0,
         topeBytes: storageBytesFor(tier),
       },
+      // TIERS 04 §11.4/§11.5 (#6.3): desde cuándo está congelada (null = no lo
+      // está). La pantalla calcula con esto hasta cuándo se guardan los adjuntos.
+      congeladaDesde: doctor?.congeladaDesde?.toISOString() ?? null,
     });
   } catch (error) {
     return handleApiError(error);

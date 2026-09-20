@@ -52,6 +52,7 @@ import {
   CreditCard,
   ExternalLink,
   RefreshCw,
+  Download,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -66,6 +67,8 @@ interface ResumenCuenta {
   tier: string;
   pacientes: { usados: number; tope: number | null };
   almacenamiento: { usadoBytes: number; topeBytes: number };
+  /** TIERS #6.3: desde cuándo está congelada; null = no lo está. */
+  congeladaDesde?: string | null;
 }
 
 export default function CuentaPage() {
@@ -308,7 +311,116 @@ export default function CuentaPage() {
           </section>
         </>
       )}
+
+      {/* ── Tu información (TIERS 04 §11.4, #6.3) ─────────────────────────
+          FUERA del `{resumen && …}` a propósito: el aviso de cuenta congelada
+          dice «también puedes descargar tu información, más abajo», y si la
+          lectura del resumen falla esta pantalla se quedaba sólo con el error
+          rojo — la frase apuntaba a nada, en la única pantalla que le queda a
+          quien no paga. La descarga no necesita el resumen; `congeladaDesde`
+          sólo agrega la línea de hasta cuándo guardamos los adjuntos.
+          Un member sí queda fuera: la descarga es sólo del titular. */}
+      {error !== "permiso" && (
+        <SeccionDescarga
+          congeladaDesde={resumen?.congeladaDesde ?? null}
+          estadoDesconocido={!resumen}
+        />
+      )}
     </div>
+  );
+}
+
+/** TIERS 04 §11.5: los adjuntos de una cuenta congelada se guardan 1 año desde
+ * que se congeló. Hoy nada los borra, así que la frase es cierta como piso. */
+const ANIOS_ADJUNTOS_CONGELADA = 1;
+
+/**
+ * TIERS 04 §11.4 (#6.3) — «Descargar mi información»: un zip con todo lo
+ * capturado, SIN los adjuntos (sólo su lista). Para cualquier dueño (respaldo) y
+ * sobre todo para una cuenta CONGELADA, que llega aquí sin pagar.
+ *
+ * `estadoDesconocido` existe porque esta sección se pinta TAMBIÉN cuando no se
+ * pudo leer el resumen: ahí `congeladaDesde` llega null, y un null que significa
+ * «no sé» se veía idéntico a uno que significa «no está congelada» — la cuenta
+ * congelada se quedaba sin la frase de hasta cuándo guardamos sus adjuntos, sin
+ * que nada lo dijera. Callar «no sé» es afirmar «no».
+ */
+function SeccionDescarga({
+  congeladaDesde,
+  estadoDesconocido,
+}: {
+  congeladaDesde: string | null;
+  estadoDesconocido: boolean;
+}) {
+  const [descargando, setDescargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  let adjuntosHasta: string | null = null;
+  if (congeladaDesde) {
+    const d = new Date(congeladaDesde);
+    d.setFullYear(d.getFullYear() + ANIOS_ADJUNTOS_CONGELADA);
+    adjuntosHasta = fecha(d.toISOString());
+  }
+
+  async function descargar() {
+    setDescargando(true);
+    setError(null);
+    try {
+      const res = await authFetch(`${API_URL}/api/account/exportar`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "No se pudo preparar la descarga");
+      }
+      const blob = await res.blob();
+      const nombre =
+        /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ??
+        "mi-informacion-tusalud.zip";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nombre;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo preparar la descarga");
+    } finally {
+      setDescargando(false);
+    }
+  }
+
+  return (
+    <section id="descargar" className="mt-6 p-5 bg-white border border-gray-200 rounded-lg scroll-mt-20">
+      <h2 className="text-sm font-semibold text-gray-900">Tu información</h2>
+      <p className="text-sm text-gray-600 mt-1">
+        Descarga un archivo .zip con tus pacientes, consultas, citas y recetas (para Excel) y el
+        expediente completo de cada paciente (se abre en el navegador y se imprime a PDF). No
+        incluye los archivos adjuntos —trae su lista— ni tus facturas: el XML de cada CFDI se
+        descarga desde Facturación.
+      </p>
+      {adjuntosHasta && (
+        <p className="text-sm text-sky-800 mt-2">
+          Guardamos tus archivos adjuntos hasta el {adjuntosHasta}. Para volver a
+          descargarlos uno por uno necesitas reactivar tu cuenta.
+        </p>
+      )}
+      {!adjuntosHasta && estadoDesconocido && (
+        <p className="text-sm text-gray-500 mt-2">
+          No pudimos leer el estado de tu cuenta, así que no podemos decirte aquí hasta
+          cuándo guardamos tus archivos adjuntos. La descarga sí funciona.
+        </p>
+      )}
+      <button
+        onClick={descargar}
+        disabled={descargando}
+        className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-md bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-60 transition-colors"
+      >
+        {descargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+        {descargando ? "Preparando…" : "Descargar mi información"}
+      </button>
+      {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+    </section>
   );
 }
 

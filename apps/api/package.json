@@ -16,6 +16,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pdfkit": "^0.17.6",
     "exceljs": "^4.4.0",
+    "fflate": "^0.8.3",
     "googleapis": "^171.4.0",
     "jsonwebtoken": "^9.0.3",
     "next": "16.0.10",

@@ -10,8 +10,8 @@
  * - Un MEMBER no puede abrir «Mi Cuenta» (es OWNER_ONLY): ve sólo el aviso y a
  *   quién pedírselo.
  *
- * ⚠️ No ofrece «Descargar mi información»: eso es #6.3 y todavía no existe. Una
- * frase sobre algo decidido pero no construido afirma un hecho falso.
+ * «Descargar mi información» (#6.3) vive en Mi Cuenta (`#descargar`); el aviso
+ * del dueño lo señala. Un member no lo ve: la descarga es sólo del titular.
  */
 
 import { signOut } from "next-auth/react";
@@ -30,7 +30,7 @@ export function AvisoCuentaCongelada({ esDueno }: { esDueno: boolean }) {
           </p>
           <p className="mt-1">
             {esDueno
-              ? "Para volver a usar tu cuenta, paga desde esta página. En cuanto se confirme el pago, tu cuenta se descongela con toda tu información."
+              ? "Para volver a usar tu cuenta, paga desde esta página. En cuanto se confirme el pago, tu cuenta se descongela con toda tu información. También puedes descargar tu información sin pagar, más abajo."
               : "Pídele al titular de la cuenta que la reactive desde «Mi Cuenta»."}
           </p>
           <button
