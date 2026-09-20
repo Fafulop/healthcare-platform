@@ -45,13 +45,15 @@ Necesita su propia sesión, con el PDF enfrente. **Nunca en un commit de cobro.*
 
 ### Lo siguiente a construir
 
-**#1–#4 y #5a de §12.6 están en prod y probados (§12.7); #6.1 · #6.2 · #6.3 también están en prod
-(§12.7 y §12.8) — #6.3 con el clic pendiente.** Sigue **#6.2b, el último 🔴 que bloquea pasar a modo
-vivo**: hoy los pacientes SIGUEN agendando (SMS/Calendar/Telegram) citas que el doctor congelado no
-puede ver, o sea es el único que está produciendo estado malo ahora mismo. Luego #6.4 (avisos) →
-#6.5 (el rastro que no deja la descarga masiva) → #5b → bajar de plan (#7) → una cuenta por doctor
-(#8). Cada uno se presenta como plan y espera el OK antes de código. ⚠️ Antes que todo eso, ver el
-**URGENTE** del README (el login).
+**🎉 YA NO QUEDA NINGÚN 🔴.** #1–#4 y #5a (§12.7), #6.1 · #6.2 (§12.7), #6.3 (§12.8) y **#6.2b
+(§12.9, probado congelando dr-quebradita en prod)** están todos arriba. Lo que bloquea pasar a modo
+vivo deja de ser funcionalidad faltante y pasa a ser **C4: las 10 cuentas PRO que no pagan** — una
+decisión de negocio, no código.
+
+Sigue, ya sin nada urgente: **#6.3 sólo le falta el CLIC** (abrir Mi Cuenta y descargar) → #6.4
+(avisos por correo) → #6.5 (la descarga masiva no deja rastro en `patient_audit_logs`) → #5b → bajar
+de plan (#7) → una cuenta por doctor (#8). Cada uno se presenta como plan y espera el OK antes de
+código. ⚠️ Antes que todo eso, ver el **URGENTE** del README (el login).
 
 ---
 
@@ -573,7 +575,7 @@ Stripe (modo prueba), configurado por el usuario el 2026-09-18: **Smart Retries,
 | 5b | **Borrar libera espacio — las otras 16 superficies** (videos de perfil, blog, flujo, receta, reemplazar foto…) | R3 | No | Mediano | ⬜ |
 | 6.1 | **Dejar de pagar — parte 1**: `pagado_hasta` (B2a), cron diario, 15 días de margen → GRATIS si cabe | B2 · B3b · P2 · §11 | Lee | Mediano | ✅ `ff22b0f7` — dryRun probado |
 | 6.2 | Congelar a quien no cabe + pantalla [Reactivar] (sin [Descargar]: es 6.3) | B3d · §11 | Lee | Mediano | ✅ `62e36800` — probado con clic |
-| 6.2b | **La reserva pública de una cuenta congelada** — hoy los pacientes SIGUEN agendando (SMS/Calendar/Telegram) citas que el doctor no puede ver. Decidir qué ve el paciente y bloquear bookings/range-bookings/slots | §11 | No | Chico-mediano | ⬜ 🔴 **bloquea pasar a modo vivo** |
+| 6.2b | **La reserva pública de una cuenta congelada** — los pacientes SEGUÍAN agendando (SMS/Calendar/Telegram) citas que el doctor no puede ver | §11 | No | Chico-mediano | ✅ `d7d04b20` — **probado en prod congelando dr-quebradita** (§12.9) |
 | 6.3 | La descarga (zip) | §11.4 | No | Mediano | ✅ `3bb783a1` — **falta el clic** (§12.8) |
 | 6.4 | Avisos por correo al doctor (G8) | §11.5 | No | Chico | ⬜ |
 | 6.5 | **La descarga masiva de expedientes no deja rastro** — `apps/doctor` escribe `patientAuditLog` en 42 caminos de datos de paciente; `apps/api` en ninguno, y #6.3 se lleva TODA la cuenta. Con una sesión de dueño robada, ver UN expediente queda registrado y bajárselos todos no. No es un defecto de #6.3: es que `apps/api` no tiene `logAudit` | §11.4 · LFPDPPP/NOM-024 | No | Chico-mediano | ⬜ |
@@ -734,6 +736,82 @@ ningún teléfono.
 nunca se ejecutaron — `tsc` sólo dice que compilan. El usuario decidió pushear sin eso
 (2026-09-20). **Abrir Mi Cuenta y darle a «Descargar mi información» es la prueba pendiente**: si
 baja un zip con `tareas.csv` adentro, #6.3 está cerrado.
+
+### 12.9 As-built de #6.2b — la reserva pública de una cuenta congelada (2026-09-20)
+
+**`d7d04b20` en prod** (api + public, ambos SUCCESS) y **probado de verdad**: se congeló
+dr-quebradita a mano ~7 minutos, se corrió todo contra prod y se devolvió la cuenta a como estaba
+(`tier BASICO`, `congelada_desde NULL`, 31 citas antes y 31 después).
+
+**🎉 Con esto NO queda ningún 🔴.** Lo que bloquea pasar a modo vivo deja de ser funcionalidad
+faltante y pasa a ser la decisión de las 10 cuentas PRO que no pagan (C4).
+
+#### El agujero que cerró
+
+Un paciente agendaba en la cuenta de un doctor CONGELADO y **recibía su SMS de confirmación**,
+mientras el doctor no podía abrir la app para ver esa cita. Se disparaban además evento de Google
+Calendar, SMS al doctor y Telegram. De todo lo que quedaba abierto, era lo ÚNICO que seguía
+produciendo estado malo solo, sin que nadie hiciera nada.
+
+#### Lo que se decidió (usuario, 2026-09-20)
+
+| | Decisión | Por qué no la otra |
+|---|---|---|
+| Perfil público | **Se queda completo, sin agenda** | Ocultarlo (404) tira el SEO que el doctor construyó y rompe los enlaces que ya circulan, por algo que es entre él y nosotros |
+| El texto | «Este doctor no está recibiendo citas en línea por ahora» + el teléfono | «No hay horarios disponibles» es falso de otra manera: el paciente entiende que está lleno y vuelve mañana. Y NO se dice el porqué: su situación de cobro no es asunto del paciente |
+| El POST | **409, sin efectos** | Guardar la cita «en cuarentena» deja al paciente esperando una confirmación que no llega, y obliga a construir la pantalla donde el doctor las revisa |
+
+#### Cómo quedó
+
+- **Los CUATRO caminos que crean citas** (`bookings` · `range-bookings` · los dos `instant`)
+  responden **409 `ACCOUNT_FROZEN` ANTES de crear nada** ⇒ ningún efecto secundario llega a
+  ocurrir. En las dos rutas públicas el chequeo entra al `select` del doctor que ya se hacía (no
+  cuesta una consulta más); en las `instant` usa `doctorCongelado()`.
+- **Las `instant` también, y no por simetría:** un DOCTOR congelado ya rebotaba en
+  `validateAuthToken`, pero un **ADMIN no** — el chequeo de congelada se salta con
+  `role === 'ADMIN'` (`auth.ts`) — y creaba una cita **CONFIRMADA con SMS al paciente** en una
+  agenda invisible. Lo encontró el review, contra un comentario que yo ya había escrito diciendo
+  que la regla aplicaba «a cualquiera».
+- **La bandera la lee el WIDGET, no la página que lo hospeda.** Primero se pasó como prop desde
+  `DoctorProfileClient`; el review encontró que el **blog** —dos páginas— monta los mismos widgets
+  y se había quedado fuera, pintando «No hay citas disponibles», que es justo la frase falsa que
+  este trabajo venía a evitar. Preguntando dentro del widget, cualquier página futura queda
+  cubierta sola.
+
+#### 🔒 Una fuga viva que apareció en el camino
+
+`congeladaDesde` se estaba sirviendo a **cualquiera** en `GET /api/doctors` y `/api/doctors/[slug]`
+—la fecha exacta en que la cuenta de un doctor se congeló por no pagar— mientras `tier`, el mismo
+tipo de dato, sí estaba excluido. Pública desde que nació la columna (#6.2, 2026-09-18).
+
+- **Exposición real: ninguna.** Se midió: hoy hay **0** cuentas congeladas, y en esos dos días la
+  única que lo estuvo fue dr-quebradita, minutos, probando #6.2. El campo valió `null` para todos
+  los doctores de verdad todo el tiempo. **No hay nada que rotar** (a diferencia de `faa7e829`).
+- **Por qué el gate no la atrapó:** su `SENSITIVE_PATTERN` era una lista de palabras en INGLÉS más
+  `tier`, y las columnas de negocio de este repo se nombran en español. Ahora conoce
+  `congelad|pagado|suscripcion|cobro|facturacion`. **Probado en negativo**: sacando el campo de
+  `DOCTOR_PRIVATE_FIELDS`, el gate FALLA.
+- En su lugar se sirve **`aceptaCitasEnLinea`**, booleano DERIVADO: si puedes agendar, nunca por qué
+  no. Está duplicado el tipo `DoctorProfile` (`packages/types` y `apps/public/src/types`) — el
+  campo hay que ponerlo en los dos o el type-check truena en uno solo.
+
+#### Lo probado, con lo que devolvió
+
+| Qué | Resultado |
+|---|---|
+| `GET /api/doctors/dr-quebradita` | `congeladaDesde` **ausente** · `aceptaCitasEnLinea: false` |
+| `GET /availability` · `/range-availability` | `aceptaCitasEnLinea: false`, 0 fechas, 0 slots |
+| `POST /range-bookings` (anónimo) | **409** `ACCOUNT_FROZEN` · citas **31 → 31** |
+| Perfil público | la tarjeta, renderizada en el servidor |
+| **Blog** | la tarjeta (la superficie que encontró el review) |
+| Clic en «Agendar Cita» | el modal abre **con la tarjeta**, no con el formulario |
+
+#### Pendiente, cosmético (visto en la prueba, NO arreglado)
+
+La rejilla del calendario se sigue pintando arriba de la tarjeta, en gris y con todos los días
+deshabilitados, bajo el encabezado «Reserva tu Cita — Selecciona fecha y hora»; y los botones
+siguen diciendo «Agendar Cita» (el clic explica, no lleva a un formulario condenado). No es un
+error: es que la página dice dos cosas a la vez.
 
 ---
 

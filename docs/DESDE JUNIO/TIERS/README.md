@@ -8,6 +8,28 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## 🎉 2026-09-20: #6.2b — la reserva pública — en prod `d7d04b20` y PROBADO. **Ya no queda ningún 🔴**
+
+Un paciente agendaba en la cuenta de un doctor **congelado** y recibía su SMS de confirmación,
+mientras el doctor no podía abrir la app para ver esa cita (más evento de Calendar y Telegram). Era
+lo único que seguía produciendo estado malo solo. Ahora los **cuatro** caminos que crean citas
+responden 409 `ACCOUNT_FROZEN` antes de crear nada, y el perfil público dice «Este doctor no está
+recibiendo citas en línea por ahora» + el teléfono — no «no hay horarios» (que sería falso de otra
+forma) y nunca el porqué. Detalle, decisiones y pruebas en [`04` §12.9](04-PLAN-cambio-de-plan.md).
+
+**Probado congelando dr-quebradita ~7 min en prod** y devolviéndola como estaba (31 citas antes, 31
+después): perfil y **blog** con la tarjeta, el modal también, `POST` ⇒ 409, sin cita y sin SMS.
+
+🔒 **De paso, una fuga viva:** `congeladaDesde` —la fecha en que un doctor dejó de pagar— se servía
+a cualquiera en la ruta pública, mientras `tier` sí estaba excluido. **Exposición real: ninguna**
+(0 cuentas congeladas; el campo fue `null` para todos los doctores reales los dos días que estuvo
+expuesto), **nada que rotar**. El gate no lo atrapó porque su patrón estaba sólo en inglés; ahora
+habla español.
+
+**⏭️ Sigue, ya sin nada urgente:** **#6.3 sólo le falta el CLIC** → #6.4 (correos) → #6.5 (la
+descarga masiva de expedientes no deja rastro) → #5b. Para **modo vivo** lo que falta ya no es
+código: es **C4**, las 10 cuentas PRO que no pagan.
+
 ## ✅ 2026-09-20: #6.3 — «Descargar mi información» — en prod `3bb783a1`, **falta el clic**
 
 Cualquier dueño —y sobre todo una cuenta **congelada**, que llega sin pagar— baja un zip con todo
@@ -26,11 +48,7 @@ contando lo que quedó en el zip **contra la BD** (23/23 tareas, 7/7 adjuntos).
 que compilan. Abrir Mi Cuenta → «Descargar mi información»: si baja un zip con `tareas.csv`
 adentro, #6.3 queda cerrado.
 
-**⏭️ Sigue: 6.2b — ya es el ÚNICO 🔴 que bloquea pasar a modo vivo** (la reserva pública de una
-cuenta congelada: hoy los pacientes SIGUEN agendando por SMS/Calendar/Telegram citas que el doctor
-no puede ver — es lo único que está produciendo estado malo ahora mismo) → 6.4 (correos) → **6.5
-(nuevo: la descarga masiva de expedientes no deja rastro en `patient_audit_logs`; `apps/api` no
-tiene `logAudit` y #6.3 se lleva la cuenta entera)**.
+**⏭️ Siguió 6.2b, y ya está** (arriba): era el último 🔴.
 
 ## ✅ 2026-09-18 (noche): #6.2 — congelar — en prod `62e36800` y probado con clic
 
