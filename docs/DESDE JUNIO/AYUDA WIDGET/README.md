@@ -14,10 +14,10 @@
 
 ---
 
-## Estado: **NADA CONSTRUIDO.** Fase 0 (auditoría) hecha el 2026-09-22.
+## Estado: **Fases 0 y 1 hechas (2026-09-22). El widget NO existe todavía.**
 
-Lo que hay hoy es la línea de pensamiento, el plan y la auditoría de las guías. Ni una línea de
-código.
+Hay auditoría de las guías y **el manual de Agenda y Expediente**
+(`apps/doctor/src/lib/ayuda/manual-del-doctor.md`). Ni una línea de código del widget.
 
 | Doc | Tipo | Para qué |
 |---|---|---|
@@ -74,8 +74,9 @@ automatizar.
 ## ⏭️ Qué sigue
 
 ~~Fase 0: auditar las guías~~ — **hecha** ([`03-AUDITORIA`](03-AUDITORIA-guias.md)).
-**Fase 1: el manual de Agenda y Expediente, escrito desde el código** — la guía de Citas no
-sirve de base.
+~~Fase 1: el manual de Agenda y Expediente~~ — **hecha**; sus reglas de edición van en el
+comentario de arriba del propio `.md`.
+**Fase 2: el widget**, bloqueada por las decisiones de abajo.
 
 Y antes de escribir código, seis decisiones ([`02-PLAN`](02-PLAN-construccion.md) +
 [`SESSION-REFRESCO`](SESSION-REFRESCO.md)): qué modelo se prueba primero · si el widget vive en

@@ -9,8 +9,10 @@ no lleva RAG, por qué es un asistente aparte del Agente, y el plan por fases.
 
 **2026-09-22 — Fase 0 HECHA** ([`03-AUDITORIA-guias`](03-AUDITORIA-guias.md)): la guía de Citas
 está mayormente obsoleta (escrita en abril, nunca actualizada); Expedientes y Pagos, con parches.
-Sigue la Fase 1 — y con esto confirmado, el manual de Agenda **se escribe desde el código, no
-desde la guía**.
+**2026-09-22 — Fase 1 HECHA:** `apps/doctor/src/lib/ayuda/manual-del-doctor.md` cubre Agenda y
+Expediente, escrito desde el código. Al escribirlo salieron **7 hallazgos de producto** (uno 🔴:
+«Completar» en una cita Pendiente falla). Sigue la **Fase 2 — el widget**, que está bloqueada
+por las decisiones de abajo.
 
 ---
 
@@ -75,6 +77,43 @@ Detalle completo en [`03-AUDITORIA-guias`](03-AUDITORIA-guias.md). Lo esencial:
 > no encontró «Editar Perfil» ni «Integraciones». **Salió larga, y ese grep era la prueba
 > equivocada**: buscaba los nombres que uno sospechaba, no los rótulos que la guía cita. La
 > prueba que sí habría servido: que cada rótulo citado exista como texto en algún `.tsx`.
+
+### 2026-09-22 — Fase 1 hecha: el manual de Agenda y Expediente
+
+`apps/doctor/src/lib/ayuda/manual-del-doctor.md` — **3,683 palabras, 36 secciones `###`**,
+escrito desde el código (no desde las guías). Publicable tal cual para leerlo; todavía no lo
+consume nada.
+
+**Cómo se verificó:** cada afirmación se buscó en el componente o la ruta que la produce, y al
+final **cada rótulo entre «» se buscó como texto en `apps/doctor/src`** — todos existen (los dos
+con número variable, «Crear N Rangos» y «Bloquear N día(s)», se revisaron a mano). **No se abrió
+un navegador**: es lectura de código, igual que la auditoría.
+
+**Decisiones tomadas por default** (el usuario puede revertirlas):
+- **El plan del doctor:** el manual marca **«Depende de tu plan»** donde aplica, sin nombrar
+  planes ni precios (cambian). Sirve igual si el widget sabe el plan o no.
+- **Las guías JSX no se tocaron** — se congelan hasta decidir la Fase 5.
+- **El «Asistente» de Citas no se documenta**: `ASISTENTE_IA_VISIBLE = false`, nadie lo ve.
+- **Los formatos de informe son AXA, Allianz y GNP** — BBVA está en el árbol sin commitear y
+  no se nombra hasta que esté en prod.
+
+⚠️ **El tamaño cambia la cuenta de `00-POR-QUE` §3.** Esas estimaban ~11,000 palabras para las
+20 secciones. Sólo Agenda + Expediente ya son 3,683 — un tercio. Son las dos más grandes, así que
+el total probablemente sigue cabiendo en un prompt con holgura, pero **hay que volver a medir al
+terminar la Fase 4**, no dar el número de septiembre por bueno.
+
+**Hallazgos de PRODUCTO al escribirlo** (no son de las guías — son de la app, y el manual los
+dice tal cual en vez de esconderlos):
+
+| | Hallazgo | Dónde |
+|---|---|---|
+| 🔴 | En una cita **Pendiente** se pintan «Completar» y «No asistió», pero el servidor sólo acepta PENDING → CONFIRMED/CANCELLED: el doctor aprieta y recibe *«Transición no permitida»* | `BookingActions.tsx:477-488` vs `api/.../bookings/[id]/route.ts:25-31` |
+| 🟡 | **No hay botón para reactivar un expediente archivado.** La API lo soporta (y descuenta cupo, Q3), la UI no | `usePatientProfile.ts:57`; `PatientForm` no tiene campo de estado |
+| 🟡 | `/medical-records/formularios` **redirige** a la lista: la bandeja que describía la guía ya no existe | `formularios/page.tsx` |
+| 🟡 | **Reagendar manda DOS correos** al paciente: la cancelación de la anterior y la confirmación de la nueva | `appointments/page.tsx:521-536` → PATCH CANCELLED dispara el correo |
+| ⚪ | El correo de confirmación **no trae enlace para cancelar**, aunque la guía vieja decía que sí | `api/src/lib/gmail.ts` |
+| ⚪ | La página de Plantillas sigue **en inglés** («Custom Encounter Templates», «Create Template») | `custom-templates/page.tsx:49-59` |
+| ⚪ | «Campos de Cita» nombra sus secciones con el mundo de los slots («Horarios disponibles», «Nuevo horario»); agendar hoy usa «Nuevo horario» sin que nada lo diga | `BookingFieldSettingsModal.tsx` |
 
 **Dos cosas nuevas que decidir** (se suman a las 4 de arriba):
 
