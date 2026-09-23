@@ -5,8 +5,12 @@
 ## En una frase
 
 **2026-09-20 — sesión de DISEÑO. No hay código.** Quedó escrito qué se va a construir, por qué
-no lleva RAG, por qué es un asistente aparte del Agente, y el plan por fases. Lo siguiente es
-la fase 0: auditar las guías que ya existen.
+no lleva RAG, por qué es un asistente aparte del Agente, y el plan por fases.
+
+**2026-09-22 — Fase 0 HECHA** ([`03-AUDITORIA-guias`](03-AUDITORIA-guias.md)): la guía de Citas
+está mayormente obsoleta (escrita en abril, nunca actualizada); Expedientes y Pagos, con parches.
+Sigue la Fase 1 — y con esto confirmado, el manual de Agenda **se escribe desde el código, no
+desde la guía**.
 
 ---
 
@@ -54,4 +58,29 @@ Venía de una conversación sobre cómo dar soporte con planes baratos. La caden
 
 ## Bitácora
 
-*(Fallos en vivo, correcciones y hallazgos. Vacía por ahora — no hay nada corriendo.)*
+### 2026-09-22 — Fase 0 hecha: la auditoría de las guías
+
+Detalle completo en [`03-AUDITORIA-guias`](03-AUDITORIA-guias.md). Lo esencial:
+
+- **`CitasGuide` está mayormente obsoleta** — no por las mudanzas del 09-20, sino porque se
+  escribió el **2026-04-08** y cinco meses de agenda (calendario nuevo, agendar sin rango,
+  Cobro/Factura, botones de confirmación) pasaron sin tocarla. Botones que cita y **no existen**:
+  «Correo», «Enviar Meet», «Reenviar Meet», «Todas», «Aplicar», «Nuevo horario».
+- **`ExpedientesGuide` está casi al día** — parches: el botón «Formularios» ya no existe en la
+  lista, y **Chat IA / Voz están bloqueados en FREE/BASICO** sin que la guía lo diga.
+- **`PagosGuide` es correcta pero no vive en `/ayuda`** (es la pestaña «Guía» de Pagos) y no
+  enseña el camino más común: el link de pago desde la cita.
+
+> ⚠️ **Corrección a `02-PLAN` §Fase 0:** decía que la lista «puede ser corta» porque el `grep`
+> no encontró «Editar Perfil» ni «Integraciones». **Salió larga, y ese grep era la prueba
+> equivocada**: buscaba los nombres que uno sospechaba, no los rótulos que la guía cita. La
+> prueba que sí habría servido: que cada rótulo citado exista como texto en algún `.tsx`.
+
+**Dos cosas nuevas que decidir** (se suman a las 4 de arriba):
+
+5. **¿El widget sabe el plan del doctor?** `01-ARQUITECTURA` §6 dice que la ruta es la ÚNICA
+   señal de contexto. Pero si no sabe el plan, contesta con seguridad cómo usar Chat IA a quien
+   lo tiene bloqueado.
+6. **¿Se arreglan las guías JSX ahora, o se congelan y el esfuerzo va al manual?** Arreglar
+   `CitasGuide` es reescribirla; hacerlo dos veces (JSX y manual) es exactamente la divergencia
+   que `02-PLAN` §Fase 5 quiere evitar.

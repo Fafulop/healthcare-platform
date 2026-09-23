@@ -14,15 +14,17 @@
 
 ---
 
-## Estado: **NADA CONSTRUIDO.** 2026-09-20, sesión de diseño.
+## Estado: **NADA CONSTRUIDO.** Fase 0 (auditoría) hecha el 2026-09-22.
 
-Lo que hay hoy es la línea de pensamiento y el plan. Ni una línea de código.
+Lo que hay hoy es la línea de pensamiento, el plan y la auditoría de las guías. Ni una línea de
+código.
 
 | Doc | Tipo | Para qué |
 |---|---|---|
 | [`00-POR-QUE-y-decisiones`](00-POR-QUE-y-decisiones.md) | DECISIÓN | El problema, lo que ya existe, y **por qué cada decisión** |
 | [`01-ARQUITECTURA`](01-ARQUITECTURA.md) | DECISIÓN | Las 5 capas, el modelo intercambiable, la canalización de evals |
 | [`02-PLAN-construccion`](02-PLAN-construccion.md) | PLAN | Las fases, en orden, y qué falta decidir |
+| [`03-AUDITORIA-guias`](03-AUDITORIA-guias.md) | REFERENCIA (foto 2026-09-22) | Fase 0: qué de las guías actuales ya es falso, con archivo y línea |
 | [`SESSION-REFRESCO`](SESSION-REFRESCO.md) | ESTADO | **Se lee primero y se escribe al final** |
 
 *(Convenciones de tipos de doc: `../AGENTES/GENERAL AGENTES/08-EMPIEZA-AQUI.md` §3.)*
@@ -71,9 +73,11 @@ automatizar.
 
 ## ⏭️ Qué sigue
 
-**Fase 0: auditar las guías que ya existen** contra la UI de hoy — se escribieron antes de las
-cuatro mudanzas de menú del 2026-09-20.
+~~Fase 0: auditar las guías~~ — **hecha** ([`03-AUDITORIA`](03-AUDITORIA-guias.md)).
+**Fase 1: el manual de Agenda y Expediente, escrito desde el código** — la guía de Citas no
+sirve de base.
 
-Y antes de escribir código, cuatro decisiones ([`02-PLAN`](02-PLAN-construccion.md)):
-qué modelo se prueba primero · si el widget vive en todas las pantallas · si una cuenta
-congelada puede usarlo · **y quién escribe el manual**.
+Y antes de escribir código, seis decisiones ([`02-PLAN`](02-PLAN-construccion.md) +
+[`SESSION-REFRESCO`](SESSION-REFRESCO.md)): qué modelo se prueba primero · si el widget vive en
+todas las pantallas · si una cuenta congelada puede usarlo · **quién escribe el manual** · si
+el widget sabe el plan del doctor · y si las guías JSX se arreglan o se congelan.
