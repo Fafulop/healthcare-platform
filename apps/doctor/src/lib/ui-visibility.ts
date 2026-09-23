@@ -21,13 +21,6 @@
  */
 export const CONCILIACION_BANCARIA_VISIBLE = false;
 
-/**
- * 🚫 OCULTO 2026-08-27 — el widget flotante de AYUDA (el del signo de interrogación,
- * `HelpCircle`): `components/llm-assistant/ChatWidget`, el chat RAG sobre los docs.
- *
- * Se queda montado el resto de la pila flotante: 📅 `DayDetailsWidget` y 🎤
- * `VoiceAssistantHubWidget`. Su endpoint `/api/llm-assistant/chat` sigue vivo — de hecho
- * este widget ya tenía retiro planeado en PR 4 (ver
- * `docs/DESDE JUNIO/AGENTES/INVENTARIO IA/01-INVENTARIO-donde-vive-cada-chat.md`).
- */
-export const WIDGET_AYUDA_VISIBLE = false;
+// (2026-09-22) `WIDGET_AYUDA_VISIBLE` se retiró: apagaba el `llm-assistant/ChatWidget` (RAG
+// sobre los docs de desarrollo), que ya no se monta. Su lugar en la pila flotante lo tomó
+// `components/ayuda/AyudaWidget`, que no depende de ningún flag — ver AYUDA WIDGET/.

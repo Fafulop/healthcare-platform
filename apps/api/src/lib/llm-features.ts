@@ -21,7 +21,8 @@ export interface FeatureMeta {
 const FEATURES: Record<string, FeatureMeta> = {
   // Asistentes conversacionales
   'agenda-agent': { label: 'Asistente 🟢', category: 'Asistentes' },
-  'llm-assistant': { label: 'Ayuda (widget)', category: 'Asistentes' },
+  'llm-assistant': { label: 'Ayuda (widget RAG, retirado)', category: 'Asistentes' },
+  'ayuda-chat': { label: 'Ayuda (widget)', category: 'Asistentes' },
   'appointments-chat': { label: 'Chat agenda v1', category: 'Agenda' },
 
   // Expediente

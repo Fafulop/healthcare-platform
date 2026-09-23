@@ -22,7 +22,7 @@ export function ChatWidget() {
   // TIERS Q2b: pasa de `isOwner` a `can('ia')`. No cambia nada para members
   // (`can('ia')` ya es false para ellos) y además lo apaga en un plan sin IA.
   // Es puerta de OCULTAR, no de candado: el widget de ayuda no es el upsell
-  // que se quiere mostrar, y de hecho hoy está apagado por `WIDGET_AYUDA_VISIBLE`.
+  // que se quiere mostrar. (2026-09-22: ya NO se monta — lo reemplazó `ayuda/AyudaWidget`.)
   const { can, loading: permsLoading } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const { messages, isLoading, sendMessage, clearChat } = useLlmChat();

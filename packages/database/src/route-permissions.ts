@@ -239,6 +239,13 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   { prefix: 'voice', key: 'OWNER_ONLY', feature: 'ia' },
   { prefix: 'llm-assistant', key: 'OWNER_ONLY', feature: 'ia' },
 
+  // El widget de Ayuda NUEVO (docs/DESDE JUNIO/AYUDA WIDGET/). Es IA pero va SIN
+  // `feature: 'ia'` a propósito: está en TODOS los planes (decisión 2026-09-22) —
+  // existe justo porque los planes baratos no tienen soporte humano. Sólo lee un
+  // manual (cero datos del doctor), así que el toggle de member es `ayuda`, el
+  // mismo que ya gatea la página /dashboard/ayuda.
+  { prefix: 'ayuda', key: 'ayuda' },
+
   // Receta PDF identity (legal) — owner-only always (00-REQUISITOS §3.5)
   { prefix: 'prescription-template', key: 'OWNER_ONLY' },
   // Cross-block activity feed — conservative owner-only in v1

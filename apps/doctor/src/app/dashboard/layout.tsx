@@ -1,7 +1,6 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { WIDGET_AYUDA_VISIBLE } from "@/lib/ui-visibility";
 import { redirect, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, ChevronRight, ChevronLeft } from "lucide-react";
@@ -11,7 +10,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import RevokedAccessScreen from "@/components/layout/RevokedAccessScreen";
 import { AvisoCuentaCongelada } from "@/components/layout/CuentaCongelada";
 import { GoogleCalendarBanner } from "@/components/GoogleCalendarBanner";
-import { ChatWidget } from "@/components/llm-assistant/ChatWidget";
+import { AyudaWidget } from "@/components/ayuda/AyudaWidget";
 import { DayDetailsWidget } from "@/components/day-details/DayDetailsWidget";
 import { VoiceAssistantHubWidget } from "@/components/voice-hub/VoiceAssistantHubWidget";
 import { PracticeUIProvider } from "@/components/ui/PracticeUIProvider";
@@ -198,8 +197,10 @@ export default function DashboardRootLayout({
           <div className={widgetsCollapsed ? "hidden" : ""}>
             <VoiceAssistantHubWidget />
             <DayDetailsWidget />
-            {/* El del signo de interrogación (HelpCircle) — oculto, ver ui-visibility.ts */}
-            {WIDGET_AYUDA_VISIBLE && <ChatWidget />}
+            {/* El del signo de interrogación (HelpCircle): contesta desde el manual del doctor
+                — docs/DESDE JUNIO/AYUDA WIDGET/. Tomó el lugar del `llm-assistant/ChatWidget`
+                (RAG sobre los docs de desarrollo), que ya NO se monta. */}
+            <AyudaWidget />
           </div>
         </div>
       </PracticeUIProvider>

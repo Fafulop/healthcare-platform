@@ -118,6 +118,13 @@ export interface CallClaudeParams {
   toolChoice?: 'auto' | 'none';
   /** Per-call timeout in ms (default 60s) — a hung upstream must not pin the request. */
   timeoutMs?: number;
+  /**
+   * `true` = never send extended thinking, whatever the model. For callers that only
+   * re-word a document (the Ayuda widget): without it, Haiku silently gets a 4k thinking
+   * budget, `maxTokens` is raised past what the caller asked, and latency triples.
+   * Absent = the agent's behaviour, unchanged.
+   */
+  noThinking?: boolean;
 }
 
 export function isAnthropicConfigured(): boolean {
@@ -198,7 +205,8 @@ export async function callClaude(params: CallClaudeParams): Promise<AnthropicRes
   // `tool_choice: none` is the text-only synthesis call (loop exhaustion). Extended
   // thinking constrains tool_choice, so skip it there: that path just re-words tool
   // results it already has, and this removes a 400 risk for zero behavioral loss.
-  const thinking = params.toolChoice === 'none' ? null : thinkingFor(params.model);
+  const thinking =
+    params.toolChoice === 'none' || params.noThinking ? null : thinkingFor(params.model);
   // `budget_tokens` must be strictly less than `max_tokens`, so raise the ceiling
   // when thinking is on — never lower an explicit caller value.
   const maxTokens = Math.max(
