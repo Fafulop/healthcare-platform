@@ -4,20 +4,53 @@
 
 ## En una frase
 
-**2026-09-20 — sesión de DISEÑO. No hay código.** Quedó escrito qué se va a construir, por qué
-no lleva RAG, por qué es un asistente aparte del Agente, y el plan por fases.
+**2026-09-22 — EL WIDGET ESTÁ EN PROD Y FUNCIONA.** Fases 0, 1 y 2 hechas el mismo día.
+`68f1918f` desplegado con **SUCCESS en `@healthcare/doctor` y `@healthcare/api`** (verificado
+por `commitHash`), y **el usuario lo probó en la app: funciona** ("works live"). El botón azul
+**?** abajo a la derecha contesta cómo se usa la app desde
+`apps/doctor/src/lib/ayuda/manual-del-doctor.md`, en todos los planes, con `gpt-4o-mini`.
 
-**2026-09-22 — Fase 0 HECHA** ([`03-AUDITORIA-guias`](03-AUDITORIA-guias.md)): la guía de Citas
-está mayormente obsoleta (escrita en abril, nunca actualizada); Expedientes y Pagos, con parches.
-**2026-09-22 — Fase 2 CONSTRUIDA (sin commitear al escribir esto):** el widget existe —
-`/api/ayuda/chat` + `AyudaWidget` en la pila flotante, en todos los planes, con `gpt-4o-mini`.
-Probado con **llamadas reales** al modelo (10 preguntas, todas correctas, cero inventos) pero
-**nadie lo ha clicado en la app**. Detalle en la bitácora.
+| Fase | Estado | Commit |
+|---|---|---|
+| 0 — Auditar guías | ✅ | `d2b3d553` · [`03-AUDITORIA-guias`](03-AUDITORIA-guias.md) |
+| 1 — Manual Agenda + Expediente | ✅ | `6991c2dc` |
+| 2 — Widget punta a punta | ✅ **en prod, probado por el usuario** | `68f1918f` |
+| 3 — Evals (dos modelos) | ⏭️ **lo que sigue** | — |
+| 4 — Resto de las áreas del manual | pendiente | — |
+| 5 — Manual ↔ guías JSX | pendiente (las guías están congeladas) | — |
+| 6 — Video guionado | proyecto aparte | — |
 
-**2026-09-22 — Fase 1 HECHA:** `apps/doctor/src/lib/ayuda/manual-del-doctor.md` cubre Agenda y
-Expediente, escrito desde el código. Al escribirlo salieron **7 hallazgos de producto** (uno 🔴:
-«Completar» en una cita Pendiente falla). Sigue la **Fase 2 — el widget**, que está bloqueada
-por las decisiones de abajo.
+---
+
+## ⏭️ Para la próxima sesión — empieza aquí
+
+**1. Fase 3 — los evals** (`02-PLAN` §Fase 3). Base ya hecha: `apps/doctor/scripts/ayuda-probar.ts`
+llama al modelo de verdad con 10 casos (correr desde `apps/doctor`:
+`npx tsx --env-file=.env.local scripts/ayuda-probar.ts`). Falta convertirlo en suite con
+veredicto automático — ¿citó la sección correcta? ¿dijo «no lo sé» donde debía? ¿enlace vivo? —
+subir a 20–30 casos (la mitad fuera del manual a propósito), y correr **DOS veces por modelo**.
+- **La pregunta que tiene que contestar:** `gpt-4o-mini` contesta bien pero **no siempre cita**
+  (omitió la sección en 2 de 10, en las dos corridas). ¿`claude-haiku-4-5` cita mejor y vale lo
+  que cuesta? Se cambia con `AYUDA_MODELO` en el servicio `@healthcare/doctor`, sin deploy.
+- ⚠️ **La ruta Claude NO se ha probado nunca**: no hay `ANTHROPIC_API_KEY` local. Para probarla
+  hace falta la llave (el agente la usa en prod) o correr el script con ella en el entorno.
+
+**2. Bugs de PRODUCTO que salieron al escribir el manual** (tabla en la bitácora de la Fase 1).
+El 🔴: en una cita **Pendiente** se pintan «Completar» y «No asistió» y el servidor los rechaza
+(*«Transición no permitida»*) — arreglo chico: no pintarlos en Pendiente
+(`appointments/_components/BookingActions.tsx:477-488`). ⚠️ Si se arregla, **actualizar el
+manual** (`Agenda > Citas que piden tus pacientes` dice hoy que se ven pero no funcionan).
+
+**3. Limpieza pendiente, sin prisa:** el `llm-assistant/ChatWidget` viejo y su endpoint
+`/api/llm-assistant/chat` ya no se usan desde ninguna UI — borrarlos es decisión aparte
+(`AGENTES/INVENTARIO IA` tenía su retiro planeado en PR 4).
+
+**4. Regla para cualquiera que cambie la UI de Citas o Expedientes:** el manual es la fuente del
+widget. Si cambias un botón, **cambia el manual en el mismo commit** — si no, el widget enseña
+el botón viejo con toda seguridad. (Hoy no hay gate que lo cace; la idea de gate está en
+`03-AUDITORIA` §5.4: que cada «rótulo» del manual exista como texto en algún `.tsx`.)
+Caso concreto ya a la vista: **cuando el formato BBVA del informe médico llegue a prod**, hay que
+agregarlo en `Expediente > Informe para aseguradora` (hoy dice AXA, Allianz y GNP).
 
 ---
 
@@ -53,13 +86,17 @@ Venía de una conversación sobre cómo dar soporte con planes baratos. La caden
 
 ---
 
-## Pendiente de decidir (bloquea la fase 2)
+## Decisiones de la Fase 2 — cómo quedaron
 
-1. ¿Qué modelo primero? (recomendado: el barato, y medir si alcanza)
-2. ¿El widget en todas las pantallas, o sólo en las documentadas?
-3. ¿Una cuenta **congelada** puede usarlo? Hay que meterlo a `RUTAS_DE_CUENTA_CONGELADA`
-   a propósito; el default es que quede bloqueada.
-4. **¿Quién escribe el manual?** La grande. Días de código contra semanas de escritura.
+1. ~~¿Qué modelo primero?~~ → **`gpt-4o-mini`** (usuario, 2026-09-22). Se revisa con los evals.
+2. ~~¿Todas las pantallas?~~ → **Sí**, en toda la pila flotante del dashboard; la bienvenida
+   del widget dice «Por ahora conozco Citas y Expedientes».
+3. ~~¿Cuenta congelada?~~ → **No en v1** (usuario). El layout congelado no monta widgets.
+4. **¿Quién escribe el manual?** Sigue abierta para la Fase 4. La Fase 1 la escribió Claude
+   desde el código; el usuario no la ha revisado línea por línea.
+5. ~~¿Todos los planes?~~ → **Sí**, FREE incluido (usuario). Tope diario de 60 preguntas.
+6. **¿Guías JSX: arreglar o congelar?** Congeladas por default; no se tocaron. Se decide en la
+   Fase 5.
 
 ---
 
@@ -156,7 +193,7 @@ elemento, no la respuesta entera. Es la regla 0 aplicada a las citas.
 | Smoke read-only contra prod del `count` del tope diario | ✅ 0 filas `ayuda-chat` hoy · la misma forma da 298 para `agenda-agent` (el filtro no es vacuo) |
 | **Llamadas reales, 2 corridas × 10 preguntas con gpt-4o-mini** | ✅ **10/10 correctas en las dos**, incluidas las trampas (Completar en Pendiente → «confírmala»; reactivar archivado → «no hay botón»; asistente emitiendo receta → «sólo el titular»; exportar, ventas, WhatsApp → «no viene en mi manual») |
 | Claude (`AYUDA_MODELO=claude-*`) | ❌ **sin probar** — no hay `ANTHROPIC_API_KEY` local |
-| **El clic en la app** | ❌ **nadie lo ha hecho** |
+| **El clic en la app** | ✅ **el usuario lo probó en prod el 2026-09-22: funciona** (tras el deploy de `68f1918f`, SUCCESS en doctor y api) |
 
 **Costo medido: ~6,930 tokens de entrada por pregunta con gpt-4o-mini** (manual 21,864
 caracteres) y ~50 de salida. A $0.15/$0.60 por millón, ≈ **$0.001 por pregunta con

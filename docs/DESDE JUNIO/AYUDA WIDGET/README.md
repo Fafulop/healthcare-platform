@@ -14,10 +14,16 @@
 
 ---
 
-## Estado: **Fases 0 y 1 hechas (2026-09-22). El widget NO existe todavía.**
+## Estado: **EN PROD desde 2026-09-22 (`68f1918f`) y probado por el usuario.** Fases 0–2 hechas.
 
-Hay auditoría de las guías y **el manual de Agenda y Expediente**
-(`apps/doctor/src/lib/ayuda/manual-del-doctor.md`). Ni una línea de código del widget.
+El botón **?** del dashboard contesta cómo se usa la app, en todos los planes, desde el manual
+de Agenda y Expediente (`apps/doctor/src/lib/ayuda/manual-del-doctor.md`). Lo que sigue es la
+Fase 3 (evals). **Estado vivo y próximos pasos: [`SESSION-REFRESCO`](SESSION-REFRESCO.md).**
+
+**Dónde vive el código:** `apps/doctor/src/lib/ayuda/` (manual · mapa de rutas · prompt ·
+proveedor · validación de la respuesta) · `app/api/ayuda/chat/route.ts` ·
+`components/ayuda/AyudaWidget.tsx` · prueba con llamadas reales: `apps/doctor/scripts/ayuda-probar.ts`.
+Variables: `AYUDA_MODELO` (default `gpt-4o-mini`) · `AYUDA_TOPE_DIARIO` (default 60).
 
 | Doc | Tipo | Para qué |
 |---|---|---|
@@ -25,6 +31,7 @@ Hay auditoría de las guías y **el manual de Agenda y Expediente**
 | [`01-ARQUITECTURA`](01-ARQUITECTURA.md) | DECISIÓN | Las 5 capas, el modelo intercambiable, la canalización de evals |
 | [`02-PLAN-construccion`](02-PLAN-construccion.md) | PLAN | Las fases, en orden, y qué falta decidir |
 | [`03-AUDITORIA-guias`](03-AUDITORIA-guias.md) | REFERENCIA (foto 2026-09-22) | Fase 0: qué de las guías actuales ya es falso, con archivo y línea |
+| `apps/doctor/src/lib/ayuda/manual-del-doctor.md` | **FUENTE** (vive en el código) | Lo que el widget sabe. Se cambia junto con la UI que describe |
 | [`SESSION-REFRESCO`](SESSION-REFRESCO.md) | ESTADO | **Se lee primero y se escribe al final** |
 
 *(Convenciones de tipos de doc: `../AGENTES/GENERAL AGENTES/08-EMPIEZA-AQUI.md` §3.)*
@@ -76,9 +83,7 @@ automatizar.
 ~~Fase 0: auditar las guías~~ — **hecha** ([`03-AUDITORIA`](03-AUDITORIA-guias.md)).
 ~~Fase 1: el manual de Agenda y Expediente~~ — **hecha**; sus reglas de edición van en el
 comentario de arriba del propio `.md`.
-**Fase 2: el widget**, bloqueada por las decisiones de abajo.
-
-Y antes de escribir código, seis decisiones ([`02-PLAN`](02-PLAN-construccion.md) +
-[`SESSION-REFRESCO`](SESSION-REFRESCO.md)): qué modelo se prueba primero · si el widget vive en
-todas las pantallas · si una cuenta congelada puede usarlo · **quién escribe el manual** · si
-el widget sabe el plan del doctor · y si las guías JSX se arreglan o se congelan.
+~~Fase 2: el widget~~ — **en prod y probado por el usuario.**
+**Fase 3: los evals** — dos modelos, dos corridas cada uno; la pregunta es si `gpt-4o-mini`
+cita lo bastante seguido o hay que subir a Claude. Detalle en
+[`SESSION-REFRESCO`](SESSION-REFRESCO.md) §«Para la próxima sesión».
