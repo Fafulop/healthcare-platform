@@ -15,10 +15,8 @@ por `commitHash`), y **el usuario lo probó en la app: funciona** ("works live")
 | 0 — Auditar guías | ✅ | `d2b3d553` · [`03-AUDITORIA-guias`](03-AUDITORIA-guias.md) |
 | 1 — Manual Agenda + Expediente | ✅ | `6991c2dc` |
 | 2 — Widget punta a punta | ✅ **en prod, probado por el usuario** | `68f1918f` |
-| 3 — Evals | 🟡 **empezada 2026-09-23**: suite de 18 casos con cita auto-evaluada, arreglo de citas, prueba de longitud. Sólo `gpt-4o-mini` (decisión del usuario) | *(sin commit aún)* |
-| 4 — Resto de las áreas del manual | pendiente | — |
-| 5 — Manual ↔ guías JSX | pendiente (las guías están congeladas) | — |
-| 6 — Video guionado | proyecto aparte | — |
+| 3 — Evals | 🟡 **empezada 2026-09-23**: suite de 18 casos con cita auto-evaluada, arreglo de citas, prueba de longitud. Sólo `gpt-4o-mini` (decisión del usuario) | `52af1c36` · costo en admin `0f7f043c` |
+| 4–6 | **Replanteadas 2026-09-23** → guías por tarea con clip + widget que enlaza (`02-PLAN` § Replanteamiento, fases G1–G6) | — |
 
 ---
 
@@ -35,7 +33,13 @@ Lo que falta:
   Claude sigue sin probarse nunca (no hay `ANTHROPIC_API_KEY` local); no bloquea nada mientras
   `AYUDA_MODELO` no se cambie.
 
-**1b. ⚠️ Antes de la Fase 4 (resto del manual): el manual NO puede crecer sin volver a medir.**
+**0. 🧭 El plan cambió (2026-09-23): las Fases 4–6 se reemplazaron** por guías cortas por tarea
+con clip en `/dashboard/ayuda`, y un widget que se queda en Agenda + Expediente y **enlaza** guías
+para lo demás. Plan completo: [`02-PLAN` § Replanteamiento](02-PLAN-construccion.md). Siguiente
+paso: **G1** (catálogo `guias.ts` + la página nueva, Agenda y Expediente, sólo texto).
+
+**1b. ⚠️ El manual del widget NO puede crecer sin volver a medir** (por eso el replanteamiento
+deja fuera del manual todo lo que no sea Agenda y Expediente).
 Con `gpt-4o-mini`, a ~45k tokens la calidad ya cae (citas 15→12/18, una respuesta inventada,
 latencia 1 s → 13 s) y el tope de OpenAI de la organización (200k tokens/min, compartido con
 todo prod) deja pasar ~4 preguntas por minuto. Detalle y corrección a `00-POR-QUE` §3 en la
