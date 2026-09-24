@@ -20,6 +20,25 @@ interface EndpointStats {
   requests: number;
 }
 
+interface ModelStats {
+  model: string;
+  provider: string;
+  requests: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  /** USD estimados. null = modelo sin precio en la tabla del api. */
+  costUsd: number | null;
+}
+
+/** Una fila de "Por Funcionalidad": con su costo y con que modelos se gasto. */
+interface FeatureStats extends EndpointStats {
+  /** Nombre legible ("Ayuda (widget)"); viene del api para no duplicar el mapa aqui. */
+  label: string;
+  costUsd: number | null;
+  byModel: ModelStats[];
+}
+
 interface DoctorStats {
   doctorId: string;
   doctorName: string;
@@ -44,7 +63,7 @@ interface LlmUsageData {
   totalCostUsd: number | null;
   uniqueDoctors: number;
   byDoctor: DoctorStats[];
-  byEndpoint: EndpointStats[];
+  byEndpoint: FeatureStats[];
 }
 
 function RangeSelector({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
@@ -121,6 +140,48 @@ function DoctorRow({ doctor }: { doctor: DoctorStats }) {
               endpoint pudo correr con mas de uno (el asistente cambio de Sonnet a Haiku).
               Repartirlo por endpoint seria inventar. */}
           <td className="px-4 py-2 text-right text-gray-300">—</td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Una funcion con su costo, y al abrirla el desglose POR MODELO: es la unica forma honesta de
+ * contestar "cuanto gasto Ayuda con gpt-4o-mini", porque el precio es del modelo, no de la
+ * funcion. Cuatro decimales: una pregunta de Ayuda cuesta ~$0.001 y "<$0.01" no dice nada.
+ */
+function FeatureRow({ ep }: { ep: FeatureStats }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <>
+      <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpanded((e) => !e)}>
+        <td className="px-4 py-3 text-gray-900 font-medium">
+          <div className="flex items-center gap-2">
+            {expanded ? (
+              <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+            )}
+            <span>{ep.label}</span>
+            {ep.label !== ep.endpoint && <span className="text-xs text-gray-400 font-normal">{ep.endpoint}</span>}
+          </div>
+        </td>
+        <td className="px-4 py-3 text-right text-gray-700">{ep.requests.toLocaleString()}</td>
+        <td className="px-4 py-3 text-right text-gray-500">{ep.promptTokens.toLocaleString()}</td>
+        <td className="px-4 py-3 text-right text-gray-500">{ep.completionTokens.toLocaleString()}</td>
+        <td className="px-4 py-3 text-right font-semibold text-gray-900">{ep.totalTokens.toLocaleString()}</td>
+        <td className="px-4 py-3 text-right font-semibold text-emerald-700">{formatUsd(ep.costUsd, 4)}</td>
+      </tr>
+      {expanded && ep.byModel.map((m) => (
+        <tr key={`${m.model}:${m.provider}`} className="bg-blue-50 text-sm">
+          <td className="pl-12 pr-4 py-2 text-gray-600 italic">{m.model} <span className="text-gray-400">({m.provider})</span></td>
+          <td className="px-4 py-2 text-right text-gray-500">{m.requests.toLocaleString()}</td>
+          <td className="px-4 py-2 text-right text-gray-400">{m.promptTokens.toLocaleString()}</td>
+          <td className="px-4 py-2 text-right text-gray-400">{m.completionTokens.toLocaleString()}</td>
+          <td className="px-4 py-2 text-right text-gray-600 font-medium">{m.totalTokens.toLocaleString()}</td>
+          <td className="px-4 py-2 text-right text-emerald-700">{formatUsd(m.costUsd, 4)}</td>
         </tr>
       ))}
     </>
@@ -291,6 +352,7 @@ export default function LlmUsagePage() {
                   {data.byEndpoint.length === 0 ? (
                     <p className="p-8 text-center text-gray-400">Sin datos para este periodo</p>
                   ) : (
+                    <>
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50">
                         <tr>
@@ -299,20 +361,19 @@ export default function LlmUsagePage() {
                           <th className="px-4 py-3 text-right text-gray-600 font-medium">Tokens entrada</th>
                           <th className="px-4 py-3 text-right text-gray-600 font-medium">Tokens salida</th>
                           <th className="px-4 py-3 text-right text-gray-600 font-medium">Total tokens</th>
+                          <th className="px-4 py-3 text-right text-gray-600 font-medium" title="Estimado con los precios de HOY, sumando cada modelo a su precio. Abre la fila para verlo por modelo.">Costo USD (est.)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
                         {data.byEndpoint.map((ep) => (
-                          <tr key={ep.endpoint} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-gray-900 font-medium">{ep.endpoint}</td>
-                            <td className="px-4 py-3 text-right text-gray-700">{ep.requests.toLocaleString()}</td>
-                            <td className="px-4 py-3 text-right text-gray-500">{ep.promptTokens.toLocaleString()}</td>
-                            <td className="px-4 py-3 text-right text-gray-500">{ep.completionTokens.toLocaleString()}</td>
-                            <td className="px-4 py-3 text-right font-semibold text-gray-900">{ep.totalTokens.toLocaleString()}</td>
-                          </tr>
+                          <FeatureRow key={ep.endpoint} ep={ep} />
                         ))}
                       </tbody>
                     </table>
+                    <p className="px-4 py-3 text-xs text-gray-500 border-t">
+                      Estimado a precios de hoy; abre una fila para verlo por modelo. Donde no se registra el caché se cobra el prompt completo, así que ahí es un techo: todo OpenAI, y las llamadas a Claude que no guardan su costo con caché (las viejas del asistente, casi todo el constructor de plantillas y Ayuda si algún día corre con Claude).
+                    </p>
+                    </>
                   )}
                 </div>
               )}

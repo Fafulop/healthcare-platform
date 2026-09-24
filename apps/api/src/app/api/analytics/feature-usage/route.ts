@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/auth';
 import { prisma, PATIENT_STATUS_COUNTED_AGAINST_QUOTA } from '@healthcare/database';
 import { allFeatures, featureOf, voiceLabel } from '@/lib/llm-features';
-import { costOfUsd } from '@/lib/llm-pricing';
+import { costRows, sumarCosto } from '@/lib/llm-cost-rows';
 
 export async function GET(request: Request) {
   try {
@@ -82,18 +82,9 @@ export async function GET(request: Request) {
           _count: { id: true },
         }),
 
-        // Costo por doctor: agrupado POR MODELO porque los precios difieren ~25x
-        // entre gpt-4o-mini y claude-sonnet-5 — sumar tokens entre modelos da
-        // volumen, no dinero.
-        prisma.llmTokenUsage.groupBy({
-          by: ['doctorId', 'model', 'provider'],
-          _sum: {
-            promptTokens: true,
-            completionTokens: true,
-            budgetTokens: true,
-            durationSeconds: true,
-          },
-        }),
+        // Costo por doctor: POR MODELO y separando filas con y sin budgetTokens —
+        // la misma fuente que /api/llm-usage (`llm-cost-rows.ts` explica el porqué).
+        costRows({}),
       ]);
 
     // Pacientes ACTIVOS — el mismo criterio que el cupo del plan (TIERS Q3).
@@ -129,19 +120,7 @@ export async function GET(request: Request) {
 
     // doctorId -> USD estimados. null = algún modelo sin precio (nunca 0 por omisión).
     const costMap = new Map<string, number | null>();
-    for (const row of llmByModel) {
-      const cost = costOfUsd({
-        model: row.model,
-        provider: row.provider,
-        promptTokens: row._sum.promptTokens ?? 0,
-        completionTokens: row._sum.completionTokens ?? 0,
-        budgetTokens: row._sum.budgetTokens,
-        durationSeconds: row._sum.durationSeconds,
-      });
-      const soFar = costMap.get(row.doctorId);
-      if (soFar === null) continue;
-      costMap.set(row.doctorId, cost === null ? null : (soFar ?? 0) + cost);
-    }
+    for (const f of llmByModel) sumarCosto(costMap, f.doctorId, f.costUsd);
 
     const result = doctors.map((doc) => ({
       slug: doc.slug,

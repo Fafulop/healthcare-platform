@@ -8,11 +8,13 @@
  * segundo sería afirmar un hecho falso sobre el gasto, que es justo lo que estas
  * pantallas vienen a contestar.
  */
-export function formatUsd(v: number | null): string {
+export function formatUsd(v: number | null, decimales = 2): string {
   if (v === null) return 'n/d';
-  if (v > 0 && v < 0.01) return '<$0.01';
+  // El umbral sigue a los decimales: con 4, $0.0012 se pinta tal cual y no como "<$0.01".
+  const minimo = 10 ** -decimales;
+  if (v > 0 && v < minimo) return `<$${minimo.toFixed(decimales)}`;
   return `$${v.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
   })}`;
 }
