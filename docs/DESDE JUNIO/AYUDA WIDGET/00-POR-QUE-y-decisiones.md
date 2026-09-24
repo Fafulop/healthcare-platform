@@ -75,6 +75,17 @@ modelo barato se pone a inventar.
 **Regla para el futuro:** si el manual pasa de ~100k tokens, la respuesta cambia al híbrido
 (recuperar para acotar, y razonar sobre todo el candidato). Hoy no.
 
+> ⚠️ **Corrección 2026-09-23 — medido, no supuesto: con `gpt-4o-mini` el umbral es mucho más
+> bajo.** Con el manual (~7.4k tokens de prompt) rodeado de relleno hasta **~45.6k tokens**:
+> citas 15→12 de 18, respuestas inventadas 0→2 de 36 (una sugirió crear un expediente
+> DUPLICADO), latencia mediana ~1 s → ~13 s. Y un límite que no es de calidad: el tope de
+> OpenAI de la organización (200k tokens/min para gpt-4o-mini, **compartido con todo prod**)
+> deja pasar ~4 preguntas por minuto a ese tamaño. Lo de arriba sigue siendo cierto para el
+> corpus de HOY (cabe, y cabe bien); lo que cambia es que **«cabe en la ventana» no es «el
+> modelo barato lo usa bien»**. El manual se vuelve a medir cada vez que crece; si se degrada,
+> la salida probable es mandar sólo el ÁREA relevante, no RAG por trozos. Detalle y reservas:
+> `SESSION-REFRESCO` → bitácora 2026-09-23.
+
 > ⚠️ **Lo que NO se toca:** `llm_docs_chunks` sigue siendo correcto para el asistente de
 > documentación de DESARROLLO, cuyo corpus sí es grande. Esta decisión es sólo para el manual
 > del doctor.

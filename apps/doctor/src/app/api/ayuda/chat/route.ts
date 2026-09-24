@@ -6,7 +6,7 @@
  * de la BD del doctor, cero escrituras. La única consulta a la BD es el tope diario.
  *
  * Request:  { messages: {role, content}[], pathname?: string }
- * Response: { success, data: { respuesta, seccion, enlaces } }
+ * Response: { success, data: { respuesta, seccion, cita, enlaces } }
  *
  * Disponible en TODOS los planes (decisión 2026-09-22): quien no tiene soporte humano es
  * justo el plan barato. Por eso su regla en el route map NO lleva `feature: 'ia'`, y el
@@ -29,8 +29,8 @@ const ENDPOINT = 'ayuda-chat';
 /** Una conversación de ayuda no necesita memoria infinita: sólo viajan los últimos. */
 const MAX_MENSAJES = 20;
 const MAX_CARACTERES = 2000;
-/** Los turnos del asistente vuelven como el JSON que el modelo produjo (respuesta + sección +
- * enlaces): recortarlos a 2000 los dejaría como JSON roto en la historia que se le reenvía. */
+/** Los turnos del asistente vuelven como el JSON que el modelo produjo (respuesta + cita +
+ * sección + enlaces): recortarlos a 2000 los dejaría como JSON roto en la historia que se le reenvía. */
 const MAX_CARACTERES_ASISTENTE = 8000;
 // Validado: `Number('60/día')` es NaN y `n >= NaN` es SIEMPRE false — un typo en Railway
 // apagaría el tope en silencio para todos los doctores.
@@ -113,8 +113,8 @@ export async function POST(request: NextRequest) {
       usage: resultado.usage,
     });
 
-    const r = interpretarRespuesta(resultado.texto, manual.secciones);
-    if (r.descartado.seccion || r.descartado.enlaces.length > 0) {
+    const r = interpretarRespuesta(resultado.texto, manual);
+    if (r.descartado.seccion || r.descartado.enlaces.length > 0 || r.descartado.cita) {
       console.warn('[ayuda-chat] descartado por no existir:', JSON.stringify(r.descartado), 'modelo:', resultado.modelo);
     }
     if (!r.respuesta) {
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { respuesta: r.respuesta, seccion: r.seccion, enlaces: r.enlaces },
+      data: { respuesta: r.respuesta, seccion: r.seccion, cita: r.cita, enlaces: r.enlaces },
     });
   } catch (error) {
     return handleApiError(error, 'POST /api/ayuda/chat');

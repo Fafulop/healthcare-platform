@@ -24,6 +24,13 @@ export interface Manual {
   texto: string;
   /** "Área > Sección" de cada `###` bajo su `##`, en orden. */
   secciones: string[];
+  /** El texto de cada sección, para encontrar de dónde sale una frase citada (`respuesta.ts`). */
+  bloques: BloqueDelManual[];
+}
+
+export interface BloqueDelManual {
+  seccion: string;
+  texto: string;
 }
 
 let cache: Manual | null = null;
@@ -37,23 +44,40 @@ export function cargarManual(): Manual {
   // El comentario HTML de arriba son instrucciones para quien EDITA el manual, no para el
   // doctor: no le sirve al modelo y sólo cuesta tokens.
   const texto = fs.readFileSync(ruta, 'utf-8').replace(/<!--[\s\S]*?-->/g, '').trim();
-  cache = { texto, secciones: extraerSecciones(texto) };
+  const bloques = extraerBloques(texto);
+  cache = { texto, secciones: bloques.map((b) => b.seccion), bloques };
   return cache;
 }
 
-export function extraerSecciones(texto: string): string[] {
-  const secciones: string[] = [];
+/**
+ * Cada `###` con su texto, hasta el siguiente `###` o `##`. Lo que va bajo un `##` antes de
+ * su primer `###` (p. ej. «Menú lateral: Mis Citas») no es de ninguna sección citable.
+ */
+export function extraerBloques(texto: string): BloqueDelManual[] {
+  const bloques: BloqueDelManual[] = [];
   let area: string | null = null;
+  let actual: { seccion: string; lineas: string[] } | null = null;
+  const cerrar = () => {
+    if (actual) bloques.push({ seccion: actual.seccion, texto: actual.lineas.join('\n').trim() });
+    actual = null;
+  };
   // `\r?\n`: con core.autocrlf en Windows el .md llega con CRLF, y `(.+)$` no casa con un
   // `\r` al final — `secciones` quedaba vacío y TODA cita se tiraba como inventada.
   for (const linea of texto.split(/\r?\n/)) {
     const h2 = /^## (.+)$/.exec(linea);
     if (h2) {
+      cerrar();
       area = h2[1].trim();
       continue;
     }
     const h3 = /^### (.+)$/.exec(linea);
-    if (h3 && area) secciones.push(`${area} > ${h3[1].trim()}`);
+    if (h3 && area) {
+      cerrar();
+      actual = { seccion: `${area} > ${h3[1].trim()}`, lineas: [] };
+      continue;
+    }
+    actual?.lineas.push(linea);
   }
-  return secciones;
+  cerrar();
+  return bloques;
 }

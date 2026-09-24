@@ -31,6 +31,8 @@ interface Mensaje {
   role: 'user' | 'assistant';
   content: string;
   seccion?: string | null;
+  /** La frase del manual en la que se basó. No se pinta: sólo vuelve en la historia. */
+  cita?: string | null;
   enlaces?: Enlace[];
   /** Un error no es parte de la conversación: se pinta, pero no viaja al servidor. */
   error?: boolean;
@@ -78,6 +80,7 @@ export function AyudaWidget() {
                   role: m.role,
                   content: JSON.stringify({
                     respuesta: m.content,
+                    cita: m.cita ?? null,
                     seccion: m.seccion ?? null,
                     enlaces: (m.enlaces ?? []).map((e) => e.ruta),
                   }),
@@ -105,6 +108,7 @@ export function AyudaWidget() {
           role: 'assistant',
           content: data.data.respuesta,
           seccion: data.data.seccion,
+          cita: data.data.cita ?? null,
           enlaces: data.data.enlaces,
         },
       ]);

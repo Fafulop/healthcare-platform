@@ -15,7 +15,7 @@ por `commitHash`), y **el usuario lo probó en la app: funciona** ("works live")
 | 0 — Auditar guías | ✅ | `d2b3d553` · [`03-AUDITORIA-guias`](03-AUDITORIA-guias.md) |
 | 1 — Manual Agenda + Expediente | ✅ | `6991c2dc` |
 | 2 — Widget punta a punta | ✅ **en prod, probado por el usuario** | `68f1918f` |
-| 3 — Evals (dos modelos) | ⏭️ **lo que sigue** | — |
+| 3 — Evals | 🟡 **empezada 2026-09-23**: suite de 18 casos con cita auto-evaluada, arreglo de citas, prueba de longitud. Sólo `gpt-4o-mini` (decisión del usuario) | *(sin commit aún)* |
 | 4 — Resto de las áreas del manual | pendiente | — |
 | 5 — Manual ↔ guías JSX | pendiente (las guías están congeladas) | — |
 | 6 — Video guionado | proyecto aparte | — |
@@ -24,16 +24,26 @@ por `commitHash`), y **el usuario lo probó en la app: funciona** ("works live")
 
 ## ⏭️ Para la próxima sesión — empieza aquí
 
-**1. Fase 3 — los evals** (`02-PLAN` §Fase 3). Base ya hecha: `apps/doctor/scripts/ayuda-probar.ts`
-llama al modelo de verdad con 10 casos (correr desde `apps/doctor`:
-`npx tsx --env-file=.env.local scripts/ayuda-probar.ts`). Falta convertirlo en suite con
-veredicto automático — ¿citó la sección correcta? ¿dijo «no lo sé» donde debía? ¿enlace vivo? —
-subir a 20–30 casos (la mitad fuera del manual a propósito), y correr **DOS veces por modelo**.
-- **La pregunta que tiene que contestar:** `gpt-4o-mini` contesta bien pero **no siempre cita**
-  (omitió la sección en 2 de 10, en las dos corridas). ¿`claude-haiku-4-5` cita mejor y vale lo
-  que cuesta? Se cambia con `AYUDA_MODELO` en el servicio `@healthcare/doctor`, sin deploy.
-- ⚠️ **La ruta Claude NO se ha probado nunca**: no hay `ANTHROPIC_API_KEY` local. Para probarla
-  hace falta la llave (el agente la usa en prod) o correr el script con ella en el entorno.
+**1. Fase 3 — sigue abierta** (bitácora 2026-09-23 abajo). `apps/doctor/scripts/ayuda-probar.ts`
+ya evalúa la CITA sola (18 casos; `--veces=2`; `--relleno=<tokens>` para la prueba de longitud).
+Lo que falta:
+- **El veredicto automático de «¿dijo no lo sé donde debía?» y «¿afirmó algo falso?»** — hoy se
+  LEE. En la prueba de 40k la cita dio 12/18 pero lo grave fue una respuesta que inventó un
+  remedio (crear un expediente duplicado): eso ninguna métrica de cita lo ve.
+- Casos fuera del manual: hoy son 5 de 18; el plan pedía la mitad.
+- **Sólo `gpt-4o-mini`** por decisión del usuario (2026-09-23: es mucho más barato). La ruta
+  Claude sigue sin probarse nunca (no hay `ANTHROPIC_API_KEY` local); no bloquea nada mientras
+  `AYUDA_MODELO` no se cambie.
+
+**1b. ⚠️ Antes de la Fase 4 (resto del manual): el manual NO puede crecer sin volver a medir.**
+Con `gpt-4o-mini`, a ~45k tokens la calidad ya cae (citas 15→12/18, una respuesta inventada,
+latencia 1 s → 13 s) y el tope de OpenAI de la organización (200k tokens/min, compartido con
+todo prod) deja pasar ~4 preguntas por minuto. Detalle y corrección a `00-POR-QUE` §3 en la
+bitácora de abajo.
+
+**1c. Cuánto cuesta Ayuda, en vivo:** admin → menú **«Uso IA»** (`/llm-usage`) → pestaña **«Por Funcionalidad»**
+→ fila «Ayuda (widget)» → ábrela para verlo por modelo. Primera lectura (prod, 28 días al
+2026-09-23): **6 preguntas, 42,955 tokens de entrada + 860 de salida con gpt-4o-mini ≈ $0.007**.
 
 **2. Bugs de PRODUCTO que salieron al escribir el manual** (tabla en la bitácora de la Fase 1).
 El 🔴: en una cita **Pendiente** se pintan «Completar» y «No asistió» y el servidor los rechaza
@@ -230,3 +240,122 @@ subir a Claude.
 6. **¿Se arreglan las guías JSX ahora, o se congelan y el esfuerzo va al manual?** Arreglar
    `CitasGuide` es reescribirla; hacerlo dos veces (JSX y manual) es exactamente la divergencia
    que `02-PLAN` §Fase 5 quiere evitar.
+
+### 2026-09-23 — Fase 3 empezada: las citas, la longitud y el costo en el admin
+
+Tres encargos del usuario: arreglar que `gpt-4o-mini` no siempre cita, **medir** si el manual
+aguanta crecer (en vez de suponerlo), y ver en el admin cuánto cuesta Ayuda por modelo. Claude
+(`claude-haiku-4-5`) **no** se probó: sólo `gpt-4o-mini`, por decisión del usuario.
+
+**1. El script ahora evalúa la cita solo.** 18 casos (los 10 de antes + 8 respuestas «no se
+puede» que SÍ salen del manual, ninguna igual a los ejemplos del prompt), `--veces=2`. El
+problema era más grande de lo anotado el 09-22: con criterio estricto, **12/18**, y siempre los
+mismos casos — no es ruido, es un patrón. Dos formas:
+- respuestas «no se puede» con `seccion: null` (reactivar archivado, emitir receta, recuperar
+  eliminada…);
+- citar la **tabla-resumen vecina** («Qué puedes hacer con cada cita») en vez de la sección que
+  tiene el dato.
+
+Lo que se probó, todo con `gpt-4o-mini`, dos corridas cada uno:
+
+| Versión | Citas | Qué enseñó |
+|---|---|---|
+| Base (prompt del 09-22) | 12 · 12 | — |
+| A: aclarar la regla + 2 ejemplos «no» con sección | 13 · 14 | Ayuda poco |
+| B: A + `seccion` PRIMERO en el JSON | 12 · 12 | Peor. Se descartó |
+| C: el modelo COPIA la frase (`cita`) y el **servidor** decide la sección | 16 · 16 | **El salto** |
+| D: C + dos respaldos del servidor (fila de tabla por celdas; oración de la respuesta que esté tal cual en el manual) | 16 · 15 | Arregla «reactivar»; el resto es ruido ±1 |
+| E: D + «después del no, di qué SÍ se puede» | 15 · 15 | 🔴 **1 respuesta FALSA** en 36 |
+| **F (la que queda):** D con ejemplos que traen alternativa, sin empujón | **15 · 15** | **0 falsas en 36** |
+
+- **C es la regla 0 aplicada a la cita:** el modelo trae la evidencia, el servidor decide. Copiar
+  una frase le cuesta menos que clasificarla, y **una frase que no está en el manual se detecta**
+  (en F, ~3 de 18 citas por corrida son inventadas o parafraseadas; se tiran y se loguean).
+- **Lo que no salió en los números, y salió al LEER las 36 respuestas:** los primeros ejemplos
+  eran de una línea («No: …») y el modelo copió el ESTILO — dejó de decir qué sí se puede hacer
+  (ofrecer el recordatorio por correo, «crea una cita nueva»). Al pedírselo explícito (E) inventó:
+  *«una cita eliminada sigue en la tabla con Más estados → Cancelada»* (eso es de CANCELAR, que
+  vive en la misma sección). Quitar el empujón y dejar que los ejemplos lo muestren (F) recuperó
+  la ayuda sin inventar. Es `feedback_context_is_not_an_instruction` otra vez.
+- Fallan todavía: **12** y **16** (citan la tabla vecina; la respuesta es correcta), y **10**
+  (WhatsApp: contesta «no viene en mi manual» + ofrece el de correo, sin sección — defendible).
+- **Bug de la historia, encontrado en el review de este cambio:** el widget reconstruye los
+  turnos del asistente como `{respuesta, seccion, enlaces}` — sin `cita`, el modelo vería turnos
+  que no citan y los imitaría (hallazgo 3 de la Fase 2). Ahora el servidor regresa la `cita`
+  verificada y el widget la reenvía. **Visto correr:** conversación real de dos turnos, el
+  segundo cita frase y sección correctas.
+- También: el modelo a veces manda el string `"null"`; se trataba como sección inventada y
+  ensuciaba el log.
+- El prompt creció ~400 tokens: **~7,370 tokens de entrada por pregunta con gpt-4o-mini**.
+
+**2. La prueba de longitud — la respuesta cambió.** `--relleno=33000` rodea el manual con docs
+del repo que NO son de la app (NEW NAME, IMAGE MIGRATION, POSSIBLE FUTURE TOOLS, NEW STYLE/01;
+repetidos para alcanzar el tamaño), mitad antes y mitad después: el manual queda EN MEDIO.
+
+| Con gpt-4o-mini, prompt F | ~7.4k tokens | **~45.6k tokens** |
+|---|---|---|
+| Citas | 15 · 15 | **12 · 12** |
+| Respuestas falsas o inventadas (de 36) | 0 | **2 claras + 2 menores** |
+| Latencia mediana | ~1.1 s | **~13 s** (el máximo, 47 s, incluye una espera de 20 s por el tope) |
+| Costo por pregunta (antes de caché) | ≈ $0.0011 | ≈ $0.0069 |
+
+Lo inventado a 45k: en **«reactivar archivado» (las dos corridas)** agregó *«…y crea un nuevo
+expediente si es necesario»* — un expediente DUPLICADO que el manual nunca sugiere. Menores:
+«reagendar» dijo UN correo (son dos), y atribuyó los recordatorios a «tu cuenta de Google» (el
+manual lo dice de confirmación y cancelación).
+
+**Y un límite que no era de calidad:** el tope de OpenAI es **por organización — 200k tokens por
+minuto para gpt-4o-mini, compartido con todo prod**. La prueba se cayó a la quinta pregunta
+seguida. A 7k caben ~27 preguntas/minuto; **a 45k, ~4**, y cada una resta a los demás chats.
+
+⚠️ **Corrección a `00-POR-QUE` §3** (anotada ahí también): la regla «si el manual pasa de ~100k
+tokens, cambiar a híbrido» **es demasiado alta para `gpt-4o-mini`**; a 45k ya se degrada. Dos
+reservas honestas: el relleno es de OTRO tema (secciones reales vecinas probablemente confundan
+MÁS, no menos) y es una sola medición de tamaño. Para la Fase 4: medir con el manual real cada
+vez que crezca; si se degrada, las salidas son mandar sólo el ÁREA relevante (la pantalla ya
+llega como contexto) o un modelo más caro — decisión para cuando haya números del manual real.
+
+**3. El costo por función y por modelo, en el admin** (`/llm-usage` → «Por Funcionalidad»).
+Antes sólo tokens: el costo se había dejado fuera a propósito porque el precio es del MODELO.
+Ahora el api agrupa `endpoint + model + provider`, cobra cada grupo con `costOfUsd` y suma
+(un modelo sin precio deja la función en «n/d», igual que por doctor); la fila se abre por
+modelo; nombres legibles («Ayuda (widget)»); 4 decimales ahí porque una pregunta cuesta ~$0.001.
+**Smoke test read-only en prod** de la forma nueva del `groupBy`: corre, y los conteos por
+función cuadran con el `groupBy` que ya existía. Primera lectura: **Ayuda = 6 preguntas,
+42,955 + 860 tokens con gpt-4o-mini ≈ $0.007 en 28 días.**
+
+**4. El `/code-review high` — 10 hallazgos, 9 arreglados, 1 aceptado.** Cada arreglo se vio
+correr (pruebas sueltas del parser con los escenarios exactos del review; el helper de costo REAL
+contra prod; la suite de 7k otra vez: **16 · 15**).
+
+| | Hallazgo | Qué se hizo |
+|---|---|---|
+| 1 | Una frase corta y genérica («pide confirmación») movía una sección VÁLIDA a otra | Para corregir la del modelo, la frase tiene que estar en UNA sola sección y medir 25+ caracteres |
+| 2 | Frase en varias secciones ⇒ ganaba la primera, que es la tabla-resumen — el error que se venía a arreglar | Ambigua ⇒ no decide; queda la del modelo |
+| 3 | `[texto](#ancla)` (10 en el manual), viñetas y números de paso impedían encontrar citas reales | Se normalizan |
+| 4 | La nota del admin decía que sólo OpenAI es un techo | Reescrita: también lo es Claude sin costo con caché |
+| 5 | El encabezado de `respuesta.ts` decía 7 de 18; el doc, 12/18 | 12/18 en los dos |
+| 7 | Se normalizaba el manual entero en cada oración | Se calcula una vez por sección |
+| 8 | Dos `groupBy` que tenían que coincidir | `byEndpoint` sale de las mismas filas que el costo |
+| 9 | 🔴 **Bug VIEJO de costo, confirmado en prod** (abajo) | `apps/api/src/lib/llm-cost-rows.ts`, una sola fuente para `/llm-usage` y `/feature-usage` |
+| 10 | `extraerSecciones` sin llamadores; comentario de la historia sin `cita` | Borrado / corregido |
+| 6 | El respaldo pone sección a un «no viene en mi manual, pero…» si una oración está tal cual en el manual | **Aceptado:** si la oración es del manual, sí lo usó; la sección señala lo relacionado |
+
+**El 9 no era de Ayuda y era el más grave.** `_sum.budgetTokens` suma sólo las filas no-NULL, y
+`costOfUsd` cobra por budget si el grupo lo trae: en un grupo MEZCLADO las filas sin budget
+costaban $0. Lo arrastraba el costo por doctor desde antes, y el costo por función de hoy lo
+copió. Medido en prod, 90 días, **mismas solicitudes antes y después**:
+
+| Función | Costo que se veía | Costo corregido |
+|---|---|---|
+| `form-builder-chat` | $0.19 | **$1.53** (8×) — 51 de 55 filas de Sonnet sin budget |
+| `agenda-agent` | $4.46 | **$7.64** — 86 de 171 filas de Sonnet sin budget |
+| todas las demás (Ayuda incluida, $0.0070) | igual | igual |
+
+Las filas de Claude sin budget se cobran ahora por prompt completo — un **techo**, como OpenAI.
+
+**Verificación:** type-check de doctor · api · admin ✅ · `pnpm gates` ✅ los siete · las
+etiquetas «» de los ejemplos del prompt existen en `.tsx` ✅ · parser con los escenarios del
+review ✅ · smoke test read-only del helper de costo contra prod ✅ · **el clic en la app NO** (ni
+el widget con el prompt nuevo ni la pantalla del admin). Costo de todas las pruebas de hoy:
+< $1 con gpt-4o-mini.
