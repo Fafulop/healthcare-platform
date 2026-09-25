@@ -351,7 +351,9 @@ Barra de arriba: «Plantillas» · «Receta PDF» · «Importar» · «Nuevo Pac
 «Nuevo Paciente» → llena el formulario → «Crear Paciente».
 
 - **Obligatorios:** Nombres, Apellidos, Fecha de Nacimiento, Sexo.
-- **ID Interno** es opcional: si lo dejas vacío se genera solo.
+- **ID Interno** es opcional: si lo dejas vacío se genera solo. Después puedes cambiarlo desde
+  «Editar» (no puede repetir el de otro paciente); las recetas o documentos ya impresos
+  conservan el anterior.
 - Además: Tipo de Sangre, Teléfono, Email, Dirección, Ciudad, Estado, Código Postal, contacto
   de emergencia (Nombre, Teléfono, Relación), Alergias, Condiciones Crónicas, Medicamentos
   Actuales, Notas Generales y Etiquetas (separadas por comas).

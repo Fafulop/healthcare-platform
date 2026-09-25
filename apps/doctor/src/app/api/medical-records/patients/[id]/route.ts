@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   prisma,
+  Prisma,
   assertPatientQuota,
   PATIENT_STATUS_COUNTED_AGAINST_QUOTA,
 } from '@healthcare/database';
@@ -99,6 +100,37 @@ export async function PUT(
       await assertPatientQuota(prisma, doctorId, 1);
     }
 
+    // ID Interno editable. `undefined` = no se toca (otros llamadores del PUT no
+    // lo mandan). Nada cuelga de este valor —las relaciones van por `id`—, pero
+    // recetas y PDFs YA impresos conservan el viejo; por eso el viejo → nuevo
+    // queda explícito en la auditoría (el `changes: body` sólo guarda el nuevo).
+    let internalId: string | undefined;
+    if (body.internalId !== undefined) {
+      internalId = String(body.internalId ?? '').trim();
+      if (!internalId) {
+        return NextResponse.json({ error: 'El ID Interno no puede quedar vacío' }, { status: 400 });
+      }
+      if (internalId.length > 50) {
+        return NextResponse.json({ error: 'El ID Interno admite máximo 50 caracteres' }, { status: 400 });
+      }
+      if (internalId !== existingPatient.internalId) {
+        const duplicado = await prisma.patient.findFirst({
+          where: { doctorId, internalId, id: { not: patientId } },
+          select: { id: true },
+        });
+        if (duplicado) {
+          return NextResponse.json(
+            { error: `Ya existe otro paciente con el ID Interno "${internalId}"` },
+            { status: 409 }
+          );
+        }
+      }
+    }
+    const internalIdCambio =
+      internalId !== undefined && internalId !== existingPatient.internalId
+        ? { from: existingPatient.internalId, to: internalId }
+        : undefined;
+
     // Track changes to medical baseline fields
     const medicalFields = [
       'currentAllergies',
@@ -123,32 +155,47 @@ export async function PUT(
     }
 
     // Update patient
-    const patient = await prisma.patient.update({
-      where: { id: patientId },
-      data: {
-        firstName: body.firstName,
-        lastName: body.lastName,
-        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
-        sex: body.sex,
-        email: body.email,
-        phone: body.phone,
-        address: body.address,
-        city: body.city,
-        state: body.state,
-        postalCode: body.postalCode,
-        emergencyContactName: body.emergencyContactName,
-        emergencyContactPhone: body.emergencyContactPhone,
-        emergencyContactRelation: body.emergencyContactRelation,
-        status: body.status,
-        tags: body.tags,
-        currentAllergies: body.currentAllergies,
-        currentChronicConditions: body.currentChronicConditions,
-        currentMedications: body.currentMedications,
-        bloodType: body.bloodType,
-        generalNotes: body.generalNotes,
-        photoUrl: body.photoUrl,
+    let patient;
+    try {
+      patient = await prisma.patient.update({
+        where: { id: patientId },
+        data: {
+          internalId,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
+          sex: body.sex,
+          email: body.email,
+          phone: body.phone,
+          address: body.address,
+          city: body.city,
+          state: body.state,
+          postalCode: body.postalCode,
+          emergencyContactName: body.emergencyContactName,
+          emergencyContactPhone: body.emergencyContactPhone,
+          emergencyContactRelation: body.emergencyContactRelation,
+          status: body.status,
+          tags: body.tags,
+          currentAllergies: body.currentAllergies,
+          currentChronicConditions: body.currentChronicConditions,
+          currentMedications: body.currentMedications,
+          bloodType: body.bloodType,
+          generalNotes: body.generalNotes,
+          photoUrl: body.photoUrl,
+        }
+      });
+    } catch (e) {
+      // Dos guardados simultáneos con el mismo ID nuevo pasan ambos el
+      // findFirst de arriba; el @@unique frena al segundo. Mismo 409 en español
+      // en vez del genérico "Resource already exists" de handleApiError.
+      if (internalIdCambio && e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        return NextResponse.json(
+          { error: `Ya existe otro paciente con el ID Interno "${internalIdCambio.to}"` },
+          { status: 409 }
+        );
       }
-    });
+      throw e;
+    }
 
     // Create history entries if any medical fields changed
     if (historyEntries.length > 0) {
@@ -166,7 +213,7 @@ export async function PUT(
       action: 'update_patient',
       resourceType: 'patient',
       resourceId: patientId,
-      changes: body,
+      changes: internalIdCambio ? { ...body, internalIdCambio } : body,
       request
     });
 

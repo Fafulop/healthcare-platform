@@ -201,9 +201,15 @@ export function PatientForm({
                 value={formData.internalId}
                 onChange={handleChange}
                 placeholder={!isEditing ? 'Se generará automáticamente' : ''}
-                disabled={isEditing}
+                required={isEditing}
+                maxLength={50}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
               />
+              {isEditing && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Cambiarlo no actualiza recetas o documentos ya impresos.
+                </p>
+              )}
             </div>
 
             <div>
