@@ -245,8 +245,38 @@ usuario, push, y **verificar el `commitHash` por servicio**.
   nace visita. En prod el 2026-09-25: **3 citas concluidas** así de 572. Arreglo de raíz: estampar
   `date` en la cita donde se anula `slotId` (5 caminos) — fuera de D1; el barrido las reporta.
 
-**Toggle de miembros para "Visitas":** se decide al empezar D2 (DISEÑO §9). Si se agrega, pasa por
-`pnpm gates` (el gate de rutas↔permisos).
+**Toggle de miembros para "Visitas": NO lleva (decidido 2026-09-25, DISEÑO §9).** Las rutas heredan
+`expedientes` por prefijo; `citas` y `flujo` sólo recortan el bloque de la cita.
+
+### 5.2 D2 — la API (2026-09-25)
+
+- `GET|POST /api/medical-records/patients/[id]/visitas` — lista (la más reciente primero, con
+  conteo de hijos y bloque de cita) · alta MANUAL (`fecha` requerida SIN cita; con `bookingId`, el
+  día de la cita manda; una `fecha` mal formada es 400 siempre).
+- `GET|PATCH|DELETE …/visitas/[visitaId]` — detalle con sus hijos · editar comentario, fecha (sólo
+  SIN cita, si no 409) y ligar/desligar cita · borrar **sólo si está vacía** (409 con el conteo).
+  Re-enviar la MISMA cita o la fecha que ya se muestra (un formulario que manda todo) no cuenta como
+  cambio: no se valida ni rebota.
+- **Con cita, la fecha que se devuelve (y por la que se ordena) es la de la CITA**, leída; la
+  guardada es respaldo (una cita re-agendada después de ligarse la dejaría vieja).
+- **Ligar una cita:** exige el permiso `citas` (403 `PERMISSION_BLOCKED`); cita de otro doctor o
+  inexistente → 404; de otro paciente, CANCELLED/NO_SHOW o que ya tiene visita → 409.
+- **La visita AUTOMÁTICA (`origen='cita'`) no cambia de cita** (409): es la de esa cita, y soltarla a
+  mano la duplicaba en cuanto la sincronización de `apps/api` la re-creara. Borrarla vacía sí se puede
+  (si se re-crea, vuelve vacía).
+- Body que no sea objeto JSON → 400. Lo común vive en `apps/doctor/src/lib/visitas.ts`. Conteos con
+  `groupBy` filtrado por paciente y visita, nunca `_count`.
+- Las escrituras se auditan en `patient_audit_logs` (`create_visita` · `update_visita` con
+  `from → to` · `delete_visita`) — best-effort, como todo `logAudit`: si el log falla, la escritura
+  no se revierte.
+- Carreras aceptadas: un hijo que se cuelgue entre el conteo y el borrado queda «Sin visita» (FK
+  `SET NULL`, no se pierde); re-ligar el paciente de la cita mientras se liga la visita lo detecta el
+  barrido de §5.1.
+- Nadie la llama todavía: la UI es D4/D5.
+- ⚠️ **Fuga PREVIA, fuera de D2:** `GET …/patients/[id]/bookings` (ya existente) da a cualquier
+  member con `expedientes` horas, precio, estado de pago y links de pago **sin revisar `citas` ni
+  `flujo`**. El recorte del bloque de cita en visitas no sirve mientras esa ruta siga así. Arreglo
+  aparte, recomendado antes de la UI.
 
 **El agente:** fuera de la fase 1, pero D1 lo afecta (concluye citas). Antes de D1, confirmar en
 `docs/DESDE JUNIO/AGENTES/` (leer `GENERAL AGENTES/08-EMPIEZA-AQUI.md`) que nada de lo que el agente

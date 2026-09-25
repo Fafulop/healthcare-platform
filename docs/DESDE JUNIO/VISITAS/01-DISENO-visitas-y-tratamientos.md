@@ -311,7 +311,10 @@ construya de una forma que lo estorbe. Como la visita llega a su tratamiento a t
   12 sep" con la vista vieja. Cualquier cambio al agente sigue sus reglas y sus docs en
   `docs/DESDE JUNIO/AGENTES/` (leer primero `GENERAL AGENTES/08-EMPIEZA-AQUI.md`).
 - **Permisos de miembros (19 toggles) y tiers:** resuelto como regla en §3 (cada bloque revisa su
-  permiso). Falta decidir en el PLAN si «Visitas» en sí necesita un toggle propio para *crear*.
+  permiso). **Decidido (usuario, 2026-09-25): «Visitas» NO tiene toggle propio** — sus rutas cuelgan
+  de `medical-records/…` y heredan `expedientes`, igual que sus cinco hijos. Lo único con otro
+  permiso es lo que viene de la cita: hora/servicio (`citas`) y cobro (`flujo`); sin él, el campo
+  no viaja.
 - **NOM-024 / integridad del expediente:** resuelto como regla en §3 (mover queda auditado).
 - **Exportar cuenta** *(hueco #10)*: `apps/api/src/lib/exportar-cuenta.ts` debe incluir visitas,
   tratamientos y sesiones — el paciente tiene derecho a su expediente completo (LFPDPPP).
