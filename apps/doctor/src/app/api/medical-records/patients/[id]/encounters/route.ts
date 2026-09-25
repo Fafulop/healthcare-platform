@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { logEncounterCreated } from '@/lib/activity-logger';
+import { resolverVisitaDeHijo } from '@/lib/visitas';
 import {
   handleApiError,
   validateRequired,
@@ -93,10 +94,16 @@ export async function POST(
       );
     }
 
+    // VISITAS D3: a consultation has no parent consultation, so its visit is the one sent.
+    const visitaId = await resolverVisitaDeHijo(doctorId, patientId, {
+      visitaId: body.visitaId, encounterId: null, encounterCambio: false,
+    });
+
     const encounter = await prisma.clinicalEncounter.create({
       data: {
         patientId,
         doctorId,
+        visitaId: visitaId ?? null,
         encounterDate,
         encounterType: body.encounterType,
         chiefComplaint: body.chiefComplaint,

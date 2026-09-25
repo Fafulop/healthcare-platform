@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { resolverVisitaDeHijo } from '@/lib/visitas';
 
 // GET /api/medical-records/patients/:id/media
 export async function GET(
@@ -149,12 +150,19 @@ export async function POST(
       }
     }
 
+    // VISITAS D3: with a consultation the visit is DERIVED from it (a mismatching visitaId → 409);
+    // without one, the visitaId sent (same patient). lib/visitas.ts resolverVisitaDeHijo.
+    const visitaId = await resolverVisitaDeHijo(doctorId, patientId, {
+      visitaId: body.visitaId, encounterId: body.encounterId || null, encounterCambio: true,
+    });
+
     // Create media record
     const media = await prisma.patientMedia.create({
       data: {
         patientId,
         doctorId,
         encounterId: body.encounterId || null,
+        visitaId: visitaId ?? null,
         mediaType: body.mediaType,
         fileName: body.fileName,
         fileUrl: body.fileUrl,

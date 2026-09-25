@@ -245,6 +245,35 @@ usuario, push, y **verificar el `commitHash` por servicio**.
   nace visita. En prod el 2026-09-25: **3 citas concluidas** así de 572. Arreglo de raíz: estampar
   `date` en la cita donde se anula `slotId` (5 caminos) — fuera de D1; el barrido las reporta.
 
+### 5.3 D3 — cada hijo guarda su visita (2026-09-25)
+
+- **Una regla, un lugar:** `resolverVisitaDeHijo` (`apps/doctor/src/lib/visitas.ts`). **La visita de
+  un hijo es la de su consulta:** con consulta se DERIVA (un `visitaId` distinto → 409); sin consulta,
+  el `visitaId` enviado si es del mismo paciente y doctor (otro → 404, basura → 400). ⚠️ El backfill
+  (`scripts/visitas/backfill-visitas.cjs`) aplica la MISMA regla: si cambia una, cambia la otra.
+- **Consultas:** alta con `visitaId`; al EDITAR su visita, **arrastra** a sus fotos, recetas e informes
+  en la misma transacción (`moverConsultaDeVisita`), auditado `move_encounter_visita` con conteo.
+- **Fotos / Recetas:** alta y edición; si cambia la consulta, la visita la sigue. Receta: sólo en
+  BORRADOR (la ruta ya sólo edita borradores) — una receta emitida sin consulta no cambia de visita.
+- **Notas:** alta y edición; un PUT puede traer SÓLO `visitaId` (el «¿A qué visita pertenece?»).
+  Movimiento auditado `move_note_visita` (antes las notas no auditaban nada).
+- **Informes:** siempre la de su consulta (ya es obligatoria); no cambian de consulta.
+- Los GET de los cinco devuelven `visitaId`. Clientes actuales no lo mandan: todo sigue igual.
+- **Mover SÓLO la visita** de una consulta (PUT con únicamente `visitaId`) no corre la edición
+  completa (que borraba `followUpDate`, marcaba "enmendada" y guardaba versión). Mover + editar van
+  en UNA transacción. La auditoría guarda los **ids** de lo arrastrado, no sólo el conteo.
+- Con consulta, un `visitaId: null`/`''` (default de un formulario) se ignora: la visita se deriva.
+- Mover una nota a una visita conserva su `updatedAt` (la lista se ordena por él).
+- **Smoke contra prod (tx revertida): 18/18** — derivar, 409 por no coincidir, otro paciente 404,
+  arrastre al mover (y NO a la foto ajena), la BD rechaza cruzar pacientes (P2003).
+- **Aceptado, con condición:**
+  - 🔴 **El backfill corre UNA vez, ANTES de la UI, nunca después:** desde D3 «Sin visita» puede ser
+    decisión del doctor, y re-correrlo la desharía sin auditoría (anotado en el script).
+  - Carrera: subir una foto mientras su consulta se mueve de visita puede dejarlas en visitas
+    distintas (nada en la BD obliga hijo = consulta). Muy improbable; **el barrido previo al
+    lanzamiento (§5.1) revisa también hijos cuya visita ≠ la de su consulta**.
+  - Una receta EMITIDA sin consulta no cambia de visita (la ruta sólo edita borradores).
+
 **Toggle de miembros para "Visitas": NO lleva (decidido 2026-09-25, DISEÑO §9).** Las rutas heredan
 `expedientes` por prefijo; `citas` y `flujo` sólo recortan el bloque de la cita.
 

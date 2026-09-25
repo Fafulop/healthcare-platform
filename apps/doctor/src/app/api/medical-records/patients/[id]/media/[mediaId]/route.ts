@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { resolverVisitaDeHijo } from '@/lib/visitas';
 import { borrarArchivoSubido } from '@/lib/borrar-archivo';
 
 // GET /api/medical-records/patients/:id/media/:mediaId
@@ -133,11 +134,23 @@ export async function PUT(
       }
     }
 
+    // VISITAS D3: the visit follows the consultation. If the consultation changes, the visit
+    // becomes the new consultation's; with a consultation, a visitaId alone can't diverge (409);
+    // without one, the visitaId sent (same patient). lib/visitas.ts resolverVisitaDeHijo.
+    const encounterFinal = body.encounterId !== undefined ? (body.encounterId || null) : existingMedia.encounterId;
+    const visitaId = await resolverVisitaDeHijo(doctorId, patientId, {
+      visitaId: body.visitaId,
+      encounterId: encounterFinal,
+      encounterCambio: body.encounterId !== undefined && encounterFinal !== existingMedia.encounterId,
+    });
+    const visitaMovida = visitaId !== undefined && visitaId !== existingMedia.visitaId;
+
     // Update media (only allow updating metadata, not the actual file)
     const media = await prisma.patientMedia.update({
       where: { id: mediaId },
       data: {
-        encounterId: body.encounterId !== undefined ? body.encounterId : undefined,
+        encounterId: body.encounterId !== undefined ? encounterFinal : undefined,
+        visitaId: visitaMovida ? visitaId : undefined,
         category: body.category !== undefined ? body.category : undefined,
         bodyArea: body.bodyArea !== undefined ? body.bodyArea : undefined,
         captureDate: body.captureDate ? new Date(body.captureDate) : undefined,
@@ -156,7 +169,8 @@ export async function PUT(
       action: 'update_media',
       resourceType: 'media',
       resourceId: mediaId,
-      changes: body,
+      // A visit move is logged from → to (NOM-024), also when it was derived from the consultation.
+      changes: visitaMovida ? { ...body, visitaId: { from: existingMedia.visitaId, to: visitaId } } : body,
       request
     });
 

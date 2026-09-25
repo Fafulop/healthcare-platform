@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { resolverVisitaDeHijo } from '@/lib/visitas';
 import { cargarPrefill, DatosDelInformeNoEncontrados } from '@/lib/informe-medico/cargar-prefill';
 import { avisosDelFormato } from '@/lib/informe-medico/prefill';
 import { dictParaRender, formatoDe } from '@/lib/informe-medico/formatos';
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, status: true, consentGiven: true, issuedAt: true, createdAt: true,
-        encounterId: true,
+        encounterId: true, visitaId: true,
         form: { select: { id: true, insurer: true, name: true, version: true } },
       },
     });
@@ -75,9 +76,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Sólo los avisos que ESTA hoja puede atender — ver `avisosDelFormato`.
     const avisos = avisosDelFormato(todos, dictParaRender(formato, form.fieldDict));
 
+    // VISITAS D3: un informe siempre cuelga de una consulta; su visita es la de esa consulta.
+    const visitaId = await resolverVisitaDeHijo(doctorId, patientId, {
+      visitaId: undefined, encounterId, encounterCambio: true,
+    });
+
     const report = await prisma.medicalReport.create({
       data: {
-        doctorId, patientId, encounterId, formId,
+        doctorId, patientId, encounterId, formId, visitaId: visitaId ?? null,
         answers: answers as object,
         sources: sources as object,
         status: 'draft',

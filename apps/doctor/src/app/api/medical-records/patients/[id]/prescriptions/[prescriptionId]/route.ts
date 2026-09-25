@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { resolverVisitaDeHijo } from '@/lib/visitas';
 
 // GET /api/medical-records/patients/:id/prescriptions/:prescriptionId
 export async function GET(
@@ -158,11 +159,23 @@ export async function PUT(
       }
     }
 
+    // VISITAS D3: the visit follows the consultation. If the consultation changes, the visit
+    // becomes the new consultation's; with a consultation, a visitaId alone can't diverge (409);
+    // without one, the visitaId sent (same patient). lib/visitas.ts resolverVisitaDeHijo.
+    const encounterFinal = body.encounterId !== undefined ? (body.encounterId || null) : existingPrescription.encounterId;
+    const visitaId = await resolverVisitaDeHijo(doctorId, patientId, {
+      visitaId: body.visitaId,
+      encounterId: encounterFinal,
+      encounterCambio: body.encounterId !== undefined && encounterFinal !== existingPrescription.encounterId,
+    });
+    const visitaMovida = visitaId !== undefined && visitaId !== existingPrescription.visitaId;
+
     // Update prescription (only metadata, not status - use issue/cancel endpoints for that)
     const prescription = await prisma.prescription.update({
       where: { id: prescriptionId },
       data: {
-        encounterId: body.encounterId !== undefined ? body.encounterId : undefined,
+        encounterId: body.encounterId !== undefined ? encounterFinal : undefined,
+        visitaId: visitaMovida ? visitaId : undefined,
         prescriptionDate: body.prescriptionDate ? new Date(body.prescriptionDate) : undefined,
         doctorFullName: body.doctorFullName !== undefined ? body.doctorFullName : undefined,
         doctorLicense: body.doctorLicense !== undefined ? body.doctorLicense : undefined,
@@ -190,7 +203,8 @@ export async function PUT(
       action: 'update_prescription',
       resourceType: 'prescription',
       resourceId: prescriptionId,
-      changes: body,
+      // A visit move is logged from → to (NOM-024), also when it was derived from the consultation.
+      changes: visitaMovida ? { ...body, visitaId: { from: existingPrescription.visitaId, to: visitaId } } : body,
       request
     });
 

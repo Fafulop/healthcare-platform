@@ -3,6 +3,7 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { logPrescriptionCreated } from '@/lib/activity-logger';
 import { handleApiError } from '@/lib/api-error-handler';
+import { resolverVisitaDeHijo } from '@/lib/visitas';
 import { validateCredentials } from '@/lib/prescription-credentials';
 
 /**
@@ -211,12 +212,19 @@ export async function POST(
       }
     }
 
+    // VISITAS D3: with a consultation the visit is DERIVED from it (a mismatching visitaId → 409);
+    // without one, the visitaId sent (same patient). lib/visitas.ts resolverVisitaDeHijo.
+    const visitaId = await resolverVisitaDeHijo(doctorId, patientId, {
+      visitaId: body.visitaId, encounterId: body.encounterId || null, encounterCambio: true,
+    });
+
     // Create prescription with draft status
     const prescription = await prisma.prescription.create({
       data: {
         patientId,
         doctorId,
         encounterId: body.encounterId || null,
+        visitaId: visitaId ?? null,
         templateId: body.templateId || null,
         customData: body.templateId ? body.customData : undefined,
         prescriptionDate: new Date(body.prescriptionDate),

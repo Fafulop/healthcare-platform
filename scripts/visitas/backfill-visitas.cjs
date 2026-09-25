@@ -13,6 +13,13 @@
  *
  * Se re-corre justo antes del lanzamiento de la UI: sólo toma lo que siga sin visita.
  *
+ * 🔴 UNA SOLA VEZ, ANTES de la UI (D4/D5) — NUNCA después. Desde D3 (2026-09-25) «Sin visita» en
+ *    una consulta puede ser una DECISIÓN del doctor (PUT con visitaId: null), no "falta
+ *    backfill". Este script no distingue: re-corrido después del lanzamiento, envolvería esa
+ *    consulta en una visita nueva y arrastraría a sus hijos, deshaciendo en silencio lo que el
+ *    doctor decidió, sin auditoría. La regla que aplica (la visita del hijo = la de su consulta)
+ *    es la misma que `resolverVisitaDeHijo` en apps/doctor/src/lib/visitas.ts.
+ *
  * Uso (desde la raíz del repo):
  *   railway run --service pgvector node scripts/visitas/backfill-visitas.cjs --dry-run   ← sólo lee
  *   railway run --service pgvector node scripts/visitas/backfill-visitas.cjs             ← escribe

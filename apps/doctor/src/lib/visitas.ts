@@ -190,3 +190,76 @@ export async function validarCitaParaVisita(
   if (b.visita && b.visita.id !== exceptVisitaId) throw new AppError('La cita ya tiene una visita', 409);
   return { fechaCita: b.slot?.date ?? b.date ?? null };
 }
+
+/**
+ * VISITAS D3 — la visita de un HIJO (foto, receta, informe, nota, consulta). UNA regla, un lugar
+ * (DISEÑO §3 "una sola liga al padre"): **la visita de un hijo es la de su consulta.**
+ *   · Con consulta (`encounterId`): el servidor la DERIVA de la consulta; un `visitaId` que no
+ *     coincida → 409 (una foto no puede estar en la consulta de la visita A con visitaId = B).
+ *   · Sin consulta: el `visitaId` que venga, si la visita es del MISMO paciente y doctor (la BD
+ *     también lo exige con la FK compuesta).
+ * ⚠️ scripts/visitas/backfill-visitas.cjs aplica la MISMA regla a los datos viejos: si cambia aquí,
+ *    cambia allá.
+ *
+ * Devuelve `undefined` = no tocar la columna · `null` = «Sin visita» · string = esa visita.
+ *
+ * @param opts.visitaId       lo que mandó el cliente (`undefined` = no lo mandó).
+ * @param opts.encounterId    la consulta del hijo DESPUÉS de esta escritura (null = sin consulta).
+ * @param opts.encounterCambio ¿esta escritura pone o cambia la consulta? (en un alta con consulta: sí)
+ */
+export async function resolverVisitaDeHijo(
+  doctorId: string,
+  patientId: string,
+  opts: { visitaId: unknown; encounterId: string | null; encounterCambio: boolean },
+  db: Prisma.TransactionClient | PrismaClient = prisma,
+): Promise<string | null | undefined> {
+  if (opts.encounterId) {
+    // Con consulta la visita se DERIVA: un null/'' que manda un formulario por default no dice nada.
+    const pedida = opts.visitaId === null || opts.visitaId === '' ? undefined : opts.visitaId;
+    if (!opts.encounterCambio && pedida === undefined) return undefined;
+    const enc = await db.clinicalEncounter.findFirst({
+      where: { id: opts.encounterId, patientId, doctorId },
+      select: { visitaId: true },
+    });
+    if (!enc) throw new AppError('Consulta no encontrada', 404);
+    if (pedida !== undefined && pedida !== enc.visitaId) {
+      throw new AppError('La visita de este elemento es la de su consulta', 409);
+    }
+    return enc.visitaId;
+  }
+  if (opts.visitaId === undefined) return undefined;
+  if (opts.visitaId === null) return null;
+  if (typeof opts.visitaId !== 'string' || !opts.visitaId) throw new AppError('visitaId inválido', 400);
+  const v = await db.visita.findFirst({
+    where: { id: opts.visitaId, patientId, doctorId },
+    select: { id: true },
+  });
+  if (!v) throw new AppError('Visita no encontrada', 404);
+  return v.id;
+}
+
+/**
+ * Mueve una CONSULTA a otra visita (o a «Sin visita») y ARRASTRA a sus hijos (fotos, recetas,
+ * informes con ese `encounterId`): si no, quedarían en otra visita que su consulta. Va en la
+ * transacción del llamador. Devuelve los IDS de los hijos movidos: la auditoría (NOM-024) tiene
+ * que poder decir QUÉ receta o informe cambió de visita, no sólo cuántos.
+ */
+export async function moverConsultaDeVisita(
+  tx: Prisma.TransactionClient, encounterId: string, visitaId: string | null,
+): Promise<{ fotos: string[]; recetas: string[]; informes: string[] }> {
+  const where = { encounterId };
+  const sel = { select: { id: true } } as const;
+  const [fotos, recetas, informes] = await Promise.all([
+    tx.patientMedia.findMany({ where, ...sel }),
+    tx.prescription.findMany({ where, ...sel }),
+    tx.medicalReport.findMany({ where, ...sel }),
+  ]);
+  await tx.clinicalEncounter.update({ where: { id: encounterId }, data: { visitaId } });
+  await Promise.all([
+    tx.patientMedia.updateMany({ where, data: { visitaId } }),
+    tx.prescription.updateMany({ where, data: { visitaId } }),
+    tx.medicalReport.updateMany({ where, data: { visitaId } }),
+  ]);
+  const ids = (r: { id: string }[]) => r.map((x) => x.id);
+  return { fotos: ids(fotos), recetas: ids(recetas), informes: ids(informes) };
+}
