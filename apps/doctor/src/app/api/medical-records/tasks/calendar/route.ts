@@ -3,10 +3,19 @@ import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { prisma } from '@healthcare/database';
 import { normalizeDate } from '@/lib/conflict-checker';
+import { fetchSlotsDelDoctor } from '@/lib/api-slots';
+import { puedeVer } from '@/lib/visitas';
 
+// This route lives under `medical-records/tasks` (toggle `tareas`) but also returns the range's
+// APPOINTMENTS, with patient name, email, phone, notes and price. Since 2026-09-25 appointments are
+// only sent with `citas`: without it the response has tasks only plus `citasOcultas: true`, and if
+// the (now authenticated) slots call fails, `citasIncompletas: true` — an empty list must never be
+// read as "no appointments". See NUEVOS USUARIOS/05-COBERTURA §"Fugas por CAMPO".
 export async function GET(request: NextRequest) {
   try {
-    const { doctorId } = await requireDoctorAuth(request);
+    const ctx = await requireDoctorAuth(request);
+    const { doctorId } = ctx;
+    const verCitas = puedeVer(ctx, 'citas');
 
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate'); // "2026-01-01"
@@ -40,20 +49,24 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Fetch appointment slots from API app
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
-    const slotsUrl = `${apiUrl}/api/appointments/slots?doctorId=${doctorId}&startDate=${startDate}&endDate=${endDate}`;
+    if (!verCitas) {
+      return NextResponse.json({ data: { tasks, appointmentSlots: [] }, citasOcultas: true });
+    }
 
+    // Fetch appointment slots from API app — AUTHENTICATED (the endpoint is no longer public).
     let appointmentSlots: any[] = [];
+    let citasIncompletas = false;
     try {
-      const slotsResponse = await fetch(slotsUrl);
-      if (slotsResponse.ok) {
+      const slotsResponse = await fetchSlotsDelDoctor(ctx, startDate, endDate);
+      if (slotsResponse?.ok) {
         const slotsData = await slotsResponse.json();
         appointmentSlots = slotsData.data || [];
       } else {
-        console.error('❌ Slots API error:', await slotsResponse.text());
+        citasIncompletas = true;
+        if (slotsResponse) console.error('❌ Slots API error:', slotsResponse.status, await slotsResponse.text());
       }
     } catch (error) {
+      citasIncompletas = true;
       console.error('Error fetching appointment slots:', error);
     }
 
@@ -118,6 +131,7 @@ export async function GET(request: NextRequest) {
         tasks,
         appointmentSlots: [...appointmentSlots, ...freeformAsSlots],
       },
+      ...(citasIncompletas ? { citasIncompletas: true } : {}),
     });
   } catch (error) {
     return handleApiError(error, 'fetching calendar data');

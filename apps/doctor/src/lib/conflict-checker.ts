@@ -20,6 +20,12 @@ export interface ConflictResult {
   taskCheckFailed: boolean;
 }
 
+/**
+ * ⚠️ UNUSED (2026-09-25) and BROKEN if revived: it calls `GET /api/appointments/slots` WITHOUT a
+ * token, and that endpoint requires a session since it stopped being public. If you revive it,
+ * fetch the slots with `fetchSlotsDelDoctor` (lib/api-slots.ts) — otherwise every check reports
+ * `appointmentCheckFailed`.
+ */
 export async function checkConflictsForEntry(
   doctorId: string,
   entry: ConflictEntry,

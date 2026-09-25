@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
+import { fetchSlotsDelDoctor } from '@/lib/api-slots';
+import { puedeVer } from '@/lib/visitas';
 import { handleApiError } from '@/lib/api-error-handler';
 import { normalizeDate } from '@/lib/conflict-checker';
 import { logTaskUpdated, logTaskCompleted, logTaskStatusChanged, logTaskDeleted } from '@/lib/activity-logger';
@@ -44,7 +46,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { doctorId } = await requireDoctorAuth(request);
+    const ctx = await requireDoctorAuth(request);
+    const { doctorId } = ctx;
     const { id } = await params;
     const body = await request.json();
 
@@ -111,12 +114,11 @@ export async function PUT(
 
       // 2. Check for booked appointments (INFORMATIONAL WARNING ONLY)
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
         const dueDateStr = typeof finalDueDate === 'string' ? finalDueDate.split('T')[0] : finalDueDate.toISOString().split('T')[0];
-        const slotsUrl = `${apiUrl}/api/appointments/slots?doctorId=${doctorId}&startDate=${dueDateStr}&endDate=${dueDateStr}`;
-
-        const slotsResponse = await fetch(slotsUrl);
-        if (slotsResponse.ok) {
+        // Authenticated: the slots endpoint is no longer public (lib/api-slots.ts). Without
+        // `citas` the api would 403 anyway, so the overlap warning is simply skipped.
+        const slotsResponse = puedeVer(ctx, 'citas') ? await fetchSlotsDelDoctor(ctx, dueDateStr, dueDateStr) : null;
+        if (slotsResponse?.ok) {
           const slotsData = await slotsResponse.json();
           const slots = slotsData.data || [];
 
