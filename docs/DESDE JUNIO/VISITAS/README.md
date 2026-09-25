@@ -1,7 +1,9 @@
 # VISITAS — un agregador por visita, y series de visitas (tratamientos)
 
-> **Estado (2026-09-25): DISEÑO CERRADO, nada construido — sigue el plan de la fase 1.** Nació del feedback de doctores: hoy todo lo
-> que se crea en el expediente es suelto y nada responde "¿qué pasó en la visita del 12 sep?".
+> **Estado (2026-09-25, fin del día): fase 1 — BACKEND COMPLETO EN PROD (A, C, D1–D3); falta la UI
+> (D4–D6) y el lanzamiento.** 👉 **Empieza por [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).**
+> Nació del feedback de doctores: hoy todo lo que se crea en el expediente es suelto y nada responde
+> "¿qué pasó en la visita del 12 sep?".
 
 ## En una frase
 
@@ -15,6 +17,7 @@ en serie (seguimientos y sesiones), con precio de paquete sin duplicar la verdad
 | Doc | Tipo | Qué tiene |
 |---|---|---|
 | [`01-DISENO-visitas-y-tratamientos.md`](01-DISENO-visitas-y-tratamientos.md) | DISEÑO (vivo) | El modelo, las reglas de una sola fuente de verdad (fecha/hora = cita · precio del paquete ≠ cobro), la visita automática al concluir, los flujos, las fases, los riesgos y las preguntas abiertas. |
+| [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | HANDOFF (vivo) | Dónde estamos, qué está en prod (commits), qué sigue, decisiones del usuario y trampas ya pisadas. |
 | [`02-PLAN-fase-1.md`](02-PLAN-fase-1.md) | PLAN | Cómo se construye la fase 1 contra una BD que sólo existe en prod: SQL aditivo, 6 comprobaciones con rollback, backfill reversible de las consultas, y los despliegues D1–D6 con sus puntos de parada. |
 
 ## Las tres reglas que no se re-litigan
