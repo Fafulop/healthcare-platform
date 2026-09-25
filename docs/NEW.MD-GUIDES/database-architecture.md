@@ -1,6 +1,6 @@
 # Database Architecture Guide
 
-**Last Updated:** 2026-09-20
+**Last Updated:** 2026-09-25
 
 > ## ⚠️ 2026-09-20 — YA NO HAY BASE DE DATOS LOCAL
 >
@@ -257,62 +257,27 @@ Script executed successfully.
 
 ---
 
-### Push Full Schema to Railway via CLI (Step by Step)
+### 🔴 NO: `prisma db push` contra Railway
 
-When you want to sync your entire `schema.prisma` to the deployed Railway database:
+> **Corrección (2026-09-25).** Aquí había una receta paso a paso para correr `prisma db push`
+> contra producción. Se quitó: es el comando más peligroso del repo. `db push` hace que la BD
+> **se parezca al schema**, así que:
+>
+> - **revierte en silencio** todo lo que vive SÓLO en la BD (la lista de abajo: FKs compuestas
+>   de `bookings` y `medical_reports`, índices únicos parciales, la FK `DEFERRABLE` sin la
+>   cual **borrar un paciente truena**);
+> - **borra tablas enteras** que el schema no conozca, con todo su contenido (`stored_files`,
+>   las tablas del cobro) — y algunas no se pueden reconstruir.
+>
+> Y ya no hay BD local donde equivocarse primero. **Todo cambio de schema = SQL manual +
+> `prisma db execute`**, validado antes con una transacción que siempre revienta (ver el aviso
+> del principio). CLAUDE.md lo dice igual.
 
-#### 1. Make sure Railway CLI is installed and you're logged in
+La lista de abajo sigue siendo útil por dos razones: dice qué NO se puede modelar en Prisma (y
+por lo tanto qué se perdería), y si alguien corre `db push` de todas formas, qué hay que
+reaplicar de inmediato.
 
-```powershell
-railway --version
-railway whoami
-```
-
-If not logged in, run:
-```powershell
-railway login
-```
-
-#### 2. Verify you're linked to the correct project
-
-```powershell
-railway status
-```
-
-Expected output:
-```
-Project: DOCTORES-SEO-PACIENTE-MGMT
-Environment: production
-Service: @healthcare/doctor
-```
-
-#### 3. Navigate to the database package
-
-```powershell
-cd packages/database
-```
-
-#### 4. Set the DATABASE_URL to the Railway **public** URL and push
-
-```powershell
-$env:DATABASE_URL="postgresql://postgres:PASSWORD@yamanote.proxy.rlwy.net:51502/railway"; npx prisma db push
-```
-
-> **Important:** You MUST use the **public** Railway URL (`yamanote.proxy.rlwy.net`).
-> Do NOT use `railway run npx prisma db push` — it injects the **internal** URL (`pgvector.railway.internal`) which is only accessible between Railway services, not from your local machine.
-
-#### 5. Verify success
-
-Expected output:
-```
-Datasource "db": PostgreSQL database "railway", schemas "llm_assistant, medical_records, practice_management, public" at "yamanote.proxy.rlwy.net:51502"
-
-Your database is now in sync with your Prisma schema. Done in 6.10s
-```
-
-The Prisma Client will also be regenerated automatically.
-
-#### 6. ⚠️ Re-apply DB-only constraints that `db push` reverts
+#### ⚠️ DB-only constraints that `db push` reverts (re-aplicar si alguien lo corrió)
 
 Some constraints exist ONLY at the DB level because Prisma cannot express them in
 `schema.prisma`. `db push` makes the DB match the schema, so it **silently drops them**.
@@ -368,9 +333,8 @@ sincronizar lo reescribiría SIN el `WHERE is_active`.)
 
 ### Important Notes
 
-- **Always test locally first** before pushing to Railway
+- ~~Always test locally first~~ → **ya no hay BD local (2026-09-20):** validar con una transacción contra prod que siempre revienta
 - **Create separate migration files** for each schema change
-- **Use the `--schema` flag** for local execution to specify the schema file
 - **Use the `--url` flag** for Railway execution with the public URL
 - **Commit migration files to git** so other developers can run them too
 - **Never use `--force`** as it can cause data loss
@@ -378,7 +342,7 @@ sincronizar lo reescribiría SIN el `WHERE is_active`.)
 ### When to Push to Railway
 
 Push schema changes to Railway when:
-- You've tested the changes locally and everything works
+- You validated the SQL against prod inside a rolled-back transaction (no local DB since 2026-09-20)
 - You're about to deploy code that depends on the schema changes
 - After merging a PR that includes new database models
 
@@ -572,8 +536,7 @@ END$$;
 
 | Task | Command |
 |---|---|
-| Push schema to local DB | `cd packages/database && pnpm prisma db push` |
-| Push schema to Railway | `$env:DATABASE_URL="RAILWAY_URL"; cd packages/database; npx prisma db push` |
+| 🔴 `prisma db push` | **NUNCA** — revierte constraints y borra tablas (ver arriba) |
 | Run migration on Railway | `npx prisma db execute --file packages/database/prisma/migrations/file.sql --url "RAILWAY_URL"` |
 | Regenerate Prisma client | `pnpm db:generate` |
 | View current schema | `packages/database/prisma/schema.prisma` |

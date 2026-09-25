@@ -209,8 +209,10 @@ dinero se contaría dos veces.**
 - **Los pagos del paquete** son movimientos ligados al tratamiento, de cualquier monto y en
   cualquier momento (adelanto, abonos). **Saldo = precio del paquete − pagos del paquete**,
   calculado.
-- **Cargo extra en una sesión** (algo fuera del paquete): el doctor puede capturarlo; se registra
-  como cobro normal de esa cita, aparte del $0.
+- **Cargo extra en una sesión** (algo fuera del paquete): el doctor puede capturarlo, y entonces
+  el cobro de esa cita **es el extra** (en vez de $0), marcado «paquete + extra». **No pueden ser
+  dos movimientos:** `LedgerEntry.bookingId` es `@unique` — una cita tiene a lo sumo UN
+  movimiento. *(Corregido 2026-09-25 al escribir el PLAN; el borrador decía "aparte del $0".)*
 - Hoy `createCitaLedgerEntry` sólo corre con precio > 0; aceptar el $0 es un cambio a propósito y
   acotado a este caso.
 

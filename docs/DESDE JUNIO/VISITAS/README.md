@@ -15,6 +15,7 @@ en serie (seguimientos y sesiones), con precio de paquete sin duplicar la verdad
 | Doc | Tipo | Qué tiene |
 |---|---|---|
 | [`01-DISENO-visitas-y-tratamientos.md`](01-DISENO-visitas-y-tratamientos.md) | DISEÑO (vivo) | El modelo, las reglas de una sola fuente de verdad (fecha/hora = cita · precio del paquete ≠ cobro), la visita automática al concluir, los flujos, las fases, los riesgos y las preguntas abiertas. |
+| [`02-PLAN-fase-1.md`](02-PLAN-fase-1.md) | PLAN | Cómo se construye la fase 1 contra una BD que sólo existe en prod: SQL aditivo, 6 comprobaciones con rollback, backfill reversible de las consultas, y los despliegues D1–D6 con sus puntos de parada. |
 
 ## Las tres reglas que no se re-litigan
 
