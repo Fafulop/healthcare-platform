@@ -174,6 +174,19 @@ hizo a prod).
    ensayo, y **0** consultas sin visita. (Lección: un contador de éxito cuenta lo que se
    INTENTÓ; lo que cuenta es lo que quedó en la base.)
 
+### 4.2b Estado y CUÁNDO se corre de verdad (2026-09-25)
+
+- **Script:** `scripts/visitas/backfill-visitas.cjs` (`--dry-run` · sin flag · `--undo`).
+- **Ensayo corrido el 2026-09-25, read-only:** 293 consultas · 150 fotos/documentos · 12 recetas ·
+  29 informes · **0** hijos ligados a la consulta de otro paciente — exactamente lo esperado.
+- 🔴 **La corrida de verdad va JUSTO ANTES de lanzar la UI (D4/D5), no antes.** Hasta que D1 esté
+  en prod, las consultas nuevas NO reciben visita: correrlo hoy dejaría huérfanas todas las que se
+  creen de aquí al lanzamiento. Es re-corrible (sólo toma lo que siga sin visita), así que si se
+  corre antes, se repite al lanzar.
+- ☐ **Code review del script ANTES de la corrida de verdad**, con su versión final: para entonces
+  ya habrá visitas `cita`/`manual` en la base, y replica la regla "la visita del hijo = la de su
+  consulta" que D3 implementa en código — las dos tienen que decir lo mismo.
+
 ### 4.3 Cómo se deshace
 
 ```sql
