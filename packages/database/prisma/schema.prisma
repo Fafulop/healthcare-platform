@@ -378,6 +378,7 @@ model Doctor {
   // Patient AI Summaries
   patientSummaries   PatientSummary[]
   medicalReports     MedicalReport[]
+  visitas            Visita[]
 
   // Team (secondary users)
   members            DoctorMember[]
@@ -756,6 +757,7 @@ model Booking {
   mpPaymentPreference MpPaymentPreference?
   formLink           AppointmentFormLink?  @relation("BookingFormLink")
   ledgerEntry        LedgerEntry?          @relation("BookingLedgerEntry")
+  visita             Visita?
 
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
@@ -2137,6 +2139,7 @@ model Patient {
   formLinks            AppointmentFormLink[]
   summaries            PatientSummary[]
   medicalReports       MedicalReport[]
+  visitas              Visita[]
 
   @@unique([doctorId, internalId])
   @@index([doctorId, status])
@@ -2224,6 +2227,13 @@ model ClinicalEncounter {
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   // Relations
+  /// VISITAS fase 1 — a qué visita pertenece (null = «Sin visita»). ⚠️ En PROD la FK es
+  /// COMPUESTA `(visita_id, patient_id) → visitas(id, patient_id)` con
+  /// `ON DELETE SET NULL (visita_id)`: la BD impide ligarlo a la visita de OTRO paciente.
+  /// Prisma no la modela; `prisma db push` la revertiría. `migrations/create-visitas.sql`.
+  visitaId        String?  @map("visita_id")
+
+  visita          Visita?            @relation(fields: [visitaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   patient         Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
   template        EncounterTemplate?   @relation(fields: [templateId], references: [id], onDelete: SetNull)
   versions        EncounterVersion[]
@@ -2235,6 +2245,7 @@ model ClinicalEncounter {
   @@index([doctorId, encounterDate])
   @@index([doctorId, status])
   @@index([templateId])
+  @@index([visitaId])
   @@map("clinical_encounters")
   @@schema("medical_records")
 }
@@ -2303,12 +2314,20 @@ model PatientMedia {
   createdAt       DateTime @default(now()) @map("created_at")
 
   // Relations
+  /// VISITAS fase 1 — a qué visita pertenece (null = «Sin visita»). ⚠️ En PROD la FK es
+  /// COMPUESTA `(visita_id, patient_id) → visitas(id, patient_id)` con
+  /// `ON DELETE SET NULL (visita_id)`: la BD impide ligarlo a la visita de OTRO paciente.
+  /// Prisma no la modela; `prisma db push` la revertiría. `migrations/create-visitas.sql`.
+  visitaId        String?  @map("visita_id")
+
+  visita          Visita?            @relation(fields: [visitaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   encounter       ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
 
   @@index([patientId, captureDate])
   @@index([doctorId, mediaType])
   @@index([encounterId])
+  @@index([visitaId])
   @@map("patient_media")
   @@schema("medical_records")
 }
@@ -2362,6 +2381,13 @@ model Prescription {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   // Relations
+  /// VISITAS fase 1 — a qué visita pertenece (null = «Sin visita»). ⚠️ En PROD la FK es
+  /// COMPUESTA `(visita_id, patient_id) → visitas(id, patient_id)` con
+  /// `ON DELETE SET NULL (visita_id)`: la BD impide ligarlo a la visita de OTRO paciente.
+  /// Prisma no la modela; `prisma db push` la revertiría. `migrations/create-visitas.sql`.
+  visitaId        String?  @map("visita_id")
+
+  visita          Visita?            @relation(fields: [visitaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   encounter       ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
   template        EncounterTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
@@ -2372,6 +2398,7 @@ model Prescription {
   @@index([patientId, prescriptionDate])
   @@index([doctorId, status])
   @@index([doctorId, prescriptionDate])
+  @@index([visitaId])
   @@map("prescriptions")
   @@schema("medical_records")
 }
@@ -2641,11 +2668,19 @@ model PatientNote {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  /// VISITAS fase 1 — a qué visita pertenece (null = «Sin visita»). ⚠️ En PROD la FK es
+  /// COMPUESTA `(visita_id, patient_id) → visitas(id, patient_id)` con
+  /// `ON DELETE SET NULL (visita_id)`: la BD impide ligarlo a la visita de OTRO paciente.
+  /// Prisma no la modela; `prisma db push` la revertiría. `migrations/create-visitas.sql`.
+  visitaId        String?  @map("visita_id")
+
+  visita          Visita?            @relation(fields: [visitaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
   @@index([patientId, updatedAt])
   @@index([doctorId])
+  @@index([visitaId])
   @@map("patient_notes")
   @@schema("medical_records")
 }
@@ -2753,6 +2788,13 @@ model MedicalReport {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
+  /// VISITAS fase 1 — a qué visita pertenece (null = «Sin visita»). ⚠️ En PROD la FK es
+  /// COMPUESTA `(visita_id, patient_id) → visitas(id, patient_id)` con
+  /// `ON DELETE SET NULL (visita_id)`: la BD impide ligarlo a la visita de OTRO paciente.
+  /// Prisma no la modela; `prisma db push` la revertiría. `migrations/create-visitas.sql`.
+  visitaId        String?  @map("visita_id")
+
+  visita          Visita?            @relation(fields: [visitaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   doctor        Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   /// ⚠️ En PROD esta FK es COMPUESTA — `(patient_id, doctor_id) → patients(id, doctor_id)` —
   /// para que la BD impida que un informe apunte al paciente de OTRO doctor. Prisma no la
@@ -2774,7 +2816,54 @@ model MedicalReport {
   @@index([doctorId, status])
   @@index([formId])
   @@index([encounterId])
+  @@index([visitaId])
   @@map("medical_reports")
+  @@schema("medical_records")
+}
+
+// -----------------------------------------------------------------------------
+// VISITAS (fase 1) — agrupa lo que pasó en una visita y la liga a su cita.
+// Diseño: docs/DESDE JUNIO/VISITAS/01-DISENO-visitas-y-tratamientos.md
+// Migración: migrations/create-visitas.sql (SQL manual; NUNCA prisma db push)
+// -----------------------------------------------------------------------------
+
+model Visita {
+  id          String    @id @default(cuid())
+  patientId   String    @map("patient_id")
+  doctorId    String    @map("doctor_id")
+  /// Día de la visita. RESPALDO: si hay cita, manda la fecha de la cita. Existe porque
+  /// borrar un slot borra sus citas y la visita debe conservar su día. `@db.Date` ⇒ se
+  /// lee y se formatea en UTC.
+  fecha       DateTime  @db.Date
+  comentario  String?   @db.Text
+  /// Una cita tiene a lo sumo UNA visita (índice único COMPLETO, igual en Prisma y en la BD:
+  /// Postgres no compara NULLs, así que muchas visitas sin cita conviven). NO hacerlo parcial:
+  /// `upsert({ where: { bookingId } })` corre INSERT … ON CONFLICT (booking_id), que no empata
+  /// con un índice parcial (42P10).
+  bookingId   String?   @unique @map("booking_id")
+  /// 'manual' · 'cita' · 'backfill' (CHECK en la BD). Deshacer el backfill = borrar 'backfill'.
+  origen      String    @db.VarChar(20)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  doctor      Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// ⚠️ En PROD la FK es COMPUESTA `(patient_id, doctor_id) → patients(id, doctor_id)`
+  /// (tenencia, como `Booking` y `MedicalReport`). Prisma no la modela; `db push` la revertiría.
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// ⚠️ En PROD la FK es COMPUESTA `(booking_id, doctor_id) → bookings(id, doctor_id)` con
+  /// `ON DELETE SET NULL (booking_id)`: la cita tiene que ser del MISMO doctor. Prisma no la
+  /// modela; `db push` la revertiría. Que sea del mismo PACIENTE lo revisa el servidor.
+  booking     Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  encounters      ClinicalEncounter[]
+  media           PatientMedia[]
+  prescriptions   Prescription[]
+  notes           PatientNote[]
+  medicalReports  MedicalReport[]
+
+  @@index([patientId, fecha])
+  @@index([doctorId, fecha])
+  @@map("visitas")
   @@schema("medical_records")
 }
 

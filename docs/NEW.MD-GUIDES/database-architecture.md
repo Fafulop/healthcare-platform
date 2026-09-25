@@ -320,6 +320,25 @@ Currently affected:
      el borrado dispara sus dos cascades en un orden que no controlamos y la comprobación
      protesta aunque el informe se fuera a borrar de todos modos.
 
+- `create-visitas.sql` — VISITAS fase 1 (2026-09-25): **SIETE FKs compuestas y DOS índices
+  destino**, todas comentadas también en `schema.prisma`:
+  1. `visitas(patient_id, doctor_id) → patients(id, doctor_id)` — tenencia (mismo patrón que
+     `bookings` y `medical_reports`);
+  2. `visitas(booking_id, doctor_id) → bookings(id, doctor_id)` con `ON DELETE SET NULL
+     (booking_id)` — la cita es del mismo doctor; destino: índice **`bookings_id_doctor_id_key`**
+     (en `public.bookings`, fuera del modelo Visita);
+  3. en `clinical_encounters`, `patient_media`, `prescriptions`, `patient_notes` y
+     `medical_reports`: `(visita_id, patient_id) → visitas(id, patient_id)` con
+     `ON DELETE SET NULL (visita_id)` — la BD impide ligar algo a la visita de OTRO paciente;
+     destino: índice **`visitas_id_patient_id_key`**.
+
+  Prisma sólo declara las de una columna. ⚠️ **Re-correr este `.sql` NO repara un `db push`:**
+  sus `IF NOT EXISTS` ven los nombres y se saltan, y las FKs de una columna que puso Prisma
+  (`visitas_patient_id_fkey`, `visitas_booking_id_fkey`, `<tabla>_visita_id_fkey`) quedarían
+  junto a las compuestas. Si alguien corrió `db push`: borrar esas FKs de una columna, correr el
+  `.sql` y **verificar cada definición** con `pg_get_constraintdef` (que diga `SET NULL
+  (visita_id)` / `SET NULL (booking_id)`), no sólo que existan.
+
 (CHECK constraints y los índices parciales normales de otros `.sql` NO se caen — Prisma ignora
 lo que no modela. Las FK planas SÍ las modela, de ahí esta lista. El índice parcial de
 `insurance_forms` está aquí porque Prisma **sí** modela un `@@unique(insurer, name)` y al

@@ -62,8 +62,10 @@ CREATE TABLE IF NOT EXISTS medical_records.visitas (
 );
 
 -- Una cita tiene a lo sumo UNA visita: esto es lo que hace idempotente la visita automática.
+-- COMPLETO, no parcial (corregido en el review): un índice parcial rompe el upsert de Prisma
+-- (ON CONFLICT (booking_id) → 42P10). Postgres no compara NULLs: las visitas sin cita conviven.
 CREATE UNIQUE INDEX IF NOT EXISTS visitas_booking_id_key
-  ON medical_records.visitas(booking_id) WHERE booking_id IS NOT NULL;
+  ON medical_records.visitas(booking_id);
 
 CREATE INDEX IF NOT EXISTS visitas_patient_fecha_idx ON medical_records.visitas(patient_id, fecha);
 CREATE INDEX IF NOT EXISTS visitas_doctor_fecha_idx  ON medical_records.visitas(doctor_id, fecha);
@@ -81,7 +83,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS visitas_id_patient_id_key
 | FK | Tipo | Por qué |
 |---|---|---|
 | `visitas(patient_id, doctor_id) → patients(id, doctor_id)` | `ON DELETE CASCADE` | Tenencia a nivel BD: una visita no puede colgar del paciente de otro doctor. Mismo patrón que `bookings` y `medical_reports`. |
-| `visitas(booking_id) → bookings(id)` | `ON DELETE SET NULL` | Borrar un slot borra sus citas (`Booking.slot` en `CASCADE`); la visita sobrevive con su `fecha`. |
+| `visitas(booking_id, doctor_id) → bookings(id, doctor_id)` | `ON DELETE SET NULL (booking_id)` | La cita es del **mismo doctor** (review, hueco de tenencia). Por doctor y no por paciente: el paciente de una cita se re-liga y una FK por paciente bloquearía ese UPDATE; el mismo PACIENTE lo revisa el servidor (D1b). Borrar un slot borra sus citas (`Booking.slot` en `CASCADE`); la visita sobrevive con su `fecha`. Destino: índice nuevo `bookings_id_doctor_id_key`. |
 | `<hijo>(visita_id, patient_id) → visitas(id, patient_id)` en `clinical_encounters`, `patient_media`, `prescriptions`, `patient_notes`, `medical_reports` | `ON DELETE SET NULL (visita_id)` | **Hueco #13 a nivel BD:** un elemento no puede ligarse a la visita de otro paciente, por ningún camino presente o futuro. `SET NULL` con lista de columnas requiere PG15+ (prod es pg17, y ya se usa en `bookings`). |
 
 Las columnas en los hijos:
@@ -99,11 +101,16 @@ ALTER TABLE medical_records.medical_reports     ADD COLUMN IF NOT EXISTS visita_
 > push` los revierte. En el MISMO commit: comentario ⚠️ en `schema.prisma` y una entrada nueva en
 > la lista "DB-only constraints" de `database-architecture.md`.
 
+El archivo arranca con `SET lock_timeout = '5s'` y `statement_timeout = '60s'` (review): los `ADD
+COLUMN` toman ACCESS EXCLUSIVE sobre cinco tablas del expediente; sin límite, una transacción larga
+abierta dejaría a todo prod en cola detrás del ALTER.
+
 ### 2.3 `schema.prisma`
 
 Modelo `Visita` (`@@map("visitas")`, `@@schema("medical_records")`) y `visitaId String?` en los
 cinco modelos. Las relaciones se declaran simples (como `bookings` hoy); la versión compuesta vive
-sólo en el SQL. `pnpm db:generate` y type-check de los cuatro apps: **ningún código usa todavía los
+sólo en el SQL; las relaciones nuevas llevan `onUpdate: NoAction` para que Prisma no reporte
+deriva falsa. **No correr `prisma format`**: realinea las 2,600 líneas del archivo. `pnpm db:generate` y type-check de los cuatro apps: **ningún código usa todavía los
 modelos nuevos**, así que no debe cambiar nada.
 
 ---
@@ -122,6 +129,16 @@ Script en el scratchpad: abre transacción, corre `create-visitas.sql`, hace las
 | B4 | Crear paciente de prueba + visita + consulta + foto + receta + nota ligadas; **borrar el paciente** | **No truena** y no queda nada. (Lección del informe médico: sin la FK correcta, el orden de los cascades hacía abortar el borrado.) Si truena → la FK del hijo pasa a `DEFERRABLE INITIALLY DEFERRED` y se repite. |
 | B5 | Visita ligada a una cita; **borrar la cita** | La visita sigue, con `booking_id = NULL` y su `fecha` intacta |
 | B6 | Correr el SQL **dos veces** dentro de la misma transacción | La 2ª no falla (idempotente) |
+| B8 | Visita ligada a una cita de **otro doctor** | **Rebota** (`visitas_booking_id_doctor_id_fkey`) |
+| B9 | `INSERT … ON CONFLICT (booking_id) DO UPDATE` (lo que genera el `upsert` de Prisma) | **Funciona** y actualiza la visita existente |
+| B10 | Re-ligar el paciente de una cita que tiene visita | **No** se bloquea |
+| B11 | Doctor nuevo con paciente + visita + los cinco hijos; **borrar el doctor** | No truena y no queda nada |
+
+**v2 tras el code review:** cada rechazo exige **su** código SQLSTATE **y su** constraint (no
+"cualquier error"); B3 cubre los **cinco** hijos; B4 incluye un informe ligado a la consulta **y** a
+la visita (el caso que ya tumbó el borrado de pacientes una vez); la estructura compara la
+**definición exacta** de cada FK (`pg_get_constraintdef`), que los tres índices sean únicos y **no
+parciales**, y que no queden FKs de una columna sueltas.
 
 Si las seis pasan: se corre el SQL de verdad y se verifica con `information_schema` /
 `pg_constraint` que existen las columnas, los índices y las FKs **con su `ON DELETE`**.
