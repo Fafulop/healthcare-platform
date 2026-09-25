@@ -3,7 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@healthcare/database";
-import { requireDoctorAuth, AuthError } from "@/lib/auth";
+import { requireDoctorOwnsSlug, AuthError } from "@/lib/auth";
 
 export async function GET(
   request: Request,
@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
-    await requireDoctorAuth(request);
+    await requireDoctorOwnsSlug(request, slug);
 
     const doctor = await prisma.doctor.findUnique({
       where: { slug },

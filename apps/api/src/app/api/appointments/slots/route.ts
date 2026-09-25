@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { validateAuthToken } from '@/lib/auth';
+import { validateAuthToken, AuthError } from '@/lib/auth';
 import { logSlotsCreated } from '@/lib/activity-logger';
 
 // Helper function to calculate final price
@@ -87,6 +87,12 @@ function generateTimeSlots(
 }
 
 // GET - Get slots for a doctor
+//
+// SECURITY (2026-09-25): REQUIRES A SESSION. It used to be public: with just a `doctorId` it
+// returned name, email, phone, notes, price and `confirmationCode` of every active booking — and
+// that code is enough to CANCEL the booking anonymously (PATCH bookings/[id]). Now: the doctor who
+// owns `doctorId` (or one of their members with `citas`, enforced per route by validateAuthToken)
+// or an ADMIN. Callers: the doctor's agenda (authFetch) and apps/doctor lib/api-slots.ts.
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -95,10 +101,28 @@ export async function GET(request: Request) {
     const endDate = searchParams.get('endDate');
     const status = searchParams.get('status');
 
+    let auth: Awaited<ReturnType<typeof validateAuthToken>>;
+    try {
+      auth = await validateAuthToken(request);
+    } catch (err) {
+      // Generic body: validateAuthToken messages can carry internal details.
+      const status = err instanceof AuthError ? err.status : 401;
+      return NextResponse.json(
+        { success: false, error: status === 403 ? 'Forbidden' : 'Unauthorized' },
+        { status }
+      );
+    }
+
     if (!doctorId) {
       return NextResponse.json(
         { success: false, error: 'doctorId is required' },
         { status: 400 }
+      );
+    }
+    if (auth.role !== 'ADMIN' && auth.doctorId !== doctorId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
       );
     }
 

@@ -288,6 +288,24 @@ export async function requireDoctorAuth(request: Request) {
 }
 
 /**
+ * requireDoctorAuth + the slug must be the caller's OWN doctor (ADMIN: any).
+ *
+ * SECURITY (2026-09-25): /doctors/[slug]/telegram and google-calendar/status only called
+ * requireDoctorAuth, so ANY logged-in doctor could read or overwrite another doctor's
+ * telegramChatId and receive that doctor's booking notifications (patient name, phone,
+ * confirmation code). An unknown slug falls through so the route answers its own 404.
+ */
+export async function requireDoctorOwnsSlug(request: Request, slug: string) {
+  const user = await requireDoctorAuth(request);
+  if (user.role === 'ADMIN') return user;
+  const doctor = await prisma.doctor.findUnique({ where: { slug }, select: { id: true } });
+  if (doctor && doctor.id !== user.doctorId) {
+    throw new AuthError('Forbidden', 403);
+  }
+  return user;
+}
+
+/**
  * Require any authenticated user (ADMIN or DOCTOR)
  */
 export async function requireStaffAuth(request: Request) {

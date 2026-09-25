@@ -5,7 +5,7 @@
 import { NextResponse } from 'next/server';
 import { prisma, syncVisitaForBooking } from '@healthcare/database';
 import { sendPatientSMS, isSMSEnabled } from '@/lib/sms';
-import { validateAuthToken } from '@/lib/auth';
+import { validateAuthToken, AuthError } from '@/lib/auth';
 import {
   logBookingConfirmed,
   logBookingCancelled,
@@ -31,6 +31,21 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 };
 
 // GET - Get booking by ID or confirmation code
+//
+// SECURITY (2026-09-25): this used to be fully PUBLIC and returned the whole row (patient
+// name/email/phone/WhatsApp, notes, price, confirmationCode, reviewToken) for any booking id —
+// and the confirmationCode is what an anonymous PATCH needs to CANCEL the booking.
+//   - No session: lookup by CONFIRMATION CODE only, and only what the public cancel page renders
+//     (apps/public/src/app/cancel-booking). Knowing the code already proves you are the patient.
+//   - Session: the full row, by id or code, only for the booking's own doctor (or an ADMIN).
+const DOCTOR_PUBLIC_SELECT = {
+  doctorFullName: true,
+  primarySpecialty: true,
+  clinicAddress: true,
+  clinicPhone: true,
+  clinicWhatsapp: true,
+} as const;
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -38,43 +53,48 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // Try to find by ID first, then by confirmation code
-    let booking = await prisma.booking.findUnique({
-      where: { id },
-      include: {
-        slot: true,
-        doctor: {
-          select: {
-            doctorFullName: true,
-            primarySpecialty: true,
-            clinicAddress: true,
-            clinicPhone: true,
-            clinicWhatsapp: true,
-          },
-        },
-      },
-    });
-
-    if (!booking) {
-      // Try by confirmation code
-      booking = await prisma.booking.findUnique({
-        where: { confirmationCode: id },
-        include: {
-          slot: true,
-          doctor: {
-            select: {
-              doctorFullName: true,
-              primarySpecialty: true,
-              clinicAddress: true,
-              clinicPhone: true,
-              clinicWhatsapp: true,
-            },
-          },
-        },
-      });
+    let auth: Awaited<ReturnType<typeof validateAuthToken>> | null = null;
+    if (request.headers.get('authorization')) {
+      try {
+        auth = await validateAuthToken(request);
+      } catch (err) {
+        const status = err instanceof AuthError ? err.status : 401;
+        return NextResponse.json(
+          { success: false, error: status === 403 ? 'Forbidden' : 'Unauthorized' },
+          { status }
+        );
+      }
     }
 
+    if (!auth) {
+      const booking = await prisma.booking.findUnique({
+        where: { confirmationCode: id },
+        select: {
+          id: true,
+          status: true,
+          finalPrice: true,
+          date: true,
+          startTime: true,
+          endTime: true,
+          slot: { select: { date: true, startTime: true, endTime: true, duration: true } },
+          doctor: { select: DOCTOR_PUBLIC_SELECT },
+        },
+      });
+      if (!booking) {
+        return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, data: booking });
+    }
+
+    // Try to find by ID first, then by confirmation code
+    const include = { slot: true, doctor: { select: DOCTOR_PUBLIC_SELECT } } as const;
+    let booking = await prisma.booking.findUnique({ where: { id }, include });
     if (!booking) {
+      booking = await prisma.booking.findUnique({ where: { confirmationCode: id }, include });
+    }
+
+    // Another doctor's booking answers exactly like a missing one (no existence oracle).
+    if (!booking || (auth.role !== 'ADMIN' && booking.doctorId !== auth.doctorId)) {
       return NextResponse.json(
         { success: false, error: 'Booking not found' },
         { status: 404 }

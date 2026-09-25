@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
-import { requireDoctorAuth, AuthError } from '@/lib/auth';
+import { requireDoctorOwnsSlug, AuthError } from '@/lib/auth';
 
 export async function GET(
   request: Request,
@@ -12,7 +12,7 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
-    await requireDoctorAuth(request);
+    await requireDoctorOwnsSlug(request, slug);
 
     const doctor = await prisma.doctor.findUnique({
       where: { slug },
@@ -61,7 +61,7 @@ export async function PUT(
 ) {
   try {
     const { slug } = await params;
-    await requireDoctorAuth(request);
+    await requireDoctorOwnsSlug(request, slug);
 
     const { chatId, notifyBooking, notifyForm, notifyReminderConfirmed, notifyReminderPending, reminderOffsetMinutes, notifyTaskReminder, taskReminderOffsetMinutes, dailySummaryEnabled, dailySummaryTime } = await request.json();
 
@@ -159,7 +159,7 @@ export async function DELETE(
 ) {
   try {
     const { slug } = await params;
-    await requireDoctorAuth(request);
+    await requireDoctorOwnsSlug(request, slug);
 
     const doctor = await prisma.doctor.update({
       where: { slug },
