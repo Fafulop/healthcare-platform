@@ -43,6 +43,12 @@ sesiones, con o sin paquete).
 | 2026-09-25 | **Los formularios previos a la cita caen en la visita de esa cita.** |
 | 2026-09-25 | **Cita concluida sin expediente** → no se crea visita al concluir; se crea **cuando el expediente se liga** a la cita (§6). |
 | 2026-09-25 | **Visitas automáticas vacías** → se quedan, **atenuadas como «Vacía»**; nunca se borran solas; el doctor puede borrarla a mano sólo mientras siga vacía (§6). |
+| 2026-09-25 | **Sesión de un tratamiento CON precio de paquete → cobro de $0 «cubierta por paquete»** al concluir, ligado al tratamiento. No se omite: la sesión sigue apareciendo en flujo de dinero y el ingreso no se cuenta dos veces (§5). |
+| 2026-09-25 | **Aceptado: el agente creará visitas como efecto secundario** aunque no entre en la fase 1 — concluye citas por la misma ruta que la agenda (§6). |
+
+> **Revisión de huecos (2026-09-25).** Tras cerrar el primer borrador se revisó contra el código y
+> salieron 14 huecos. Sus arreglos ya están escritos donde corresponden: §3 (tabla de sesiones,
+> fecha, reglas de integridad), §4 (agendar N), §5 ($0 por paquete), §6 (el agente), §9 (lo demás).
 
 ---
 
@@ -51,10 +57,11 @@ sesiones, con o sin paquete).
 ```
 Paciente
  ├─ Tratamiento (opcional)  — nombre · sesiones planeadas (libre) · intervalo · precio del paquete
- │    └─ Sesión N  ──► Cita   (la AGENDA es dueña de fecha, hora y cobro)
- │                 ──► Visita (el EXPEDIENTE es dueño de lo que pasó)
+ │    └─ Sesión N (tabla propia; puede existir SIN cita y SIN visita = «por agendar»)
+ │                 ──► Cita   (opcional · la AGENDA es dueña de fecha, hora y cobro)
+ │                 ──► Visita (opcional · el EXPEDIENTE es dueño de lo que pasó)
  └─ Visita suelta   ──► Cita (opcional)
-        ├─ Registros (0..n)  = consultas llenadas con plantilla (hoy ClinicalEncounter)
+        ├─ Plantillas (0..n) = cada plantilla llenada, incluida la «plantilla SOAP» (hoy ClinicalEncounter)
         ├─ Fotos y documentos (PatientMedia)
         ├─ Notas (PatientNote)
         ├─ Recetas (Prescription)
@@ -78,15 +85,53 @@ Paciente
 
 ### Tablas nuevas y columnas nuevas (propuesta)
 
-- **`visitas`** — `id`, `patientId`, `doctorId`, `fecha`, `comentario`, `bookingId` (**único**:
-  una cita tiene a lo sumo una visita), `tratamientoId?`, `sesionNumero?`, timestamps.
+- **`visitas`** — `id`, `patientId`, `doctorId`, `fecha` (respaldo, ver abajo), `comentario`,
+  `bookingId?` (**único**: una cita tiene a lo sumo una visita; **`ON DELETE SET NULL`**),
+  timestamps.
 - **`tratamientos`** — `id`, `patientId`, `doctorId`, `nombre`, `sesionesPlaneadas?` (null =
   abierto), `intervaloDias?`, `precioPaquete?`, `estado` (activo · terminado · cancelado),
-  `plantillaSugeridaId?`, timestamps.
+  `plantillaSugeridaId?`, timestamps. Un paciente puede tener varios activos a la vez.
+- **`tratamiento_sesiones`** *(hueco #1)* — `id`, `tratamientoId`, `numero`, `estado`
+  (por agendar · agendada · hecha · cancelada), `bookingId?` (único, `SET NULL`), `visitaId?`
+  (único, `SET NULL`), timestamps. **No guarda fecha:** la lee de su cita. Sin esta tabla, la
+  sesión 5 de 15 «por agendar» no tendría dónde existir. La visita llega a su tratamiento **a
+  través de su sesión** (no lleva `tratamientoId` propio: sería una segunda liga que puede
+  contradecirse).
 - **`visitaId` opcional** en `ClinicalEncounter`, `PatientMedia`, `Prescription`, `PatientNote`,
   `MedicalReport`.
-- **`tratamientoId` opcional** en `LedgerEntry` (sólo para el pago de un paquete por adelantado;
-  el cobro de cada sesión sigue colgando de su cita, como hoy).
+- **`tratamientoId` opcional** en `LedgerEntry`: los **pagos del paquete** (cualquier monto,
+  cualquier día) y los **cobros de $0 «cubierta por paquete»** de sus sesiones (§5). El cobro de
+  una sesión de un tratamiento sin paquete sigue colgando sólo de su cita, como hoy.
+
+### Fecha de la visita: una sola verdad *(huecos #3 y #6)*
+
+Había tres fechas para lo mismo: la de la cita, `visitas.fecha` y el `encounterDate` de cada
+plantilla. Regla:
+
+- **Si la visita tiene cita, su fecha ES la de la cita** — se lee, no se muestra la propia.
+- `visitas.fecha` es un **respaldo**: se copia de la cita al ligarla y se refresca cuando la cita
+  se concluye (`COMPLETED` es terminal: después ya no cambia). Existe porque **borrar un slot borra
+  sus citas** (`Booking.slot` con `onDelete: Cascade`, más la ruta de purga): la visita sobrevive
+  (`SET NULL`) y conserva su día.
+- Sin cita, `visitas.fecha` es la fecha y punto.
+- Cada plantilla nueva dentro de la visita toma su `encounterDate` **de la visita** al crearse (el
+  código existente lo necesita); no se edita por separado.
+
+### Reglas de integridad *(huecos #4, #5, #13, #14)*
+
+- **Una sola liga al padre (#4).** Fotos, recetas e informes ya apuntan a una consulta
+  (`encounterId`); ahora también a una visita. Si un elemento tiene consulta, **su visita es la de
+  esa consulta** — el servidor la pone él y **rechaza** un `visitaId` que no coincida. Así una foto
+  no puede quedar en la consulta de la visita A con `visitaId` = B.
+- **Cada bloque revisa SU permiso (#5).** La visita junta cosas con permisos distintos (19 toggles
+  de miembros + exclusiones por plan). La visita **no** tiene un permiso que abra todo: el bloque
+  de recetas revisa el de recetas, el de pago revisa el de flujo, etc. Un asistente sin flujo no ve
+  el cobro dentro de la visita. (Lección ya pagada: nombrar una sección acopló un permiso que el
+  módulo no exigía.)
+- **Mismo paciente, mismo doctor (#13).** Ligar algo a una visita verifica que ambos sean del mismo
+  paciente y doctor, igual que hoy lo hacen las revisiones de `encounterId`.
+- **Mover entre visitas queda auditado (#14).** Cambiar el `visitaId` de un elemento lo puede hacer
+  quien pueda editar ese elemento, y se registra en la auditoría con `from → to` (NOM-024).
 
 > ⚠️ **Migración = SQL manual + `prisma db execute`, NUNCA `prisma db push`** (revierte el FK
 > compuesto de `bookings` y los índices parciales de `doctor_members` que viven en prod —
@@ -116,13 +161,20 @@ Lo único que se sincroniza es el **estado**:
 
 ### Agendar las N sesiones de una vez
 
-Útil ("cada 3 semanas, martes 10:00"), con dos condiciones duras:
+Útil ("cada 3 semanas, martes 10:00"), con estas condiciones duras:
 
 1. **Cada cita se crea por la MISMA ruta del servidor que usa la agenda** (con sus revisiones de
    disponibilidad y choques). **No un quinto camino.** Lección de CONSULTORIOS (2026-08-11): dos
    de los cuatro caminos que crean citas no guardaban el consultorio.
 2. **Las sesiones pueden quedarse «por agendar».** Flexible = un doctor planea 15 y agenda sólo las
    2 siguientes.
+3. **Falla parcial = se crea lo que cabe** *(hueco #7)*. Si 5 de 6 caben y la 6ª choca, se crean
+   las 5 y la 6ª queda «por agendar» con el motivo a la vista. Nunca todo-o-nada en silencio, y
+   nunca "listo" si algo no se creó.
+4. **Un solo aviso, no N** *(hueco #7)*. Cada cita puede disparar correo de confirmación, evento
+   de Google Calendar y recordatorios de Telegram. Crear 15 de golpe manda **un** correo resumen
+   al paciente; los eventos de calendario y los recordatorios siguen siendo por cita (son de cada
+   día).
 
 ---
 
@@ -138,6 +190,30 @@ Son hechos distintos, así que ninguno sobrescribe al otro, y el saldo no puede 
 sale de los cobros reales. **Sin precio de paquete**, el tratamiento sólo muestra lo que sus citas
 han cobrado: el doctor que cobra por sesión no hace nada distinto.
 
+### Sesiones de un paquete: cobro de $0 «cubierta por paquete» *(hueco #2, decidido)*
+
+**El problema:** hoy, al concluir una cita, el modal pide precio y el servidor crea el ingreso en
+flujo de dinero (`bookings/[id]/route.ts`, con el `income.price` que manda el cliente). Si el
+paciente pagó $30,000 por 15 sesiones, concluir cada sesión volvería a registrar ingreso: **el
+dinero se contaría dos veces.**
+
+**La regla:**
+
+- Si la cita es una sesión de un tratamiento **con `precioPaquete`**, al concluirla se registra un
+  **cobro de $0 «cubierta por paquete»**, ligado a la cita **y** al tratamiento. No se omite: así
+  flujo de dinero muestra las 15 sesiones y se ve que todas quedaron cubiertas.
+- **Lo decide el SERVIDOR** buscando la sesión de esa cita — no el modal. (Regla 0: los
+  veredictos de negocio se resuelven server-side; el agente y el chat de citas también concluyen
+  citas y no deben poder saltárselo.) El modal sólo **muestra** «Cubierta por el paquete
+  "Injerto capilar"» en vez de pedir precio.
+- **Los pagos del paquete** son movimientos ligados al tratamiento, de cualquier monto y en
+  cualquier momento (adelanto, abonos). **Saldo = precio del paquete − pagos del paquete**,
+  calculado.
+- **Cargo extra en una sesión** (algo fuera del paquete): el doctor puede capturarlo; se registra
+  como cobro normal de esa cita, aparte del $0.
+- Hoy `createCitaLedgerEntry` sólo corre con precio > 0; aceptar el $0 es un cambio a propósito y
+  acotado a este caso.
+
 ---
 
 ## 6. Al concluir una cita → visita automática
@@ -149,8 +225,13 @@ cobro). Reglas propuestas:
   mano para esa cita, se **liga**, no se duplica.
 - **Falla ABIERTO:** si crear la visita truena, **la cita se concluye igual** y se avisa (como ya
   hace `ledgerWarning` con el cobro). Concluir una cita nunca debe depender del expediente.
-- **Si la cita pertenece a una sesión de tratamiento**, la visita nace con `tratamientoId` y
-  `sesionNumero`, y con la plantilla sugerida del tratamiento ya elegida.
+- **Si la cita pertenece a una sesión de tratamiento**, la visita se liga a esa sesión (que pasa a
+  «hecha») y nace con la plantilla sugerida del tratamiento ya elegida.
+- **Tres caminos concluyen citas y los tres pasan por la misma ruta** *(hueco #8)*: la tabla de la
+  agenda (`useBookings.ts`), el agente (`AgentContext.tsx`) y el chat de citas
+  (`useAppointmentsChat.ts`), todos con `PATCH` a `bookings/[id]`. Por eso el enganche en el
+  servidor los cubre a todos — y por eso **el agente creará visitas** aunque no entre en la fase 1.
+  Aceptado (§2).
 - **La cita sin expediente** (`Booking.patientId` es opcional): al concluir **no** se crea la
   visita — no hay paciente del cual colgarla. Se crea **cuando el expediente se liga** a la cita
   («+ Crear expediente» desde el modal, o ligar a un paciente existente): ese momento corre el MISMO
@@ -162,7 +243,9 @@ cobro). Reglas propuestas:
   doctor puede borrarla a mano **sólo mientras siga vacía**. *(Decidido.)*
 - **Formularios previos a la cita:** `AppointmentFormLink` ya tiene `bookingId` único, así que el
   formulario que llenó el paciente llega a la visita **a través de su cita** — sin columna nueva.
-  *(Decidido que caen en la visita; el mecanismo es propuesta.)*
+  *(Decidido que caen en la visita; el mecanismo es propuesta.)* **Hueco #9:** ese `bookingId` es
+  opcional y se puede desligar (el formulario sigue vivo ligado directo al paciente); los que no
+  tengan cita se ven como «Sin visita», igual que cualquier otra cosa suelta.
 - **Pago/factura en la visita:** la visita **lee** el cobro de su cita (el `LedgerEntry` ligado a
   la `Booking`) y su factura; no guarda copia.
 
@@ -204,12 +287,12 @@ cada elemento y un **filtro por visita** (y por tratamiento, en fase 2).
 | Fase | Qué incluye |
 |---|---|
 | **1 — Visita** | Tabla `visitas` + `visitaId` en consultas, fotos, notas y recetas. Backfill: cada una de las 293 consultas se envuelve en su propia visita (1:1) y lo que ya colgaba de la consulta hereda su visita. «Nueva Visita» con **varias plantillas**, fotos, nota y receta; liga a la cita; visita automática al concluir; etiqueta + filtro en los libros. |
-| **2 — Tratamiento** | Tabla `tratamientos`; sesiones con cita; agendar N de una vez por la ruta existente; precio del paquete y saldo calculado; informes médicos dentro de la visita. |
+| **2 — Tratamiento** | Tablas `tratamientos` y `tratamiento_sesiones`; sesiones con cita; agendar N de una vez por la ruta existente (falla parcial + un solo correo); precio del paquete, pagos del paquete, cobro de $0 por sesión y saldo calculado; informes médicos dentro de la visita. |
 | **3 — Progreso** | Comparación entre sesiones: fotos lado a lado, números de una plantilla (p. ej. Total UF) graficados en el tiempo. |
 
 La fase 1 sirve sola, pero el nivel Tratamiento se diseña **ya** para que la fase 1 no se
-construya de una forma que lo estorbe (por eso `tratamientoId` y `sesionNumero` están en el
-esquema de `visitas` desde el principio).
+construya de una forma que lo estorbe. Como la visita llega a su tratamiento a través de
+`tratamiento_sesiones`, la fase 2 **no toca** la tabla `visitas`: sólo agrega las suyas.
 
 ---
 
@@ -225,14 +308,25 @@ esquema de `visitas` desde el principio).
 - **El asistente del doctor:** lee consultas; si la visita no le llega, contestará "qué pasó el
   12 sep" con la vista vieja. Cualquier cambio al agente sigue sus reglas y sus docs en
   `docs/DESDE JUNIO/AGENTES/` (leer primero `GENERAL AGENTES/08-EMPIEZA-AQUI.md`).
-- **Permisos de miembros (19 toggles) y tiers:** una sección nueva puede necesitar su permiso y su
-  lugar en el reparto por plan; sin eso, un asistente o un plan FREE podría ver o no ver cosas por
-  accidente.
-- **NOM-024 / integridad del expediente:** mover un elemento de una visita a otra cambia el
-  registro clínico; debería quedar en la auditoría.
+- **Permisos de miembros (19 toggles) y tiers:** resuelto como regla en §3 (cada bloque revisa su
+  permiso). Falta decidir en el PLAN si «Visitas» en sí necesita un toggle propio para *crear*.
+- **NOM-024 / integridad del expediente:** resuelto como regla en §3 (mover queda auditado).
+- **Exportar cuenta** *(hueco #10)*: `apps/api/src/lib/exportar-cuenta.ts` debe incluir visitas,
+  tratamientos y sesiones — el paciente tiene derecho a su expediente completo (LFPDPPP).
+- **La página del paciente** *(hueco #11)*: la tarjeta «Historial de Consultas» pasa a «Visitas»;
+  el timeline agrupa por visita. **PDF de la visita: fuera de la fase 1** (propuesta); el PDF de
+  cada plantilla sigue como hoy.
+- **Backfill del mismo día** *(hueco #12)*: envolver las 293 consultas 1:1 significa que un
+  paciente visto dos veces el mismo día queda con dos visitas. Es correcto (no se adivina que eran
+  la misma) y el doctor puede mover elementos después.
 
 ---
 
 ## 10. Preguntas abiertas
 
-Ninguna. Todas las del primer borrador se contestaron el 2026-09-25 (§2). La siguiente pieza es el **plan de la fase 1** (migración SQL exacta, backfill de las 293 consultas, pantallas).
+De diseño, ninguna: las del primer borrador y los 14 huecos de la revisión se resolvieron el
+2026-09-25 (§2–§9). Quedan dos marcadas *propuesta* que el PLAN puede confirmar o cambiar: el PDF
+de la visita fuera de fase 1 (§9) y si «Visitas» lleva toggle propio para crear (§9).
+
+La siguiente pieza es **`02-PLAN-fase-1.md`**: migración SQL exacta, backfill de las 293
+consultas, archivos que cambian, orden y cómo se prueba cada paso.
