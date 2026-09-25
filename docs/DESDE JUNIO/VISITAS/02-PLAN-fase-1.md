@@ -273,10 +273,12 @@ usuario, push, y **verificar el `commitHash` por servicio**.
   `SET NULL`, no se pierde); re-ligar el paciente de la cita mientras se liga la visita lo detecta el
   barrido de §5.1.
 - Nadie la llama todavía: la UI es D4/D5.
-- ⚠️ **Fuga PREVIA, fuera de D2:** `GET …/patients/[id]/bookings` (ya existente) da a cualquier
-  member con `expedientes` horas, precio, estado de pago y links de pago **sin revisar `citas` ni
-  `flujo`**. El recorte del bloque de cita en visitas no sirve mientras esa ruta siga así. Arreglo
-  aparte, recomendado antes de la UI.
+- ✅ **Fuga PREVIA hallada en el review de D2, ARREGLADA 2026-09-25:** `GET …/patients/[id]/bookings`
+  daba a cualquier member con `expedientes` citas, cobros, links de pago y la factura. Ahora recorta
+  por campo (`lib/booking-permisos.ts`). Quedan otras del mismo tipo fuera de visitas — lista y estado
+  en `NUEVOS USUARIOS/05-COBERTURA-19-toggles.md` §"Fugas por CAMPO".
+- `puedeVer` **no aplica el techo del plan**: dueño y admin ven todo (un dueño FREE seguía viendo sus
+  facturas); el plan ya recorta las FUNCIONES por ruta.
 
 **El agente:** fuera de la fase 1, pero D1 lo afecta (concluye citas). Antes de D1, confirmar en
 `docs/DESDE JUNIO/AGENTES/` (leer `GENERAL AGENTES/08-EMPIEZA-AQUI.md`) que nada de lo que el agente

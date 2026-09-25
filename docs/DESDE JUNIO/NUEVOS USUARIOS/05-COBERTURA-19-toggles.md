@@ -96,6 +96,26 @@ saber para que esta auditoría siga siendo cierta:
   API). Gateada en UI. Cuando se construya la feature real, sus rutas deben mapearse a `contenido`
   (mientras tanto, no-mapeado = fail-closed protege a members).
 
+## ⚠️ 2026-09-25 — Fugas por CAMPO: una ruta de un toggle sirve datos de OTRO
+
+Esta auditoría (y el gate de rutas) responde "¿cada RUTA exige su toggle?". **No** responde "¿lo que
+la ruta DEVUELVE es sólo de ese toggle?". Un review de VISITAS D2 encontró rutas que exigen un toggle
+y devuelven datos de otros. Ningún gate lo detecta: se revisa a mano, campo por campo.
+
+**Regla para arreglarlas:** ver DATOS depende sólo del toggle del member; **dueño y admin ven todo,
+sin techo del plan** (el plan recorta funciones por ruta, no la lectura de lo que ya es del doctor:
+con el techo, un dueño FREE dejaba de ver sus facturas). Helper: `puedeVer` en
+`apps/doctor/src/lib/visitas.ts`. Sin permiso, la llave NO viaja, y la respuesta dice qué permisos
+aplican (una lista vacía por falta de permiso no puede leerse como "no hay").
+
+| Ruta (toggle que exige) | Qué filtraba / filtra | Estado |
+|---|---|---|
+| `GET medical-records/patients/[id]/bookings` (`expedientes`) | citas, precio y cobro, links de pago, **factura (RFC, total)** | ✅ **Arreglada 2026-09-25** — `lib/booking-permisos.ts` (`citas`/`flujo`/`pagos`/`facturacion`) + la sección «Citas e Ingresos» del expediente |
+| `GET medical-records/tasks/calendar` (`tareas`) | citas freeform con **teléfono, correo y precio del paciente** | 🔴 pendiente — la más grave |
+| `GET appointments/bookings` en apps/api (`citas`) y tools del agente de agenda (`tools.ts:203, 488`) | monto e ingreso, forma de pago, "facturada", links de pago, precio | 🟠 pendiente (sin `flujo`/`facturacion`/`pagos`) |
+| `GET/PATCH medical-records/patients/[id]` (`expedientes`) | datos fiscales del paciente (RFC, razón social, constancia) — **ver y EDITAR** | ❓ **decisión del usuario:** ¿son del expediente o de facturación? |
+| `timeline` y `formularios` del paciente (`expedientes`) | día y hora de la cita ligada a un formulario | 🟡 menor |
+
 ## Notas (no son huecos)
 
 1. **Hoy la media/carrusel del doctor se administra bajo `perfil`** (en `mi-perfil` →

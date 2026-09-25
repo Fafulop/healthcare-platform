@@ -12,6 +12,9 @@ import { usePatientProfile } from '../_components/usePatientProfile';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
 import { usePermissions } from '@/lib/permissions-client';
+// Sólo el TIPO (se borra al compilar): qué bloques de las citas puede ver quien mira.
+// Sin `citas` la lista llega VACÍA a propósito — NO quiere decir que no tenga citas.
+import type { BookingPermisos } from '@/lib/booking-permisos';
 
 interface RecentNote {
   id: string;
@@ -56,7 +59,9 @@ interface PatientBooking {
   serviceName: string | null;
   status: string;
   appointmentMode: string | null;
-  finalPrice: number | null;
+  // ⚠️ Los campos de cobro, links y factura sólo VIAJAN con su permiso (ver
+  // BookingPermisos): ausentes = "no puedes verlo", no "no hay".
+  finalPrice?: number | null;
   /** Notas escritas al AGENDAR la cita. Puede venir "" — tratar como vacío. */
   notes?: string | null;
   formLinkId?: string | null;
@@ -64,9 +69,9 @@ interface PatientBooking {
    *  distinta de `patient.requiereFactura`, que es del expediente. */
   facturaSolicitada?: boolean | null;
   // Financial
-  ledgerEntryId: number | null;
-  amount: number | null;
-  formaDePago: string | null;
+  ledgerEntryId?: number | null;
+  amount?: number | null;
+  formaDePago?: string | null;
   /** Del INGRESO: 'PENDING' | 'PARTIAL' | 'PAID'. null = no hay ingreso todavía. */
   paymentStatus?: string | null;
   amountPaid?: number | null;
@@ -76,7 +81,7 @@ interface PatientBooking {
   /** VEREDICTO del servidor (resolveFacturaVerdict) — no se re-deriva aquí. */
   facturada?: boolean;
   facturadaVia?: 'plataforma' | 'subida' | 'externa_sat' | null;
-  cfdi: BookingCfdi | null;
+  cfdi?: BookingCfdi | null;
   // Payment links (linked cobro)
   stripeLink?: BookingPaymentLink | null;
   mpLink?: BookingPaymentLink | null;
@@ -410,8 +415,14 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
   );
 }
 
+/** TRES estados, no dos: si la carga falla, la lista vacía NO puede decir "no hay citas". */
+type BookingsEstado = 'cargando' | 'error' | 'ok';
+
 interface CitasIngresosSectionProps {
   bookings: PatientBooking[];
+  /** null mientras carga o si falló (ver `estado`). */
+  permisos: BookingPermisos | null;
+  estado: BookingsEstado;
   patient: import('../_components/patient-types').Patient;
 }
 
@@ -427,10 +438,12 @@ interface CfdiDraft {
  *  DENTRO de la tarjeta de su cita, no flotando encima de la lista: un borrador
  *  siempre cuelga de un ingreso (`ledgerEntryId`), o sea de una cita concreta,
  *  y suelto arriba no se sabía de cuál. */
-function useCfdiDrafts(patientId: string, bookingEntryIds: Set<number>) {
+function useCfdiDrafts(patientId: string, bookingEntryIds: Set<number>, enabled: boolean) {
   const [drafts, setDrafts] = useState<CfdiDraft[]>([]);
 
   const fetchDrafts = useCallback(async () => {
+    // Sin `facturacion` la ruta contesta 403: ni se pide.
+    if (!enabled) return;
     try {
       const res = await authFetch(`${API_URL}/api/facturacion/drafts?patientId=${patientId}&status=draft`);
       if (res.ok) {
@@ -438,7 +451,7 @@ function useCfdiDrafts(patientId: string, bookingEntryIds: Set<number>) {
         if (Array.isArray(data)) setDrafts(data);
       }
     } catch { /* silent: sin borradores la tarjeta se pinta igual */ }
-  }, [patientId]);
+  }, [patientId, enabled]);
 
   useEffect(() => { fetchDrafts(); }, [fetchDrafts]);
 
@@ -535,8 +548,15 @@ function CfdiDraftRow({
   );
 }
 
-function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) {
+function CitasIngresosSection({ bookings, permisos, estado, patient }: CitasIngresosSectionProps) {
   const router = useRouter();
+  // Qué bloques se pintan: lo decide el SERVIDOR (y además no manda lo que no se
+  // puede ver). Mientras no llegan los permisos, CERRADO: sin esto un member sin
+  // `facturacion` veía un instante «Nueva factura manual» y se pedía una ruta que
+  // le contesta 403. (Al dueño le llegan todos en true: no cambia nada.)
+  const verCitas = permisos?.citas ?? false;
+  const verCobro = permisos?.flujo ?? false;
+  const verFactura = permisos?.facturacion ?? false;
   // Las CANCELADAS no se listan: no hay nada que cobrar ni que facturar en una
   // cita que no ocurrió, y ocupaban la lista con chips que no llevaban a ninguna
   // acción. (Medido antes de decidirlo: cero citas canceladas en prod tienen un
@@ -546,7 +566,7 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
     citasVisibles.map((b) => b.ledgerEntryId).filter((id): id is number => id != null)
   );
   const { byLedgerEntry: draftsByEntry, sueltos: draftsSueltos, discard: discardDraft } =
-    useCfdiDrafts(patient.id, bookingEntryIds);
+    useCfdiDrafts(patient.id, bookingEntryIds, verFactura);
 
   // ⚠️ DOS preguntas distintas, antes mezcladas en un solo `hasFiscalData`:
   //   · ¿PODEMOS facturar?  → los cinco campos del receptor. Es lo único que
@@ -602,12 +622,14 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
           Va ARRIBA y a lo ancho: es la acción de entrada de la sección, no un
           accesorio del encabezado. Lleva al form con este paciente ya elegido
           como receptor — sus datos fiscales los deriva el servidor. */}
-      <Link
-        href={`/dashboard/facturacion?patient=${patient.id}`}
-        className="w-full mb-4 px-4 py-3 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
-      >
-        <Receipt className="w-4 h-4" /> Nueva factura manual
-      </Link>
+      {verFactura && (
+        <Link
+          href={`/dashboard/facturacion?patient=${patient.id}`}
+          className="w-full mb-4 px-4 py-3 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+        >
+          <Receipt className="w-4 h-4" /> Nueva factura manual
+        </Link>
+      )}
 
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
@@ -620,14 +642,33 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
           el esquema) o colgados de un ingreso que no es ninguna de estas citas.
           Si no se pintaran aquí serían invisibles, y un borrador invisible
           bloquea crear otro (409) sin dejar cómo descartarlo. */}
-      {draftsSueltos.length > 0 && (
+      {/* Sin `citas` no hay tarjetas donde repartir los borradores: todos se verían
+          "sueltos" aunque cuelguen de una cita. */}
+      {verCitas && verFactura && draftsSueltos.length > 0 && (
         <div className="mb-4 space-y-2">
           {draftsSueltos.map((d) => (
             <CfdiDraftRow key={d.id} draft={d} onDiscard={discardDraft} />
           ))}
         </div>
       )}
-      {citasVisibles.length > 0 ? (
+      {estado === 'cargando' ? (
+        <div className="text-center py-6 text-gray-400">
+          <p className="text-sm">Cargando citas…</p>
+        </div>
+      ) : estado === 'error' ? (
+        /* Falló la carga: "no hay citas" sería afirmar un hecho falso. */
+        <div className="text-center py-6 text-gray-500">
+          <AlertCircle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+          <p className="text-sm">No se pudieron cargar las citas. Recarga la página para intentar de nuevo.</p>
+        </div>
+      ) : !verCitas ? (
+        /* Sin `citas` la lista llega vacía A PROPÓSITO: decir "no hay citas" aquí
+           afirmaría un hecho falso sobre el paciente. */
+        <div className="text-center py-6 text-gray-500">
+          <CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+          <p className="text-sm">No tienes permiso para ver las citas de este paciente.</p>
+        </div>
+      ) : citasVisibles.length > 0 ? (
         <div className="space-y-3">
           {citasVisibles.map((b) => {
             const isCompleted = b.status === 'COMPLETED';
@@ -653,11 +694,15 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                     {/* El PAPELEO de un vistazo. Los DOS veredictos —cobro y
                         factura— los resuelve el servidor; aquí no se deduce nada. */}
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                      <PagoBadge estadoPago={b.estadoPago ?? 'SIN_REGISTRO'} metodoPago={b.metodoPago ?? null} />
-                      <FacturaBadge
-                        facturada={b.facturada === true}
-                        solicitada={b.facturaSolicitada === true}
-                      />
+                      {verCobro && (
+                        <PagoBadge estadoPago={b.estadoPago ?? 'SIN_REGISTRO'} metodoPago={b.metodoPago ?? null} />
+                      )}
+                      {verFactura && (
+                        <FacturaBadge
+                          facturada={b.facturada === true}
+                          solicitada={b.facturaSolicitada === true}
+                        />
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -683,10 +728,13 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                     nace por DOS caminos y el del link de pago no espera a que la
                     cita se complete, así que una cita agendada y ya cobrada
                     mostraba la tarjeta vacía justo cuando había algo que decir. */}
-                {b.amount != null && (
+                {/* Con `facturacion` pero sin `flujo` el monto no llega: la fila se
+                    ancla entonces al ingreso, y sólo pinta la parte de factura. */}
+                {((verCobro && b.amount != null) || (!verCobro && verFactura && b.ledgerEntryId != null)) && (
                   <div className="px-4 py-3 border-t border-gray-100 space-y-2">
                     {/* Monto. La FORMA de pago ya va en el chip "Pagado · Efectivo"
                         de arriba, así que aquí no se repite. */}
+                    {verCobro && b.amount != null && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-wrap">
                         <DollarSign className="w-4 h-4 text-teal-600" />
@@ -700,8 +748,10 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                         )}
                       </div>
                     </div>
+                    )}
 
                     {/* Factura: el estado y, si ya está, sus archivos */}
+                    {verFactura && (
                     <div className="flex items-center justify-between gap-2">
                       {b.facturada ? (
                         <div className="flex items-center gap-2 min-w-0">
@@ -755,6 +805,10 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                              409. Se deja UN camino: el borrador manda, y para ignorarlo
                              está Descartar (y entonces reaparece Facturar). */
                           <span className="text-xs text-blue-700">Hay un borrador preparado ↓</span>
+                        ) : !verCobro ? (
+                          /* Facturar arma el CFDI con el MONTO del ingreso, que sin
+                             `flujo` no llega: el botón no tendría con qué. */
+                          null
                         ) : fiscalDataComplete ? (
                           <button
                             onClick={() => handleEmitCfdi(b)}
@@ -774,11 +828,12 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                         )}
                       </div>
                     </div>
+                    )}
 
                     {/* Borradores de ESTA cita (F2c). Viven aquí, no flotando encima
                         de la lista: un borrador cuelga de un ingreso, o sea de una
                         cita concreta. */}
-                    {drafts.length > 0 && (
+                    {verFactura && drafts.length > 0 && (
                       <div className="space-y-2 pt-1">
                         {drafts.map((d) => (
                           <CfdiDraftRow
@@ -796,7 +851,7 @@ function CitasIngresosSection({ bookings, patient }: CitasIngresosSectionProps) 
                 {/* Completada sin ingreso: el chip "Sin cobro registrado" de arriba
                     ya lo dice, así que aquí solo queda la vía para facturarla si
                     hiciera falta (sin ingreso no hay a qué anclar la factura). */}
-                {isCompleted && b.amount == null && b.facturaSolicitada && (
+                {verCobro && verFactura && isCompleted && b.amount == null && b.facturaSolicitada && (
                   <div className="px-4 py-2 border-t border-gray-100">
                     <span className="text-xs text-gray-400">Se factura al registrar el cobro</span>
                   </div>
@@ -831,6 +886,8 @@ export default function PatientProfilePage() {
 
   const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
   const [patientBookings, setPatientBookings] = useState<PatientBooking[]>([]);
+  const [bookingPermisos, setBookingPermisos] = useState<BookingPermisos | null>(null);
+  const [bookingsEstado, setBookingsEstado] = useState<BookingsEstado>('cargando');
   const [patientFormularios, setPatientFormularios] = useState<PatientFormulario[]>([]);
   const [summary, setSummary] = useState<PatientSummaryData | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
@@ -859,9 +916,15 @@ export default function PatientProfilePage() {
     fetch(`/api/medical-records/patients/${patientId}/bookings`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) setPatientBookings(d.data);
+        if (d.success && Array.isArray(d.data) && d.permisos) {
+          setPatientBookings(d.data);
+          setBookingPermisos(d.permisos);
+          setBookingsEstado('ok');
+        } else {
+          setBookingsEstado('error');
+        }
       })
-      .catch(() => {});
+      .catch(() => setBookingsEstado('error'));
     fetch(`/api/medical-records/patients/${patientId}/formularios`)
       .then((r) => r.json())
       .then((d) => {
@@ -1312,6 +1375,8 @@ export default function PatientProfilePage() {
               it sits with the fiscal data it feeds (emitir factura reads the RFC). */}
           <CitasIngresosSection
             bookings={patientBookings}
+            permisos={bookingPermisos}
+            estado={bookingsEstado}
             patient={patient}
           />
         </div>

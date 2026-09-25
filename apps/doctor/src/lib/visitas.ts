@@ -8,15 +8,22 @@
  * hora/servicio (`citas`) y cobro (`flujo`). Sin ese permiso el campo NO viaja (no va vacío).
  */
 import {
-  prisma, Prisma, hasPermission, tierAllows, type PermissionKey, type PrismaClient,
+  prisma, Prisma, hasPermission, type PermissionKey, type PrismaClient,
 } from '@healthcare/database';
 import type { MedicalAuthContext } from '@/lib/medical-auth';
 import { AppError } from '@/lib/api-error-handler';
 
-/** Acceso efectivo a una key: techo del plan Y (dueño o toggle del member). Admin ve todo. */
+/**
+ * ¿Puede VER este bloque de DATOS? Dueño y admin: siempre. Member: su toggle.
+ *
+ * ⚠️ SIN techo del plan, a propósito. El plan recorta FUNCIONES (las rutas de facturar, del SAT…
+ * ya lo hacen con `tierRouteDecision`), no la LECTURA de datos que ya son del doctor: con el techo,
+ * un dueño en FREE (que excluye `facturacion`) dejaba de ver sus propias facturas en el
+ * expediente. Es el error que este repo ya pagó dos veces (ver `summary` en route-permissions.ts).
+ */
 export function puedeVer(ctx: MedicalAuthContext, key: PermissionKey): boolean {
-  if (ctx.role === 'ADMIN') return true;
-  return tierAllows(ctx.tier, key) && (ctx.isOwner || hasPermission(ctx.permissions, key));
+  if (ctx.role === 'ADMIN' || ctx.isOwner) return true;
+  return hasPermission(ctx.permissions, key);
 }
 
 /** `@db.Date` se lee en UTC: el día es el prefijo ISO, nunca la fecha local. */

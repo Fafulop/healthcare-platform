@@ -1,11 +1,16 @@
 // GET /api/medical-records/patients/[id]/bookings
 // Returns all bookings linked to a patient, ordered by appointment date descending.
 // Scoped to the authenticated doctor — only returns bookings where booking.doctorId === doctor.
+//
+// PERMISOS POR CAMPO (2026-09-25): cada bloque (cita · cobro · links · factura) viaja sólo con
+// SU permiso — `recortarCitaPorPermiso` en lib/booking-permisos.ts. Sin `citas`, `data: []` NO
+// significa "no tiene citas": el cliente lee `permisos`.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, resolveFacturaVerdict, buildSatStatusMap, satUuidQueryVariants } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
+import { bookingPermisos, recortarCitaPorPermiso } from '@/lib/booking-permisos';
 
 /** Etiquetas de `LedgerEntry.formaDePago`. Viven aquí porque el método se manda ya
  *  resuelto (el cliente no vuelve a mapear). Mismos valores que FORMAS_DE_PAGO en
@@ -23,8 +28,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { doctorId } = await requireDoctorAuth(request);
+    const ctx = await requireDoctorAuth(request);
+    const { doctorId } = ctx;
     const { id: patientId } = await params;
+    const permisos = bookingPermisos(ctx);
 
     // Verify patient belongs to this doctor
     const patient = await prisma.patient.findFirst({
@@ -33,6 +40,9 @@ export async function GET(
     });
     if (!patient) {
       return NextResponse.json({ success: false, error: 'Patient not found' }, { status: 404 });
+    }
+    if (!permisos.citas) {
+      return NextResponse.json({ success: true, data: [], permisos });
     }
 
     const bookings = await prisma.booking.findMany({
@@ -125,7 +135,8 @@ export async function GET(
     const satUuids = bookings
       .map((b) => b.ledgerEntry?.satCfdiUuid)
       .filter((u): u is string => !!u);
-    const satStatusByUuid = satUuids.length > 0
+    // Sólo hace falta para el veredicto de FACTURA: sin `facturacion` ni se consulta.
+    const satStatusByUuid = permisos.facturacion && satUuids.length > 0
       ? buildSatStatusMap(
           await prisma.satCfdiMetadata.findMany({
             where: { doctorId, uuid: { in: satUuidQueryVariants(satUuids) } },
@@ -185,7 +196,7 @@ export async function GET(
         : le?.formaDePago
           ? (FORMA_PAGO_LABEL[le.formaDePago] ?? le.formaDePago)
           : null;
-      return {
+      return recortarCitaPorPermiso({
         id: b.id,
         date: (b.slot?.date ?? b.date)?.toISOString().split('T')[0] ?? null,
         startTime: b.slot?.startTime ?? b.startTime ?? null,
@@ -238,10 +249,10 @@ export async function GET(
           formaPago: cfdi.formaPago,
           issuedAt: cfdi.issuedAt.toISOString(),
         } : null,
-      };
+      }, permisos);
     });
 
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data, permisos });
   } catch (error) {
     return handleApiError(error, 'GET /api/medical-records/patients/[id]/bookings');
   }
