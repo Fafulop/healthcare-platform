@@ -14,6 +14,11 @@
  *   railway run --service pgvector node scripts/security/rotate-confirmation-codes.cjs --dry-run
  *   railway run --service pgvector node scripts/security/rotate-confirmation-codes.cjs
  *
+ *   ... --incluir-pasadas   → TODAS las citas activas, también las de fecha pasada que nunca se
+ *                             concluyeron (corrido 2026-09-25: 164). Ningún paciente necesita el
+ *                             código de una cita que ya pasó, y con uno filtrado se podía CANCELAR
+ *                             y dejar al doctor sin poder concluirla (cancelada es terminal).
+ *
  * Toca SÓLO `confirmation_code` de citas PENDING/CONFIRMED con fecha >= AYER en UTC (slot o freeform).
  * No manda correos. Idempotente en el sentido de que re-correrlo sólo vuelve a rotar.
  * No hay "deshacer" (los códigos viejos se descartan a propósito); por eso el dry-run primero.
@@ -22,6 +27,7 @@ const crypto = require('crypto');
 const { PrismaClient } = require('../../packages/database/node_modules/@prisma/client');
 
 const DRY = process.argv.includes('--dry-run');
+const PASADAS = process.argv.includes('--incluir-pasadas');
 const ALFABETO = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; // mismo formato que generateConfirmationCode
 const nuevoCodigo = () => Array.from({ length: 8 }, () => ALFABETO[crypto.randomInt(ALFABETO.length)]).join('');
 
@@ -36,11 +42,11 @@ const prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE
     WHERE b.status IN ('PENDING','CONFIRMED') AND b.confirmation_code IS NOT NULL
       -- "- 1": CURRENT_DATE is UTC in prod; after 18:00 Mexico time it is already tomorrow and
       -- today's remaining appointments would keep their (possibly leaked) code.
-      AND COALESCE(s.date, b.date) >= CURRENT_DATE - 1
+      ${PASADAS ? '' : 'AND COALESCE(s.date, b.date) >= CURRENT_DATE - 1'}
     ORDER BY dia`);
   const porDoctor = {};
   for (const c of citas) porDoctor[c.doctor_id] = (porDoctor[c.doctor_id] ?? 0) + 1;
-  console.log(`Citas activas futuras con código: ${citas.length} · doctores: ${Object.keys(porDoctor).length}`);
+  console.log(`Citas activas ${PASADAS ? '(TODAS, incl. pasadas)' : 'futuras'} con código: ${citas.length} · doctores: ${Object.keys(porDoctor).length}`);
   console.log(`Rango: ${citas[0]?.dia?.toISOString?.().slice(0, 10) ?? '-'} → ${citas.at(-1)?.dia?.toISOString?.().slice(0, 10) ?? '-'}`);
 
   if (DRY) {
