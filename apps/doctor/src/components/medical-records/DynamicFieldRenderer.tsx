@@ -72,7 +72,9 @@ export function DynamicFieldRenderer({
             type="number"
             id={field.id}
             value={value}
-            onChange={(e) => onChange(field.name, parseFloat(e.target.value) || '')}
+            // `parseFloat(v) || ''` convertía un 0 tecleado en vacío: el campo se
+            // borraba solo y, si era obligatorio, el navegador bloqueaba el guardado.
+            onChange={(e) => onChange(field.name, e.target.value === '' ? '' : parseFloat(e.target.value))}
             placeholder={field.placeholder}
             required={field.required}
             min={field.min}
