@@ -23,3 +23,4 @@ export * from './route-permissions';
 export * from './patient-import';
 export * from './patient-import-validate';
 export * from './patient-import-commit';
+export * from './visitas';

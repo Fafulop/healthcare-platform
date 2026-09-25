@@ -3,7 +3,7 @@
 // DELETE /api/appointments/bookings/[id] - Delete booking record
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, syncVisitaForBooking } from '@healthcare/database';
 import { sendPatientSMS, isSMSEnabled } from '@/lib/sms';
 import { validateAuthToken } from '@/lib/auth';
 import {
@@ -184,7 +184,24 @@ export async function PATCH(
         }
       })().catch((err) => console.error('[ledger] patient backfill failed:', err));
 
-      return NextResponse.json({ success: true, data: updated });
+      // VISITAS D1b: re-ligar / desligar el expediente reconcilia la visita de la cita (sólo
+      // actúa si la cita ya está concluida, o si colgaba una visita de otro paciente). Falla
+      // ABIERTO: ligar el expediente nunca depende de la visita. En transacción: soltar/borrar la
+      // visita vieja y crear la nueva van juntos o no va ninguno. Corre aunque el paciente no
+      // cambie: re-enviar el mismo id REPARA una visita que falló al concluir.
+      let visitaWarning = false;
+      try {
+        const r = await prisma.$transaction((tx) => syncVisitaForBooking(tx, id));
+        if (r.status === 'no_fecha') {
+          console.warn(`[visitas] cita ${id} re-ligada SIN visita: ${r.status}`);
+          visitaWarning = true;
+        }
+      } catch (err) {
+        console.error('[visitas] visita sync on patient link failed (link saved anyway):', err);
+        visitaWarning = true;
+      }
+
+      return NextResponse.json({ success: true, data: updated, ...(visitaWarning ? { visitaWarning: true } : {}) });
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -614,6 +631,29 @@ export async function PATCH(
         }
       }
 
+      // ── VISITAS D1: la visita de la cita concluida ──────────────────────────
+      // Mismo punto y misma semántica que el cobro: efecto interno del servidor, así que
+      // cubre los tres caminos que concluyen (agenda, agente, chat de citas). Falla ABIERTO:
+      // concluir una cita nunca depende del expediente. `fechaHint` sale de `currentBooking`
+      // (leído ANTES del update): en un slot privado el slot ya se borró arriba.
+      let visitaId: string | undefined;
+      let visitaWarning = false;
+      if (newStatus === 'COMPLETED') {
+        try {
+          const r = await prisma.$transaction((tx) => syncVisitaForBooking(tx, currentBooking.id, {
+            fechaHint: currentBooking.slot?.date ?? currentBooking.date ?? null,
+          }));
+          if (r.status === 'created' || r.status === 'updated') visitaId = r.visitaId;
+          else if (r.status === 'no_fecha' || r.status === 'booking_not_found') {
+            console.warn(`[visitas] cita ${currentBooking.id} concluida SIN visita: ${r.status}`);
+            visitaWarning = true;
+          }
+        } catch (err) {
+          console.error('[visitas] visita creation failed (booking completed anyway):', err);
+          visitaWarning = true;
+        }
+      }
+
       const statusMessages = {
         CANCELLED: 'Booking cancelled successfully',
         COMPLETED: 'Booking marked as completed',
@@ -627,6 +667,8 @@ export async function PATCH(
         ...(ledgerEntryId !== undefined ? { ledgerEntryId } : {}),
         ...(ledgerAlreadyExisted ? { ledgerAlreadyExisted: true } : {}),
         ...(ledgerWarning ? { ledgerWarning: true } : {}),
+        ...(visitaId !== undefined ? { visitaId } : {}),
+        ...(visitaWarning ? { visitaWarning: true } : {}),
       });
     }
 

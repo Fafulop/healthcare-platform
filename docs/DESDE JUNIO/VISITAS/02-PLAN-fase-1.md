@@ -214,6 +214,37 @@ usuario, push, y **verificar el `commitHash` por servicio**.
 | D5 | **UI: libros mayores** | Docs y Galería, Recetas, Notas, Historial | Etiqueta «Visita del 12 sep», filtro por visita, «Sin visita», y el «¿A qué visita pertenece?» en sus "+". |
 | D6 | **Manual de Ayuda + guías** | `manual-del-doctor.md`, `ExpedientesGuide.tsx` | En el MISMO commit que la UI que describe (D4/D5), no después. |
 
+### 5.1 D1 + D1b — cómo quedaron (2026-09-25)
+
+- **Van juntos, en un solo despliegue.** D1 solo habría creado visitas en el expediente EQUIVOCADO
+  desde el día uno: al re-ligar la cita, la visita se quedaba con el paciente anterior (code review).
+- **Una sola función:** `syncVisitaForBooking` (`packages/database/src/visitas.ts`). **Re-lee la cita**
+  y reconcilia; no confía en lo que le pase el llamador. Los dos llamadores la corren en
+  `$transaction` y **fallan abierto**.
+- **Re-ligar:** la visita del paciente anterior, si está vacía (sin hijos ni comentario) y es
+  automática, **se borra**; si tiene contenido o es manual, **se suelta** (sin cita) y se queda en su
+  expediente. **Desligar** (cita sin paciente) **no toca** la visita: si se vuelve a ligar al mismo
+  paciente, sigue ahí. (Un re-enganche "por paciente y día" se probó y se QUITÓ en review: no
+  distingue la visita que soltamos de la de una cita borrada o de otra cita del mismo día.)
+  Caso borde aceptado: A→B→A con contenido deja la visita de A sin cita, en su expediente, y A
+  recibe una nueva vacía — nada se pierde ni se mueve.
+- **Sin candado de fila** a propósito (concluir y re-ligar la misma cita en el mismo milisegundo no
+  lo hace una persona); lo cubre el barrido de abajo.
+- **Smoke contra prod (en transacción revertida): 21/21.** Slot y freeform, idempotencia, re-ligar
+  vacía/con contenido/sólo comentario, desligar, desligar y re-ligar (slot y freeform), A→B→A, SQL
+  completo.
+  Se revisó el SQL: el `_count` de Prisma armaba `GROUP BY` sobre las 5 tablas hijas COMPLETAS en cada
+  cita concluida; se cambió por `count()` por hijo, y sólo en la rama de re-ligar.
+- ☐ **Barrido de reparación, junto con el backfill (§4.2b), antes de lanzar:** citas `COMPLETED` con
+  paciente y sin visita (un fallo que falló abierto), y visitas `cita` cuyo paciente ≠ el de su cita
+  (la carrera sin candado). Corre la MISMA `syncVisitaForBooking` sobre cada una.
+- ⚠️ **Hueco conocido, de CITAS, no de visitas:** concluir (o cancelar / no-show) una cita en un slot
+  PRIVADO borra el slot, y la cita — que no tiene `date` propia — **se queda sin día**. Lo mismo al
+  borrar slots (bulk, purge, `slots/[id]`, `slots/route.ts`). Al concluir no afecta a la visita
+  (`fechaHint` lee el día antes); pero si el expediente se liga DESPUÉS, no hay día → `no_fecha` y no
+  nace visita. En prod el 2026-09-25: **3 citas concluidas** así de 572. Arreglo de raíz: estampar
+  `date` en la cita donde se anula `slotId` (5 caminos) — fuera de D1; el barrido las reporta.
+
 **Toggle de miembros para "Visitas":** se decide al empezar D2 (DISEÑO §9). Si se agrega, pasa por
 `pnpm gates` (el gate de rutas↔permisos).
 
