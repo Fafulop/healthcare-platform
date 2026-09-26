@@ -57,6 +57,9 @@ interface EncounterFormProps {
   chatFieldUpdates?: { version: number; updates: Partial<EncounterFormData> } | null;
   /** Incremental custom field updates from AI chat panel */
   chatCustomFieldUpdates?: { version: number; updates: Record<string, any> } | null;
+  /** VISITAS D4 — inside a visit the date IS the visit's ('YYYY-MM-DD'). DISPLAY only: the date
+   *  input shows it locked. The caller's onSubmit is what sends it (useNewEncounterPage). */
+  fechaFija?: string;
 }
 
 export function EncounterForm({
@@ -72,6 +75,7 @@ export function EncounterForm({
   onCustomFieldValuesChange,
   chatFieldUpdates,
   chatCustomFieldUpdates,
+  fechaFija,
 }: EncounterFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -275,10 +279,12 @@ export function EncounterForm({
                   <input
                     type="date"
                     name="encounterDate"
-                    value={formData.encounterDate}
+                    value={fechaFija ?? formData.encounterDate}
                     onChange={handleChange}
+                    disabled={!!fechaFija}
+                    title={fechaFija ? 'Es la fecha de la visita' : undefined}
                     required
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                   />
                 </div>
 

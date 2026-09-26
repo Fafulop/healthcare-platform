@@ -1,7 +1,7 @@
 # VISITAS — un agregador por visita, y series de visitas (tratamientos)
 
-> **Estado (2026-09-25, fin del día): fase 1 — BACKEND COMPLETO EN PROD (A, C, D1–D3); falta la UI
-> (D4–D6) y el lanzamiento.** 👉 **Empieza por [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).**
+> **Estado (2026-09-26): fase 1 — BACKEND COMPLETO EN PROD (A, C, D1–D3) y la UI de D4 en prod SÓLO
+> para dr-prueba (sin probar con clics); falta D5, D6 y el lanzamiento.** 👉 **Empieza por [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md).**
 > Nació del feedback de doctores: hoy todo lo que se crea en el expediente es suelto y nada responde
 > "¿qué pasó en la visita del 12 sep?".
 

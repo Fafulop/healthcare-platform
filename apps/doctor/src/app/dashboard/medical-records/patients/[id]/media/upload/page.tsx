@@ -1,13 +1,14 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MediaUploader } from '@/components/medical-records/MediaUploader';
 import { toast } from '@/lib/practice-toast';
+import { visitaHref } from '@/lib/visitas-ui';
 
 interface Patient {
   id: string;
@@ -19,6 +20,11 @@ interface Patient {
 export default function MediaUploadPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  // VISITAS D4 — «Subir» from a visit: the file lands in THAT visit and we go back to it.
+  const visitaId = useSearchParams().get('visitaId') || undefined;
+  const volverHref = visitaId
+    ? visitaHref(resolvedParams.id, visitaId)
+    : `/dashboard/medical-records/patients/${resolvedParams.id}/media`;
 
   const { status } = useSession({
     required: true,
@@ -48,12 +54,12 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
   };
 
   const handleUploadComplete = (mediaId: string) => {
-    // Redirect to media gallery after successful upload
-    router.push(`/dashboard/medical-records/patients/${resolvedParams.id}/media`);
+    // Redirect to media gallery (or back to the visit) after successful upload
+    router.push(volverHref);
   };
 
   const handleCancel = () => {
-    router.push(`/dashboard/medical-records/patients/${resolvedParams.id}/media`);
+    router.push(volverHref);
   };
 
   if (status === "loading" || !patient) {
@@ -72,11 +78,11 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
       {/* Header */}
       <div className="mb-6">
         <Link
-          href={`/dashboard/medical-records/patients/${resolvedParams.id}/media`}
+          href={volverHref}
           className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Volver a Documentos y Galería
+          {visitaId ? 'Volver a la Visita' : 'Volver a Documentos y Galería'}
         </Link>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -90,6 +96,7 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
       {/* Upload Component */}
       <MediaUploader
         patientId={resolvedParams.id}
+        visitaId={visitaId}
         onUploadComplete={handleUploadComplete}
         onCancel={handleCancel}
       />

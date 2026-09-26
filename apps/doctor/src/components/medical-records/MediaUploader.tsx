@@ -11,6 +11,9 @@ import { formatLocalDate as formatDateString } from '@/lib/dates';
 interface MediaUploaderProps {
   patientId: string;
   encounterId?: string;
+  /** VISITAS D4 — subir DENTRO de una visita. Las consultas que se ofrecen son sólo las de esa
+   *  visita: la de un archivo con consulta ES la de su consulta, y otra daría 409 (D3). */
+  visitaId?: string;
   onUploadComplete?: (mediaId: string) => void;
   onCancel?: () => void;
 }
@@ -22,6 +25,7 @@ interface Encounter {
   encounterDate: string;
   encounterType: string;
   chiefComplaint: string;
+  visitaId?: string | null;
 }
 
 const CATEGORIES: { value: string; label: string }[] = [
@@ -51,7 +55,7 @@ const BODY_AREAS = [
   'Pie Izquierdo',
 ];
 
-export function MediaUploader({ patientId, encounterId: propEncounterId, onUploadComplete, onCancel }: MediaUploaderProps) {
+export function MediaUploader({ patientId, encounterId: propEncounterId, visitaId, onUploadComplete, onCancel }: MediaUploaderProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [mediaType, setMediaType] = useState<MediaType>('image');
   const [category, setCategory] = useState('');
@@ -85,7 +89,8 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
         const response = await fetch(`/api/medical-records/patients/${patientId}/encounters`);
         if (response.ok) {
           const data = await response.json();
-          setEncounters(data.data || []);
+          const todas: Encounter[] = data.data || [];
+          setEncounters(visitaId ? todas.filter((e) => e.visitaId === visitaId) : todas);
         }
       } catch (error) {
         console.error('Failed to fetch encounters:', error);
@@ -93,7 +98,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
     };
 
     fetchEncounters();
-  }, [patientId]);
+  }, [patientId, visitaId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -155,6 +160,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, onUploa
           },
           body: JSON.stringify({
             encounterId: selectedEncounterId || null,
+            ...(visitaId && { visitaId }),
             mediaType,
             fileName: file.name,
             fileUrl: file.url,

@@ -12,6 +12,7 @@ import type { EncounterTemplate, FieldVisibility, DefaultValues } from '@/types/
 import { fetchDoctorProfile, type PracticeDoctorProfile } from '@/lib/practice-utils';
 import { getLocalDateString } from '@/lib/dates';
 import { usePermissions } from '@/lib/permissions-client';
+import { visitaHref } from '@/lib/visitas-ui';
 
 // Helper to map voice data to form data
 function mapVoiceToFormData(voiceData: VoiceEncounterData): Partial<EncounterFormData> {
@@ -43,6 +44,11 @@ export function useNewEncounterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const patientId = params.id as string;
+  // VISITAS D4 — «Agregar plantilla» desde una visita llega con `?visitaId=`: la consulta nace
+  // DENTRO de esa visita, con la fecha de la visita (DISEÑO §3), y al guardar se vuelve a ella.
+  const visitaId = searchParams.get('visitaId');
+  const [fechaVisita, setFechaVisita] = useState<string | null>(null);
+  const [errorVisita, setErrorVisita] = useState(false);
 
   const { data: session, status } = useSession({
     required: true,
@@ -150,6 +156,18 @@ export function useNewEncounterPage() {
       })
       .catch((err) => console.error('Error loading patient name:', err));
   }, [patientId]);
+
+  // La fecha de la visita (con cita, la de la cita: la resuelve el servidor).
+  useEffect(() => {
+    if (!visitaId) return;
+    fetch(`/api/medical-records/patients/${patientId}/visitas/${visitaId}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((res) => {
+        if (typeof res?.data?.fecha !== 'string') throw new Error('sin fecha');
+        setFechaVisita(res.data.fecha);
+      })
+      .catch(() => setErrorVisita(true));
+  }, [patientId, visitaId]);
 
   // Handle modal completion - transition to sidebar with initial data
   const handleModalComplete = useCallback((
@@ -271,10 +289,14 @@ export function useNewEncounterPage() {
   };
 
   const handleSubmit = async (formData: EncounterFormData) => {
+    // Sin la fecha de la visita no se guarda: saldría con otra fecha, o fuera de la visita.
+    if (visitaId && !fechaVisita) {
+      throw new Error('No se pudo cargar la visita. Recarga la página para intentar de nuevo.');
+    }
     const res = await fetch(`/api/medical-records/patients/${patientId}/encounters`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
+      body: JSON.stringify(visitaId ? { ...formData, encounterDate: fechaVisita, visitaId } : formData),
     });
 
     if (!res.ok) {
@@ -292,7 +314,11 @@ export function useNewEncounterPage() {
       await trackTemplateUsage(selectedTemplate.id);
     }
 
-    router.push(`/dashboard/medical-records/patients/${patientId}/encounters/${data.data.id}`);
+    router.push(
+      visitaId
+        ? visitaHref(patientId, visitaId)
+        : `/dashboard/medical-records/patients/${patientId}/encounters/${data.data.id}`
+    );
   };
 
   return {
@@ -328,5 +354,9 @@ export function useNewEncounterPage() {
     templateConfig,
     // Submit
     handleSubmit,
+    // Visita (D4)
+    visitaId,
+    fechaVisita,
+    errorVisita,
   };
 }

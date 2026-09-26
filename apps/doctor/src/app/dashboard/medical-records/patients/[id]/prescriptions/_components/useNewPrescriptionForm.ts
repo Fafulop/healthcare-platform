@@ -34,6 +34,10 @@ export function useNewPrescriptionForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const patientId = params.id as string;
+  // VISITAS D4 — «Nueva receta» desde una visita: la receta queda en ELLA, sólo se ofrecen las
+  // consultas de esa visita (otra daría 409: la visita de una receta con consulta es la de su
+  // consulta). Al guardar va al detalle de la receta, como siempre (ahí están el PDF y emitir).
+  const visitaId = searchParams.get('visitaId');
 
   const { data: session, status } = useSession({
     required: true,
@@ -323,7 +327,15 @@ export function useNewPrescriptionForm() {
       if (!res.ok) throw new Error('Error al cargar paciente');
       const data = await res.json();
       setPatient(data.data);
-      setEncounters(data.data.encounters || []);
+      if (visitaId) {
+        // `patient.encounters` trae sólo las últimas 5: las de la visita se piden completas.
+        const re = await fetch(`/api/medical-records/patients/${patientId}/encounters`);
+        if (!re.ok) throw new Error('Error al cargar las consultas de la visita');
+        const de = await re.json();
+        setEncounters(((de.data || []) as (Encounter & { visitaId?: string | null })[]).filter((e) => e.visitaId === visitaId));
+      } else {
+        setEncounters(data.data.encounters || []);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -406,6 +418,7 @@ export function useNewPrescriptionForm() {
         doctorLicense,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         encounterId: selectedEncounterId || null,
+        ...(visitaId && { visitaId }),
         ...(doctorCredentials.length > 0 ? { doctorCredentials } : {}),
         ...(isTemplateMode ? { templateId: selectedTemplate.id, customData } : {}),
       };
@@ -500,6 +513,7 @@ export function useNewPrescriptionForm() {
         }
       }
 
+      // Also from a visit: the detail page is where an issued prescription's PDF/print/send live.
       router.push(
         `/dashboard/medical-records/patients/${patientId}/prescriptions/${prescription.id}`
       );
@@ -513,6 +527,7 @@ export function useNewPrescriptionForm() {
   return {
     // Route
     patientId,
+    visitaId,
     session,
     sessionStatus: status,
     aiAllowed,

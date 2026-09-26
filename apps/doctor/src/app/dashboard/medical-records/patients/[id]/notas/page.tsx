@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Plus, NotebookPen, Loader2 } from 'lucide-react';
@@ -10,10 +10,17 @@ import { usePatientNotes } from './_hooks/usePatientNotes';
 import { PatientNotesList } from './_components/PatientNotesList';
 import { PatientNoteEditor } from './_components/PatientNoteEditor';
 import { practiceConfirm } from '@/lib/practice-confirm';
+import { visitaHref } from '@/lib/visitas-ui';
 
 export default function PatientNotasPage() {
   const params = useParams();
   const patientId = params.id as string;
+  // VISITAS D4 — «Nueva nota» from a visit arrives with `?visitaId=`: it opens a new note that is
+  // created in that visit, and «Volver» goes back to it.
+  const visitaId = useSearchParams().get('visitaId');
+  const volverHref = visitaId
+    ? visitaHref(patientId, visitaId)
+    : `/dashboard/medical-records/patients/${patientId}`;
 
   const { status } = useSession({
     required: true,
@@ -39,12 +46,22 @@ export default function PatientNotasPage() {
     saveNote,
     deleteNote,
     toggleRecording,
-  } = usePatientNotes(patientId);
+  } = usePatientNotes(patientId, visitaId);
 
   // Mobile: show list or editor
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list');
 
   const isEditorOpen = isNewNote || selectedNote !== null;
+
+  // Coming from a visit means coming to WRITE: open the new note right away (once).
+  const abrioNueva = useRef(false);
+  useEffect(() => {
+    if (visitaId && !abrioNueva.current) {
+      abrioNueva.current = true;
+      newNote();
+      setMobileView('editor');
+    }
+  }, [visitaId, newNote]);
 
   async function handleSelectNote(note: Parameters<typeof selectNote>[0]) {
     if (isDirty) {
@@ -97,7 +114,7 @@ export default function PatientNotasPage() {
           )}
           {mobileView === 'list' && (
             <Link
-              href={`/dashboard/medical-records/patients/${patientId}`}
+              href={volverHref}
               className="sm:hidden p-1.5 text-gray-500 hover:text-gray-700 rounded-md"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -105,11 +122,11 @@ export default function PatientNotasPage() {
           )}
           {/* Desktop back link */}
           <Link
-            href={`/dashboard/medical-records/patients/${patientId}`}
+            href={volverHref}
             className="hidden sm:inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">Volver al Paciente</span>
+            <span className="text-sm">{visitaId ? 'Volver a la Visita' : 'Volver al Paciente'}</span>
           </Link>
           <div className="hidden sm:block w-px h-5 bg-gray-200" />
           <div className="flex items-center gap-2">
@@ -125,6 +142,13 @@ export default function PatientNotasPage() {
           <span>Nueva Nota</span>
         </button>
       </div>
+
+      {visitaId && (
+        <div className="px-4 sm:px-6 py-2 bg-blue-50 border-b border-blue-100 text-sm text-blue-800 flex-shrink-0">
+          Las notas nuevas que escribas aquí se guardan en la visita.{' '}
+          <Link href={volverHref} className="underline">Volver a la visita</Link>
+        </div>
+      )}
 
       {/* Body: two-panel desktop, stacked mobile */}
       <div className="flex flex-1 min-h-0">

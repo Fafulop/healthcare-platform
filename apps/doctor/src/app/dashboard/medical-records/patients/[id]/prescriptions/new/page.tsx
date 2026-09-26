@@ -13,6 +13,7 @@ import { PrescriptionChatPanel } from '@/components/medical-records/Prescription
 import { DynamicFieldRenderer } from '@/components/medical-records/DynamicFieldRenderer';
 import { formatLocalDate as formatDateString } from '@/lib/dates';
 import { useNewPrescriptionForm } from '../_components/useNewPrescriptionForm';
+import { visitaHref } from '@/lib/visitas-ui';
 
 export default function NewPrescriptionPage() {
   const {
@@ -57,7 +58,12 @@ export default function NewPrescriptionPage() {
     handleChatImagingStudyUpdates,
     handleChatLabStudyUpdates,
     handleSubmit,
+    visitaId,
   } = useNewPrescriptionForm();
+  // VISITAS D4 — desde una visita, «Volver» y «Cancelar» regresan a ella.
+  const volverHref = visitaId
+    ? visitaHref(patientId, visitaId)
+    : `/dashboard/medical-records/patients/${patientId}/prescriptions`;
 
   if (sessionStatus === 'loading' || loadingPatient) {
     return (
@@ -75,11 +81,11 @@ export default function NewPrescriptionPage() {
       {/* Header */}
       <div className="mb-6">
         <Link
-          href={`/dashboard/medical-records/patients/${patientId}/prescriptions`}
+          href={volverHref}
           className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Volver a Prescripciones
+          {visitaId ? 'Volver a la Visita' : 'Volver a Prescripciones'}
         </Link>
 
         <div className="flex items-center justify-between">
@@ -340,7 +346,7 @@ export default function NewPrescriptionPage() {
         {/* Actions */}
         <div className="flex items-center justify-end gap-3">
           <Link
-            href={`/dashboard/medical-records/patients/${patientId}/prescriptions`}
+            href={volverHref}
             className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
           >
             Cancelar

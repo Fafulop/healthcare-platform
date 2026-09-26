@@ -7,6 +7,7 @@ import { TemplateSelector } from '@/components/medical-records/TemplateSelector'
 import { AIDraftBanner, VoiceChatSidebar, VoiceRecordingModal } from '@/components/voice-assistant';
 import { EncounterChatPanel } from '@/components/medical-records/EncounterChatPanel';
 import { useNewEncounterPage } from '../_components/useNewEncounterPage';
+import { formatoFechaVisita, visitaHref } from '@/lib/visitas-ui';
 
 export default function NewEncounterPage() {
   const {
@@ -36,7 +37,14 @@ export default function NewEncounterPage() {
     handleChatUpdateCustomFields,
     templateConfig,
     handleSubmit,
+    visitaId,
+    fechaVisita,
+    errorVisita,
   } = useNewEncounterPage();
+  // VISITAS D4 — desde una visita se vuelve a ELLA, y el título dice qué se está haciendo.
+  const volverHref = visitaId
+    ? visitaHref(patientId, visitaId)
+    : `/dashboard/medical-records/patients/${patientId}`;
 
   if (sessionStatus === 'loading') {
     return (
@@ -64,19 +72,28 @@ export default function NewEncounterPage() {
       {/* Header */}
       <div className="mb-6">
         <Link
-          href={`/dashboard/medical-records/patients/${patientId}`}
+          href={volverHref}
           className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
         >
           <ArrowLeft className="w-5 h-5" />
-          Volver al Paciente
+          {visitaId ? 'Volver a la Visita' : 'Volver al Paciente'}
         </Link>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Nueva Consulta</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{visitaId ? 'Agregar plantilla' : 'Nueva Consulta'}</h1>
             {patientName && (
               <p className="text-base font-medium text-gray-700 mt-1">{patientName}</p>
             )}
-            <p className="text-gray-600 mt-1">Registre los detalles de la consulta</p>
+            <p className="text-gray-600 mt-1">
+              {visitaId
+                ? fechaVisita
+                  ? `Visita del ${formatoFechaVisita(fechaVisita, { day: 'numeric', month: 'long', year: 'numeric' })}`
+                  : 'Cargando la visita…'
+                : 'Registre los detalles de la consulta'}
+            </p>
+            {errorVisita && (
+              <p className="text-sm text-red-700 mt-1">No se pudo cargar la visita. Recarga la página para intentar de nuevo.</p>
+            )}
           </div>
           {aiAllowed && (
           <div className="flex items-center gap-2">
@@ -124,7 +141,9 @@ export default function NewEncounterPage() {
         patientId={patientId}
         initialData={voiceInitialData}
         onSubmit={handleSubmit}
-        submitLabel="Crear Consulta"
+        submitLabel={visitaId ? 'Guardar en la visita' : 'Crear Consulta'}
+        cancelHref={visitaId ? volverHref : undefined}
+        fechaFija={fechaVisita ?? undefined}
         templateConfig={templateConfig}
         selectedTemplate={selectedTemplate}
         onFormDataChange={setCurrentFormData}

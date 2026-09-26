@@ -314,6 +314,35 @@ usuario, push, y **verificar el `commitHash` por servicio**.
 lee o afirma cambia; si su respuesta al concluir cambia de forma (`visitaWarning`), correr los
 gates.
 
+### 5.4 D4 — la UI, detrás de una lista (2026-09-26)
+
+- **Sólo dr-prueba la ve** (`VISITAS_UI_DOCTORES` en `apps/doctor/src/lib/visitas-ui.ts`): el backfill
+  corre ANTES de que los doctores creen o muevan visitas (§4.2b). Sin la lista, la página del paciente
+  queda exactamente como antes. No es un candado de seguridad: la API ya está viva y revisa permisos.
+- **Página del paciente:** «Nueva Visita» abre un MODAL (fecha, o «¿De qué cita?»); la visita se crea al
+  confirmar, no al clic. La cita de HOY viene elegida; si ya tiene su visita, el botón la abre. Mientras
+  citas o visitas cargan no se crea nada, y si fallan se dice cuál (una visita «Sin cita» para la cita de
+  hoy = una SEGUNDA visita cuando D1 la concluya). «Historial de Consultas» → tarjeta «Visitas» + grupo
+  «Consultas sin visita» — sacado de `GET …/encounters` (todas), NO de `patient.encounters` (últimas 5).
+- **Pantalla de la visita** `patients/[id]/visitas/[visitaId]`: cita (hora, servicio y el VEREDICTO de
+  cobro/factura de `GET …/bookings`, el mismo de «Citas e Ingresos» — `CitaBadges.tsx`, no el ingreso
+  crudo), plantillas, fotos, notas, recetas, informes, comentario; ligar/desligar cita (la automática no
+  se desliga); borrar sólo vacía.
+- **Los «+» reusan las páginas que existen** con `?visitaId=`: plantilla (fecha BLOQUEADA a la de la
+  visita, `EncounterForm.fechaFija` sólo pinta; `useNewEncounterPage` la manda), fotos y recetas (sólo
+  ofrecen las consultas de ESA visita — otra daría 409), notas (abre una nueva en la visita). Receta al
+  guardar va a su detalle (PDF/emitir), no a la visita.
+- **«Una sola verdad» de la fecha (DISEÑO §3), cuidada en la UI:** «Mover a…» (PUT con SÓLO `visitaId`)
+  y «Traer aquí» ofrecen sólo visitas/consultas del MISMO día; con plantillas, la visita no cambia de
+  fecha ni liga citas de otro día. Nada reescribe `encounterDate`. *(Regla propuesta, falta que el
+  usuario la confirme.)* Recetas y fotos conservan SU fecha (la de la receta es la de expedición).
+- **`lastVisitDate` (servidor, afecta a TODOS):** `POST …/encounters` ya no estampa la fecha de la
+  consulta nueva; la recalcula como la más reciente (`aggregate _max`). Smoke read-only contra prod:
+  8/8 pacientes igual a lo guardado, `null` sin consultas.
+- **Dos code reviews + review de los arreglos.** Diferido: la pantalla re-lee listas completas del
+  paciente (costo); el selector de plantillas aún no dice «Plantilla SOAP».
+- **NO probado con clics.** Falta §6 puntos 1–6.
+
 ---
 
 ## 6. Prueba a mano (después de D4/D5, en dr-prueba)

@@ -129,10 +129,17 @@ export async function POST(
       }
     });
 
-    // Update patient's last visit date
+    // Patient's last visit date = the LATEST consultation date, recomputed. Stamping the new
+    // one moved it BACKWARDS when adding to a past visit (VISITAS D4: labs that arrive days
+    // later); stamping only forward made a mistyped future date stick forever. Smoke-tested
+    // read-only against prod 2026-09-26: matches the stored value for 8/8 patients.
+    const { _max } = await prisma.clinicalEncounter.aggregate({
+      where: { patientId },
+      _max: { encounterDate: true },
+    });
     await prisma.patient.update({
       where: { id: patientId },
-      data: { lastVisitDate: new Date(body.encounterDate) }
+      data: { lastVisitDate: _max.encounterDate ?? encounterDate }
     });
 
     // Log audit

@@ -19,20 +19,20 @@ interface EncounterCardProps {
   patientId: string;
 }
 
-const ENCOUNTER_TYPE_LABELS: Record<string, string> = {
+export const ENCOUNTER_TYPE_LABELS: Record<string, string> = {
   'consultation': 'Consulta',
   'follow-up': 'Seguimiento',
   'emergency': 'Emergencia',
   'telemedicine': 'Telemedicina',
 };
 
-const STATUS_LABELS: Record<string, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   completed: 'Completada',
   draft: 'Borrador',
   amended: 'Enmendada',
 };
 
-const STATUS_COLORS: Record<string, string> = {
+export const STATUS_COLORS: Record<string, string> = {
   completed: 'bg-green-100 text-green-800',
   draft: 'bg-yellow-100 text-yellow-800',
   amended: 'bg-blue-100 text-blue-800',

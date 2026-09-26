@@ -6,6 +6,10 @@ import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Tra
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
+import { NuevaVisitaModal } from '@/components/medical-records/visitas/NuevaVisitaModal';
+import { VisitasCard } from '@/components/medical-records/visitas/VisitasCard';
+import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
+import { visitasUiActiva } from '@/lib/visitas-ui';
 import { PatientSummaryModal } from '@/components/medical-records/PatientSummaryModal';
 import { formatSex } from '@/components/medical-records/patient-display';
 import { usePatientProfile } from '../_components/usePatientProfile';
@@ -15,6 +19,7 @@ import { usePermissions } from '@/lib/permissions-client';
 // Sólo el TIPO (se borra al compilar): qué bloques de las citas puede ver quien mira.
 // Sin `citas` la lista llega VACÍA a propósito — NO quiere decir que no tenga citas.
 import type { BookingPermisos } from '@/lib/booking-permisos';
+import { BookingStatusPill, FacturaBadge, PagoBadge, type PatientBooking } from '@/components/medical-records/CitaBadges';
 
 interface RecentNote {
   id: string;
@@ -30,63 +35,6 @@ interface PatientFormulario {
   appointmentTime: string | null;
 }
 
-interface BookingCfdi {
-  id: number;
-  uuid: string;
-  folio: string | null;
-  status: string;
-  total: number;
-  rfcReceptor: string;
-  nombreReceptor: string;
-  usoCfdi: string;
-  formaPago: string;
-  issuedAt: string;
-}
-
-interface BookingPaymentLink {
-  url: string;
-  status: string;
-  isActive: boolean;
-  paidAt: string | null;
-  amount: number;
-}
-
-interface PatientBooking {
-  id: string;
-  date: string | null;
-  startTime: string | null;
-  endTime: string | null;
-  serviceName: string | null;
-  status: string;
-  appointmentMode: string | null;
-  // ⚠️ Los campos de cobro, links y factura sólo VIAJAN con su permiso (ver
-  // BookingPermisos): ausentes = "no puedes verlo", no "no hay".
-  finalPrice?: number | null;
-  /** Notas escritas al AGENDAR la cita. Puede venir "" — tratar como vacío. */
-  notes?: string | null;
-  formLinkId?: string | null;
-  /** Casilla "¿Necesita factura?" de la tabla de citas. Pregunta por CITA —
-   *  distinta de `patient.requiereFactura`, que es del expediente. */
-  facturaSolicitada?: boolean | null;
-  // Financial
-  ledgerEntryId?: number | null;
-  amount?: number | null;
-  formaDePago?: string | null;
-  /** Del INGRESO: 'PENDING' | 'PARTIAL' | 'PAID'. null = no hay ingreso todavía. */
-  paymentStatus?: string | null;
-  amountPaid?: number | null;
-  /** VEREDICTO de cobro del servidor (ingreso + links juntos) y su método ya legible. */
-  estadoPago?: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO';
-  metodoPago?: string | null;
-  /** VEREDICTO del servidor (resolveFacturaVerdict) — no se re-deriva aquí. */
-  facturada?: boolean;
-  facturadaVia?: 'plataforma' | 'subida' | 'externa_sat' | null;
-  cfdi?: BookingCfdi | null;
-  // Payment links (linked cobro)
-  stripeLink?: BookingPaymentLink | null;
-  mpLink?: BookingPaymentLink | null;
-}
-
 interface PatientSummaryData {
   id: string;
   content: string;
@@ -98,73 +46,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 // (Las etiquetas de forma de pago se fueron al servidor: la ruta manda
 // `metodoPago` ya legible, resuelto junto con el veredicto de cobro.)
-
-function BookingStatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    CONFIRMED:  'bg-blue-100 text-blue-700',
-    PENDING:    'bg-yellow-100 text-yellow-700',
-    COMPLETED:  'bg-green-100 text-green-700',
-    CANCELLED:  'bg-red-100 text-red-700',
-    NO_SHOW:    'bg-orange-100 text-orange-700',
-  };
-  const label: Record<string, string> = {
-    CONFIRMED: 'Agendada',
-    PENDING:   'Pendiente',
-    COMPLETED: 'Completada',
-    CANCELLED: 'Cancelada',
-    NO_SHOW:   'No asistió',
-  };
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
-      {label[status] ?? status}
-    </span>
-  );
-}
-
-/** ¿Ya se cobró? El veredicto —y el método— los resuelve el SERVIDOR mirando el
- *  ingreso Y los links juntos (`estadoPago`/`metodoPago` en la ruta de bookings).
- *  Aquí solo se pinta: dos componentes leyendo mitades distintas es lo que hacía
- *  que una misma tarjeta dijera "Por cobrar" y "Pagado" a la vez.
- *
- *  Siempre pinta algo (los cuatro estados tienen chip), a diferencia de la
- *  versión anterior, que se callaba cuando no había ingreso. */
-function PagoBadge({
-  estadoPago, metodoPago,
-}: { estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO'; metodoPago: string | null }) {
-  // Gris y neutro: no afirma una deuda, dice que no hay registro. Es el estado de
-  // las 49 citas anteriores a que completar creara el ingreso (may–jun 2026).
-  if (estadoPago === 'SIN_REGISTRO') {
-    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">Sin cobro registrado</span>;
-  }
-  if (estadoPago === 'PENDIENTE') {
-    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Por cobrar</span>;
-  }
-  if (estadoPago === 'PARCIAL') {
-    return (
-      <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
-        Pago parcial{metodoPago ? ` · ${metodoPago}` : ''}
-      </span>
-    );
-  }
-  return (
-    <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">
-      Pagado{metodoPago ? ` · ${metodoPago}` : ''}
-    </span>
-  );
-}
-
-/** Dos hechos INDEPENDIENTES en un solo chip, por orden de importancia: ya está
- *  facturada (veredicto del servidor) gana sobre la petición. Si la pidieron y no
- *  está, ese es el pendiente que hay que ver. */
-function FacturaBadge({ facturada, solicitada }: { facturada: boolean; solicitada: boolean }) {
-  if (facturada) {
-    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">Facturado</span>;
-  }
-  if (solicitada) {
-    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">Necesita factura</span>;
-  }
-  return null;
-}
 
 function parseNoteTitle(content: string): string {
   const first = content.split('\n').map((l) => l.trim()).find((l) => l !== '');
@@ -875,6 +756,7 @@ export default function PatientProfilePage() {
   const {
     patientId,
     sessionStatus,
+    doctorId,
     patient,
     loading,
     error,
@@ -893,6 +775,11 @@ export default function PatientProfilePage() {
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  // VISITAS D4 — detrás de la lista de `lib/visitas-ui.ts` hasta el lanzamiento. Sin ella, la
+  // página queda EXACTAMENTE como antes («Nueva Consulta» + «Historial de Consultas»).
+  const conVisitas = visitasUiActiva(doctorId);
+  const visitasDelPaciente = useVisitasDelPaciente(patientId, conVisitas);
+  const [showNuevaVisita, setShowNuevaVisita] = useState(false);
   // TIERS Q2b — el resumen del paciente lo GENERA un modelo (POST …/summary).
   // Son TRES disparadores para la misma acción (Generar, Regenerar y el de
   // dentro del modal): gatear solo uno deja los otros dos vivos, que es justo
@@ -1034,6 +921,15 @@ export default function PatientProfilePage() {
           {/* Actions — three tiers: the three the doctor actually uses (Nueva
               Consulta · Recetas · Informe), then the rest, then Archivar. */}
           <div className="flex flex-wrap items-center gap-2">
+            {conVisitas ? (
+              <button
+                onClick={() => setShowNuevaVisita(true)}
+                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1.5 text-sm font-semibold transition-colors"
+              >
+                <Plus className="w-4 h-4 flex-shrink-0" />
+                <span>Nueva Visita</span>
+              </button>
+            ) : (
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/encounters/new`}
               className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1.5 text-sm font-semibold transition-colors"
@@ -1041,6 +937,7 @@ export default function PatientProfilePage() {
               <Plus className="w-4 h-4 flex-shrink-0" />
               <span>Nueva Consulta</span>
             </Link>
+            )}
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/prescriptions`}
               className="px-3 py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 flex items-center gap-1.5 text-sm font-medium transition-colors"
@@ -1172,7 +1069,18 @@ export default function PatientProfilePage() {
             </div>
           )}
 
-          {/* Encounters List */}
+          {/* Encounters List — con VISITAS (D4) la reemplaza la tarjeta de visitas. */}
+          {conVisitas ? (
+            <VisitasCard
+              patientId={patient.id}
+              estado={visitasDelPaciente.estado}
+              visitas={visitasDelPaciente.visitas}
+              sueltas={visitasDelPaciente.sueltas}
+              bookings={patientBookings}
+              permisos={bookingPermisos}
+              onNuevaVisita={() => setShowNuevaVisita(true)}
+            />
+          ) : (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
               <FileText className="w-5 h-5" />
@@ -1198,6 +1106,7 @@ export default function PatientProfilePage() {
               </div>
             )}
           </div>
+          )}
           {/* Formularios */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
@@ -1381,6 +1290,19 @@ export default function PatientProfilePage() {
           />
         </div>
       </div>
+
+      {showNuevaVisita && (
+        <NuevaVisitaModal
+          patientId={patient.id}
+          onClose={() => setShowNuevaVisita(false)}
+          bookings={patientBookings}
+          verCitas={bookingPermisos?.citas ?? false}
+          visitas={visitasDelPaciente.visitas}
+          visitasEstado={visitasDelPaciente.estado}
+          citasEstado={bookingsEstado}
+          recargarVisitas={visitasDelPaciente.recargar}
+        />
+      )}
 
       {/* Summary Modal — outside the grid: it used to be a grid child, so with
           the 5-column split an open modal pushed the right column to a new row. */}

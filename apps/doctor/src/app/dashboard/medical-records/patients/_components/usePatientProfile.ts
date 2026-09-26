@@ -78,6 +78,7 @@ export function usePatientProfile() {
     // Route
     patientId,
     sessionStatus: status,
+    doctorId: session?.user?.doctorId ?? null,
     // Data
     patient,
     // Loading / error

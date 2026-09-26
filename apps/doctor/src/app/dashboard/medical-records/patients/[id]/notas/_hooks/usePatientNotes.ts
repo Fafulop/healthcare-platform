@@ -11,7 +11,8 @@ export interface PatientNote {
   updatedAt: string;
 }
 
-export function usePatientNotes(patientId: string) {
+/** @param visitaId VISITAS D4 — si viene, las notas NUEVAS nacen en esa visita (editar no las mueve). */
+export function usePatientNotes(patientId: string, visitaId?: string | null) {
   // voice/transcribe is OWNER_ONLY (00-REQUISITOS §5.3) — same fix as
   // dashboard/notas (§16 hallazgo 5).
   // TIERS Q2b — gemelo de `useNotesPage`: el dictado cuelga de la key de plan
@@ -105,7 +106,7 @@ export function usePatientNotes(patientId: string) {
         const res = await fetch(`/api/medical-records/patients/${patientId}/notes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: editorContent }),
+          body: JSON.stringify({ content: editorContent, ...(visitaId && { visitaId }) }),
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Error al guardar');
@@ -134,7 +135,7 @@ export function usePatientNotes(patientId: string) {
     } finally {
       setSaving(false);
     }
-  }, [saving, isNewNote, selectedNoteId, editorContent, patientId]);
+  }, [saving, isNewNote, selectedNoteId, editorContent, patientId, visitaId]);
 
   // ─── Delete ─────────────────────────────────────────────────────────────────
 
