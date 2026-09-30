@@ -99,7 +99,10 @@ aparecerá sola cuando un doctor concluya una cita con expediente ligado.
 6. Los títulos del modal de voz siguen diciendo «Nueva Consulta» a propósito (dictar una consulta
    sigue siendo eso); no se tocaron.
 
-Después de la fase 1: fase 2 (Tratamiento) y fase 3 (Progreso) — DISEÑO §8, nada construido.
+**Fase 2 (Tratamiento): plan APROBADO en `03-PLAN-fase-2.md` (2026-09-29)** — P1 estado derivado de
+la cita (sólo `cancelada` se guarda), T1–T4 primero (sin dinero), dinero (T5–T6) después; §8 lista
+los 11 huecos de la revisión y dónde se arregla cada uno. Siguiente: T1 (SQL + probe en tx
+revertida). Fase 3 (Progreso) — DISEÑO §8, nada construido.
 
 ## 4. Decisiones del usuario (no re-litigar)
 
