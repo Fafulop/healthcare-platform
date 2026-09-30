@@ -366,9 +366,9 @@ También puedes crear el expediente **desde una cita**: «+ Crear expediente» (
 Botones de arriba: «Nueva Consulta» · «Recetas» · «Informe» · «Línea de Tiempo» ·
 «Docs y Galería» · «Notas» · «Archivar».
 
-**Columna izquierda:** Información de Contacto (con «Editar» para cambiar sus datos) ·
-Contacto de Emergencia · Historial de Consultas · Formularios (los pre-consulta que contestó) ·
-Notas Generales · Notas Recientes.
+**Columna izquierda:** Información de Contacto (con «Editar» para cambiar sus datos; la **flecha**
+de abajo abre su Contacto de Emergencia y sus Notas Generales — sin ninguno de los dos no hay
+flecha) · Historial de Consultas · Formularios (los pre-consulta que contestó) · Notas Recientes.
 
 **Columna derecha:**
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { NotasCita } from "@/components/citas/NotasCita";
-import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, Sparkles, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
@@ -791,6 +791,8 @@ export default function PatientProfilePage() {
   const conVisitas = visitasUiActiva(doctorId);
   const visitasDelPaciente = useVisitasDelPaciente(patientId, conVisitas);
   const [showNuevaVisita, setShowNuevaVisita] = useState(false);
+  // Contacto de Emergencia y Notas Generales viven DENTRO de «Información de Contacto», plegados.
+  const [contactoAbierto, setContactoAbierto] = useState(false);
   // TIERS Q2b — el resumen del paciente lo GENERA un modelo (POST …/summary).
   // Son TRES disparadores para la misma acción (Generar, Regenerar y el de
   // dentro del modal): gatear solo uno deja los otros dos vivos, que es justo
@@ -885,6 +887,11 @@ export default function PatientProfilePage() {
     );
   }
 
+  // La flecha de «Información de Contacto» aparece si hay ALGO que abrir: cualquier dato del contacto
+  // de emergencia (el nombre no es obligatorio en el formulario) o notas que no sean sólo espacios.
+  const tieneContactoEmergencia = [patient.emergencyContactName, patient.emergencyContactPhone, patient.emergencyContactRelation]
+    .some((x) => x?.trim());
+  const notasGenerales = patient.generalNotes?.trim();
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -1058,28 +1065,54 @@ export default function PatientProfilePage() {
                 </p>
               </div>
             </div>
-          </div>
 
-          {/* Emergency Contact */}
-          {patient.emergencyContactName && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Contacto de Emergencia</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Nombre</label>
-                  <p className="text-gray-900">{patient.emergencyContactName}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Teléfono</label>
-                  <p className="text-gray-900">{patient.emergencyContactPhone || 'No registrado'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Relación</label>
-                  <p className="text-gray-900">{patient.emergencyContactRelation || 'No especificada'}</p>
-                </div>
-              </div>
-            </div>
-          )}
+            {/* Contacto de Emergencia y Notas Generales: antes dos tarjetas sueltas en la página;
+                ahora dentro de esta, plegadas tras la flecha. Sin ninguno de los dos, no hay flecha
+                (no hay nada que abrir). */}
+            {(tieneContactoEmergencia || notasGenerales) && (
+              <>
+                {contactoAbierto && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
+                    {tieneContactoEmergencia && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-2">Contacto de Emergencia</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Nombre</label>
+                            <p className="text-gray-900">{patient.emergencyContactName || 'No registrado'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Teléfono</label>
+                            <p className="text-gray-900">{patient.emergencyContactPhone || 'No registrado'}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Relación</label>
+                            <p className="text-gray-900">{patient.emergencyContactRelation || 'No especificada'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {notasGenerales && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-2">Notas Generales</h3>
+                        <p className="text-gray-900 whitespace-pre-wrap">{notasGenerales}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setContactoAbierto((a) => !a)}
+                  aria-expanded={contactoAbierto}
+                  aria-label={contactoAbierto ? 'Ocultar contacto de emergencia y notas generales' : 'Ver contacto de emergencia y notas generales'}
+                  title={contactoAbierto ? 'Ver menos' : 'Contacto de emergencia y notas generales'}
+                  className="mt-3 w-full flex justify-center py-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  {contactoAbierto ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+              </>
+            )}
+          </div>
 
           {/* Encounters List — con VISITAS (D4) la reemplaza la tarjeta de visitas. */}
           {conVisitas ? (
@@ -1172,14 +1205,6 @@ export default function PatientProfilePage() {
               </div>
             )}
           </div>
-
-          {/* General Notes */}
-          {patient.generalNotes && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Notas Generales</h2>
-              <p className="text-gray-900 whitespace-pre-wrap">{patient.generalNotes}</p>
-            </div>
-          )}
 
           {/* Recent Notes */}
           <div className="bg-white rounded-lg shadow p-6">

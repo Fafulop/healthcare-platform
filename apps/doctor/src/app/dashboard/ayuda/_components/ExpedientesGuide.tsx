@@ -490,15 +490,13 @@ export function ExpedientesGuide() {
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Secciones del perfil</p>
           <ul className="space-y-1.5 text-xs text-gray-600">
             {[
-              "Información de Contacto: folio, edad, sexo, teléfono, email, dirección.",
-              "Contacto de Emergencia (si fue registrado).",
-              "Historial de Consultas: todas las consultas en tarjetas expandibles.",
-              "Formularios: los formularios pre-cita que contestó el paciente.",
-              "Notas Generales: texto libre del perfil.",
-              "Notas Recientes: últimas 3 notas con link directo.",
+              "Información de Contacto: folio, edad, sexo, teléfono, email, dirección. La flecha de abajo abre el Contacto de Emergencia y las Notas Generales (texto libre del perfil), si hay.",
+              "Historial de Consultas: las 3 más recientes; «Ver todas» abre la Línea de Tiempo.",
+              "Formularios: los formularios pre-cita que contestó el paciente (3 más recientes y «Ver N más»).",
+              "Notas Recientes: las 3 más recientes y «Ver N más»; «Ver todas» abre Notas.",
               "Resumen Paciente (columna derecha): el resumen generado con IA.",
               "Datos Fiscales (columna derecha): RFC y régimen para facturar.",
-              "Citas e Ingresos (columna derecha): citas, cobros y CFDIs del paciente.",
+              "Citas e Ingresos (columna derecha): citas, cobros y CFDIs del paciente (3 más recientes y «Ver N más»).",
             ].map((item) => (
               <li key={item} className="flex items-start gap-2">
                 <ArrowRight className="w-3 h-3 text-gray-300 mt-0.5 flex-shrink-0" />
