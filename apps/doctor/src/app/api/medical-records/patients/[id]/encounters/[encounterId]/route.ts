@@ -75,6 +75,35 @@ export async function GET(
 }
 
 // PUT /api/medical-records/patients/:id/encounters/:encounterId
+/**
+ * «Última visita» del paciente (`lastVisitDate`, @db.Date) = el día de su consulta más reciente. La
+ * recalculan crear (POST …/encounters), editar la FECHA (PUT) y borrar (DELETE) una consulta. Editar
+ * y borrar sólo lo hacen si ESA consulta la fijaba (o ahora la rebasa): la importación de pacientes
+ * también llena `lastVisitDate`, a veces sin ninguna consulta detrás, y esa fecha no se pisa.
+ * No revienta la petición: la consulta ya se guardó/borró; lo peor es una fecha vieja.
+ */
+async function recalcularUltimaVisita(patientId: string) {
+  try {
+    const { _max } = await prisma.clinicalEncounter.aggregate({
+      where: { patientId },
+      _max: { encounterDate: true },
+    });
+    await prisma.patient.update({
+      where: { id: patientId },
+      data: { lastVisitDate: _max.encounterDate ?? null },
+    });
+  } catch (err) {
+    console.error('encounter: no se pudo recalcular lastVisitDate', err);
+  }
+}
+
+/**
+ * El día de una fecha como lo guarda la BD. `lastVisitDate` es @db.Date (medianoche UTC) y
+ * `encounterDate` se guarda a medianoche UTC o de día: su día es la parte UTC (así lo escriben el
+ * POST y la importación). Medido en prod 2026-09-29: 227/229 pacientes cuadran con esta regla.
+ */
+const diaUtc = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; encounterId: string }> }
@@ -92,7 +121,7 @@ export async function PUT(
         doctorId
       },
       include: {
-        patient: { select: { firstName: true, lastName: true } }
+        patient: { select: { firstName: true, lastName: true, lastVisitDate: true } }
       }
     });
 
@@ -183,6 +212,15 @@ export async function PUT(
       return { encounter, arrastrados };
     });
 
+    // «Última visita»: si la fecha de la consulta CAMBIÓ y esta consulta la fijaba (o ahora la
+    // rebasa), se recalcula. Una fecha importada que no sale de esta consulta no se toca.
+    const diaAntes = diaUtc(existingEncounter.encounterDate);
+    const diaAhora = diaUtc(encounter.encounterDate);
+    const ultima = diaUtc(existingEncounter.patient.lastVisitDate);
+    if (diaAntes !== diaAhora && (ultima === null || ultima === diaAntes || (diaAhora !== null && diaAhora > ultima))) {
+      await recalcularUltimaVisita(patientId);
+    }
+
     // The visit move is audited from → to, with the ids of the dragged children (NOM-024).
     if (arrastrados) {
       await logAudit({
@@ -237,7 +275,7 @@ export async function DELETE(
         doctorId
       },
       include: {
-        patient: { select: { firstName: true, lastName: true } }
+        patient: { select: { firstName: true, lastName: true, lastVisitDate: true } }
       }
     });
 
@@ -267,6 +305,12 @@ export async function DELETE(
     await prisma.clinicalEncounter.delete({
       where: { id: encounterId }
     });
+
+    // «Última visita»: sólo si ESTA consulta era la que la fijaba (mismo día). Antes nadie la
+    // recalculaba al borrar y el paciente se quedaba con el día de una consulta que ya no existe.
+    if (diaUtc(encounter.patient.lastVisitDate) === diaUtc(encounter.encounterDate)) {
+      await recalcularUltimaVisita(patientId);
+    }
 
     // Log audit
     await logAudit({

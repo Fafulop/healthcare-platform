@@ -46,7 +46,8 @@ export type SyncVisitaResult =
  *
  * Sin candado de fila a propósito: el choque real (concluir y re-ligar la MISMA cita en el mismo
  * milisegundo) no lo hace una persona, y un `FOR UPDATE` en el camino de TODAS las citas era más
- * riesgo que el caso. Si pasara, el barrido previo al lanzamiento lo corrige (02-PLAN §4).
+ * riesgo que el caso. Si pasara, lo detecta el CONTEO de reparación (VISITAS SESSION-REFRESCO §3):
+ * sólo se midió (0/0/0 al lanzar, 2026-09-29); no existe un script que lo corrija solo.
  *
  * El llamador decide qué hacer si esto TRUENA; en la ruta de citas, FALLA ABIERTO.
  *

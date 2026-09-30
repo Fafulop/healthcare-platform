@@ -11,8 +11,9 @@ import { NotasCita } from '@/components/citas/NotasCita';
 import { formatoFechaVisita, totalHijos, visitasUiActiva } from '@/lib/visitas-ui';
 import { useVisitaDetalle, type ConsultaDeVisita } from '../_components/useVisitaDetalle';
 
-// Los tres `origen` que existen: D1 ('cita'), la API de D2 ('manual') y el script de backfill
-// ('backfill', una visita por cada consulta registrada antes de que existieran las visitas).
+// Los `origen` que existen: D1 ('cita') y la API de D2 ('manual'). 'backfill' lo admite la BD (CHECK)
+// para el script `scripts/visitas/backfill-visitas.cjs`, que se DESCARTÓ el 2026-09-29 y nunca corrió:
+// hoy no hay ni una visita 'backfill'. El texto queda por si alguna vez se corre.
 const ORIGEN_TEXTO: Record<string, string> = {
   cita: 'Se abrió sola al concluir la cita.',
   manual: 'Abierta a mano.',

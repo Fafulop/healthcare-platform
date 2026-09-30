@@ -8,10 +8,11 @@
 ## 1. Dónde estamos, en una línea
 
 **Fase 1 (Visita) LANZADA a todos los doctores el 2026-09-29** (commit de lanzamiento: ver `git log
--- apps/doctor/src/lib/visitas-ui.ts`). D4, D5 y D5b probados a mano en dr-prueba (D5b además con la
-bitácora de auditoría de prod). Exportar cuenta incluye visitas (`8fc957b7`). El backfill NO va: lo
-creado antes de las visitas se queda «Sin visita». **Falta: la prueba con un doctor que NO sea
-dr-prueba, y el commit de limpieza** (ver §3).
+-- apps/doctor/src/lib/visitas-ui.ts`, `42ed7f01`). D4, D5 y D5b probados a mano en dr-prueba (D5b además
+con la bitácora de auditoría de prod). Exportar cuenta incluye visitas (`8fc957b7`). El backfill NO va:
+lo creado antes de las visitas se queda «Sin visita». **Lanzamiento probado en prod (Chrome, sesión de
+dr-prueba, 2026-09-29): 1, 2, 3a, 3b, 4, 5 y 6 ✅** — ver §3.1. **Falta: la prueba con un doctor que NO
+sea dr-prueba, y el commit de limpieza** (ver §3).
 
 
 ## 2. Qué está en prod (commits, en orden)
@@ -38,7 +39,18 @@ aparecerá sola cuando un doctor concluya una cita con expediente ligado.
 
 1. **Probar con un doctor que NO sea dr-prueba** (el lanzamiento se probó sólo en dr-prueba): el
    perfil dice «Nueva Visita» + «Visitas»; «¿A qué visita pertenece?» en Recetas/Docs/Notas; la
-   Línea de Tiempo abre el modal con `?nuevaVisita=1`.
+   Línea de Tiempo abre el modal con `?nuevaVisita=1`. Claude no puede entrar a otra cuenta: el
+   usuario inicia sesión en Chrome y Claude corre la misma lista.
+   - Ya probado en prod con dr-prueba (2026-09-29, leído del DOM, no del resumen de `find` —que
+     dijo «no está deshabilitado» y era falso—): perfil con «Nueva Visita» + «Visitas» · el modal
+     pre-elige la cita de hoy y ofrece «Abrir su visita» · «Agregar plantilla» con la fecha
+     `disabled` · **3b: «Editar Consulta» de una plantilla dentro de una visita con la fecha
+     `disabled`** (plantilla «PRUEBA 3b» creada y borrada) · selector en Recetas/Docs/Notas con la
+     visita de hoy sugerida · Línea de Tiempo → modal y `?nuevaVisita=1` borrado · widget «?»
+     contesta desde la sección nueva (se salta «crear/abrir la visita» antes de «Agregar
+     plantilla»: resumen del modelo, no el manual).
+   - Efecto de la prueba 3b: «test vistas lopez» quedó con «Última visita» 2026-09-29 (antes «—»),
+     por el bug de abajo.
 2. **Commit de limpieza** (unos días después, si nada falla): `visitasUiActiva()` ya devuelve `true`
    para cualquier doctor con sesión — quitarla de las 14 pantallas junto con las ramas que ya no
    corren (la tarjeta «Historial de Consultas» y el botón «Nueva Consulta» del perfil, el aviso "no
@@ -49,11 +61,17 @@ aparecerá sola cuando un doctor concluya una cita con expediente ligado.
      suelta con fecha editable, titulada «Nueva Consulta»: quitarla o mandarla a «Nueva Visita».
    - `GET …/encounters` devuelve filas COMPLETAS (SOAP, signos, customData) y ahora la llaman todos
      los doctores en perfil/notas/fotos/recetas sólo para filtrar por `visitaId`: un `select` corto.
-   - Comentarios que ya mienten: `ORIGEN_TEXTO` 'backfill' y su comentario (pantalla de la visita),
-     `lib/visitas.ts` («el backfill aplica la MISMA regla»), `packages/database/src/visitas.ts` («el
-     barrido previo al lanzamiento lo corrige» — el barrido nunca se escribió: sólo se MIDIÓ 0/0/0).
+   - ✅ (2026-09-29) Comentarios que mentían: `ORIGEN_TEXTO` 'backfill' (pantalla de la visita),
+     `lib/visitas.ts`, `packages/database/src/visitas.ts` y `agenda-agent/modules/expediente.ts`.
    - La regla «mismo día / la fecha no cambia» se cuida sólo en la UI: el PUT de consultas acepta
      `encounterDate` aunque la consulta esté en una visita (el «Editar» ya la bloquea).
+   - ✅ (2026-09-29) **Borrar una consulta, y editar su FECHA, recalculan «Última visita»** — pero
+     SÓLO si esa consulta la fijaba (mismo día UTC; al editar, también si la nueva fecha la rebasa).
+     Un helper en `encounters/[encounterId]/route.ts`. Motivo: la importación de pacientes también llena `lastVisitDate`, a
+     veces sin consultas, y ésa no se toca. Medido en prod: 227/229 pacientes con día = su consulta
+     más reciente (los 2 distintos: «test vistas lopez», de la prueba 3b, y uno de otro doctor —16 abr
+     vs 13 abr—, probablemente este mismo bug de antes; ninguno se corrige solo). Smoke en
+     transacción revertida con Guillermo: 27 ago → 18 ago.
 3. ✅ **D6 — Manual de Ayuda + guías + `capabilities.ts`**: en el commit de lanzamiento (sección
    «Visitas» nueva, «Consultas» desde la visita, D5/D5b en Recetas/Docs/Notas, «Completar una
    cita»). Todas las «etiquetas» citadas se verificaron contra los `.tsx`.

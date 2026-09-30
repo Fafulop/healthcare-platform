@@ -198,8 +198,8 @@ export async function validarCitaParaVisita(
  *     coincida → 409 (una foto no puede estar en la consulta de la visita A con visitaId = B).
  *   · Sin consulta: el `visitaId` que venga, si la visita es del MISMO paciente y doctor (la BD
  *     también lo exige con la FK compuesta).
- * ⚠️ scripts/visitas/backfill-visitas.cjs aplica la MISMA regla a los datos viejos: si cambia aquí,
- *    cambia allá.
+ * (`scripts/visitas/backfill-visitas.cjs` replica esta regla para datos viejos, pero se DESCARTÓ el
+ *  2026-09-29 y nunca corrió; si algún día se usa, que diga lo mismo que esto.)
  *
  * Devuelve `undefined` = no tocar la columna · `null` = «Sin visita» · string = esa visita.
  *

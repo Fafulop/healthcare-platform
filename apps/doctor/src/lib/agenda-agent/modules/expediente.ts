@@ -227,8 +227,11 @@ async function getExpedienteResumen(ctx: ToolContext, input: { patientId?: strin
       estatus: patient.status,
       tags: patient.tags,
       creado: dayOf(patient.createdAt),
-      // lastVisitDate la estampa crear un encounter; firstVisitDate se estampa
-      // al CREAR el expediente (no es la primera consulta — no se expone como tal).
+      // lastVisitDate ≈ el día de la consulta más reciente: la recalculan crear una consulta, editar
+      // su FECHA y borrarla (estas dos, sólo si esa consulta la fijaba). La importación de pacientes
+      // también la llena, a veces sin consultas detrás, y crear una consulta la reemplaza por la
+      // más reciente. firstVisitDate se estampa al CREAR el expediente (no es la primera consulta —
+      // no se expone como tal).
       ultimaConsultaRegistrada: dayOf(patient.lastVisitDate),
       contactoEmergencia: patient.emergencyContactName
         ? `${patient.emergencyContactName}${patient.emergencyContactRelation ? ` (${patient.emergencyContactRelation})` : ''}${patient.emergencyContactPhone ? ` · ${patient.emergencyContactPhone}` : ''}`
