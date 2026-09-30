@@ -59,12 +59,21 @@ aparecerá sola cuando un doctor concluya una cita con expediente ligado.
    review del lanzamiento, diferido a propósito):
    - `encounters/new` SIN `?visitaId=` sigue existiendo (por URL o rama muerta) y crea una consulta
      suelta con fecha editable, titulada «Nueva Consulta»: quitarla o mandarla a «Nueva Visita».
-   - `GET …/encounters` devuelve filas COMPLETAS (SOAP, signos, customData) y ahora la llaman todos
-     los doctores en perfil/notas/fotos/recetas sólo para filtrar por `visitaId`: un `select` corto.
+   - ⏸️ **APLAZADO A PROPÓSITO (medido 2026-09-29):** `GET …/encounters` devuelve filas COMPLETAS
+     (SOAP, signos, customData) y la llaman 4 pantallas (perfil vía `useVisitasDelPaciente`, visor de
+     fotos, uploader, nueva receta). En prod hoy: máx **6** consultas por paciente (prom. 1.3), máx
+     **10.8 KB** por paciente (prom. 2.2 KB), ~0.5 KB con sólo los campos que usan; 54–66 ms. No vale
+     el riesgo: `EncounterCard` (tarjeta «Consultas sin visita») arma su descripción de `customData`,
+     que es justo lo pesado — recortarlo obliga a copiar esa lógica al servidor. **Retomar cuando un
+     paciente pase ~50 consultas o la respuesta ~100 KB** (import grande o doctor con años de uso).
+     Re-medir con el query de tamaños (sum de `length(row_to_json(e)::text)` por paciente).
    - ✅ (2026-09-29) Comentarios que mentían: `ORIGEN_TEXTO` 'backfill' (pantalla de la visita),
      `lib/visitas.ts`, `packages/database/src/visitas.ts` y `agenda-agent/modules/expediente.ts`.
-   - La regla «mismo día / la fecha no cambia» se cuida sólo en la UI: el PUT de consultas acepta
-     `encounterDate` aunque la consulta esté en una visita (el «Editar» ya la bloquea).
+   - ⏳ **SIGUIENTE de esta lista:** la regla «mismo día / la fecha no cambia» se cuida sólo en la
+     UI: el PUT de consultas acepta `encounterDate` aunque la consulta esté en una visita (el
+     «Editar» ya la bloquea; una llamada directa a la API o una pantalla futura no). Arreglo: el PUT
+     rechaza (409) cambiar la fecha de una consulta que vive en una visita, y «Traer aquí» /
+     «Mover a…» en el servidor exigen el mismo día. Chico; smoke contra prod + review completo.
    - ✅ (2026-09-29) **Borrar una consulta, y editar su FECHA, recalculan «Última visita»** — pero
      SÓLO si esa consulta la fijaba (mismo día UTC; al editar, también si la nueva fecha la rebasa).
      Un helper en `encounters/[encounterId]/route.ts`. Motivo: la importación de pacientes también llena `lastVisitDate`, a
