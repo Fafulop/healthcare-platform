@@ -1,6 +1,6 @@
 # VISITAS — SESSION-REFRESCO (handoff para la próxima sesión)
 
-> **Actualizado: 2026-09-26 (D4 en prod, sólo para dr-prueba).** Léelo PRIMERO. Dice dónde estamos, qué
+> **Actualizado: 2026-09-29 (D4 probado a mano ✅; D5 construido; backfill DESCARTADO).** Léelo PRIMERO. Dice dónde estamos, qué
 > ya está en prod, qué sigue y qué trampas ya se pisaron. El diseño vive en `01-DISENO`, el plan paso a
 > paso en `02-PLAN-fase-1.md` (§4 backfill, §5.1 D1, §5.2 D2, §5.3 D3, §5.4 D4). Este doc NO repite eso:
 > lo señala.
@@ -8,8 +8,10 @@
 ## 1. Dónde estamos, en una línea
 
 **Fase 1 (Visita): backend completo (A, C, D1, D1b, D2, D3) y la UI de D4 en prod DETRÁS DE UNA LISTA
-(sólo dr-prueba la ve, `lib/visitas-ui.ts`). Los demás doctores no ven nada. Falta: la prueba a mano de
-D4, D5, D6, exportar cuenta y el lanzamiento.** D4 NO se ha probado con clics todavía.
+(sólo dr-prueba la ve, `lib/visitas-ui.ts`). Los demás doctores no ven nada. D4 PROBADO A MANO por el
+usuario (2026-09-29, "everything looks good"). D5 (elegir la visita al crear fuera de ella) construido;
+falta D5b (mover lo que ya existe), exportar cuenta, barrido y el lanzamiento.** El backfill ya NO va.
+
 
 ## 2. Qué está en prod (commits, en orden)
 
@@ -25,39 +27,57 @@ D4, D5, D6, exportar cuenta y el lanzamiento.** D4 NO se ha probado con clics to
 | `e637fe84` | **D3** — cada consulta/foto/receta/nota/informe guarda su visita (`resolverVisitaDeHijo`, `moverConsultaDeVisita`) | doctor |
 | (commit de D4, 2026-09-26 — ver `git log -- apps/doctor/src/lib/visitas-ui.ts`) | **D4** — «Nueva Visita» + tarjeta «Visitas» + pantalla de la visita + `?visitaId=` en plantillas/fotos/recetas/notas, **sólo dr-prueba**; y `lastVisitDate` = la consulta más reciente (para TODOS). Detalle en 02-PLAN §5.4 | doctor |
 
+| `65c35499` | Tarjetas del perfil: 3 más nuevas + «Ver N más» (`ListaColapsable`), Historial → 3 + «Ver todas» (la ruta del paciente trae `take: 5`), orden de Citas e Ingresos arreglado, notas de la cita en la visita — **para TODOS** | doctor |
+| (commit de D5, 2026-09-29) | **D5** — «¿A qué visita pertenece?» al crear foto/receta/nota FUERA de una visita (sugiere la de los últimos 7 días), **sólo dr-prueba**. Detalle en 02-PLAN §5.5 | doctor |
+
 **En prod hay 0 visitas reales** al cierre del 2026-09-25 (ninguna cita concluida desde D1). La primera
 aparecerá sola cuando un doctor concluya una cita con expediente ligado.
 
 ## 3. Qué sigue (en este orden)
 
-1. **Prueba a mano de D4 en dr-prueba** (02-PLAN §6, puntos 1–6) — incluida la que D3 dejó pendiente:
-   «Mover a…» una plantilla NO debe borrar su `followUpDate` y SÍ debe arrastrar sus fotos/recetas/
-   informes. Pendientes chicos de D4: el selector de plantillas aún no dice «Plantilla SOAP» (sólo la
-   pantalla de la visita lo dice); la pantalla recarga listas completas del paciente (costo, no bug).
-2. **D5 — UI libros mayores:** etiqueta «Visita del 12 sep», filtro por visita, «Sin visita», y el
-   «¿A qué visita pertenece?» en Docs y Galería, Recetas, Notas, Historial.
+1. **Prueba a mano de D5 en dr-prueba** (02-PLAN §5.5): subir un archivo / nueva receta / nueva nota
+   desde sus páginas — el selector sugiere la visita de los últimos 7 días, y al elegir visita el
+   selector de plantilla ofrece sólo las de ESA visita.
+2. **D5b — mover lo que ya existe** (02-PLAN §5.5): «Visita» en el visor de fotos (modo Editar), en el
+   editor de notas (mueve al elegir, con confirmación) y en la receta (el detalle muestra su visita;
+   el «Editar» de BORRADORES la cambia — una receta emitida no cambia de visita, la ruta sólo edita
+   borradores). Sin cambios de API: D3 ya valida todo. Pendientes chicos de D4: el selector de
+   plantillas aún no dice «Plantilla SOAP»; la pantalla de la visita recarga listas completas (costo).
 3. **D6 — Manual de Ayuda + guías** (`manual-del-doctor.md`, `ExpedientesGuide.tsx`) **en el MISMO
    commit** que la UI que describe.
 4. ⚠️ **Exportar cuenta** (`apps/api/src/lib/exportar-cuenta.ts`) debe incluir visitas (LFPDPPP,
    DISEÑO §9). **No está en ningún paso D** — antes del lanzamiento.
 5. **Lanzamiento**, justo antes de mostrarlo, en este orden:
-   - code review del script de backfill (replica la regla de D3);
    - **escribir y correr el barrido de reparación** (aún NO existe): citas COMPLETED con paciente y
      sin visita · visitas cuyo paciente ≠ el de su cita · hijos cuya visita ≠ la de su consulta —
      todo con `syncVisitaForBooking` / la regla de `resolverVisitaDeHijo`;
-   - correr el backfill **UNA sola vez** y leer de vuelta;
+   - ~~backfill~~ **DESCARTADO (2026-09-29, ver §4)**: lo viejo se queda «Sin visita»;
    - **commit de lanzamiento:** BORRA la lista de `lib/visitas-ui.ts` y, en el MISMO commit, cambia
      todo lo que aún dice «Nueva Consulta» / «Historial de Consultas»: `manual-del-doctor.md` (§366–396,
      §480), `ExpedientesGuide.tsx` (5 lugares), el botón de `timeline/page.tsx` y
-     `lib/llm-assistant/capabilities.ts:192` (le dice al asistente `Botón "Nueva Consulta"`).
-6. **Prueba a mano** de D5 (02-PLAN §6, punto 7) en dr-prueba.
+     `lib/llm-assistant/capabilities.ts:192` (le dice al asistente `Botón "Nueva Consulta"`). El
+     manual también tiene que describir el «¿A qué visita pertenece?» de D5 y el mover de D5b.
+6. **Prueba a mano** de D5b en dr-prueba.
 
 Después de la fase 1: fase 2 (Tratamiento) y fase 3 (Progreso) — DISEÑO §8, nada construido.
 
 ## 4. Decisiones del usuario (no re-litigar)
 
-- **D4 va detrás de una lista (sólo dr-prueba) hasta el lanzamiento** (2026-09-26): el backfill debe
-  correr ANTES de que los doctores creen o muevan visitas. Crear la visita pasa por un MODAL (no al
+- **Backfill DESCARTADO (2026-09-29):** "no me importan los que ya se crearon" — pocos doctores. Lo
+  creado antes de las visitas se queda «Sin visita» (las plantillas viejas aparecen en «Consultas sin
+  visita» y se pueden traer a una visita del MISMO día). Con eso cae la razón de la lista de dr-prueba
+  (el backfill tenía que correr antes que los doctores); la lista se queda sólo hasta que D5b, exportar
+  y el manual estén listos. `scripts/visitas/backfill-visitas.cjs` queda en el repo, sin correr.
+- **D5 recortado + D5b (2026-09-29):** SIN etiquetas ni filtros en los libros mayores (redundantes con
+  la pantalla de la visita). Sí: elegir la visita al CREAR fuera de ella (D5) y MOVER lo ya creado
+  (D5b). Fotos/notas/recetas son agnósticas de fecha (el laboratorio del 15 entra en la visita del
+  12); sólo las plantillas llevan la regla del mismo día.
+- **Sugerencia = la visita más reciente de los ÚLTIMOS 7 DÍAS**, si no «Ninguna» (2026-09-29): meter
+  en silencio algo en una visita de hace meses es peor que dejarlo suelto.
+- **Una receta EMITIDA no cambia de visita** (2026-09-29): la ruta sólo edita borradores; no se toca.
+
+- **D4 va detrás de una lista (sólo dr-prueba) hasta el lanzamiento** (2026-09-26). *(La razón
+  original —el backfill antes que los doctores— cayó con el backfill, ver arriba.)* Crear la visita pasa por un MODAL (no al
   clic), y los «+» reusan las páginas que ya existen con `?visitaId=`.
 - **Visitas NO tiene toggle propio**: hereda `expedientes`. Hora/servicio de la cita → `citas`; cobro
   → `flujo`; ligar una cita exige `citas`.

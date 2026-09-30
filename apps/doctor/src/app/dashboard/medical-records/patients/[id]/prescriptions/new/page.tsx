@@ -14,6 +14,7 @@ import { DynamicFieldRenderer } from '@/components/medical-records/DynamicFieldR
 import { formatLocalDate as formatDateString } from '@/lib/dates';
 import { useNewPrescriptionForm } from '../_components/useNewPrescriptionForm';
 import { visitaHref } from '@/lib/visitas-ui';
+import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
 
 export default function NewPrescriptionPage() {
   const {
@@ -59,6 +60,8 @@ export default function NewPrescriptionPage() {
     handleChatLabStudyUpdates,
     handleSubmit,
     visitaId,
+    elegirVisita,
+    visita,
   } = useNewPrescriptionForm();
   // VISITAS D4 — desde una visita, «Volver» y «Cancelar» regresan a ella.
   const volverHref = visitaId
@@ -216,6 +219,10 @@ export default function NewPrescriptionPage() {
                 />
               </div>
             </>
+          )}
+
+          {elegirVisita && (
+            <SelectorDeVisita visitas={visita.visitas} estado={visita.estado} value={visita.elegida} onChange={visita.elegir} />
           )}
 
           <div>

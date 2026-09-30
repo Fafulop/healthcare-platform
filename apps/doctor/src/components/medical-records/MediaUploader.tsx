@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Upload, X, Image as ImageIcon, Video, Mic, FileText, Loader2 } from 'lucide-react';
 import { useUploadThing } from '@/lib/uploadthing';
 import { SUFIJO_CAMBIA_DE_PLAN } from '@healthcare/database';
@@ -14,6 +14,11 @@ interface MediaUploaderProps {
   /** VISITAS D4 — subir DENTRO de una visita. Las consultas que se ofrecen son sólo las de esa
    *  visita: la de un archivo con consulta ES la de su consulta, y otra daría 409 (D3). */
   visitaId?: string;
+  /** VISITAS D5 — subir desde Docs y Galería: el selector «¿A qué visita pertenece?» (se pinta
+   *  arriba de «Vincular a Consulta») y las plantillas de la visita elegida. Con ellas el uploader
+   *  no pide sus consultas: ofrece éstas. */
+  selectorDeVisita?: ReactNode;
+  consultasElegibles?: Encounter[];
   onUploadComplete?: (mediaId: string) => void;
   onCancel?: () => void;
 }
@@ -55,7 +60,7 @@ const BODY_AREAS = [
   'Pie Izquierdo',
 ];
 
-export function MediaUploader({ patientId, encounterId: propEncounterId, visitaId, onUploadComplete, onCancel }: MediaUploaderProps) {
+export function MediaUploader({ patientId, encounterId: propEncounterId, visitaId, selectorDeVisita, consultasElegibles, onUploadComplete, onCancel }: MediaUploaderProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [mediaType, setMediaType] = useState<MediaType>('image');
   const [category, setCategory] = useState('');
@@ -82,8 +87,10 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, visitaI
   const { startUpload: uploadAudio } = useUploadThing('medicalAudio', alRechazar);
   const { startUpload: uploadDocuments } = useUploadThing('medicalDocuments', alRechazar);
 
-  // Fetch patient encounters for linking
+  // Fetch patient encounters for linking (D5: con `consultasElegibles`, las da la página).
+  const usaElegibles = consultasElegibles !== undefined;
   useEffect(() => {
+    if (usaElegibles) return;
     const fetchEncounters = async () => {
       try {
         const response = await fetch(`/api/medical-records/patients/${patientId}/encounters`);
@@ -98,7 +105,16 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, visitaI
     };
 
     fetchEncounters();
-  }, [patientId, visitaId]);
+  }, [patientId, visitaId, usaElegibles]);
+
+  const consultasOfrecidas = consultasElegibles ?? encounters;
+  // Al cambiar de visita, la plantilla elegida puede ya no ser suya: se suelta (si no, el servidor
+  // contestaría 409 — la visita de un archivo con plantilla ES la de su plantilla).
+  useEffect(() => {
+    if (consultasElegibles && selectedEncounterId && !consultasElegibles.some((e) => e.id === selectedEncounterId)) {
+      setSelectedEncounterId('');
+    }
+  }, [consultasElegibles, selectedEncounterId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -348,6 +364,8 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, visitaI
           </div>
         </div>
 
+        {selectorDeVisita}
+
         {/* Link to Encounter */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -360,7 +378,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, visitaI
             disabled={isUploading || propEncounterId !== undefined}
           >
             <option value="">Ninguna consulta seleccionada</option>
-            {encounters.map(encounter => (
+            {consultasOfrecidas.map(encounter => (
               <option key={encounter.id} value={encounter.id}>
                 {formatDateString(encounter.encounterDate)} - {encounter.chiefComplaint}
               </option>

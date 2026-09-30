@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, type ReactNode } from 'react';
 import { Mic, Square, Loader2, X, Trash2, Check, Lock } from 'lucide-react';
 import { practiceConfirm } from '@/lib/practice-confirm';
 import { useAiLock, AiUpgradeDialog } from '@/components/layout/AiUpgradeDialog';
@@ -18,6 +18,8 @@ interface Props {
   deleteNote: (id: string) => void;
   closeEditor: () => void;
   toggleRecording: () => void;
+  /** VISITAS D5 — el selector «Visita:» (compacto), a la izquierda de la barra de arriba. */
+  selectorDeVisita?: ReactNode;
 }
 
 export function PatientNoteEditor({
@@ -33,6 +35,7 @@ export function PatientNoteEditor({
   deleteNote,
   closeEditor,
   toggleRecording,
+  selectorDeVisita,
 }: Props) {
   const titleRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -102,7 +105,9 @@ export function PatientNoteEditor({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Top bar */}
-      <div className="flex items-center justify-end gap-1 px-4 py-2.5 border-b border-gray-100">
+      <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-gray-100">
+        <div className="min-w-0">{selectorDeVisita}</div>
+        <div className="flex items-center gap-1 shrink-0">
         {selectedNoteId && (
           <button
             onClick={handleDelete}
@@ -119,6 +124,7 @@ export function PatientNoteEditor({
         >
           <X className="w-4 h-4" />
         </button>
+        </div>
       </div>
 
       {/* Content area */}

@@ -8,7 +8,9 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MediaUploader } from '@/components/medical-records/MediaUploader';
 import { toast } from '@/lib/practice-toast';
-import { visitaHref } from '@/lib/visitas-ui';
+import { visitaHref, visitasUiActiva } from '@/lib/visitas-ui';
+import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
+import { useVisitaElegida } from '@/components/medical-records/visitas/useVisitaElegida';
 
 interface Patient {
   id: string;
@@ -26,12 +28,16 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
     ? visitaHref(resolvedParams.id, visitaId)
     : `/dashboard/medical-records/patients/${resolvedParams.id}/media`;
 
-  const { status } = useSession({
+  const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
     },
   });
+
+  // VISITAS D5 — desde Docs y Galería (sin visita fija) se pregunta «¿A qué visita pertenece?».
+  const elegirVisita = visitasUiActiva(session?.user?.doctorId) && !visitaId;
+  const visita = useVisitaElegida(resolvedParams.id, elegirVisita);
 
   const [patient, setPatient] = useState<Patient | null>(null);
 
@@ -96,7 +102,16 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
       {/* Upload Component */}
       <MediaUploader
         patientId={resolvedParams.id}
-        visitaId={visitaId}
+        visitaId={elegirVisita ? visita.elegida || undefined : visitaId}
+        selectorDeVisita={elegirVisita ? (
+          <SelectorDeVisita visitas={visita.visitas} estado={visita.estado} value={visita.elegida} onChange={visita.elegir} />
+        ) : undefined}
+        // Mientras CARGAN, ninguna consulta: ofrecer las de siempre dejaba elegir una que el
+        // uploader soltaba en silencio al llegar las visitas (code review de D5). Si FALLAN, las de
+        // siempre: con una, el archivo queda en la visita de ESA consulta (el servidor la deriva).
+        consultasElegibles={!elegirVisita ? undefined
+          : visita.estado === 'ok' ? visita.consultas
+          : visita.estado === 'cargando' ? [] : undefined}
         onUploadComplete={handleUploadComplete}
         onCancel={handleCancel}
       />

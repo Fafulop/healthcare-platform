@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Encounter } from '@/components/medical-records/EncounterCard';
 import type { VisitaResumen } from '@/lib/visitas-ui';
 
+export type ConsultaConVisita = Encounter & { visitaId?: string | null };
+
 /** TRES estados: si la carga falla, una lista vacía NO puede decir "no hay visitas". */
 export type EstadoCarga = 'cargando' | 'error' | 'ok';
 
@@ -17,6 +19,8 @@ export function useVisitasDelPaciente(patientId: string, enabled: boolean) {
   const [estado, setEstado] = useState<EstadoCarga>('cargando');
   const [visitas, setVisitas] = useState<VisitaResumen[]>([]);
   const [sueltas, setSueltas] = useState<Encounter[]>([]);
+  // TODAS las consultas con su `visitaId`: D5 ofrece sólo las de la visita elegida.
+  const [consultas, setConsultas] = useState<ConsultaConVisita[]>([]);
 
   const cargar = useCallback(async () => {
     if (!enabled || !patientId) return;
@@ -29,7 +33,8 @@ export function useVisitasDelPaciente(patientId: string, enabled: boolean) {
       const [dv, de] = await Promise.all([rv.json(), re.json()]);
       if (!rv.ok || !Array.isArray(dv?.data) || !re.ok || !Array.isArray(de?.data)) throw new Error();
       setVisitas(dv.data);
-      setSueltas((de.data as (Encounter & { visitaId?: string | null })[]).filter((e) => !e.visitaId));
+      setConsultas(de.data);
+      setSueltas((de.data as ConsultaConVisita[]).filter((e) => !e.visitaId));
       setEstado('ok');
     } catch {
       setEstado('error');
@@ -38,5 +43,5 @@ export function useVisitasDelPaciente(patientId: string, enabled: boolean) {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  return { estado, visitas, sueltas, recargar: cargar };
+  return { estado, visitas, sueltas, consultas, recargar: cargar };
 }

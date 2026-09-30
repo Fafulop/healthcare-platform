@@ -14,6 +14,8 @@ import { fetchDoctorProfile, type PracticeDoctorProfile } from '@/lib/practice-u
 import { getLocalDateString } from '@/lib/dates';
 import { validateMedications } from './prescription-types';
 import { usePermissions } from '@/lib/permissions-client';
+import { visitasUiActiva } from '@/lib/visitas-ui';
+import { useVisitaElegida } from '@/components/medical-records/visitas/useVisitaElegida';
 
 interface Patient {
   id: string;
@@ -45,6 +47,10 @@ export function useNewPrescriptionForm() {
       redirect('/login');
     },
   });
+  // VISITAS D5 — desde Recetas (sin visita fija) se pregunta «¿A qué visita pertenece?», y el
+  // selector de consulta ofrece sólo las plantillas de la visita elegida.
+  const elegirVisita = visitasUiActiva(session?.user?.doctorId) && !visitaId;
+  const visita = useVisitaElegida(patientId, elegirVisita);
   // prescription-chat is a legacy AI surface, OWNER_ONLY regardless of the
   // Expedientes toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21
   // (§16 hallazgo 3 family). Separate from the issue-guard: this only gates
@@ -321,6 +327,19 @@ export function useNewPrescriptionForm() {
     fetchPatient();
   }, [patientId]);
 
+  // D5: al cambiar de visita, la consulta elegida puede ya no ser suya → se suelta (si no, 409).
+  // Mientras las visitas CARGAN no se ofrece ninguna consulta: ofrecer las de siempre dejaba elegir
+  // una que, al llegar las visitas (con «Ninguna» aún puesta), este mismo efecto soltaba en
+  // silencio (code review de D5). Si FALLAN, las de siempre: con una, la receta queda en la visita
+  // de ESA consulta, que el servidor deriva sin preguntar.
+  const filtrarPorVisita = elegirVisita && visita.estado === 'ok';
+  const consultasCargando = elegirVisita && visita.estado === 'cargando';
+  useEffect(() => {
+    if (filtrarPorVisita && selectedEncounterId && !visita.consultas.some((e) => e.id === selectedEncounterId)) {
+      setSelectedEncounterId('');
+    }
+  }, [filtrarPorVisita, visita.consultas, selectedEncounterId]);
+
   const fetchPatient = async () => {
     try {
       const res = await fetch(`/api/medical-records/patients/${patientId}`);
@@ -418,7 +437,7 @@ export function useNewPrescriptionForm() {
         doctorLicense,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         encounterId: selectedEncounterId || null,
-        ...(visitaId && { visitaId }),
+        ...((visitaId || (elegirVisita && visita.elegida)) && { visitaId: visitaId || visita.elegida }),
         ...(doctorCredentials.length > 0 ? { doctorCredentials } : {}),
         ...(isTemplateMode ? { templateId: selectedTemplate.id, customData } : {}),
       };
@@ -534,7 +553,10 @@ export function useNewPrescriptionForm() {
     // Data
     patient,
     doctorProfile,
-    encounters,
+    encounters: filtrarPorVisita ? visita.consultas : consultasCargando ? [] : encounters,
+    // D5
+    elegirVisita,
+    visita,
     // Loading / error
     loading,
     loadingPatient,

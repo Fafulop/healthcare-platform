@@ -10,7 +10,9 @@ import { usePatientNotes } from './_hooks/usePatientNotes';
 import { PatientNotesList } from './_components/PatientNotesList';
 import { PatientNoteEditor } from './_components/PatientNoteEditor';
 import { practiceConfirm } from '@/lib/practice-confirm';
-import { visitaHref } from '@/lib/visitas-ui';
+import { visitaHref, visitasUiActiva } from '@/lib/visitas-ui';
+import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
+import { useVisitaElegida } from '@/components/medical-records/visitas/useVisitaElegida';
 
 export default function PatientNotasPage() {
   const params = useParams();
@@ -22,12 +24,16 @@ export default function PatientNotasPage() {
     ? visitaHref(patientId, visitaId)
     : `/dashboard/medical-records/patients/${patientId}`;
 
-  const { status } = useSession({
+  const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect('/login');
     },
   });
+
+  // VISITAS D5 — desde Notas (sin visita fija), la nota NUEVA pregunta «¿A qué visita pertenece?».
+  const elegirVisita = visitasUiActiva(session?.user?.doctorId) && !visitaId;
+  const visita = useVisitaElegida(patientId, elegirVisita);
 
   const {
     notes,
@@ -46,7 +52,7 @@ export default function PatientNotasPage() {
     saveNote,
     deleteNote,
     toggleRecording,
-  } = usePatientNotes(patientId, visitaId);
+  } = usePatientNotes(patientId, visitaId ?? (elegirVisita ? visita.elegida || null : null));
 
   // Mobile: show list or editor
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list');
@@ -186,6 +192,16 @@ export default function PatientNotasPage() {
               deleteNote={deleteNote}
               closeEditor={handleCloseEditor}
               toggleRecording={toggleRecording}
+              selectorDeVisita={elegirVisita && isNewNote ? (
+                <SelectorDeVisita
+                  compacto
+                  visitas={visita.visitas}
+                  estado={visita.estado}
+                  value={visita.elegida}
+                  onChange={visita.elegir}
+                  disabled={saving}
+                />
+              ) : undefined}
             />
           ) : (
             <div className="flex flex-col items-center justify-center flex-1 text-gray-400 gap-3">

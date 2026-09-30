@@ -176,6 +176,9 @@ hizo a prod).
 
 ### 4.2b Estado y CUÁNDO se corre de verdad (2026-09-25)
 
+> 🟥 **DESCARTADO el 2026-09-29** (decisión del usuario: lo creado antes se queda «Sin visita»). El
+> script queda en el repo sin correr; lo de abajo es historia.
+
 - **Script:** `scripts/visitas/backfill-visitas.cjs` (`--dry-run` · sin flag · `--undo`).
 - **Ensayo corrido el 2026-09-25, read-only:** 293 consultas · 150 fotos/documentos · 12 recetas ·
   29 informes · **0** hijos ligados a la consulta de otro paciente — exactamente lo esperado.
@@ -341,7 +344,23 @@ gates.
   8/8 pacientes igual a lo guardado, `null` sin consultas.
 - **Dos code reviews + review de los arreglos.** Diferido: la pantalla re-lee listas completas del
   paciente (costo); el selector de plantillas aún no dice «Plantilla SOAP».
-- **NO probado con clics.** Falta §6 puntos 1–6.
+- ✅ **Probado a mano por el usuario el 2026-09-29** (§6 puntos 1–6; "everything looks good").
+
+### 5.5 D5 + D5b — elegir y mover la visita desde los libros (2026-09-29)
+
+Recortado respecto a la tabla de arriba (decisión del usuario): **sin** etiqueta ni filtro en los libros.
+
+- **D5 (construido):** al crear FUERA de una visita —«Subir Archivo», «Nueva Prescripción», «Nueva
+  Nota»— un selector «¿A qué visita pertenece?» (`visitas/SelectorDeVisita.tsx`, `useVisitaElegida.ts`).
+  Sugiere la más reciente de los últimos 7 días (`visitaSugerida`, `lib/visitas-ui.ts`), si no
+  «Ninguna». El selector de plantilla ofrece sólo las de la visita elegida (o las sueltas con
+  «Ninguna»): con plantilla, la visita ES la de la plantilla (D3) y otra daría 409. Desde el «+» de una
+  visita (`?visitaId=`) no hay selector: igual que D4. Sin cambios de API.
+  - Mientras las visitas CARGAN no se ofrece ninguna plantilla: ofrecer las de siempre dejaba elegir
+    una que se soltaba en silencio al llegar las visitas (code review). Si FALLAN, las de siempre.
+- **D5b (siguiente):** mover lo ya creado — visor de fotos (Editar), editor de notas, «Editar» de
+  recetas BORRADOR (el detalle muestra su visita). Una receta emitida no se mueve.
+- Sólo dr-prueba (misma lista que D4); el manual lo describe en el commit de lanzamiento.
 
 ---
 

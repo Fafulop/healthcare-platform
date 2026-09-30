@@ -74,5 +74,23 @@ export function describirConteo(c?: ConteoHijos): string {
 // que mira ingreso Y links juntos. Dos componentes leyendo mitades distintas es lo que hacía que
 // una tarjeta dijera "Por cobrar" y "Pagado" a la vez (ver `CitaBadges.tsx`).
 
+/**
+ * D5 — la visita que se SUGIERE al crear algo fuera de una visita (Docs y Galería, Recetas, Notas):
+ * la más reciente de los últimos 7 días, sin contar las que caen después de hoy. Más vieja → ''
+ * («Ninguna»): meter en silencio un archivo en una visita de hace meses es peor que dejarlo suelto,
+ * que al menos se ve como «Sin visita». `visitas` llega ordenada por fecha, la más reciente primero
+ * (GET …/visitas). Fechas 'YYYY-MM-DD': se comparan como texto y se restan en UTC (sin zona).
+ */
+export function visitaSugerida(visitas: VisitaResumen[], hoy: string): string {
+  const d = new Date(`${hoy}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 7);
+  const desde = d.toISOString().slice(0, 10);
+  return visitas.find((v) => v.fecha <= hoy && v.fecha >= desde)?.id ?? '';
+}
+
+/** «Visita del 12 sep 2026 · 10:00 · Consulta general» — la opción de un selector de visitas. */
+export const etiquetaVisita = (v: VisitaResumen) =>
+  [`Visita del ${formatoFechaVisita(v.fecha)}`, v.cita?.horaInicio, v.cita?.servicio].filter(Boolean).join(' · ');
+
 export const visitaHref = (patientId: string, visitaId: string) =>
   `/dashboard/medical-records/patients/${patientId}/visitas/${visitaId}`;
