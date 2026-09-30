@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import { X, Edit2, Save, Trash2, Download, Link2 } from 'lucide-react';
 import { practiceConfirm } from '@/lib/practice-confirm';
+import type { VisitaResumen } from '@/lib/visitas-ui';
+import type { ConsultaConVisita, EstadoCarga } from '@/components/medical-records/visitas/useVisitasDelPaciente';
+import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
+import { VisitaDelElemento } from '@/components/medical-records/visitas/VisitaDelElemento';
 
 interface MediaViewerProps {
   media: {
@@ -17,6 +21,7 @@ interface MediaViewerProps {
     description?: string | null;
     doctorNotes?: string | null;
     encounterId?: string | null;
+    visitaId?: string | null;
     encounter?: {
       id: string;
       encounterDate: string;
@@ -28,16 +33,37 @@ interface MediaViewerProps {
   onClose: () => void;
   onDelete?: (mediaId: string) => void;
   onUpdate?: (mediaId: string) => void;
+  /** VISITAS D5b — con la UI de visitas: la visita del archivo (lectura) y «Visita» al editar. */
+  visitasUi?: { visitas: VisitaResumen[]; estado: EstadoCarga; consultas: ConsultaConVisita[] };
 }
 
-export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: MediaViewerProps) {
+export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, visitasUi }: MediaViewerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedDescription, setEditedDescription] = useState(media.description || '');
   const [editedDoctorNotes, setEditedDoctorNotes] = useState(media.doctorNotes || '');
   const [editedCategory, setEditedCategory] = useState(media.category || '');
   const [editedBodyArea, setEditedBodyArea] = useState(media.bodyArea || '');
   const [editedEncounterId, setEditedEncounterId] = useState(media.encounterId || '');
-  const [encounters, setEncounters] = useState<{ id: string; encounterDate: string; chiefComplaint: string }[]>([]);
+  const [encounters, setEncounters] = useState<{ id: string; encounterDate: string; chiefComplaint: string; visitaId?: string | null }[]>([]);
+  const [editedVisitaId, setEditedVisitaId] = useState(media.visitaId || '');
+
+  // VISITAS D5b — la visita de un archivo con plantilla ES la de su plantilla (D3; otra → 409). La
+  // regla se cuida en los DOS cambios, a la vista del doctor (nunca en un efecto que suelte algo
+  // en silencio): elegir plantilla trae su visita; elegir otra visita suelta la plantilla ajena.
+  const conVisitas = !!visitasUi && visitasUi.estado === 'ok';
+  const consultasOfrecidas = conVisitas
+    ? visitasUi!.consultas.filter((c) => (c.visitaId ?? '') === editedVisitaId)
+    : encounters;
+  const visitaDeConsulta = (id: string) =>
+    (visitasUi?.consultas.find((c) => c.id === id) ?? encounters.find((e) => e.id === id))?.visitaId ?? '';
+  const elegirConsulta = (id: string) => {
+    setEditedEncounterId(id);
+    if (id) setEditedVisitaId(visitaDeConsulta(id));
+  };
+  const elegirVisita = (id: string) => {
+    setEditedVisitaId(id);
+    if (editedEncounterId && visitaDeConsulta(editedEncounterId) !== id) setEditedEncounterId('');
+  };
   const [loadingEncounters, setLoadingEncounters] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -79,6 +105,9 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: M
           category: editedCategory,
           bodyArea: editedBodyArea,
           encounterId: editedEncounterId || null,
+          // Sólo si las visitas cargaron: sin ellas no se sabe qué visita elegir y el servidor
+          // deja la que tenga (o la deriva de la plantilla).
+          ...(conVisitas && { visitaId: editedVisitaId || null }),
         }),
       });
 
@@ -279,6 +308,32 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: M
                 )}
               </div>
 
+              {visitasUi && (
+                <div>
+                  {/* El selector sólo con las visitas cargadas: sin ellas pintaría «Ninguna» para un
+                      archivo que SÍ está en una visita (code review de D5b). */}
+                  {isEditing && conVisitas ? (
+                    <SelectorDeVisita
+                      visitas={visitasUi.visitas}
+                      estado={visitasUi.estado}
+                      value={editedVisitaId}
+                      onChange={elegirVisita}
+                      disabled={isSaving}
+                    />
+                  ) : (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Visita</label>
+                      <VisitaDelElemento
+                        patientId={patientId}
+                        visitaId={media.visitaId}
+                        visitas={visitasUi.visitas}
+                        estado={visitasUi.estado}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <span className="flex items-center gap-1">
@@ -289,12 +344,12 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate }: M
                 {isEditing ? (
                   <select
                     value={editedEncounterId}
-                    onChange={(e) => setEditedEncounterId(e.target.value)}
+                    onChange={(e) => elegirConsulta(e.target.value)}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                     disabled={loadingEncounters}
                   >
                     <option value="">Sin vincular</option>
-                    {encounters.map(enc => (
+                    {consultasOfrecidas.map(enc => (
                       <option key={enc.id} value={enc.id}>
                         {new Date(enc.encounterDate).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })} – {enc.chiefComplaint || 'Sin motivo'}
                       </option>

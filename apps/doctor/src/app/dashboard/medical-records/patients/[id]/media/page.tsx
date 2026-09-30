@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { MediaGallery } from '@/components/medical-records/MediaGallery';
 import { MediaViewer } from '@/components/medical-records/MediaViewer';
 import { toast } from '@/lib/practice-toast';
+import { visitasUiActiva } from '@/lib/visitas-ui';
+import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 
 interface Media {
   id: string;
@@ -22,6 +24,7 @@ interface Media {
   description?: string | null;
   doctorNotes?: string | null;
   encounterId?: string | null;
+  visitaId?: string | null;
   encounter?: {
     id: string;
     encounterDate: string;
@@ -40,12 +43,15 @@ interface Patient {
 export default function MediaGalleryPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
 
-  const { status } = useSession({
+  const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
       redirect("/login");
     },
   });
+  // VISITAS D5b — el visor muestra la visita del archivo y deja cambiarla (sólo con la UI de visitas).
+  const conVisitas = visitasUiActiva(session?.user?.doctorId);
+  const visitasDelPaciente = useVisitasDelPaciente(resolvedParams.id, conVisitas);
 
   const [media, setMedia] = useState<Media[]>([]);
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -73,6 +79,9 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
 
       setPatient(patientData.data);
       setMedia(mediaData.data);
+      // El visor abierto se queda con la versión recién leída: si no, tras guardar (p. ej. mover
+      // de visita) seguiría pintando lo de antes.
+      setSelectedMedia((prev) => (prev ? (mediaData.data as Media[]).find((m) => m.id === prev.id) ?? prev : prev));
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Error al cargar documentos y galería');
@@ -179,6 +188,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
           onClose={handleCloseViewer}
           onDelete={handleMediaDelete}
           onUpdate={handleMediaUpdate}
+          visitasUi={conVisitas ? visitasDelPaciente : undefined}
         />
       )}
     </div>

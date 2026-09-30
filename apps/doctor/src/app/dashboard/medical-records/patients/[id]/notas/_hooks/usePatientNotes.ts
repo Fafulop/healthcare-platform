@@ -7,6 +7,7 @@ import { usePermissions } from '@/lib/permissions-client';
 export interface PatientNote {
   id: string;
   content: string;
+  visitaId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -139,6 +140,28 @@ export function usePatientNotes(patientId: string, visitaId?: string | null) {
 
   // ─── Delete ─────────────────────────────────────────────────────────────────
 
+  /**
+   * VISITAS D5b — mueve una nota YA guardada a otra visita (o a «Sin visita»). El PUT lleva SÓLO
+   * `visitaId`: no toca el texto (lo que el doctor lleve escrito sin guardar sigue en el editor) y
+   * el servidor conserva su `updatedAt`, así que no salta al principio de la lista.
+   */
+  const moverNota = useCallback(async (id: string, visitaId: string | null) => {
+    try {
+      const res = await fetch(`/api/medical-records/patients/${patientId}/notes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitaId }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'No se pudo mover la nota');
+      const movida: PatientNote = data.data;
+      setNotes((prev) => prev.map((n) => (n.id === movida.id ? { ...n, visitaId: movida.visitaId } : n)));
+      toast.success(visitaId ? 'Nota movida a la visita' : 'Nota sacada de la visita');
+    } catch (err: any) {
+      toast.error(err.message || 'No se pudo mover la nota');
+    }
+  }, [patientId]);
+
   const deleteNote = useCallback(async (id: string) => {
     try {
       const res = await fetch(
@@ -238,6 +261,7 @@ export function usePatientNotes(patientId: string, visitaId?: string | null) {
     closeEditor,
     saveNote,
     deleteNote,
+    moverNota,
     recording,
     transcribing,
     toggleRecording,

@@ -9,6 +9,10 @@ import { formatDateLong } from '@/lib/practice-utils';
 import { resolveRecetaCustomContent } from '@/lib/receta-custom-content';
 import { getStatusLabel, getStatusColor } from '../_components/prescription-types';
 import { usePrescriptionDetail } from '../_components/usePrescriptionDetail';
+import { useSession } from 'next-auth/react';
+import { visitasUiActiva } from '@/lib/visitas-ui';
+import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
+import { VisitaDelElemento } from '@/components/medical-records/visitas/VisitaDelElemento';
 
 export default function ViewPrescriptionPage() {
   const {
@@ -28,6 +32,10 @@ export default function ViewPrescriptionPage() {
     handleDelete,
     handleDownloadPDF,
   } = usePrescriptionDetail();
+  // VISITAS D5b — a qué visita pertenece la receta (sólo con la UI de visitas).
+  const { data: session } = useSession();
+  const conVisitas = visitasUiActiva(session?.user?.doctorId);
+  const visitasDelPaciente = useVisitasDelPaciente(patientId, conVisitas);
 
   if (sessionStatus === 'loading' || loading) {
     return (
@@ -165,6 +173,18 @@ export default function ViewPrescriptionPage() {
             <p className="text-sm text-gray-600">Fecha de Prescripción</p>
             <p className="text-gray-900">{formatDateLong(prescription.prescriptionDate)}</p>
           </div>
+
+          {conVisitas && (
+            <div>
+              <p className="text-sm text-gray-600">Visita</p>
+              <VisitaDelElemento
+                patientId={patientId}
+                visitaId={prescription.visitaId}
+                visitas={visitasDelPaciente.visitas}
+                estado={visitasDelPaciente.estado}
+              />
+            </div>
+          )}
 
           {prescription.expiresAt && (
             <div>

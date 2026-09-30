@@ -10,9 +10,10 @@ import { usePatientNotes } from './_hooks/usePatientNotes';
 import { PatientNotesList } from './_components/PatientNotesList';
 import { PatientNoteEditor } from './_components/PatientNoteEditor';
 import { practiceConfirm } from '@/lib/practice-confirm';
-import { visitaHref, visitasUiActiva } from '@/lib/visitas-ui';
+import { etiquetaVisita, visitaHref, visitasUiActiva } from '@/lib/visitas-ui';
 import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
 import { useVisitaElegida } from '@/components/medical-records/visitas/useVisitaElegida';
+import { VisitaDelElemento } from '@/components/medical-records/visitas/VisitaDelElemento';
 
 export default function PatientNotasPage() {
   const params = useParams();
@@ -32,8 +33,11 @@ export default function PatientNotasPage() {
   });
 
   // VISITAS D5 — desde Notas (sin visita fija), la nota NUEVA pregunta «¿A qué visita pertenece?».
-  const elegirVisita = visitasUiActiva(session?.user?.doctorId) && !visitaId;
-  const visita = useVisitaElegida(patientId, elegirVisita);
+  // D5b — una nota YA guardada se puede mover de visita (también si se llegó desde una visita).
+  const conVisitas = visitasUiActiva(session?.user?.doctorId);
+  const elegirVisita = conVisitas && !visitaId;
+  const visita = useVisitaElegida(patientId, conVisitas);
+  const [moviendo, setMoviendo] = useState(false);
 
   const {
     notes,
@@ -51,6 +55,7 @@ export default function PatientNotasPage() {
     closeEditor,
     saveNote,
     deleteNote,
+    moverNota,
     toggleRecording,
   } = usePatientNotes(patientId, visitaId ?? (elegirVisita ? visita.elegida || null : null));
 
@@ -68,6 +73,18 @@ export default function PatientNotasPage() {
       setMobileView('editor');
     }
   }, [visitaId, newNote]);
+
+  // D5b — mover la nota abierta: pregunta primero (como «Mover a…» de las plantillas) y mueve ya.
+  async function handleMoverNota(destino: string) {
+    if (!selectedNote || destino === (selectedNote.visitaId ?? '')) return;
+    const v = visita.visitas.find((x) => x.id === destino);
+    const texto = v ? `a la ${etiquetaVisita(v)}` : 'a «Sin visita»';
+    const ok = await practiceConfirm(`Se moverá ${texto}. El texto de la nota no cambia.`, '¿Mover la nota?');
+    if (!ok) return;
+    setMoviendo(true);
+    await moverNota(selectedNote.id, destino || null);
+    setMoviendo(false);
+  }
 
   async function handleSelectNote(note: Parameters<typeof selectNote>[0]) {
     if (isDirty) {
@@ -200,6 +217,27 @@ export default function PatientNotasPage() {
                   value={visita.elegida}
                   onChange={visita.elegir}
                   disabled={saving}
+                />
+              ) : conVisitas && selectedNote && visita.estado !== 'ok' ? (
+                // Sin las visitas cargadas el selector diría «Ninguna» de una nota que SÍ tiene
+                // visita (code review de D5b): se muestra en lectura.
+                <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                  Visita:
+                  <VisitaDelElemento
+                    patientId={patientId}
+                    visitaId={selectedNote.visitaId}
+                    visitas={visita.visitas}
+                    estado={visita.estado}
+                  />
+                </span>
+              ) : conVisitas && selectedNote ? (
+                <SelectorDeVisita
+                  compacto
+                  visitas={visita.visitas}
+                  estado={visita.estado}
+                  value={selectedNote.visitaId ?? ''}
+                  onChange={handleMoverNota}
+                  disabled={saving || moviendo}
                 />
               ) : undefined}
             />

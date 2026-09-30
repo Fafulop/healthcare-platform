@@ -8,9 +8,13 @@ import type { Medication } from '@/components/medical-records/MedicationList';
 import type { ImagingStudy, LabStudy } from '@/components/medical-records/StudyList';
 import { fetchDoctorProfile, type PracticeDoctorProfile } from '@/lib/practice-utils';
 import { validateMedications } from './prescription-types';
+import { visitasUiActiva } from '@/lib/visitas-ui';
+import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 
 interface PrescriptionForEdit {
   id: string;
+  encounterId?: string | null;
+  visitaId?: string | null;
   prescriptionDate: string;
   status: string;
   diagnosis?: string;
@@ -43,6 +47,11 @@ export function useEditPrescriptionForm() {
       redirect('/login');
     },
   });
+  // VISITAS D5b — mover la receta BORRADOR de visita. Con plantilla, su visita ES la de la plantilla
+  // (D3; otra → 409) y aquí no hay selector de plantilla: se muestra, no se cambia.
+  const conVisitas = visitasUiActiva(session?.user?.doctorId);
+  const visitasDelPaciente = useVisitasDelPaciente(patientId, conVisitas);
+  const [visitaElegida, setVisitaElegida] = useState('');
 
   const [prescription, setPrescription] = useState<PrescriptionForEdit | null>(null);
   const [doctorProfile, setDoctorProfile] = useState<PracticeDoctorProfile | null>(null);
@@ -99,6 +108,7 @@ export function useEditPrescriptionForm() {
       }
 
       setPrescription(data);
+      setVisitaElegida(data.visitaId ?? '');
 
       // Populate form
       setPrescriptionDate(data.prescriptionDate.split('T')[0]);
@@ -117,6 +127,8 @@ export function useEditPrescriptionForm() {
       setLoadingPrescription(false);
     }
   };
+
+  const puedeMoverVisita = conVisitas && visitasDelPaciente.estado === 'ok' && !!prescription && !prescription.encounterId;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,6 +170,8 @@ export function useEditPrescriptionForm() {
         doctorLicense,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         ...(isTemplateMode ? { customData } : {}),
+        // Sólo sin plantilla y con las visitas cargadas (sin ellas no se sabe qué se eligió).
+        ...(puedeMoverVisita && { visitaId: visitaElegida || null }),
       };
 
       const resUpdate = await fetch(
@@ -232,6 +246,11 @@ export function useEditPrescriptionForm() {
   };
 
   return {
+    // VISITAS D5b
+    conVisitas,
+    visitasDelPaciente,
+    visitaElegida, setVisitaElegida,
+    puedeMoverVisita,
     // Route
     patientId,
     prescriptionId,

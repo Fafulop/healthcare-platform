@@ -358,8 +358,13 @@ Recortado respecto a la tabla de arriba (decisión del usuario): **sin** etiquet
   visita (`?visitaId=`) no hay selector: igual que D4. Sin cambios de API.
   - Mientras las visitas CARGAN no se ofrece ninguna plantilla: ofrecer las de siempre dejaba elegir
     una que se soltaba en silencio al llegar las visitas (code review). Si FALLAN, las de siempre.
-- **D5b (siguiente):** mover lo ya creado — visor de fotos (Editar), editor de notas, «Editar» de
-  recetas BORRADOR (el detalle muestra su visita). Una receta emitida no se mueve.
+- **D5b (construido, 2026-09-29):** mover lo ya creado — visor de fotos (Editar: elegir plantilla
+  trae su visita; elegir otra visita suelta la plantilla ajena, a la vista, nunca en un efecto),
+  editor de notas (mueve al elegir, con confirmación; el PUT lleva sólo `visitaId`), «Editar» de
+  recetas BORRADOR sin plantilla (con plantilla: sólo lectura, va con ella). El detalle de la receta
+  y el visor dicen su visita (`VisitaDelElemento`). Una receta emitida no se mueve.
+  - Si las visitas no cargan, TODO en lectura: el selector habría dicho «Ninguna» de algo que sí
+    tiene visita (code review).
 - Sólo dr-prueba (misma lista que D4); el manual lo describe en el commit de lanzamiento.
 
 ---

@@ -6,6 +6,8 @@ import { MedicationList } from '@/components/medical-records/MedicationList';
 import { ImagingStudyList, LabStudyList } from '@/components/medical-records/StudyList';
 import { DynamicFieldRenderer } from '@/components/medical-records/DynamicFieldRenderer';
 import { useEditPrescriptionForm } from '../../_components/useEditPrescriptionForm';
+import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
+import { VisitaDelElemento } from '@/components/medical-records/visitas/VisitaDelElemento';
 
 export default function EditPrescriptionPage() {
   const {
@@ -28,6 +30,9 @@ export default function EditPrescriptionPage() {
     customData,
     handleCustomFieldChange,
     handleSubmit,
+    conVisitas,
+    visitasDelPaciente,
+    visitaElegida, setVisitaElegida,
   } = useEditPrescriptionForm();
 
   const isTemplateMode = !!prescription?.templateId;
@@ -88,6 +93,36 @@ export default function EditPrescriptionPage() {
         {/* Prescription Info */}
         <div className="bg-white rounded-lg shadow p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-900">Información General</h2>
+
+          {/* VISITAS D5b — con plantilla, la receta va con ella: se muestra, no se cambia aquí. */}
+          {/* Sin las visitas cargadas, lectura: el selector diría «Ninguna» de una receta que SÍ
+              tiene visita (code review de D5b) — y el PUT no manda `visitaId` en ese caso. */}
+          {conVisitas && prescription && (
+            prescription.encounterId || visitasDelPaciente.estado !== 'ok' ? (
+              <div>
+                <p className="block text-sm font-medium text-gray-700 mb-1">Visita</p>
+                <VisitaDelElemento
+                  patientId={patientId}
+                  visitaId={prescription.visitaId}
+                  visitas={visitasDelPaciente.visitas}
+                  estado={visitasDelPaciente.estado}
+                />
+                {prescription.encounterId && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Va con su plantilla: para cambiarla de visita, mueve la plantilla desde la visita.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <SelectorDeVisita
+                visitas={visitasDelPaciente.visitas}
+                estado={visitasDelPaciente.estado}
+                value={visitaElegida}
+                onChange={setVisitaElegida}
+                disabled={loading}
+              />
+            )
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

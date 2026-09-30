@@ -3,6 +3,8 @@ import type { ImagingStudy, LabStudy } from '@/components/medical-records/StudyL
 
 export interface PrescriptionDetails {
   id: string;
+  /** VISITAS — la visita de la receta (null = «Sin visita»). */
+  visitaId?: string | null;
   prescriptionDate: string;
   status: string;
   diagnosis?: string;
