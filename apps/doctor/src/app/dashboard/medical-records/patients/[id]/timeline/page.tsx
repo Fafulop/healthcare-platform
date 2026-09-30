@@ -140,12 +140,13 @@ export default function PatientTimelinePage() {
               {exportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               <span className="hidden sm:inline">{exportingPDF ? 'Generando...' : 'Exportar PDF'}</span>
             </button>
+            {/* Las consultas nacen dentro de una visita: el botón abre «Nueva Visita» en el perfil. */}
             <Link
-              href={`/dashboard/medical-records/patients/${patientId}/encounters/new`}
+              href={`/dashboard/medical-records/patients/${patientId}?nuevaVisita=1`}
               className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm font-semibold transition-colors"
             >
               <Plus className="w-4 h-4" />
-              Nueva Consulta
+              Nueva Visita
             </Link>
           </div>
         </div>

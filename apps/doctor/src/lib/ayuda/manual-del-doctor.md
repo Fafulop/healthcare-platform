@@ -189,6 +189,7 @@ esa cita.
 
 Al confirmar, la cita queda Completada y **el ingreso se registra en Flujo de Dinero**. Si el
 paciente ya había pagado con un link de pago, el ingreso ya estaba registrado y no se duplica.
+Si la cita tiene expediente, en su perfil aparece su **visita** (ver [Visitas](#visitas)).
 
 ### Cancelar, No asistió y Eliminar
 
@@ -363,12 +364,13 @@ También puedes crear el expediente **desde una cita**: «+ Crear expediente» (
 
 ### El perfil del paciente
 
-Botones de arriba: «Nueva Consulta» · «Recetas» · «Informe» · «Línea de Tiempo» ·
+Botones de arriba: «Nueva Visita» · «Recetas» · «Informe» · «Línea de Tiempo» ·
 «Docs y Galería» · «Notas» · «Archivar».
 
 **Columna izquierda:** Información de Contacto (con «Editar» para cambiar sus datos; la **flecha**
 de abajo abre su Contacto de Emergencia y sus Notas Generales — sin ninguno de los dos no hay
-flecha) · Historial de Consultas · Formularios (los pre-consulta que contestó) · Notas Recientes.
+flecha) · **Visitas** · **Consultas sin visita** (sólo si hay) · Formularios (los pre-consulta que
+contestó) · Notas Recientes.
 
 **Columna derecha:**
 
@@ -378,21 +380,53 @@ flecha) · Historial de Consultas · Formularios (los pre-consulta que contestó
   «Agregar» o «Editar».
 - **Citas e Ingresos** — sus citas, con si están pagadas y facturadas.
 
-Formularios, Notas Recientes y Citas e Ingresos enseñan sólo las **3 más recientes**; el botón
-**«Ver N más»** debajo abre las demás y «Ver menos» las vuelve a cerrar. Historial de Consultas
-enseña también las 3 más recientes, y su enlace **«Ver todas»** lleva a la «Línea de Tiempo», con
-el historial completo.
+Visitas, Consultas sin visita, Formularios, Notas Recientes y Citas e Ingresos enseñan sólo las
+**3 más recientes**; el botón **«Ver N más»** debajo abre las demás y «Ver menos» las vuelve a
+cerrar.
+
+### Visitas
+
+Una **visita** junta lo que pasó **un día con un paciente**: sus plantillas (consultas), fotos y
+documentos, notas, recetas e informes, la cita y un comentario.
+
+**Cómo nace una visita:**
+
+- **Sola, al completar una cita** de un paciente con expediente: aparece «Visita del …» vacía, con
+  la fecha, hora y cobro de la cita. Si el expediente se vincula a la cita **después** de
+  completarla, la visita aparece al vincularlo.
+- **«Nueva Visita»** en el perfil: pregunta **«¿De qué cita?»** (la de hoy ya viene elegida) o
+  «Sin cita» con su **Fecha**, y se crea al picar **«Crear visita»**. Si esa cita ya tiene su
+  visita, el botón dice **«Abrir su visita»** y no crea otra. Un ayudante sin permiso de citas no ve
+  «¿De qué cita?»: su visita se crea sin cita.
+
+**La pantalla de la visita** (clic en «Visita del …»):
+
+- **Cita** — fecha, hora, servicio y si está pagada y facturada. Sin cita, puedes **«Ligar una
+  cita…»** o corregir la **Fecha**. La visita que nació de una cita no se desliga.
+- **Plantillas** («Agregar plantilla») · **Fotos y documentos** («Subir») · **Notas** («Nueva
+  nota») · **Recetas** («Nueva receta») · **Comentario** («Guardar comentario»). Lo que agregas
+  desde aquí queda en esta visita. Los **Informes médicos** se hacen desde su plantilla y aparecen
+  aquí cuando existen.
+- **«Mover a…»** en una plantilla la pasa a otra visita **del mismo día** (o a «Sin visita»), y
+  se lleva sus fotos, recetas e informes. **«Traerla aquí…»** trae una consulta sin visita del
+  mismo día. La fecha de una plantilla es la de su visita y no cambia (tampoco al editarla): por eso
+  sólo se mueve entre visitas de su día, y una visita con plantillas ya no cambia de fecha.
+- **«Borrar visita»** sólo aparece mientras está vacía.
+
+**Consultas sin visita** — las registradas fuera de una visita (por ejemplo, las de antes de que
+existieran las visitas). Se ven en su propia tarjeta; desde una visita del mismo día puedes
+traerlas.
 
 ### Consultas
 
-**«Nueva Consulta»:**
+Una consulta (la **plantilla** llenada) se agrega **desde una visita**: «Agregar plantilla».
 
 1. **«Plantilla:»** arriba de todo. Si marcaste una como predeterminada, ya viene puesta. Sin
    plantilla, el formulario es el estándar (SOAP y signos vitales).
-2. Fecha de Consulta, **Tipo de Consulta** (Consulta · Seguimiento · Emergencia ·
-   Telemedicina), **Motivo de Consulta** (obligatorio), y los campos de la plantilla o SOAP.
+2. **Tipo de Consulta** (Consulta · Seguimiento · Emergencia · Telemedicina), **Motivo de
+   Consulta** (obligatorio), y los campos de la plantilla o SOAP. La fecha es la de la visita.
 3. **Seguimiento** (opcional): fecha y notas de seguimiento.
-4. **«Crear Consulta».**
+4. **«Guardar en la visita».**
 
 **«Chat IA»** (arriba a la derecha): le describes la consulta escribiendo o **dictando** con el
 micrófono, y llena los campos del formulario. Revisas y guardas tú. **Depende de tu plan.**
@@ -408,7 +442,10 @@ micrófono, y llena los campos del formulario. Revisas y guardas tú. **Depende 
 
 1. **«Tipo de Receta»:** «Receta estándar (medicamentos y estudios)» o una de tus plantillas de
    receta.
-2. Diagnóstico, Notas Clínicas, Fecha de Expiración y, si quieres, «Vincular a Consulta».
+2. Diagnóstico, Notas Clínicas, Fecha de Expiración, **«¿A qué visita pertenece?»** (sugiere la
+   visita más reciente de los últimos 7 días; «Ninguna» la deja sin visita) y, si quieres,
+   «Vincular a Consulta» (sólo ofrece las de esa visita). Desde el «Nueva receta» de una visita
+   no pregunta: queda en ella.
 3. Medicamentos, estudios de imagen y de laboratorio (receta estándar).
 4. **«Guardar como Borrador»** o **«Guardar y Emitir».**
 
@@ -417,6 +454,10 @@ micrófono, y llena los campos del formulario. Revisas y guardas tú. **Depende 
 | **Borrador** | «Editar» · «Emitir Prescripción» · «Eliminar» |
 | **Emitida** | «Descargar PDF» · «Cancelar Prescripción» (pide el motivo) · «Eliminar». **Ya no se puede editar** |
 | **Cancelada** | Se ve el motivo |
+
+**Su visita:** el detalle de la receta dice a qué visita pertenece. Un **Borrador** sin consulta
+vinculada cambia de visita en «Editar»; con consulta, va con la visita de esa consulta. Una receta
+emitida ya no cambia de visita.
 
 - **Emitir es sólo del titular**: la receta lleva su firma y su cédula.
 - Una receta estándar necesita al menos un medicamento para emitirse.
@@ -457,13 +498,22 @@ notas. **«Exportar PDF»** genera la historia clínica completa.
 
 Puedes ponerle «Categoría» (Herida, Rayos X, Dermatología, Cardiología, Resultado de
 Laboratorio, Procedimiento, Consulta, Otro), «Área del Cuerpo», «Descripción», «Notas del
-Doctor (Privadas)» y vincularlo a una consulta. El espacio de almacenamiento **depende de tu
+Doctor (Privadas)», **«¿A qué visita pertenece?»** (sugiere la más reciente de los últimos 7
+días) y vincularlo a una consulta de esa visita. El espacio de almacenamiento **depende de tu
 plan**.
+
+Al abrir un archivo ves su **Visita**. Para cambiarla, el lápiz (editar) → «¿A qué visita
+pertenece?» → guardar. Si el archivo está vinculado a una consulta de otra visita, se desvincula
+de ella al moverlo; elegir una consulta pone el archivo en la visita de esa consulta.
 
 ### Notas del paciente
 
 «Notas» → «Nueva Nota». A la izquierda, la lista; a la derecha, el editor. Si cambias de nota
 sin guardar, te pregunta antes de descartar.
+
+Arriba del editor, **«Visita:»** dice a qué visita pertenece la nota. En una nota nueva sugiere
+la más reciente de los últimos 7 días; en una ya guardada, cambiarla la mueve (te pregunta
+antes) sin tocar el texto.
 
 ### Plantillas
 
@@ -482,7 +532,7 @@ Casilla · Archivo.
 - **«Usar como formulario pre-cita»** — aparece al crear un formulario pre-consulta.
 - **«Usar como plantilla de receta»** — aparece en «Tipo de Receta».
 
-En la lista puedes marcar una como **predeterminada**: se pone sola al abrir «Nueva Consulta».
+En la lista puedes marcar una como **predeterminada**: se pone sola al abrir «Agregar plantilla».
 
 ### Importar pacientes
 

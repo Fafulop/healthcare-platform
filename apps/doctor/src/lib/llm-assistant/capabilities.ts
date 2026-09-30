@@ -183,18 +183,56 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
         },
       },
 
+      'Visita': {
+        states:
+          'Vacía o con contenido. Origen: se abrió sola al completar una cita | abierta a mano.',
+        actions: {
+
+          crear: {
+            allowedIf:
+              'Sola al completar una cita de un paciente con expediente (o al vincular el expediente ' +
+              'a una cita ya completada). A mano: botón "Nueva Visita" en el perfil del paciente → ' +
+              '"¿De qué cita?" o "Sin cita" con su fecha → "Crear visita".',
+            notes:
+              'Si la cita elegida ya tiene su visita, el botón dice "Abrir su visita" y no crea otra. ' +
+              'Dentro de la visita: Plantillas ("Agregar plantilla"), Fotos y documentos ("Subir"), ' +
+              'Notas ("Nueva nota"), Recetas ("Nueva receta"), informes y un Comentario.',
+          },
+
+          'mover una plantilla': {
+            allowedIf: 'Sólo a otra visita del MISMO día (o a "Sin visita"), con "Mover a…" en la pantalla de la visita.',
+            notes:
+              'Se lleva sus fotos, recetas e informes. La fecha de la plantilla nunca cambia. ' +
+              '"Traerla aquí…" trae una consulta sin visita del mismo día.',
+          },
+
+          'cambiar de visita una foto, nota o receta': {
+            allowedIf:
+              'Foto: en su visor, editar → "¿A qué visita pertenece?". Nota: selector "Visita:" arriba del editor. ' +
+              'Receta: sólo en Borrador y sin consulta vinculada, desde "Editar".',
+            blockedIf: 'Receta emitida, o receta vinculada a una consulta (va con la visita de esa consulta).',
+          },
+
+          borrar: {
+            allowedIf: 'Sólo mientras está vacía (botón "Borrar visita").',
+            blockedIf: 'Tiene plantillas, fotos, notas, recetas o informes.',
+          },
+        },
+      },
+
       'Consulta (Encounter)': {
         states:
           'draft (Borrador) | completed (Completada) | amended (Enmendada)',
         actions: {
 
           crear: {
-            allowedIf: 'Siempre desde el perfil del paciente. Botón "Nueva Consulta".',
+            allowedIf: 'Desde una visita: "Nueva Visita" en el perfil del paciente (o abrir una existente) → "Agregar plantilla" → "Guardar en la visita".',
             notes:
               'Tipos disponibles: Consulta, Seguimiento, Emergencia, Telemedicina. ' +
-              'Plantilla estándar requiere: fecha, tipo, motivo de consulta. ' +
-              'Plantilla personalizada solo requiere: fecha y tipo (no requiere motivo de consulta). ' +
-              'Al crear una consulta se actualiza automáticamente la fecha de última visita del paciente.',
+              'La fecha de la consulta es la de su visita. ' +
+              'Plantilla estándar requiere: tipo y motivo de consulta. ' +
+              'Plantilla personalizada solo requiere: tipo (no requiere motivo de consulta). ' +
+              'La fecha de última visita del paciente se recalcula como la de su consulta más reciente.',
           },
 
           editar: {

@@ -138,6 +138,14 @@ export function NuevaVisitaModal({ patientId, onClose, bookings, verCitas, visit
               , así que esta visita se creará sin cita. Si es de una cita, recarga la página antes de crearla.
             </p>
           )}
+          {listo && !verCitas && (
+            // Sin permiso de `citas` no se puede elegir la cita: la visita nace «Sin cita», y si el
+            // paciente tiene cita hoy, al completarla se abre OTRA visita (D1). Se dice.
+            <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              No tienes permiso para ver citas, así que esta visita se crea sin cita. Si el paciente tiene
+              cita hoy, al completarla se abrirá otra visita para ella.
+            </p>
+          )}
           {listo && verCitas && citas.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">¿De qué cita?</label>

@@ -1,17 +1,17 @@
 # VISITAS — SESSION-REFRESCO (handoff para la próxima sesión)
 
-> **Actualizado: 2026-09-29 (D4 y D5 probados a mano ✅; D5b construido; backfill DESCARTADO).** Léelo PRIMERO. Dice dónde estamos, qué
+> **Actualizado: 2026-09-29 (LANZADO a todos los doctores; backfill DESCARTADO).** Léelo PRIMERO. Dice dónde estamos, qué
 > ya está en prod, qué sigue y qué trampas ya se pisaron. El diseño vive en `01-DISENO`, el plan paso a
 > paso en `02-PLAN-fase-1.md` (§4 backfill, §5.1 D1, §5.2 D2, §5.3 D3, §5.4 D4). Este doc NO repite eso:
 > lo señala.
 
 ## 1. Dónde estamos, en una línea
 
-**Fase 1 (Visita): backend completo (A, C, D1, D1b, D2, D3) y la UI de D4 en prod DETRÁS DE UNA LISTA
-(sólo dr-prueba la ve, `lib/visitas-ui.ts`). Los demás doctores no ven nada. D4 PROBADO A MANO por el
-usuario (2026-09-29, "everything looks good"). D5 (`dd95ffd9`, elegir la visita al crear fuera de
-ella) probado ("works"). D5b (mover lo que ya existe) construido; falta su prueba a mano, exportar
-cuenta, barrido y el lanzamiento.** El backfill ya NO va.
+**Fase 1 (Visita) LANZADA a todos los doctores el 2026-09-29** (commit de lanzamiento: ver `git log
+-- apps/doctor/src/lib/visitas-ui.ts`). D4, D5 y D5b probados a mano en dr-prueba (D5b además con la
+bitácora de auditoría de prod). Exportar cuenta incluye visitas (`8fc957b7`). El backfill NO va: lo
+creado antes de las visitas se queda «Sin visita». **Falta: la prueba con un doctor que NO sea
+dr-prueba, y el commit de limpieza** (ver §3).
 
 
 ## 2. Qué está en prod (commits, en orden)
@@ -36,13 +36,27 @@ aparecerá sola cuando un doctor concluya una cita con expediente ligado.
 
 ## 3. Qué sigue (en este orden)
 
-1. **Prueba a mano de D5b en dr-prueba** (02-PLAN §5.5): mover una foto (visor → Editar), una nota
-   (selector «Visita:» del editor, pide confirmación) y una receta BORRADOR sin plantilla (su
-   «Editar»); el detalle de la receta dice su visita.
-2. Pendientes chicos de D4: el selector de
-   plantillas aún no dice «Plantilla SOAP»; la pantalla de la visita recarga listas completas (costo).
-3. **D6 — Manual de Ayuda + guías** (`manual-del-doctor.md`, `ExpedientesGuide.tsx`) **en el MISMO
-   commit** que la UI que describe.
+1. **Probar con un doctor que NO sea dr-prueba** (el lanzamiento se probó sólo en dr-prueba): el
+   perfil dice «Nueva Visita» + «Visitas»; «¿A qué visita pertenece?» en Recetas/Docs/Notas; la
+   Línea de Tiempo abre el modal con `?nuevaVisita=1`.
+2. **Commit de limpieza** (unos días después, si nada falla): `visitasUiActiva()` ya devuelve `true`
+   para cualquier doctor con sesión — quitarla de las 14 pantallas junto con las ramas que ya no
+   corren (la tarjeta «Historial de Consultas» y el botón «Nueva Consulta» del perfil, el aviso "no
+   disponible" de la pantalla de la visita). Pendientes chicos de D4: el selector de plantillas aún no
+   dice «Plantilla SOAP»; la pantalla de la visita recarga listas completas (costo). Además (code
+   review del lanzamiento, diferido a propósito):
+   - `encounters/new` SIN `?visitaId=` sigue existiendo (por URL o rama muerta) y crea una consulta
+     suelta con fecha editable, titulada «Nueva Consulta»: quitarla o mandarla a «Nueva Visita».
+   - `GET …/encounters` devuelve filas COMPLETAS (SOAP, signos, customData) y ahora la llaman todos
+     los doctores en perfil/notas/fotos/recetas sólo para filtrar por `visitaId`: un `select` corto.
+   - Comentarios que ya mienten: `ORIGEN_TEXTO` 'backfill' y su comentario (pantalla de la visita),
+     `lib/visitas.ts` («el backfill aplica la MISMA regla»), `packages/database/src/visitas.ts` («el
+     barrido previo al lanzamiento lo corrige» — el barrido nunca se escribió: sólo se MIDIÓ 0/0/0).
+   - La regla «mismo día / la fecha no cambia» se cuida sólo en la UI: el PUT de consultas acepta
+     `encounterDate` aunque la consulta esté en una visita (el «Editar» ya la bloquea).
+3. ✅ **D6 — Manual de Ayuda + guías + `capabilities.ts`**: en el commit de lanzamiento (sección
+   «Visitas» nueva, «Consultas» desde la visita, D5/D5b en Recetas/Docs/Notas, «Completar una
+   cita»). Todas las «etiquetas» citadas se verificaron contra los `.tsx`.
 4. ✅ **Exportar cuenta** (`apps/api/src/lib/exportar-cuenta.ts`) ya incluye visitas (2026-09-29,
    LFPDPPP, DISEÑO §9): `visitas.csv` (sólo si hay visitas), columna «Visita» en consultas/recetas/
    adjuntos.csv y sección «Visitas» + renglón «Visita» en cada expediente HTML. El día de una visita
@@ -51,17 +65,12 @@ aparecerá sola cuando un doctor concluya una cita con expediente ligado.
    6 visitas bien; un doctor sin visitas no recibe `visitas.csv`. Servicio: **api**.
    - Barrido (punto 5) medido el 2026-09-29: **0 / 0 / 0** en las tres revisiones — hoy no hay nada
      que reparar; basta volver a correr el conteo justo antes de lanzar.
-5. **Lanzamiento**, justo antes de mostrarlo, en este orden:
-   - **escribir y correr el barrido de reparación** (aún NO existe): citas COMPLETED con paciente y
-     sin visita · visitas cuyo paciente ≠ el de su cita · hijos cuya visita ≠ la de su consulta —
-     todo con `syncVisitaForBooking` / la regla de `resolverVisitaDeHijo`;
-   - ~~backfill~~ **DESCARTADO (2026-09-29, ver §4)**: lo viejo se queda «Sin visita»;
-   - **commit de lanzamiento:** BORRA la lista de `lib/visitas-ui.ts` y, en el MISMO commit, cambia
-     todo lo que aún dice «Nueva Consulta» / «Historial de Consultas»: `manual-del-doctor.md` (§366–396,
-     §480), `ExpedientesGuide.tsx` (5 lugares), el botón de `timeline/page.tsx` y
-     `lib/llm-assistant/capabilities.ts:192` (le dice al asistente `Botón "Nueva Consulta"`). El
-     manual también tiene que describir el «¿A qué visita pertenece?» de D5 y el mover de D5b.
-6. (D5b se prueba en el punto 1.)
+5. ✅ **Lanzamiento (2026-09-29):** `visitasUiActiva()` → `true` para todos (una línea, revertible),
+   el botón de la Línea de Tiempo pasa a «Nueva Visita» (abre el modal en el perfil) y el texto
+   (manual, guía, `capabilities.ts`) en el MISMO commit. Barrido re-medido justo antes: ver el
+   mensaje del commit. ~~backfill~~ DESCARTADO. Regla del mismo día CONFIRMADA por el usuario.
+6. Los títulos del modal de voz siguen diciendo «Nueva Consulta» a propósito (dictar una consulta
+   sigue siendo eso); no se tocaron.
 
 Después de la fase 1: fase 2 (Tratamiento) y fase 3 (Progreso) — DISEÑO §8, nada construido.
 
@@ -110,8 +119,8 @@ Después de la fase 1: fase 2 (Tratamiento) y fase 3 (Progreso) — DISEÑO §8,
   borrar `followUpDate`) y que mover una consulta arrastre sus fotos/recetas/informes.
 - **D4 — «la fecha de una plantilla ES la de su visita» se cuida SÓLO en la UI** (02-PLAN §5.4): mover
   y traer ofrecen sólo el mismo día; con plantillas, la visita no cambia de fecha ni liga citas de otro
-  día. Mover NO reescribe `encounterDate`. ⚠️ Esta regla de "mismo día" la propuso Claude y el usuario
-  aún no la confirma: si la cambia, la alternativa es mover entre días reescribiendo la fecha auditada.
+  día. Mover NO reescribe `encounterDate`. ✅ Regla CONFIRMADA por el usuario el 2026-09-29 (y ya la
+  describe el manual).
 - **`lastVisitDate` ya no se estampa con la consulta nueva:** se recalcula como la consulta más
   reciente (estamparla la movía hacia ATRÁS al agregar a una visita pasada; "sólo hacia adelante"
   dejaba pegada para siempre una fecha futura mal tecleada). Smoke read-only 2026-09-26: 8/8 iguales.

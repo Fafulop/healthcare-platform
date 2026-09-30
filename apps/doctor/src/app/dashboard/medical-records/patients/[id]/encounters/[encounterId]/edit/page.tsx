@@ -143,6 +143,9 @@ export default function EditEncounterPage() {
         cancelHref={`/dashboard/medical-records/patients/${patientId}/encounters/${encounterId}`}
         isEditing={true}
         selectedTemplate={customTemplate}
+        // VISITAS — la fecha de una plantilla ES la de su visita (DISEÑO §3): dentro de una visita
+        // no se edita (igual que al agregarla). Sin visita, se sigue pudiendo cambiar.
+        fechaFija={encounter.visitaId ? String(encounter.encounterDate).slice(0, 10) : undefined}
       />
     </div>
   );

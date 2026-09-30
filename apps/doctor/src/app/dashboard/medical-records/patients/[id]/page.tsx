@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { NotasCita } from "@/components/citas/NotasCita";
 import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { NuevaVisitaModal } from '@/components/medical-records/visitas/NuevaVisitaModal';
 import { VisitasCard } from '@/components/medical-records/visitas/VisitasCard';
@@ -787,11 +787,23 @@ export default function PatientProfilePage() {
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
-  // VISITAS D4 — detrás de la lista de `lib/visitas-ui.ts` hasta el lanzamiento. Sin ella, la
-  // página queda EXACTAMENTE como antes («Nueva Consulta» + «Historial de Consultas»).
+  // VISITAS — `visitasUiActiva` (lib/visitas-ui.ts). Sin ella, la página queda como antes de las
+  // visitas («Nueva Consulta» + «Historial de Consultas»).
   const conVisitas = visitasUiActiva(doctorId);
   const visitasDelPaciente = useVisitasDelPaciente(patientId, conVisitas);
   const [showNuevaVisita, setShowNuevaVisita] = useState(false);
+  // «Nueva Visita» desde otra pantalla (Línea de Tiempo) llega con `?nuevaVisita=1`: abre el modal
+  // una vez y quita el parámetro, para que recargar la página no lo vuelva a abrir.
+  const routerPerfil = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (!conVisitas || searchParams.get('nuevaVisita') !== '1') return;
+    setShowNuevaVisita(true);
+    const resto = new URLSearchParams(searchParams.toString());
+    resto.delete('nuevaVisita');
+    const qs = resto.toString();
+    routerPerfil.replace(`/dashboard/medical-records/patients/${patientId}${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [conVisitas, searchParams, patientId, routerPerfil]);
   // Contacto de Emergencia y Notas Generales viven DENTRO de «Información de Contacto», plegados.
   const [contactoAbierto, setContactoAbierto] = useState(false);
   // TIERS Q2b — el resumen del paciente lo GENERA un modelo (POST …/summary).

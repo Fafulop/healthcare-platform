@@ -5,19 +5,19 @@
 import { formatLocalDate } from '@/lib/dates';
 
 /**
- * 🚧 La UI de visitas se ve SÓLO para estos doctores hasta el lanzamiento (decidido 2026-09-26).
- * El orden importa: el backfill corre UNA vez ANTES de que los doctores puedan crear o mover
- * visitas (si no, desharía sus «Sin visita» sin auditoría). Al lanzar: barrido + backfill, y un
- * commit que BORRA esta lista junto con el manual, la guía y `llm-assistant/capabilities.ts`.
+ * La UI de visitas: ABIERTA PARA TODOS los doctores desde el lanzamiento (2026-09-29). Hasta
+ * entonces se veía sólo en dr-prueba; el backfill que obligaba a esa lista se descartó (lo creado
+ * antes de las visitas se queda «Sin visita»). El manual, la guía y `llm-assistant/capabilities.ts`
+ * cambiaron en el MISMO commit.
  *
- * No es un candado de seguridad: la API ya está viva para todos y revisa sus propios permisos.
+ * Queda como función (y no se borró de las 14 pantallas que la consultan) para que el lanzamiento
+ * cambiara poco código; quitar las ramas viejas es un commit aparte. OJO: revertir NO es sólo esta
+ * línea — el botón de la Línea de Tiempo, el manual y la guía ya no dependen de ella: se revierte
+ * el commit de lanzamiento completo.
+ * No es un candado de seguridad: la API revisa sus propios permisos.
  */
-const VISITAS_UI_DOCTORES = new Set<string>([
-  'cmni1bov90000mk0lyeztr3ad', // dr-prueba
-]);
-
 export function visitasUiActiva(doctorId: string | null | undefined): boolean {
-  return !!doctorId && VISITAS_UI_DOCTORES.has(doctorId);
+  return !!doctorId;
 }
 
 export type ConteoHijos = { consultas: number; fotos: number; recetas: number; notas: number; informes: number };

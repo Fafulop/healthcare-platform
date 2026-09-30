@@ -33,6 +33,7 @@ import {
   PanelRight,
   Save,
   Eye,
+  CalendarCheck,
 } from "lucide-react";
 import { SectionAccordion } from "./SectionAccordion";
 import { WorkflowStep } from "./WorkflowStep";
@@ -145,7 +146,7 @@ export function ExpedientesGuide() {
       >
         {/* Why first callout */}
         <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200 text-xs text-indigo-800 mb-4">
-          <strong>¿Por qué configurar plantillas primero?</strong> Las plantillas definen los campos que aparecerán en cada consulta. Si tienes una plantilla marcada como predeterminada, se aplica automáticamente al abrir "Nueva Consulta". Sin plantillas, el formulario solo muestra los campos SOAP estándar.
+          <strong>¿Por qué configurar plantillas primero?</strong> Las plantillas definen los campos que aparecerán en cada consulta. Si tienes una plantilla marcada como predeterminada, se aplica automáticamente al abrir "Agregar plantilla" en una visita. Sin plantillas, el formulario solo muestra los campos SOAP estándar.
         </div>
 
         <div className="flex items-center gap-2 mb-4">
@@ -280,7 +281,7 @@ export function ExpedientesGuide() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { btn: <Btn color="bg-gray-100 text-gray-700"><Edit className="w-3 h-3" />Editar</Btn>, desc: "Vuelve a abrir el Form Builder con la plantilla cargada." },
-              { btn: <Btn color="bg-yellow-50 text-yellow-700"><Star className="w-3 h-3" />Predeterminada</Btn>, desc: "Se aplica automáticamente al abrir 'Nueva Consulta'. Solo puede haber una predeterminada." },
+              { btn: <Btn color="bg-yellow-50 text-yellow-700"><Star className="w-3 h-3" />Predeterminada</Btn>, desc: "Se aplica automáticamente al abrir 'Agregar plantilla' en una visita. Solo puede haber una predeterminada." },
               { btn: <Btn color="bg-red-50 text-red-600"><Trash2 className="w-3 h-3" />Eliminar</Btn>, desc: "Requiere confirmación en dos pasos. No elimina consultas previas que usaron la plantilla." },
             ].map((item, i) => (
               <div key={i} className="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
@@ -308,16 +309,45 @@ export function ExpedientesGuide() {
         </div>
       </SectionAccordion>
 
+      {/* ── Visitas ── */}
+      <SectionAccordion
+        title="Visitas"
+        subtitle="Lo que pasó un día con un paciente, junto"
+        icon={CalendarCheck}
+        accentColor="blue"
+        defaultOpen
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Nueva Visita</Btn>
+          <AppBadge variant="doctor" />
+        </div>
+        <div className="space-y-0">
+          <WorkflowStep number={1} title="Cómo nace una visita" icon={CalendarCheck}>
+            Sola, al <strong>completar una cita</strong> de un paciente con expediente (o al vincular el expediente a una cita ya completada). O a mano con <strong>Nueva Visita</strong>: elige <strong>¿De qué cita?</strong> (la de hoy ya viene elegida; un ayudante sin permiso de citas no la ve y su visita se crea sin cita) o <strong>Sin cita</strong> con su fecha, y <strong>Crear visita</strong>. Si esa cita ya tiene su visita, el botón dice <strong>Abrir su visita</strong>.
+          </WorkflowStep>
+          <WorkflowStep number={2} title="Qué hay dentro" icon={FolderOpen}>
+            La cita (hora, servicio, pago y factura), <strong>Plantillas</strong>, <strong>Fotos y documentos</strong>, <strong>Notas</strong>, <strong>Recetas</strong> y un <strong>Comentario</strong>. Los botones «+» de Plantillas, Fotos, Notas y Recetas agregan directo a esta visita; los informes se hacen desde su plantilla y aparecen aquí cuando existen.
+          </WorkflowStep>
+          <WorkflowStep number={3} title="Mover y traer"
+            tip="La fecha de una plantilla nunca cambia: por eso sólo se mueve entre visitas del mismo día.">
+            <strong>Mover a…</strong> pasa una plantilla (con sus fotos, recetas e informes) a otra visita del mismo día o a «Sin visita». <strong>Traerla aquí…</strong> trae una consulta sin visita del mismo día. <strong>Borrar visita</strong> sólo aparece mientras está vacía.
+          </WorkflowStep>
+          <WorkflowStep number={4} title="Desde Recetas, Docs y Galería y Notas">
+            Al crear algo fuera de una visita se pregunta <strong>¿A qué visita pertenece?</strong> (sugiere la más reciente de los últimos 7 días). Lo ya guardado se cambia de visita desde su visor, su editor o el «Editar» de una receta en borrador.
+          </WorkflowStep>
+        </div>
+      </SectionAccordion>
+
       {/* ── Nueva Consulta ── */}
       <SectionAccordion
         title="Crear una consulta"
-        subtitle="Selecciona tu plantilla primero — los campos SOAP son el fallback"
+        subtitle="Desde una visita — selecciona tu plantilla primero; los campos SOAP son el fallback"
         icon={Stethoscope}
         accentColor="blue"
         defaultOpen
       >
         <div className="flex items-center gap-2 mb-4">
-          <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Nueva Consulta</Btn>
+          <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Agregar plantilla</Btn>
           <AppBadge variant="doctor" />
           <AIBadge />
           <VoiceBadge />
@@ -381,7 +411,7 @@ export function ExpedientesGuide() {
           </WorkflowStep>
 
           <WorkflowStep number={5} title="Guardar">
-            Clic en <strong>Crear Consulta</strong>. Los datos de la plantilla se guardan en <code className="text-xs bg-gray-100 px-1 rounded">customData</code> junto con los campos SOAP.
+            Clic en <strong>Guardar en la visita</strong>. Los datos de la plantilla se guardan en <code className="text-xs bg-gray-100 px-1 rounded">customData</code> junto con los campos SOAP.
           </WorkflowStep>
         </div>
 
@@ -471,7 +501,7 @@ export function ExpedientesGuide() {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           {[
-            { btn: <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Nueva Consulta</Btn>, desc: "Crea una nueva consulta clínica para este paciente." },
+            { btn: <Btn color="bg-blue-600 text-white"><Plus className="w-3 h-3" />Nueva Visita</Btn>, desc: "Abre una visita para este paciente (de una cita o sin cita). Las consultas se agregan dentro de la visita." },
             { btn: <Btn color="bg-blue-50 text-blue-700"><Pill className="w-3 h-3" />Recetas</Btn>, desc: "Lista de prescripciones del paciente (borradores y emitidas)." },
             { btn: <Btn color="bg-blue-50 text-blue-700"><FileText className="w-3 h-3" />Informe</Btn>, desc: "Llena el formato de una aseguradora con el expediente del paciente. El desplegable muestra los formatos disponibles." },
             { btn: <Btn color="bg-gray-100 text-gray-700"><Clock className="w-3 h-3" />Línea de Tiempo</Btn>, desc: "Vista cronológica de todas las consultas, prescripciones, documentos y notas." },
@@ -491,7 +521,8 @@ export function ExpedientesGuide() {
           <ul className="space-y-1.5 text-xs text-gray-600">
             {[
               "Información de Contacto: folio, edad, sexo, teléfono, email, dirección. La flecha de abajo abre el Contacto de Emergencia y las Notas Generales (texto libre del perfil), si hay.",
-              "Historial de Consultas: las 3 más recientes; «Ver todas» abre la Línea de Tiempo.",
+              "Visitas: las 3 más recientes y «Ver N más»; clic en una para abrirla.",
+              "Consultas sin visita (sólo si hay): las registradas fuera de una visita (3 más recientes y «Ver N más»).",
               "Formularios: los formularios pre-cita que contestó el paciente (3 más recientes y «Ver N más»).",
               "Notas Recientes: las 3 más recientes y «Ver N más»; «Ver todas» abre Notas.",
               "Resumen Paciente (columna derecha): el resumen generado con IA.",
@@ -522,7 +553,7 @@ export function ExpedientesGuide() {
         </div>
         <div className="space-y-0">
           <WorkflowStep number={1} title="Información General">
-            Fecha (obligatoria), expiración (opcional), diagnóstico, notas clínicas y opcionalmente vincular a una consulta existente.
+            Fecha (obligatoria), expiración (opcional), diagnóstico, notas clínicas, <strong>¿A qué visita pertenece?</strong> y opcionalmente vincular a una consulta de esa visita.
           </WorkflowStep>
           <WorkflowStep number={2} title="Información del Doctor">
             Nombre completo y cédula profesional — requeridos para emitir.
@@ -591,6 +622,9 @@ export function ExpedientesGuide() {
         <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
           <strong>Cambios sin guardar:</strong> Si cambias de nota con cambios pendientes, el sistema pregunta antes de descartar.
         </div>
+        <p className="text-xs text-gray-600 mt-3">
+          Arriba del editor, <strong>Visita:</strong> dice a qué visita pertenece la nota; cambiarla la mueve (pregunta antes) sin tocar el texto.
+        </p>
       </SectionAccordion>
 
       {/* ── Docs y Galería ── */}
@@ -609,11 +643,11 @@ export function ExpedientesGuide() {
             Desde el perfil del paciente, clic en <Btn color="bg-gray-100 text-gray-700"><Image className="w-3 h-3" />Docs y Galería</Btn>.
           </WorkflowStep>
           <WorkflowStep number={2} title="Subir un archivo">
-            Tipos soportados: imagen, video, audio. Metadatos opcionales: categoría, área del cuerpo, fecha de captura, descripción, notas del doctor.
+            Tipos soportados: imagen, video, audio. Metadatos opcionales: categoría, área del cuerpo, fecha de captura, descripción, notas del doctor, <strong>¿A qué visita pertenece?</strong> y la consulta vinculada.
           </WorkflowStep>
           <WorkflowStep number={3} title="Visualizar archivos"
             tip="La galería tiene filtros por categoría y tipo para encontrar estudios rápidamente.">
-            Clic en cualquier archivo para abrirlo en el visualizador. Desde ahí puedes editar los metadatos o eliminar el archivo.
+            Clic en cualquier archivo para abrirlo en el visualizador: dice su visita. Desde ahí puedes editar los metadatos (también la visita) o eliminar el archivo.
           </WorkflowStep>
         </div>
       </SectionAccordion>
