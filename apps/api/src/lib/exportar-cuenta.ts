@@ -4,7 +4,7 @@
  * (sólo su LISTADO): son lo que pesa, y siguen guardados con nosotros.
  *
  *   LEEME.txt                 qué trae y qué no
- *   pacientes.csv · consultas.csv · citas.csv · recetas.csv · adjuntos.csv
+ *   pacientes.csv · consultas.csv · citas.csv · recetas.csv · adjuntos.csv · visitas.csv
  *   expedientes/<paciente>.html   el expediente completo, uno por paciente
  *
  * Sirve a una cuenta CONGELADA (la ruta vive bajo /api/account/, que está en
@@ -211,7 +211,7 @@ export interface Exportacion {
 export async function armarExportacion(doctorId: string): Promise<Exportacion> {
   const faltantes: string[] = [];
 
-  const [doctor, pacientes, consultas, recetas, notas, historial, informes, adjuntos, citas, tareas] =
+  const [doctor, pacientes, consultas, recetas, notas, historial, informes, adjuntos, citas, tareas, visitas] =
     await Promise.all([
       prisma.doctor.findUniqueOrThrow({
         where: { id: doctorId },
@@ -251,11 +251,87 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
       // Los pendientes del doctor son suyos y los capturó él: van en el zip. No
       // hay nada que los haga caros ni nada de fuera que consultar.
       prisma.task.findMany({ where: { doctorId }, orderBy: { createdAt: 'asc' } }),
+      // VISITAS: lo que pasó en un día con un paciente. El comentario lo escribió el doctor y la
+      // visita la creó él (o su cita): es SU información (LFPDPPP, derecho de acceso) y va en el zip.
+      prisma.visita.findMany({ where: { doctorId }, orderBy: [{ fecha: 'asc' }, { createdAt: 'asc' }] }),
     ]);
 
   const nombreDe = new Map(pacientes.map((p) => [p.id, `${p.firstName} ${p.lastName}`.trim()]));
   const paciente = (id: string | null | undefined) => (id ? nombreDe.get(id) ?? '' : '');
   const archivos: Record<string, string> = {};
+
+  // ── Visitas ────────────────────────────────────────────────────────────────
+  // Con cita, el día de la visita es el de la CITA, leído IGUAL que en la app
+  // (`apps/doctor/src/lib/visitas.ts`: primero el slot, luego la fecha propia de la cita): la
+  // `fecha` guardada es respaldo por si el slot se borró. `@db.Date` y la fecha de la cita son
+  // medianoche UTC ⇒ `dia()`.
+  type VisitaFila = (typeof visitas)[number];
+  const citaDe = new Map(citas.map((b) => [b.id, b]));
+  const citaDeLaVisita = (v: VisitaFila) => (v.bookingId ? citaDe.get(v.bookingId) : undefined);
+  const diaDeVisita = (v: VisitaFila) => {
+    const b = citaDeLaVisita(v);
+    return dia(b?.slot?.date ?? b?.date ?? v.fecha);
+  };
+  const horaDeVisita = (v: VisitaFila) => {
+    const b = citaDeLaVisita(v);
+    return b ? (b.slot?.startTime ?? b.startTime ?? '') : '';
+  };
+  // La etiqueta con la que las demás hojas dicen a qué visita pertenece algo: «2026-09-12 10:00».
+  // Dos visitas del MISMO paciente con la misma etiqueta (dos del mismo día sin cita) se desempatan
+  // con «(1)», «(2)»… en orden de creación; si no chocan, van sin número.
+  const etiquetaDe = new Map<string, string>();
+  {
+    const base = (v: VisitaFila) => [diaDeVisita(v), horaDeVisita(v)].filter(Boolean).join(' ');
+    const grupos = new Map<string, VisitaFila[]>();
+    for (const v of visitas) {
+      const k = `${v.patientId}|${base(v)}`;
+      const g = grupos.get(k);
+      if (g) g.push(v);
+      else grupos.set(k, [v]);
+    }
+    for (const g of grupos.values()) {
+      g.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      g.forEach((v, i) => etiquetaDe.set(v.id, g.length > 1 ? `${base(v)} (${i + 1})` : base(v)));
+    }
+  }
+  const visita = (id: string | null | undefined) => (id ? etiquetaDe.get(id) ?? '' : '');
+  // En el orden del día que se IMPRIME (el de la cita), no el de la `fecha` guardada: una cita
+  // re-agendada después de ligarse deja la `fecha` vieja y la visita saldría fuera de lugar.
+  visitas.sort((a, b) =>
+    diaDeVisita(a).localeCompare(diaDeVisita(b))
+    || horaDeVisita(a).localeCompare(horaDeVisita(b))
+    || a.createdAt.getTime() - b.createdAt.getTime());
+  const ORIGEN: Record<string, string> = {
+    cita: 'Se abrió al concluir la cita',
+    manual: 'Abierta a mano',
+    backfill: 'Creada a partir de una consulta anterior',
+  };
+  // «2 plantillas · 1 foto/documento · 1 receta» — lo que cuelga de cada visita, contado de las
+  // mismas filas que van en el zip (sólo lo que hay).
+  const contar = (filas: { visitaId: string | null }[]) => {
+    const m = new Map<string, number>();
+    for (const f of filas) if (f.visitaId) m.set(f.visitaId, (m.get(f.visitaId) ?? 0) + 1);
+    return m;
+  };
+  const conteos: [Map<string, number>, string, string][] = [
+    [contar(consultas), 'plantilla', 'plantillas'],
+    [contar(adjuntos), 'foto/documento', 'fotos/documentos'],
+    [contar(recetas), 'receta', 'recetas'],
+    [contar(notas), 'nota', 'notas'],
+    [contar(informes), 'informe', 'informes'],
+  ];
+  const contenidoDe = (id: string) =>
+    conteos
+      .map(([m, uno, varios]) => {
+        const n = m.get(id) ?? 0;
+        return n ? `${n} ${n === 1 ? uno : varios}` : '';
+      })
+      .filter(Boolean)
+      .join(' · ');
+  const citaDeVisita = (v: VisitaFila) => {
+    const b = citaDeLaVisita(v);
+    return b ? [horaDeVisita(v), b.serviceName, es(b.status)].filter(Boolean).join(' · ') : '';
+  };
 
   // ── CSV ────────────────────────────────────────────────────────────────────
   archivos['pacientes.csv'] = csv(
@@ -273,9 +349,9 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
   );
 
   archivos['consultas.csv'] = csv(
-    ['Fecha', 'Paciente', 'Tipo', 'Motivo', 'Estatus', 'Plantilla', 'Lugar', 'Seguimiento'],
+    ['Fecha', 'Paciente', 'Tipo', 'Motivo', 'Estatus', 'Plantilla', 'Lugar', 'Seguimiento', 'Visita'],
     consultas.map((c) => [instante(c.encounterDate), paciente(c.patientId), es(c.encounterType), c.chiefComplaint,
-      es(c.status), c.template?.name, c.location, dia(c.followUpDate)]),
+      es(c.status), c.template?.name, c.location, dia(c.followUpDate), visita(c.visitaId)]),
   );
 
   archivos['citas.csv'] = csv(
@@ -288,7 +364,7 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
 
   archivos['recetas.csv'] = csv(
     ['Fecha', 'Paciente', 'Estatus', 'Diagnóstico', 'Medicamentos', 'Estudios de imagen', 'Estudios de laboratorio',
-      'Plantilla', 'Campos de la plantilla'],
+      'Plantilla', 'Campos de la plantilla', 'Visita'],
     recetas.map((r) => [instante(r.prescriptionDate), paciente(r.patientId), es(r.status), r.diagnosis,
       r.medications.map((m) => `${m.drugName} ${m.dosage} ${m.frequency}`.trim()).join(' | '),
       r.imagingStudies.map((s) => s.studyName).join(' | '),
@@ -297,8 +373,19 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
       camposDePlantilla(r.customData, r.template?.customFields)
         .filter(([, valor]) => texto(valor) !== '')
         .map(([etiqueta, valor]) => `${etiqueta}: ${texto(valor)}`)
-        .join(' | ')]),
+        .join(' | '),
+      visita(r.visitaId)]),
   );
+
+  // Sólo si HAY visitas: a un doctor sin ninguna, un archivo vacío y una línea del LEEME le
+  // describirían algo que no ve en la app (la UI de visitas no está abierta para todos todavía).
+  if (visitas.length) {
+    archivos['visitas.csv'] = csv(
+      ['Fecha', 'Visita', 'Paciente', 'Cita', 'Origen', 'Comentario', 'Contenido', 'Creada'],
+      visitas.map((v) => [diaDeVisita(v), visita(v.id), paciente(v.patientId), citaDeVisita(v),
+        ORIGEN[v.origen] ?? v.origen, v.comentario, contenidoDe(v.id), instante(v.createdAt)]),
+    );
+  }
 
   // `dueDate` es `@db.Date` (día de calendario) y `completedAt`/`createdAt` son
   // timestamps: cada uno con su formateador.
@@ -315,14 +402,15 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
   // del paciente y su Constancia de Situación Fiscal son archivos subidos que
   // viven en columnas de `Patient`, y hay que nombrarlos aquí también.
   archivos['adjuntos.csv'] = csv(
-    ['Paciente', 'Archivo', 'Fecha', 'Tipo', 'Tamaño (KB)', 'Categoría', 'Zona', 'Descripción'],
+    ['Paciente', 'Archivo', 'Fecha', 'Tipo', 'Tamaño (KB)', 'Categoría', 'Zona', 'Descripción', 'Visita'],
     [
       ...adjuntos.map((a) => [paciente(a.patientId), a.fileName, instante(a.captureDate), a.mediaType,
-        a.fileSize != null ? Math.round(a.fileSize / 1024) : '', a.category, a.bodyArea, a.description] as Valor[]),
+        a.fileSize != null ? Math.round(a.fileSize / 1024) : '', a.category, a.bodyArea, a.description,
+        visita(a.visitaId)] as Valor[]),
       ...pacientes.filter((p) => p.photoUrl).map((p) => [`${p.firstName} ${p.lastName}`.trim(),
-        'Foto del paciente', '', '', '', 'Foto', '', ''] as Valor[]),
+        'Foto del paciente', '', '', '', 'Foto', '', '', ''] as Valor[]),
       ...pacientes.filter((p) => p.constanciaFiscalUrl).map((p) => [`${p.firstName} ${p.lastName}`.trim(),
-        p.constanciaFiscalName || 'Constancia de Situación Fiscal', '', '', '', 'Constancia fiscal', '', ''] as Valor[]),
+        p.constanciaFiscalName || 'Constancia de Situación Fiscal', '', '', '', 'Constancia fiscal', '', '', ''] as Valor[]),
     ],
   );
 
@@ -344,6 +432,7 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
   const historialDe = porPaciente(historial);
   const informesDe = porPaciente(informes);
   const adjuntosDe = porPaciente(adjuntos);
+  const visitasDe = porPaciente(visitas);
   const usados = new Set<string>();
 
   for (const p of pacientes) {
@@ -363,11 +452,24 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
       ['RFC', p.rfc], ['Razón social', p.razonSocial], ['Régimen fiscal', p.regimenFiscal],
     ]));
 
+    const susVisitas = visitasDe.get(p.id) ?? [];
+    if (susVisitas.length) {
+      partes.push('<h2>Visitas</h2>');
+      for (const v of susVisitas) {
+        partes.push('<div class="bloque">');
+        partes.push(`<h3>Visita ${esc(visita(v.id))}</h3>`);
+        partes.push(tabla([['Cita', citaDeVisita(v)], ['Origen', ORIGEN[v.origen] ?? v.origen],
+          ['Comentario', v.comentario], ['Contenido', contenidoDe(v.id) || 'Vacía']]));
+        partes.push('</div>');
+      }
+    }
+
     const susNotas = notasDe.get(p.id) ?? [];
     if (susNotas.length) {
       partes.push('<h2>Notas</h2>');
       for (const n of susNotas) {
-        partes.push(`<div class="bloque"><p class="meta">${esc(instante(n.createdAt))}</p>${esc(n.content).replace(/\n/g, '<br>')}</div>`);
+        const suVisita = visita(n.visitaId);
+        partes.push(`<div class="bloque"><p class="meta">${esc(instante(n.createdAt))}${suVisita ? ` · Visita ${esc(suVisita)}` : ''}</p>${esc(n.content).replace(/\n/g, '<br>')}</div>`);
       }
     }
 
@@ -378,6 +480,7 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
         partes.push('<div class="bloque">');
         partes.push(`<h3>${esc(instante(c.encounterDate))} — ${esc(c.chiefComplaint)}</h3>`);
         partes.push(tabla([
+          ['Visita', visita(c.visitaId)],
           ['Tipo', es(c.encounterType)], ['Estatus', es(c.status)], ['Plantilla', c.template?.name], ['Lugar', c.location],
           ['Notas clínicas', c.clinicalNotes], ['Subjetivo', c.subjective], ['Objetivo', c.objective],
           ['Análisis', c.assessment], ['Plan', c.plan],
@@ -398,7 +501,7 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
       for (const r of susRecetas) {
         partes.push('<div class="bloque">');
         partes.push(`<h3>${esc(instante(r.prescriptionDate))} — ${esc(es(r.status))}</h3>`);
-        partes.push(tabla([['Diagnóstico', r.diagnosis], ['Notas', r.clinicalNotes], ['Cédula', r.doctorLicense],
+        partes.push(tabla([['Visita', visita(r.visitaId)], ['Diagnóstico', r.diagnosis], ['Notas', r.clinicalNotes], ['Cédula', r.doctorLicense],
           ['Plantilla', r.template?.name],
           ...camposDePlantilla(r.customData, r.template?.customFields),
           ['Cancelada', r.cancelledAt ? `${instante(r.cancelledAt)} — ${texto(r.cancellationReason)}` : '']]));
@@ -423,7 +526,7 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
     if (susInformes.length) {
       partes.push('<h2>Informes médicos</h2>');
       for (const i of susInformes) {
-        partes.push(`<div class="bloque"><h3>${esc(i.formId)} — ${esc(instante(i.issuedAt ?? i.createdAt))} (${esc(es(i.status))})</h3>${tabla(respuestasDeInforme(i.answers))}</div>`);
+        partes.push(`<div class="bloque"><h3>${esc(i.formId)} — ${esc(instante(i.issuedAt ?? i.createdAt))} (${esc(es(i.status))})</h3>${tabla([['Visita', visita(i.visitaId)], ...respuestasDeInforme(i.answers)])}</div>`);
       }
     }
 
@@ -441,9 +544,9 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
       partes.push('<h2>Archivos adjuntos</h2>');
       partes.push('<p class="meta">Sólo la lista: los archivos siguen guardados en tu cuenta.</p>');
       partes.push(
-        '<table><tr><th>Archivo</th><th>Fecha</th><th>Tipo</th><th>Descripción</th></tr>' +
-          susAdjuntos.map((a) => `<tr><td>${esc(a.fileName)}</td><td>${esc(instante(a.captureDate))}</td><td>${esc(a.mediaType)}</td><td>${esc(a.description)}</td></tr>`).join('') +
-          otrosArchivos.map(([nombre, tipo]) => `<tr><td>${esc(nombre)}</td><td></td><td>${esc(tipo)}</td><td></td></tr>`).join('') +
+        '<table><tr><th>Archivo</th><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Visita</th></tr>' +
+          susAdjuntos.map((a) => `<tr><td>${esc(a.fileName)}</td><td>${esc(instante(a.captureDate))}</td><td>${esc(a.mediaType)}</td><td>${esc(a.description)}</td><td>${esc(visita(a.visitaId))}</td></tr>`).join('') +
+          otrosArchivos.map(([nombre, tipo]) => `<tr><td>${esc(nombre)}</td><td></td><td>${esc(tipo)}</td><td></td><td></td></tr>`).join('') +
           '</table>',
       );
     }
@@ -474,6 +577,9 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
     `- pacientes.csv: ${pacientes.length} pacientes con todos sus datos.`,
     `- consultas.csv: ${consultas.length} consultas.  citas.csv: ${citas.length} citas.  recetas.csv: ${recetas.length} recetas.`,
     `- tareas.csv: ${tareas.length} pendientes y recordatorios tuyos.`,
+    ...(visitas.length
+      ? [`- visitas.csv: ${visitas.length} visitas (qué pasó cada día con cada paciente). La columna «Visita» de consultas, recetas y adjuntos dice a cuál pertenece cada cosa.`]
+      : []),
     `- adjuntos.csv: la LISTA de ${adjuntos.length + pacientes.filter((p) => p.photoUrl).length + pacientes.filter((p) => p.constanciaFiscalUrl).length} archivos adjuntos (nombre, fecha, paciente).`,
     `- expedientes/: un archivo por paciente con su expediente completo. Ábrelo con cualquier navegador; para guardarlo en PDF, imprímelo y elige «Guardar como PDF».`,
     '',

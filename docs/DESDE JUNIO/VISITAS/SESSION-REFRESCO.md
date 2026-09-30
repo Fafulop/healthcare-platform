@@ -43,8 +43,14 @@ aparecerá sola cuando un doctor concluya una cita con expediente ligado.
    plantillas aún no dice «Plantilla SOAP»; la pantalla de la visita recarga listas completas (costo).
 3. **D6 — Manual de Ayuda + guías** (`manual-del-doctor.md`, `ExpedientesGuide.tsx`) **en el MISMO
    commit** que la UI que describe.
-4. ⚠️ **Exportar cuenta** (`apps/api/src/lib/exportar-cuenta.ts`) debe incluir visitas (LFPDPPP,
-   DISEÑO §9). **No está en ningún paso D** — antes del lanzamiento.
+4. ✅ **Exportar cuenta** (`apps/api/src/lib/exportar-cuenta.ts`) ya incluye visitas (2026-09-29,
+   LFPDPPP, DISEÑO §9): `visitas.csv` (sólo si hay visitas), columna «Visita» en consultas/recetas/
+   adjuntos.csv y sección «Visitas» + renglón «Visita» en cada expediente HTML. El día de una visita
+   con cita es el de la CITA, leído igual que la app (slot primero). Etiqueta «AAAA-MM-DD HH:MM», con
+   «(1)», «(2)» si dos visitas del mismo paciente chocan. Corrida real read-only contra prod: dr-prueba
+   6 visitas bien; un doctor sin visitas no recibe `visitas.csv`. Servicio: **api**.
+   - Barrido (punto 5) medido el 2026-09-29: **0 / 0 / 0** en las tres revisiones — hoy no hay nada
+     que reparar; basta volver a correr el conteo justo antes de lanzar.
 5. **Lanzamiento**, justo antes de mostrarlo, en este orden:
    - **escribir y correr el barrido de reparación** (aún NO existe): citas COMPLETED con paciente y
      sin visita · visitas cuyo paciente ≠ el de su cita · hijos cuya visita ≠ la de su consulta —
