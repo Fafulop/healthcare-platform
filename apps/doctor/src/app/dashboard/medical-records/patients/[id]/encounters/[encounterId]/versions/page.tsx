@@ -3,6 +3,7 @@
 import { ArrowLeft, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDateTime } from '@/lib/practice-utils';
+import { formatLocalDate } from '@/lib/dates';
 import { useEncounterVersions } from '../../_components/useEncounterVersions';
 
 export default function EncounterVersionsPage() {
@@ -144,7 +145,7 @@ export default function EncounterVersionsPage() {
                       <div>
                         <span className="text-gray-600">Fecha:</span>
                         <span className="ml-2 font-medium">
-                          {new Date(selectedVersion.encounterData.encounterDate).toLocaleDateString('es-MX')}
+                          {formatLocalDate(selectedVersion.encounterData.encounterDate)}
                         </span>
                       </div>
                       <div>

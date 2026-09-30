@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Edit2, Save, Trash2, Download, Link2 } from 'lucide-react';
 import { practiceConfirm } from '@/lib/practice-confirm';
+import { formatLocalDate } from '@/lib/dates';
 import type { VisitaResumen } from '@/lib/visitas-ui';
 import type { ConsultaConVisita, EstadoCarga } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
@@ -351,14 +352,16 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
                     <option value="">Sin vincular</option>
                     {consultasOfrecidas.map(enc => (
                       <option key={enc.id} value={enc.id}>
-                        {new Date(enc.encounterDate).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })} – {enc.chiefComplaint || 'Sin motivo'}
+                        {formatLocalDate(enc.encounterDate, { year: 'numeric', month: 'short', day: 'numeric' })} – {enc.chiefComplaint || 'Sin motivo'}
                       </option>
                     ))}
                   </select>
                 ) : (
                   <p className="text-sm text-gray-900">
                     {media.encounter
-                      ? `${new Date(media.encounter.encounterDate).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })} – ${media.encounter.chiefComplaint || 'Sin motivo'}`
+                      // `formatLocalDate`, no `new Date(...)`: la fecha de la consulta se guarda a
+                      // medianoche UTC y leída como timestamp se pintaba un día ANTES en México.
+                      ? `${formatLocalDate(media.encounter.encounterDate, { year: 'numeric', month: 'short', day: 'numeric' })} – ${media.encounter.chiefComplaint || 'Sin motivo'}`
                       : media.encounterId
                         ? 'Vinculado a consulta'
                         : 'Sin vincular'}
