@@ -5,6 +5,38 @@
 > paso en `02-PLAN-fase-1.md` (§4 backfill, §5.1 D1, §5.2 D2, §5.3 D3, §5.4 D4). Este doc NO repite eso:
 > lo señala.
 
+## 0. ⏭️ EMPIEZA AQUÍ (cierre de la sesión del 2026-09-29)
+
+**Estado exacto al irse el usuario:**
+
+1. **✅ T1 de la fase 2 (Tratamientos): APLICADO EN PROD Y COMMITEADO** (el commit de
+   `create-tratamientos.sql`: `git log -- packages/database/prisma/migrations/create-tratamientos.sql`;
+   no despliega nada — sólo `packages/**`, docs y scripts). Las tablas
+   `medical_records.tratamientos` y `medical_records.tratamiento_sesiones` existen en prod (vacías,
+   verificadas por definición: 7 FKs, 5 CHECKs, 11 índices). Van en ese commit: `packages/database/prisma/migrations/create-tratamientos.sql`, `schema.prisma` (modelos
+   `Tratamiento` / `TratamientoSesion`), `docs/NEW.MD-GUIDES/database-architecture.md` (entrada
+   DB-only), `03-PLAN-fase-2.md`, `01-DISENO` (G11), este doc, y los scripts
+   `scripts/visitas/tratamientos-probe-t1.cjs` (probe 25/25 en tx revertida) y
+   `tratamientos-run-t1.cjs` (la corrida real con verificación antes del commit).
+   Type-check de los 4 apps limpio, `pnpm gates` en verde.
+   Lo ajeno que sigue sin commitear en el árbol NO es de visitas: BBVA (`informe-medico/*`,
+   `dicts/bbva.ts`, el PDF, `reports/[reportId]/chat/route.ts`), `ANALISIS CAT/`,
+   `scripts/demo-seed/`, `.claude/settings.local.json` — nunca `git add -A`.
+2. **➡️ SIGUIENTE: T2 (la API de tratamientos)** — plan en `03-PLAN-fase-2.md` §3 + los huecos de §8 que
+   le tocan (G1a, G2, G3, G4, G5, G7, G9). Como siempre: plan → OK → código → type-check + gates +
+   smoke contra prod → review → OK → push. Decisiones YA tomadas (no re-litigar): P1 estado
+   DERIVADO (sólo `cancelada` se guarda), **P2 revisado: la sesión SIEMPRE guarda su visita**, P3
+   números fijos, P4 `precio_paquete` sin usar hasta T6, P5 seguimientos al final, G10 todos los
+   planes, T1–T4 antes que el dinero (T5–T6).
+3. **Pendientes de la fase 1 (limpieza, en §3 abajo):** probar Visitas con un doctor que NO sea
+   dr-prueba (el usuario tiene que iniciar sesión con esa cuenta en Chrome); la regla del mismo día
+   en el servidor; y, tras unos días estables, quitar `visitasUiActiva()` y las ramas viejas.
+4. **Commits de la sesión 2026-09-29 (en prod):** `65c35499` tarjetas 3 + «Ver N más» · `dd95ffd9`
+   D5 · `f0597749` D5b · `1a1387d6` contacto de emergencia + notas generales tras la flecha ·
+   `9b5842de` «Consultas sin visita» aparte · `959bd54c` fechas de consulta un día antes ·
+   `8fc957b7` export con visitas (api) · `42ed7f01` **LANZAMIENTO de Visitas a todos** ·
+   `a5e58d52` «Última visita» al borrar/editar consulta · `3e92d0ee` / `86b1dd19` docs y plan fase 2.
+
 ## 1. Dónde estamos, en una línea
 
 **Fase 1 (Visita) LANZADA a todos los doctores el 2026-09-29** (commit de lanzamiento: ver `git log
@@ -101,8 +133,9 @@ aparecerá sola cuando un doctor concluya una cita con expediente ligado.
 
 **Fase 2 (Tratamiento): plan APROBADO en `03-PLAN-fase-2.md` (2026-09-29)** — P1 estado derivado de
 la cita (sólo `cancelada` se guarda), T1–T4 primero (sin dinero), dinero (T5–T6) después; §8 lista
-los 11 huecos de la revisión y dónde se arregla cada uno. Siguiente: T1 (SQL + probe en tx
-revertida). Fase 3 (Progreso) — DISEÑO §8, nada construido.
+los 11 huecos de la revisión y dónde se arregla cada uno. **✅ T1 aplicado en prod (2026-09-29):**
+tablas `tratamientos` y `tratamiento_sesiones` vacías, verificadas por definición; P2 revisado en el
+review (la sesión siempre guarda su visita). **Siguiente: T2 (la API).** Fase 3 (Progreso) — DISEÑO §8, nada construido.
 
 ## 4. Decisiones del usuario (no re-litigar)
 

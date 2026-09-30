@@ -379,6 +379,7 @@ model Doctor {
   patientSummaries   PatientSummary[]
   medicalReports     MedicalReport[]
   visitas            Visita[]
+  tratamientos       Tratamiento[]
 
   // Team (secondary users)
   members            DoctorMember[]
@@ -758,6 +759,7 @@ model Booking {
   formLink           AppointmentFormLink?  @relation("BookingFormLink")
   ledgerEntry        LedgerEntry?          @relation("BookingLedgerEntry")
   visita             Visita?
+  tratamientoSesion  TratamientoSesion?
 
   createdAt          DateTime      @default(now()) @map("created_at")
   updatedAt          DateTime      @updatedAt @map("updated_at")
@@ -2140,6 +2142,7 @@ model Patient {
   summaries            PatientSummary[]
   medicalReports       MedicalReport[]
   visitas              Visita[]
+  tratamientos         Tratamiento[]
 
   @@unique([doctorId, internalId])
   @@index([doctorId, status])
@@ -2552,6 +2555,7 @@ model EncounterTemplate {
   doctor          Doctor              @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   encounters      ClinicalEncounter[] // Encounters using this template
   prescriptions   Prescription[]      // Recetas using this template
+  tratamientosSugeridos Tratamiento[]  // VISITAS fase 2: tratamientos que la sugieren
 
   @@unique([doctorId, name])
   @@index([doctorId, isActive])
@@ -2860,10 +2864,84 @@ model Visita {
   prescriptions   Prescription[]
   notes           PatientNote[]
   medicalReports  MedicalReport[]
+  /// VISITAS fase 2: la sesión de tratamiento que es esta visita (si lo es).
+  tratamientoSesion TratamientoSesion?
 
   @@index([patientId, fecha])
   @@index([doctorId, fecha])
   @@map("visitas")
+  @@schema("medical_records")
+}
+
+/// VISITAS fase 2 (T1) — un plan de varias visitas para un paciente (injerto en 6 sesiones,
+/// fisioterapia en 10, un seguimiento…). Diseño: docs/DESDE JUNIO/VISITAS/01-DISENO; plan:
+/// 03-PLAN-fase-2.md. SQL: prisma/migrations/create-tratamientos.sql.
+///
+/// ⚠️ DB-only (Prisma no las modela; `prisma db push` las REVIERTE):
+///   · FK COMPUESTA (patient_id, doctor_id) → patients(id, doctor_id) ON DELETE CASCADE
+///   · índices únicos `tratamientos_id_patient_id_key` y `tratamientos_id_doctor_id_key`
+///     (destinos de las FKs compuestas de las sesiones y, en T6, del libro de movimientos)
+model Tratamiento {
+  id                   String    @id @default(cuid())
+  patientId            String    @map("patient_id")
+  doctorId             String    @map("doctor_id")
+  nombre               String
+  /// NULL = abierto. Editarlo NO crea ni borra sesiones (03-PLAN G7).
+  sesionesPlaneadas    Int?      @map("sesiones_planeadas")
+  intervaloDias        Int?      @map("intervalo_dias")
+  /// Lo ACORDADO por el paquete. Sin usar hasta T6; la API no lo devuelve hasta entonces y
+  /// después sólo con el permiso `flujo` (03-PLAN G5).
+  precioPaquete        Decimal?  @map("precio_paquete") @db.Decimal(12, 2)
+  /// 'activo' · 'terminado' · 'cancelado' (CHECK en la BD).
+  estado               String    @default("activo") @db.VarChar(20)
+  plantillaSugeridaId  String?   @map("plantilla_sugerida_id")
+  notas                String?
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  patient              Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  doctor               Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  plantillaSugerida    EncounterTemplate? @relation(fields: [plantillaSugeridaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  sesiones             TratamientoSesion[]
+
+  @@index([patientId, estado])
+  @@index([doctorId, estado])
+  @@index([plantillaSugeridaId])
+  @@map("tratamientos")
+  @@schema("medical_records")
+}
+
+/// Una sesión de un tratamiento. Su ESTADO no se guarda: se DERIVA de su cita y su visita
+/// (03-PLAN P1, `estadoDeSesion()`); sólo `cancelada` es decisión del doctor. Guarda su visita
+/// también cuando tiene cita (P2 revisado): si la cita se borra o pasa a otro paciente, la sesión
+/// no pierde la visita que ya ocurrió.
+///
+/// ⚠️ DB-only (Prisma no las modela; `prisma db push` las REVIERTE):
+///   · (patient_id, doctor_id) → patients(id, doctor_id) ON DELETE CASCADE
+///   · (tratamiento_id, patient_id) → tratamientos(id, patient_id) ON DELETE CASCADE
+///   · (booking_id, doctor_id) → bookings(id, doctor_id) ON DELETE SET NULL (booking_id)
+///   · (visita_id, patient_id) → visitas(id, patient_id) ON DELETE SET NULL (visita_id)
+model TratamientoSesion {
+  id             String    @id @default(cuid())
+  tratamientoId  String    @map("tratamiento_id")
+  /// Redundantes A PROPÓSITO: permiten que la BD exija mismo paciente/doctor (FKs compuestas).
+  patientId      String    @map("patient_id")
+  doctorId       String    @map("doctor_id")
+  numero         Int
+  cancelada      Boolean   @default(false)
+  bookingId      String?   @unique @map("booking_id")
+  visitaId       String?   @unique @map("visita_id")
+  notas          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  tratamiento    Tratamiento @relation(fields: [tratamientoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  booking        Booking?    @relation(fields: [bookingId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  visita         Visita?     @relation(fields: [visitaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([tratamientoId, numero])
+  @@index([patientId])
+  @@map("tratamiento_sesiones")
   @@schema("medical_records")
 }
 

@@ -91,9 +91,11 @@ Paciente
 - **`tratamientos`** — `id`, `patientId`, `doctorId`, `nombre`, `sesionesPlaneadas?` (null =
   abierto), `intervaloDias?`, `precioPaquete?`, `estado` (activo · terminado · cancelado),
   `plantillaSugeridaId?`, timestamps. Un paciente puede tener varios activos a la vez.
-- **`tratamiento_sesiones`** *(hueco #1)* — `id`, `tratamientoId`, `numero`, `estado`
-  (por agendar · agendada · hecha · cancelada), `bookingId?` (único, `SET NULL`), `visitaId?`
-  (único, `SET NULL`), timestamps. **No guarda fecha:** la lee de su cita. Sin esta tabla, la
+- **`tratamiento_sesiones`** *(hueco #1)* — `id`, `tratamientoId`, `numero`, `bookingId?` (único,
+  `SET NULL`), `visitaId?` (único, `SET NULL`), timestamps. *(Corregido 2026-09-29, `03-PLAN-fase-2`
+  P1/P2: el **estado NO se guarda** — por agendar · agendada · hecha se DERIVAN de su cita y su
+  visita al leer; sólo `cancelada` se guarda. Y la sesión guarda su visita también cuando tiene
+  cita, para no perderla si la cita se borra o se re-liga.)* **No guarda fecha:** la lee de su cita. Sin esta tabla, la
   sesión 5 de 15 «por agendar» no tendría dónde existir. La visita llega a su tratamiento **a
   través de su sesión** (no lleva `tratamientoId` propio: sería una segunda liga que puede
   contradecirse).
@@ -147,7 +149,9 @@ Una sesión de tratamiento **no guarda su fecha**: guarda la liga a su cita.
 - **Reagendar o cancelar desde la agenda** → el tratamiento la lee, así que se refleja solo.
   **No hay nada que sincronizar.**
 
-Lo único que se sincroniza es el **estado**:
+Lo único que se sincroniza es el **estado** — *(corregido 2026-09-29, `03-PLAN-fase-2` P1: no se
+sincroniza, se DERIVA al leer de la cita; la tabla de abajo sigue siendo el comportamiento, pero sin
+enganches que puedan desincronizarse)*:
 
 | Pasa en la agenda | Efecto en el expediente |
 |---|---|
@@ -289,7 +293,7 @@ cada elemento y un **filtro por visita** (y por tratamiento, en fase 2).
 | Fase | Qué incluye |
 |---|---|
 | **1 — Visita** | Tabla `visitas` + `visitaId` en consultas, fotos, notas y recetas. Backfill: cada una de las 293 consultas se envuelve en su propia visita (1:1) y lo que ya colgaba de la consulta hereda su visita. «Nueva Visita» con **varias plantillas**, fotos, nota y receta; liga a la cita; visita automática al concluir; etiqueta + filtro en los libros. |
-| **2 — Tratamiento** | Tablas `tratamientos` y `tratamiento_sesiones`; sesiones con cita; agendar N de una vez por la ruta existente (falla parcial + un solo correo); precio del paquete, pagos del paquete, cobro de $0 por sesión y saldo calculado; informes médicos dentro de la visita. |
+| **2 — Tratamiento** | Tablas `tratamientos` y `tratamiento_sesiones`; sesiones con cita; agendar N de una vez por la ruta existente (falla parcial + un solo correo); precio del paquete, pagos del paquete, cobro de $0 por sesión y saldo calculado. *(Los informes médicos dentro de la visita ya se hicieron en la fase 1, D3. Plan detallado: `03-PLAN-fase-2.md`.)* |
 | **3 — Progreso** | Comparación entre sesiones: fotos lado a lado, números de una plantilla (p. ej. Total UF) graficados en el tiempo. |
 
 La fase 1 sirve sola, pero el nivel Tratamiento se diseña **ya** para que la fase 1 no se

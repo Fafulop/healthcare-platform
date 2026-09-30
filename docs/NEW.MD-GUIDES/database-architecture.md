@@ -339,6 +339,26 @@ Currently affected:
   `.sql` y **verificar cada definición** con `pg_get_constraintdef` (que diga `SET NULL
   (visita_id)` / `SET NULL (booking_id)`), no sólo que existan.
 
+- `create-tratamientos.sql` — VISITAS fase 2 / T1 (2026-09-29): **CINCO FKs compuestas y DOS
+  índices destino**, comentadas también en `schema.prisma` (modelos `Tratamiento` y
+  `TratamientoSesion`):
+  1. `tratamientos(patient_id, doctor_id) → patients(id, doctor_id)` `ON DELETE CASCADE` — tenencia;
+  2. `tratamiento_sesiones(patient_id, doctor_id) → patients(id, doctor_id)` `ON DELETE CASCADE` —
+     el `doctor_id` redundante de la sesión es el del paciente;
+  3. `tratamiento_sesiones(tratamiento_id, patient_id) → tratamientos(id, patient_id)` `ON DELETE
+     CASCADE` — destino: índice **`tratamientos_id_patient_id_key`**;
+  4. `tratamiento_sesiones(booking_id, doctor_id) → bookings(id, doctor_id)` `ON DELETE SET NULL
+     (booking_id)` — destino: `bookings_id_doctor_id_key` (de fase 1);
+  5. `tratamiento_sesiones(visita_id, patient_id) → visitas(id, patient_id)` `ON DELETE SET NULL
+     (visita_id)` — destino: `visitas_id_patient_id_key` (de fase 1).
+
+  Además el índice único **`tratamientos_id_doctor_id_key`**, que hoy nadie usa: es el destino de
+  la FK de tenencia que T6 pondrá en `ledger_entries(tratamiento_id, doctor_id)`. Prisma declara
+  las FKs de una columna; mismo remedio que visitas si alguien corre `db push` (borrar las FKs de
+  una columna que ponga Prisma, re-correr el `.sql`, **verificar cada definición**). Aplicado en
+  prod el 2026-09-29 tras un probe de 25/25 en transacción revertida (el script de verificación
+  compara las 7 FKs, los 5 CHECKs y los 11 índices con su definición exacta).
+
 (CHECK constraints y los índices parciales normales de otros `.sql` NO se caen — Prisma ignora
 lo que no modela. Las FK planas SÍ las modela, de ahí esta lista. El índice parcial de
 `insurance_forms` está aquí porque Prisma **sí** modela un `@@unique(insurer, name)` y al

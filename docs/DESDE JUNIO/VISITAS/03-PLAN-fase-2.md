@@ -1,7 +1,8 @@
 # 03 — PLAN fase 2: Tratamientos
 
-> **Estado: APROBADO (2026-09-29) — P1–P5 como se recomiendan y G10 = todos los planes.** Nada
-> construido todavía; siguiente: T1. El diseño es
+> **Estado (2026-09-29): APROBADO — P1, P3–P5 como se recomendaron, P2 REVISADO en el code review
+> de T1 (ver abajo), G10 = todos los planes. ✅ T1 APLICADO EN PROD** (tablas vacías; nadie las usa
+> aún). Siguiente: T2. El diseño es
 > `01-DISENO-visitas-y-tratamientos.md` (§3 modelo, §4 fecha, §5 precio, §6 concluir, §7 flujos,
 > §8 fases); este doc dice **cómo** se construye, en qué orden y cómo se prueba cada paso. Mismas
 > reglas que la fase 1 (`02-PLAN-fase-1.md` §0): SQL manual + `prisma db execute`, **nunca**
@@ -25,7 +26,7 @@ lo que pasó). El tratamiento es dueño del *plan* y de lo *acordado*.
 | # | Pregunta | Recomendación | Por qué |
 |---|---|---|---|
 | **P1** | ¿La sesión **guarda** su estado (por agendar · agendada · hecha · cancelada) o se **deriva**? | **Derivar** de su cita/visita; sólo se guarda `cancelada` (decisión del doctor). | El DISEÑO §3 lo guarda y §4 lo sincroniza con la agenda. Pero TODO cambio de estado de una cita pasa por `PATCH apps/api/.../bookings/[id]` **y** borrar un slot BORRA sus citas (cascade) sin pasar por ahí: un estado guardado quedaría mintiendo tras un borrado. Derivado no se desincroniza nunca y **T4 casi desaparece**. Mismo principio que el resto: nadie copia el dato de otro. |
-| **P2** | Con cita, ¿la sesión guarda `visita_id` o lo lee de la visita de su cita? | **Guarda `visita_id` sólo si NO tiene cita** (sesión sin agenda, visita abierta a mano); con cita, su visita es la de la cita (`visitas.booking_id`, único). | Una sola liga por camino; la visita automática de D1 ya queda ligada a la cita. |
+| **P2** ✏️ *revisado* | Con cita, ¿la sesión guarda `visita_id` o lo lee de la visita de su cita? | ~~Sólo sin cita~~ → **La sesión SIEMPRE guarda su visita** cuando la conoce: al nacer la visita de su cita (`syncVisitaForBooking`, el ÚNICO lugar que crea visitas automáticas — D1 y D1b) se escribe también `tratamiento_sesiones.visita_id`. | **Code review de T1:** sólo leerla por la cita hacía que una sesión HECHA volviera a «por agendar» si su cita se borraba (cascada de slots) o pasaba a otro paciente (G1): `booking_id` y `visitas.booking_id` quedan en NULL y la visita que sí ocurrió se pierde del tratamiento. Guardarla la conserva. Sin CHECK de «cita XOR visita» (con P2 revisado ambos pueden estar). La coherencia (la visita de una sesión con cita = la de esa cita) la mantiene el servidor. |
 | **P3** | ¿Se puede **renumerar** / reordenar sesiones? | No en T1–T4: `numero` único por tratamiento; agregar = siguiente número; borrar deja el hueco. | Simple; reordenar es un deseo que aún nadie pidió. |
 | **P4** | ¿Columna `precio_paquete` ya en T1 aunque el dinero sea T6? | **Sí**, nullable y sin usar hasta T6. | Evita una segunda migración de la misma tabla; no afirma nada mientras nadie la escriba (la UI no la pinta hasta T6). |
 | **P5** | «Es seguimiento de…» (DISEÑO §7) | **Fuera de T1–T4** (va en T7). | Es un atajo de UI sobre lo mismo; primero que el modelo se use. |
@@ -71,6 +72,8 @@ CREATE TABLE IF NOT EXISTS medical_records.tratamientos (
   CONSTRAINT tratamientos_intervalo_check CHECK (intervalo_dias IS NULL OR intervalo_dias > 0),
   CONSTRAINT tratamientos_precio_check CHECK (precio_paquete IS NULL OR precio_paquete >= 0)
 );
+-- ⚠️ Los NOMBRES reales (constraints e índices) son los de `create-tratamientos.sql`, que siguen
+-- el estilo de Prisma — este bloque es el borrador; manda el .sql (corregido en el review de T1).
 CREATE INDEX IF NOT EXISTS tratamientos_patient_idx ON medical_records.tratamientos(patient_id, estado);
 CREATE INDEX IF NOT EXISTS tratamientos_doctor_idx  ON medical_records.tratamientos(doctor_id, estado);
 -- Destino de la FK compuesta "mismo paciente" de las sesiones.
@@ -146,6 +149,18 @@ Cada rechazo exige **su** SQLSTATE y **su** constraint, no "cualquier error".
 Si todo pasa: se corre de verdad y se verifica con `pg_constraint`. **Commit de T1**: sólo
 `packages/database/**` + el doc ⇒ no despliega nada (a propósito).
 
+**✅ Hecho (2026-09-29).** Code review (alto) antes de correrlo, 10 hallazgos; arreglados en el
+`.sql`: índice `tratamientos_id_doctor_id_key` (destino de la FK de tenencia de T6), índice sobre
+`plantilla_sugerida_id` (si no, borrar una plantilla recorre todos los tratamientos), FK de
+tenencia de la sesión `(patient_id, doctor_id)`, y **todos los locks al principio en orden fijo**
+(`LOCK TABLE … IN SHARE ROW EXCLUSIVE MODE`) para no trabarse con una cita que se concluye. El
+probe se reforzó (T1-8 con una visita DE VERDAD ligada, T1-10 contando lo que queda, los 5 CHECKs
+ejercitados y comparados, los 11 índices por definición completa): **25/25**. Se aplicó con un
+script que corre el `.sql` en UNA transacción y compara las 7 FKs, 5 CHECKs y 11 índices ANTES del
+commit (si algo no cuadra, rollback): todo OK, 0 filas. ⚠️ El probe toma SHARE ROW EXCLUSIVE sobre
+doctors/patients/bookings/visitas/encounter_templates durante toda su corrida (bloquea
+ESCRITURAS): si se vuelve a correr, en horario de poco tráfico.
+
 ---
 
 ## 3. T2 — La API (apps/doctor)
@@ -186,8 +201,12 @@ que el bloque de cita de una visita (`lib/booking-permisos.ts`).
 
 ## 5. T4 — Sincronía con la agenda
 
-**Si se aprueba P1, queda poco:** el estado se deriva al leer, así que concluir, cancelar, no-show y
-borrar citas **no necesitan enganche**. Queda:
+**Con P1, queda poco:** el estado se deriva al leer, así que concluir, cancelar, no-show y borrar
+citas **no necesitan enganche**. Queda:
+
+- **P2 revisado:** `syncVisitaForBooking` (packages/database), al crear o ligar la visita de una
+  cita que es sesión, escribe también `tratamiento_sesiones.visita_id` — en la misma transacción.
+  Así la sesión conserva su visita aunque después la cita se borre o se re-ligue.
 
 - **G1 (b):** al re-ligar el paciente de una cita (`apps/api/.../bookings/[id]`, donde ya corre D1b),
   soltar la cita de la sesión del paciente anterior en la misma transacción.
