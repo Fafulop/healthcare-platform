@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { AlertCircle, CalendarCheck, ChevronRight, FileText, StickyNote } from 'lucide-react';
-import { EncounterCard, type Encounter } from '@/components/medical-records/EncounterCard';
 import { FacturaBadge, PagoBadge, type PatientBooking } from '@/components/medical-records/CitaBadges';
 import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
 import { tieneNotas } from '@/components/citas/NotasCita';
@@ -14,8 +13,6 @@ interface Props {
   patientId: string;
   estado: EstadoCarga;
   visitas: VisitaResumen[];
-  /** Consultas «Sin visita» — nada se esconde (DISEÑO §7). */
-  sueltas: Encounter[];
   /** Para pintar el cobro/factura con el VEREDICTO del servidor, no con el ingreso crudo. */
   bookings: PatientBooking[];
   permisos: BookingPermisos | null;
@@ -23,7 +20,7 @@ interface Props {
 }
 
 /** VISITAS D4 — reemplaza «Historial de Consultas» en la página del paciente. */
-export function VisitasCard({ patientId, estado, visitas, sueltas, bookings, permisos, onNuevaVisita }: Props) {
+export function VisitasCard({ patientId, estado, visitas, bookings, permisos, onNuevaVisita }: Props) {
   const verCobro = permisos?.flujo ?? false;
   const verFactura = permisos?.facturacion ?? false;
   const citaPorId = new Map(bookings.map((b) => [b.id, b]));
@@ -94,18 +91,6 @@ export function VisitasCard({ patientId, estado, visitas, sueltas, bookings, per
               <button onClick={onNuevaVisita} className="text-blue-600 hover:text-blue-800 text-sm mt-2">
                 Crear primera visita
               </button>
-            </div>
-          )}
-
-          {sueltas.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">Consultas sin visita</h3>
-              <p className="text-xs text-gray-500 mb-3">
-                Registradas fuera de una visita. Si hay una visita del mismo día, desde ella puedes traerlas.
-              </p>
-              <ListaColapsable className="space-y-3">
-                {sueltas.map((e) => <EncounterCard key={e.id} encounter={e} patientId={patientId} />)}
-              </ListaColapsable>
             </div>
           )}
         </>

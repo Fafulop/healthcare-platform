@@ -366,6 +366,8 @@ Recortado respecto a la tabla de arriba (decisión del usuario): **sin** etiquet
   - Si las visitas no cargan, TODO en lectura: el selector habría dicho «Ninguna» de algo que sí
     tiene visita (code review).
 - Sólo dr-prueba (misma lista que D4); el manual lo describe en el commit de lanzamiento.
+- **2026-09-29, después de D5b:** «Consultas sin visita» sale de la tarjeta «Visitas» a su PROPIA
+  tarjeta, justo debajo (`visitas/ConsultasSinVisitaCard.tsx`); sin sueltas no se pinta.
 
 ---
 

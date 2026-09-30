@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { NuevaVisitaModal } from '@/components/medical-records/visitas/NuevaVisitaModal';
 import { VisitasCard } from '@/components/medical-records/visitas/VisitasCard';
+import { ConsultasSinVisitaCard } from '@/components/medical-records/visitas/ConsultasSinVisitaCard';
 import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
 import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 import { visitasUiActiva } from '@/lib/visitas-ui';
@@ -1115,16 +1116,23 @@ export default function PatientProfilePage() {
           </div>
 
           {/* Encounters List — con VISITAS (D4) la reemplaza la tarjeta de visitas. */}
+          {/* «Consultas sin visita» va en su PROPIA tarjeta, debajo de «Visitas». */}
           {conVisitas ? (
-            <VisitasCard
-              patientId={patient.id}
-              estado={visitasDelPaciente.estado}
-              visitas={visitasDelPaciente.visitas}
-              sueltas={visitasDelPaciente.sueltas}
-              bookings={patientBookings}
-              permisos={bookingPermisos}
-              onNuevaVisita={() => setShowNuevaVisita(true)}
-            />
+            <>
+              <VisitasCard
+                patientId={patient.id}
+                estado={visitasDelPaciente.estado}
+                visitas={visitasDelPaciente.visitas}
+                bookings={patientBookings}
+                permisos={bookingPermisos}
+                onNuevaVisita={() => setShowNuevaVisita(true)}
+              />
+              <ConsultasSinVisitaCard
+                patientId={patient.id}
+                estado={visitasDelPaciente.estado}
+                sueltas={visitasDelPaciente.sueltas}
+              />
+            </>
           ) : (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
