@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { NuevaVisitaModal } from '@/components/medical-records/visitas/NuevaVisitaModal';
 import { VisitasCard } from '@/components/medical-records/visitas/VisitasCard';
+import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
 import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 import { visitasUiActiva } from '@/lib/visitas-ui';
 import { PatientSummaryModal } from '@/components/medical-records/PatientSummaryModal';
@@ -442,7 +443,17 @@ function CitasIngresosSection({ bookings, permisos, estado, patient }: CitasIngr
   // cita que no ocurrió, y ocupaban la lista con chips que no llevaban a ninguna
   // acción. (Medido antes de decidirlo: cero citas canceladas en prod tienen un
   // ingreso, así que esto no esconde dinero de nadie.)
-  const citasVisibles = bookings.filter((b) => b.status !== 'CANCELLED');
+  //
+  // Las más nuevas ARRIBA, ordenadas aquí y no confiando en el servidor: ordena por
+  // `slot.date` primero y en Postgres un DESC pone los NULL al principio, así que TODAS
+  // las citas sin slot (rango / hora escrita — hoy todas las nuevas) quedaban encima de
+  // las de slot sin importar su fecha, y las del mismo día iban por `createdAt`, no por
+  // hora. Con la lista recortada a 3 eso enseñaba las 3 equivocadas. Sin fecha → al final
+  // (en DESC, '' queda después de cualquier fecha). Mismo orden que «Nueva Visita».
+  const citasVisibles = bookings
+    .filter((b) => b.status !== 'CANCELLED')
+    .sort((a, b) =>
+      (b.date ?? '').localeCompare(a.date ?? '') || (b.startTime ?? '').localeCompare(a.startTime ?? ''));
   const bookingEntryIds = new Set(
     citasVisibles.map((b) => b.ledgerEntryId).filter((id): id is number => id != null)
   );
@@ -550,7 +561,7 @@ function CitasIngresosSection({ bookings, permisos, estado, patient }: CitasIngr
           <p className="text-sm">No tienes permiso para ver las citas de este paciente.</p>
         </div>
       ) : citasVisibles.length > 0 ? (
-        <div className="space-y-3">
+        <ListaColapsable className="space-y-3">
           {citasVisibles.map((b) => {
             const isCompleted = b.status === 'COMPLETED';
             const drafts = b.ledgerEntryId ? (draftsByEntry.get(b.ledgerEntryId) ?? []) : [];
@@ -740,7 +751,7 @@ function CitasIngresosSection({ bookings, permisos, estado, patient }: CitasIngr
               </div>
             );
           })}
-        </div>
+        </ListaColapsable>
       ) : (
         <div className="text-center py-6 text-gray-500">
           <CalendarDays className="w-8 h-8 text-gray-300 mx-auto mb-2" />
@@ -797,7 +808,8 @@ export default function PatientProfilePage() {
     fetch(`/api/medical-records/patients/${patientId}/notes`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) setRecentNotes(d.data.slice(0, 3));
+        // TODAS (ya vienen por `updatedAt` desc): la tarjeta enseña 3 y abre el resto.
+        if (d.success) setRecentNotes(d.data);
       })
       .catch(() => {});
     fetch(`/api/medical-records/patients/${patientId}/bookings`)
@@ -1082,14 +1094,27 @@ export default function PatientProfilePage() {
             />
           ) : (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
-              <FileText className="w-5 h-5" />
-              Historial de Consultas
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Historial de Consultas
+              </h2>
+              {patient.encounters && patient.encounters.length > 0 && (
+                <Link
+                  href={`/dashboard/medical-records/patients/${patient.id}/timeline`}
+                  className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  Ver todas
+                </Link>
+              )}
+            </div>
 
+            {/* Las 3 más recientes y «Ver todas» → Línea de Tiempo, NO la lista colapsable:
+                `patient.encounters` trae sólo las ÚLTIMAS 5 (`take: 5` en GET …/patients/[id]),
+                así que «Ver 2 más» afirmaba que no había más en un paciente con 20. */}
             {patient.encounters && patient.encounters.length > 0 ? (
               <div className="space-y-3">
-                {patient.encounters.map(encounter => (
+                {patient.encounters.slice(0, 3).map(encounter => (
                   <EncounterCard key={encounter.id} encounter={encounter} patientId={patient.id} />
                 ))}
               </div>
@@ -1117,7 +1142,7 @@ export default function PatientProfilePage() {
 
             </div>
             {patientFormularios.length > 0 ? (
-              <div className="space-y-2">
+              <ListaColapsable className="space-y-2">
                 {patientFormularios.map((f) => (
                   <Link
                     key={f.id}
@@ -1139,7 +1164,7 @@ export default function PatientProfilePage() {
                     </span>
                   </Link>
                 ))}
-              </div>
+              </ListaColapsable>
             ) : (
               <div className="text-center py-6 text-gray-500">
                 <ClipboardList className="w-8 h-8 text-gray-300 mx-auto mb-2" />
@@ -1171,7 +1196,7 @@ export default function PatientProfilePage() {
               </Link>
             </div>
             {recentNotes.length > 0 ? (
-              <div className="space-y-2">
+              <ListaColapsable className="space-y-2">
                 {recentNotes.map((note) => (
                   <Link
                     key={note.id}
@@ -1188,7 +1213,7 @@ export default function PatientProfilePage() {
                     </p>
                   </Link>
                 ))}
-              </div>
+              </ListaColapsable>
             ) : (
               <div className="text-center py-6 text-gray-500">
                 <NotebookPen className="w-8 h-8 text-gray-300 mx-auto mb-2" />

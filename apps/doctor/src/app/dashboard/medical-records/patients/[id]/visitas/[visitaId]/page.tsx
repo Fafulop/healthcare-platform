@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { ENCOUNTER_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from '@/components/medical-records/EncounterCard';
 import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical-records/CitaBadges';
+import { NotasCita } from '@/components/citas/NotasCita';
 import { formatoFechaVisita, totalHijos, visitasUiActiva } from '@/lib/visitas-ui';
 import { useVisitaDetalle, type ConsultaDeVisita } from '../_components/useVisitaDetalle';
 
@@ -173,6 +174,9 @@ export default function VisitaPage() {
                 <BookingStatusPill status={cita.status} />
               </div>
               {cita.servicio && <p className="text-sm text-gray-600">{cita.servicio}</p>}
+              {/* Lo que se escribió al agendar ("seguimiento Wegovy"). Sale de `GET …/bookings`,
+                  que sin permiso de `citas` no manda ninguna cita. Completa: aquí se viene a leer. */}
+              <NotasCita notes={booking?.notes} recortable={false} />
               {booking && (verCobro || verFactura) && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {verCobro && <PagoBadge estadoPago={booking.estadoPago ?? 'SIN_REGISTRO'} metodoPago={booking.metodoPago ?? null} />}

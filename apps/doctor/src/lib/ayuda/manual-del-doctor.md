@@ -378,6 +378,11 @@ Notas Generales · Notas Recientes.
   «Agregar» o «Editar».
 - **Citas e Ingresos** — sus citas, con si están pagadas y facturadas.
 
+Formularios, Notas Recientes y Citas e Ingresos enseñan sólo las **3 más recientes**; el botón
+**«Ver N más»** debajo abre las demás y «Ver menos» las vuelve a cerrar. Historial de Consultas
+enseña también las 3 más recientes, y su enlace **«Ver todas»** lleva a la «Línea de Tiempo», con
+el historial completo.
+
 ### Consultas
 
 **«Nueva Consulta»:**

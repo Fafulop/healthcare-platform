@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertCircle, CalendarCheck, ChevronRight, FileText } from 'lucide-react';
+import { AlertCircle, CalendarCheck, ChevronRight, FileText, StickyNote } from 'lucide-react';
 import { EncounterCard, type Encounter } from '@/components/medical-records/EncounterCard';
 import { FacturaBadge, PagoBadge, type PatientBooking } from '@/components/medical-records/CitaBadges';
+import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
+import { tieneNotas } from '@/components/citas/NotasCita';
 import type { BookingPermisos } from '@/lib/booking-permisos';
 import { describirConteo, formatoFechaVisita, totalHijos, visitaHref, type VisitaResumen } from '@/lib/visitas-ui';
 import type { EstadoCarga } from './useVisitasDelPaciente';
@@ -43,7 +45,7 @@ export function VisitasCard({ patientId, estado, visitas, sueltas, bookings, per
       ) : (
         <>
           {visitas.length > 0 ? (
-            <div className="space-y-2">
+            <ListaColapsable className="space-y-2">
               {visitas.map((v) => {
                 const vacia = totalHijos(v.conteo) === 0;
                 const b = v.cita ? citaPorId.get(v.cita.id) : undefined;
@@ -62,6 +64,14 @@ export function VisitasCard({ patientId, estado, visitas, sueltas, bookings, per
                         {hora && <span className="font-normal text-gray-500"> · {hora}</span>}
                       </p>
                       {v.cita?.servicio && <p className="text-xs text-gray-500 mt-0.5">{v.cita.servicio}</p>}
+                      {/* Las notas de la cita, en UN renglón: la fila entera es un link, así que el
+                          «ver más» de `NotasCita` navegaría. Completas, en la pantalla de la visita. */}
+                      {b && tieneNotas(b.notes) && (
+                        <p className="text-xs text-gray-600 mt-1 flex items-center gap-1 min-w-0">
+                          <StickyNote className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                          <span className="truncate">{b.notes!.trim()}</span>
+                        </p>
+                      )}
                       <p className={`text-sm mt-1 ${vacia ? 'text-gray-400 italic' : 'text-gray-600'}`}>
                         {vacia ? 'Vacía' : describirConteo(v.conteo)}
                       </p>
@@ -76,7 +86,7 @@ export function VisitasCard({ patientId, estado, visitas, sueltas, bookings, per
                   </Link>
                 );
               })}
-            </div>
+            </ListaColapsable>
           ) : (
             <div className="text-center py-6 text-gray-500">
               <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
@@ -93,9 +103,9 @@ export function VisitasCard({ patientId, estado, visitas, sueltas, bookings, per
               <p className="text-xs text-gray-500 mb-3">
                 Registradas fuera de una visita. Si hay una visita del mismo día, desde ella puedes traerlas.
               </p>
-              <div className="space-y-3">
+              <ListaColapsable className="space-y-3">
                 {sueltas.map((e) => <EncounterCard key={e.id} encounter={e} patientId={patientId} />)}
-              </div>
+              </ListaColapsable>
             </div>
           )}
         </>

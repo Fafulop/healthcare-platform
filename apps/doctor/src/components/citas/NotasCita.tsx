@@ -3,10 +3,12 @@
 /**
  * Las NOTAS de una cita — lo que el doctor escribió al agendarla.
  *
- * Vive en un solo lugar porque se pinta en CINCO superficies (modal del dashboard ·
+ * Vive en un solo lugar porque se pinta en SEIS superficies (modal del dashboard ·
  * modal de /appointments · lista del expediente · fila desplegada de la tabla de citas,
- * en su versión de teléfono y en la de escritorio). Cinco copias del mismo bloque se
- * separan en silencio: basta que alguien arregle el recorte en una y no en las otras.
+ * en su versión de teléfono y en la de escritorio · pantalla de una VISITA). Seis copias
+ * del mismo bloque se separan en silencio: basta que alguien arregle el recorte en una y
+ * no en las otras. (La tarjeta «Visitas» enseña sólo un renglón SIN este componente: su
+ * fila es un link y el «ver más» navegaría; usa `tieneNotas` para la misma regla.)
  *
  * Cinco decisiones que NO son cosméticas y por eso viven aquí y no en cada llamada:
  *
