@@ -13,7 +13,7 @@ import { prisma, Prisma, type PrismaClient, type BookingStatus } from '@healthca
 import type { NextRequest } from 'next/server';
 import { logAudit, type MedicalAuthContext } from '@/lib/medical-auth';
 import { AppError } from '@/lib/api-error-handler';
-import { bloquesDeCita, cargarCitaLigable, diaISO, exigirMismoDiaSiTienePlantillas } from '@/lib/visitas';
+import { bloquesDeCita, cargarCitaLigable, diaISO, exigirMismoDiaSiTienePlantillas, unicaPorCita } from '@/lib/visitas';
 
 type Db = Prisma.TransactionClient | PrismaClient;
 
@@ -152,6 +152,19 @@ export function estadoDeSesion(
  */
 export function citaEfectiva(s: { patientId: string; bookingId: string | null; booking: { patientId: string | null } | null }) {
   return s.bookingId && s.booking?.patientId === s.patientId ? s.bookingId : null;
+}
+
+export type MotivoNoSeMueve = 'sesion_cancelada' | 'sesion_con_visita';
+
+/**
+ * Reagendar: ¿la sesión pasa SOLA a la cita nueva? Sólo en el caso limpio. Una regla, un lugar: la
+ * usan la ruta `reagendar-sesion` y la tarjeta del asistente (que le dice al doctor lo que va a
+ * pasar ANTES de confirmar). null = sí se mueve.
+ */
+export function motivoNoSeMueve(s: { cancelada: boolean; visitaId: string | null }): MotivoNoSeMueve | null {
+  if (s.cancelada) return 'sesion_cancelada';
+  if (s.visitaId) return 'sesion_con_visita';
+  return null;
 }
 
 /** Lo mínimo para DERIVAR el estado (los conteos no necesitan más). */
@@ -384,6 +397,62 @@ export async function planLigarCitaASesion(
   }
 
   return { visitaDeSesion: visitaActual ?? c.visitaId, moverVisita, soltarSesion };
+}
+
+/**
+ * Escribe una sesión que (quizá) liga una cita, en UNA transacción: suelta la sesión vieja de la
+ * cita (G1), mueve la visita manual a la cita (G2) y actualiza la sesión con `data`. La usan el
+ * PATCH de la sesión y el reagendado (`/api/appointments/reagendar-sesion`), para que «ligar una
+ * cita» se escriba de UNA sola forma. Un choque en `visitas` sale con su mensaje (`unicaPorCita`);
+ * uno en sesiones, con el suyo (`unicaDeSesion`).
+ *
+ * `siSigue`: la escritura sólo procede si la sesión SIGUE así (p. ej. con la cita que se leyó);
+ * si otra petición la cambió entre la lectura y aquí, 409 en vez de pisarla.
+ */
+export async function escribirSesion(
+  sesionId: string, data: Prisma.TratamientoSesionUncheckedUpdateInput,
+  plan: PlanLigarCita | null, bookingId: string | null,
+  siSigue?: Prisma.TratamientoSesionWhereInput,
+) {
+  await prisma
+    .$transaction(async (tx) => {
+      if (plan?.soltarSesion) {
+        await tx.tratamientoSesion.update({ where: { id: plan.soltarSesion.id }, data: { bookingId: null } });
+      }
+      if (plan?.moverVisita) {
+        await tx.visita
+          .update({
+            where: { id: plan.moverVisita.id },
+            data: { bookingId, ...(plan.moverVisita.fecha ? { fecha: plan.moverVisita.fecha } : {}) },
+          })
+          .catch(unicaPorCita);
+      }
+      if (siSigue) {
+        const { count } = await tx.tratamientoSesion.updateMany({ where: { ...siSigue, id: sesionId }, data });
+        if (count === 0) throw new AppError('La sesión cambió mientras tanto; revisa el tratamiento', 409);
+      } else {
+        await tx.tratamientoSesion.update({ where: { id: sesionId }, data });
+      }
+    })
+    .catch(unicaDeSesion);
+}
+
+/** Auditoría (NOM-024) de lo que `escribirSesion` hizo FUERA de la sesión: la visita movida y la sesión soltada. */
+export async function auditarEfectosDeLigar(
+  ctx: MedicalAuthContext, request: NextRequest, patientId: string, plan: PlanLigarCita | null, bookingId: string,
+) {
+  if (plan?.moverVisita) {
+    await logAudit({
+      patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role, request,
+      action: 'update_visita', resourceType: 'visita', resourceId: plan.moverVisita.id,
+      changes: {
+        bookingId: { from: null, to: bookingId },
+        ...(plan.moverVisita.fecha ? { fecha: { to: diaISO(plan.moverVisita.fecha) } } : {}),
+        motivo: 'su sesión de tratamiento se ligó a esta cita',
+      },
+    });
+  }
+  if (plan?.soltarSesion) await auditarSesionSoltada(ctx, request, plan.soltarSesion, bookingId);
 }
 
 /**

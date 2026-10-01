@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { AppError, handleApiError } from '@/lib/api-error-handler';
-import { diaISO, leerBody, puedeVer, unicaPorCita } from '@/lib/visitas';
+import { leerBody, puedeVer } from '@/lib/visitas';
 import {
-  auditarSesionSoltada, cargarSesion, citaEfectiva, parseNotas, planLigarCitaASesion, sesionesParaRespuesta, unicaDeSesion,
-  validarVisitaParaSesion, type PlanLigarCita,
+  auditarEfectosDeLigar, cargarSesion, citaEfectiva, escribirSesion, parseNotas, planLigarCitaASesion,
+  sesionesParaRespuesta, validarVisitaParaSesion, type PlanLigarCita,
 } from '@/lib/tratamientos';
 
 // VISITAS fase 2 T2 — docs/DESDE JUNIO/VISITAS/03-PLAN-fase-2.md §3 + G1, G2, G4. Permiso:
@@ -95,26 +95,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
     }
 
-    const moverVisita = plan?.moverVisita ?? null;
-    const soltar = plan?.soltarSesion ?? null;
-    await prisma
-      .$transaction(async (tx) => {
-        if (soltar) {
-          await tx.tratamientoSesion.update({ where: { id: soltar.id }, data: { bookingId: null } });
-        }
-        if (moverVisita) {
-          // Un choque aquí es de VISITAS (la cita ganó su visita automática mientras tanto): sale
-          // con su mensaje, no con el de sesiones.
-          await tx.visita
-            .update({
-              where: { id: moverVisita.id },
-              data: { bookingId: bookingFinal, ...(moverVisita.fecha ? { fecha: moverVisita.fecha } : {}) },
-            })
-            .catch(unicaPorCita);
-        }
-        await tx.tratamientoSesion.update({ where: { id: s.id }, data });
-      })
-      .catch(unicaDeSesion);
+    // Si cambia la cita o la visita, sólo si la sesión SIGUE como se leyó: un reagendado (u otra
+    // pestaña) que la movió entre la lectura y aquí da 409 en vez de quedar pisado.
+    const tocaLigas = data.bookingId !== undefined || data.visitaId !== undefined;
+    await escribirSesion(
+      s.id, data, plan, bookingFinal,
+      tocaLigas ? { bookingId: s.bookingId, visitaId: s.visitaId } : undefined,
+    );
 
     const changes: Record<string, unknown> = {};
     if (data.bookingId !== undefined) changes.bookingId = { from: citaActual, to: bookingFinal };
@@ -129,17 +116,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       ...audit, patientId, action, resourceType: 'tratamiento_sesion', resourceId: s.id,
       changes: { tratamientoId, numero: s.numero, ...changes },
     });
-    if (moverVisita) {
-      await logAudit({
-        ...audit, patientId, action: 'update_visita', resourceType: 'visita', resourceId: moverVisita.id,
-        changes: {
-          bookingId: { from: null, to: bookingFinal },
-          ...(moverVisita.fecha ? { fecha: { to: diaISO(moverVisita.fecha) } } : {}),
-          motivo: 'su sesión de tratamiento se ligó a esta cita',
-        },
-      });
-    }
-    if (soltar) await auditarSesionSoltada(ctx, request, soltar, bookingFinal as string);
+    if (bookingFinal) await auditarEfectosDeLigar(ctx, request, patientId, plan, bookingFinal);
 
     const [out] = await sesionesParaRespuesta(ctx, patientId, { id: s.id });
     return NextResponse.json({ success: true, data: out });

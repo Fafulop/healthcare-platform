@@ -108,3 +108,42 @@ export const etiquetaSesion = (numero: number, planeadas: number | null) =>
 
 export const tratamientoHref = (patientId: string, tratamientoId: string) =>
   `/dashboard/medical-records/patients/${patientId}/tratamientos/${tratamientoId}`;
+
+/**
+ * Reagendar = cancelar la vieja + crear la nueva (agenda y asistente). Si la vieja era la sesión de
+ * un tratamiento, la sesión se pasa a la nueva (`POST /api/appointments/reagendar-sesion`, que sólo
+ * lo hace en el caso limpio). Se llama DESPUÉS de que el reagendado salió bien y nunca lo deshace.
+ * Devuelve el texto para el doctor, o null si la cita no era de ningún tratamiento. Un error NO
+ * afirma que la cita era de un tratamiento: dice que no se pudo revisar.
+ */
+export async function pasarSesionACitaReagendada(
+  deBookingId: string, aBookingId: string,
+): Promise<{ ok: boolean; texto: string } | null> {
+  const NO_SE_PUDO = { ok: false, texto: 'No se pudo revisar si la cita era la sesión de un tratamiento: revisa los tratamientos del paciente.' };
+  try {
+    const res = await fetch('/api/appointments/reagendar-sesion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deBookingId, aBookingId }),
+    });
+    const d = await res.json().catch(() => null);
+    if (!res.ok || !d?.success) {
+      // 409 de la regla de ligar: el servidor SÍ encontró la sesión y dice por qué no se movió.
+      return res.status === 409 && d?.error
+        ? { ok: false, texto: `La cita era la sesión de un tratamiento y no se pasó a la nueva (${d.error}): lígala desde el tratamiento.` }
+        : NO_SE_PUDO;
+    }
+    if (!d.sesion) return null;
+    const cual = `La ${etiquetaSesion(d.sesion.numero, d.sesion.sesionesPlaneadas).toLowerCase()}${d.sesion.nombre ? ` de «${d.sesion.nombre}»` : ''}`;
+    if (d.movida) return { ok: true, texto: `${cual} pasó a la nueva cita.` };
+    const porque: Record<string, string> = {
+      sesion_con_visita: 'ya tiene su visita',
+      sesion_cancelada: 'está cancelada',
+      cita_no_cancelada: 'la cita anterior no quedó cancelada',
+      no_es_reagendado: 'la cita nueva no quedó como reagendada',
+    };
+    return { ok: false, texto: `${cual} no se pasó a la nueva cita (${porque[d.motivo] ?? 'no se pudo'}): revísala en el tratamiento.` };
+  } catch {
+    return NO_SE_PUDO;
+  }
+}

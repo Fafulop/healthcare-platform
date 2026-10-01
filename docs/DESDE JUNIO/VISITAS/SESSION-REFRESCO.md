@@ -43,6 +43,10 @@
    derivado — así no hay segunda copia de `estadoDeSesion()`. Sin sección en el HTML por paciente
    (decisión del usuario: el CSV basta; el LEEME lo dice). Corrido de verdad contra prod (lectura)
    con un tratamiento de prueba en dr-prueba: filas = pantalla; luego borrado.
+   ✅ **Reagendar lleva la sesión (2026-10-01):** reagendar = cancelar + crear; la sesión pasa a la
+   cita nueva con `POST /api/appointments/reagendar-sesion` (agenda y asistente, sólo el caso
+   limpio; la tarjeta del asistente lo dice). Lo robusto —en el servidor, dentro del reagendado—
+   es de T4 (`03-PLAN` §5). Falta probarlo a mano tras el deploy.
    **Para LANZAR a todos:** abrir `tratamientosUiActiva()` + manual, guía y widget en el MISMO commit. Decisiones YA tomadas (no re-litigar): P1 estado
    DERIVADO (sólo `cancelada` se guarda), **P2 revisado: la sesión SIEMPRE guarda su visita**, P3
    números fijos, P4 `precio_paquete` sin usar hasta T6, P5 seguimientos al final, G10 todos los

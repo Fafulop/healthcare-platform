@@ -22,6 +22,7 @@
  *   does not create the LedgerEntry — the executor must POST it too).
  */
 
+import { citaEfectiva, motivoNoSeMueve } from '@/lib/tratamientos';
 import { prisma, tierAllows } from '@healthcare/database';
 import type { AnthropicTool } from './anthropic';
 import {
@@ -1439,6 +1440,26 @@ async function proposeRescheduleBooking(
         ? { enviar: consultoriosDelDoctor[0].id, nota: `Consultorio: ${consultoriosDelDoctor[0].name}` }
         : { enviar: null, nota: 'Consultorio: no registrado (la cita original tampoco lo tenía)' };
 
+  // TRATAMIENTOS: si la cita es la sesión de un tratamiento, la tarjeta lo DICE (la escritura que
+  // la sigue — pasar la sesión a la cita nueva — también la confirma el doctor aquí). Sin el
+  // nombre del tratamiento: esta tarjeta la puede ver un ayudante sin permiso de expedientes.
+  const sesion = await prisma.tratamientoSesion.findFirst({
+    where: { doctorId: ctx.doctorId, bookingId: b.id },
+    select: {
+      numero: true, cancelada: true, visitaId: true, patientId: true, bookingId: true,
+      booking: { select: { patientId: true } }, tratamiento: { select: { sesionesPlaneadas: true } },
+    },
+  });
+  const sesionPropia = sesion && citaEfectiva(sesion) ? sesion : null;
+  const noSeMueve = sesionPropia ? motivoNoSeMueve(sesionPropia) : null;
+  const cualSesion = sesionPropia
+    ? `la sesión ${sesionPropia.numero}${sesionPropia.tratamiento.sesionesPlaneadas ? ` de ${sesionPropia.tratamiento.sesionesPlaneadas}` : ''} de un tratamiento`
+    : '';
+  const notaSesion = !sesionPropia ? null
+    : noSeMueve
+      ? `Esta cita es ${cualSesion}; la sesión NO pasará sola a la nueva cita (${noSeMueve === 'sesion_cancelada' ? 'está cancelada' : 'ya tiene su visita'}) — revísala en el tratamiento.`
+      : `Esta cita es ${cualSesion}: la sesión pasa a la nueva cita.`;
+
   const advertencias = [
     '📱 Notifica DOS veces: email de cancelación de la cita original + SMS/email/Calendar de la nueva. Los avisos no se pueden deshacer.',
     ...(b.status === 'PENDING' ? ['La cita original es PENDIENTE — la nueva nace CONFIRMADA (creación del doctor).'] : []),
@@ -1456,11 +1477,15 @@ async function proposeRescheduleBooking(
       `${slot.servicio.nombre} (${slot.servicio.duracionMinutos} min) · nueva: ${input.newDate} ${input.newStartTime}–${endTime}`,
       'UNA acción: el sistema cancela la original y crea la nueva con los mismos datos del paciente',
       consultorioNuevo.nota,
+      ...(notaSesion ? [notaSesion] : []),
     ],
     advertencias,
     params: {
       bookingId: b.id,
       ...(restorePrice !== null ? { restorePrice } : {}),
+      // El ejecutor sólo llama a reagendar-sesion si la TARJETA dijo «la sesión pasa a la nueva
+      // cita»: lo que el doctor confirma es lo que se escribe, ni más ni menos.
+      ...(sesionPropia && !noSeMueve ? { sesionDeTratamiento: true } : {}),
       create: {
         doctorId: ctx.doctorId,
         date: input.newDate,

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { Loader2, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import { pasarSesionACitaReagendada, tratamientosUiActiva } from "@/lib/tratamientos-ui";
 import { toast } from "@/lib/practice-toast";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { useCalendar } from "./_hooks/useCalendar";
@@ -518,20 +519,29 @@ export default function AppointmentsPage() {
         doctorSlug={doctorProfile?.slug}
         preselectedDate={gapPreset?.date}
         preselectedTime={gapPreset?.startTime}
-        onSuccess={async () => {
+        onSuccess={async (newBookingId) => {
           const toCancel = rescheduleBookingRef.current;
           if (toCancel) {
             rescheduleBookingRef.current = null;
             setRescheduleBooking(null);
+            let cancelada = false;
             try {
               const res = await authFetch(
                 `${API_URL}/api/appointments/bookings/${toCancel.id}`,
                 { method: "PATCH", body: JSON.stringify({ status: "CANCELLED" }) }
               );
               const data = await res.json();
+              cancelada = !!data.success;
               if (!data.success) toast.error("No se pudo cancelar la cita anterior automáticamente");
             } catch {
               toast.error("No se pudo cancelar la cita anterior automáticamente");
+            }
+            // TRATAMIENTOS: si la vieja era una sesión, la sesión se pasa a la nueva. Sólo si la
+            // vieja SÍ se canceló (si no, hay dos citas vivas) y sólo para quien tiene tratamientos.
+            if (cancelada && tratamientosUiActiva(doctorId)) {
+              const sesion = await pasarSesionACitaReagendada(toCancel.id, newBookingId);
+              // Que no se mueva (sesión cancelada, con visita) es un aviso, no un error: el reagendado sí quedó.
+              if (sesion) (sesion.ok ? toast.success : toast.warning)(sesion.texto);
             }
           }
           await onRefresh();

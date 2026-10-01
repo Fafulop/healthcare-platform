@@ -297,6 +297,16 @@ citas **no necesitan enganche**. Queda:
   cita que es sesión, escribe también `tratamiento_sesiones.visita_id` — en la misma transacción.
   Así la sesión conserva su visita aunque después la cita se borre o se re-ligue.
 
+- **Reagendar en el SERVIDOR (2026-10-01).** Hoy reagendar = cancelar + crear, y la sesión pasa a
+  la cita nueva con `POST /api/appointments/reagendar-sesion`, que llaman los DOS clientes (agenda
+  y asistente) DESPUÉS de reagendar, y sólo en el caso limpio (vieja CANCELADA, nueva
+  `isRescheduled`, sesión no cancelada y SIN visita propia). Falta: hacerlo dentro del reagendado
+  mismo en `apps/api` (una transacción), para que un navegador cerrado a la mitad, los caminos
+  viejos sin enlace (`appointments/v1`, `v2`) o uno futuro no dejen la sesión en la cita cancelada.
+  Y decidir qué pasa con una sesión que YA tiene visita (hoy: no se mueve y se avisa).
+- **Aviso en la agenda** «Sesión 3 de 6 — X» en la tarjeta de la cita (abajo): con él, el doctor
+  sabe ANTES de reagendar o cancelar que la cita es de un tratamiento.
+
 - **G1 (b):** al re-ligar el paciente de una cita (`apps/api/.../bookings/[id]`, donde ya corre D1b),
   soltar la cita de la sesión del paciente anterior en la misma transacción.
 

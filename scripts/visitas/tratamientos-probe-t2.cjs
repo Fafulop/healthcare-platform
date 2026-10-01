@@ -133,6 +133,30 @@ const SESION_SELECT = {
         select: { bookingId: true, visitaId: true },
       });
       ok('T3 ocupadasDelPaciente', ocup.some((o) => o.bookingId === b1.id) && ocup.some((o) => o.visitaId === v.id));
+      // Reagendar — `POST /api/appointments/reagendar-sesion`: la sesión de la cita vieja.
+      const sr = await tx.tratamientoSesion.findFirst({
+        where: { doctorId, bookingId: b1.id },
+        select: {
+          id: true, patientId: true, numero: true, visitaId: true, cancelada: true, tratamientoId: true, bookingId: true,
+          tratamiento: { select: { nombre: true, sesionesPlaneadas: true } },
+          booking: { select: { patientId: true, status: true } },
+        },
+      });
+      ok('Reagendar: sesión de la cita vieja', sr?.numero === 1 && sr.tratamiento.nombre === 'PROBE T2' && sr.booking?.patientId === patientId);
+      const nb = await tx.booking.findFirst({ where: { id: b1.id, doctorId }, select: { isRescheduled: true, status: true } });
+      ok('Reagendar: booking.isRescheduled', nb && typeof nb.isRescheduled === 'boolean');
+      const cond = await tx.tratamientoSesion.updateMany({
+        where: { id: s1.id, bookingId: 'otra-cita', visitaId: null, cancelada: false }, data: { notas: 'x' },
+      });
+      ok('Reagendar: escritura condicionada (no coincide → 0)', cond.count === 0);
+      const card = await tx.tratamientoSesion.findFirst({
+        where: { doctorId, bookingId: b1.id },
+        select: {
+          numero: true, cancelada: true, visitaId: true, patientId: true, bookingId: true,
+          booking: { select: { patientId: true } }, tratamiento: { select: { sesionesPlaneadas: true } },
+        },
+      });
+      ok('Reagendar: sesión para la tarjeta del asistente', card?.numero === 1 && card.tratamiento.sesionesPlaneadas === 3);
       ok('T3 id de dr-prueba en tratamientos-ui.ts', doctorId === 'cmni1bov90000mk0lyeztr3ad', doctorId);
 
       // Fixes del review: lecturas nuevas.
