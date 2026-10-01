@@ -369,8 +369,8 @@ Botones de arriba: «Nueva Visita» · «Recetas» · «Informe» · «Línea de
 
 **Columna izquierda:** Información de Contacto (con «Editar» para cambiar sus datos; la **flecha**
 de abajo abre su Contacto de Emergencia y sus Notas Generales — sin ninguno de los dos no hay
-flecha) · **Visitas** · **Consultas sin visita** (sólo si hay) · Formularios (los pre-consulta que
-contestó) · Notas Recientes.
+flecha) · **Visitas** · **Consultas sin visita** (sólo si hay) · **Tratamientos** · Formularios (los
+pre-consulta que contestó) · Notas Recientes.
 
 **Columna derecha:**
 
@@ -381,8 +381,8 @@ contestó) · Notas Recientes.
 - **Citas e Ingresos** — sus citas, con si están pagadas y facturadas.
 
 Visitas, Consultas sin visita, Formularios, Notas Recientes y Citas e Ingresos enseñan sólo las
-**3 más recientes**; el botón **«Ver N más»** debajo abre las demás y «Ver menos» las vuelve a
-cerrar.
+**3 más recientes**; Tratamientos enseña **3, los activos primero**. El botón **«Ver N más»** debajo
+abre los demás y «Ver menos» los vuelve a cerrar.
 
 ### Visitas
 
@@ -412,10 +412,52 @@ documentos, notas, recetas e informes, la cita y un comentario.
   mismo día. La fecha de una plantilla es la de su visita y no cambia (tampoco al editarla): por eso
   sólo se mueve entre visitas de su día, y una visita con plantillas ya no cambia de fecha.
 - **«Borrar visita»** sólo aparece mientras está vacía.
+- Si la visita es una sesión de un tratamiento, debajo del nombre del paciente dice **«Sesión 3 de
+  6 — (nombre del tratamiento)»**; clic para abrir el tratamiento.
 
 **Consultas sin visita** — las registradas fuera de una visita (por ejemplo, las de antes de que
 existieran las visitas). Se ven en su propia tarjeta; desde una visita del mismo día puedes
 traerlas.
+
+### Tratamientos
+
+Un **tratamiento** es un plan de **varias sesiones** con un paciente (por ejemplo, fisioterapia en
+10 sesiones o un injerto en 6). Cada sesión puede tener su **cita** (en la agenda) y su **visita**
+(lo que pasó ese día).
+
+**Crear uno:** en el perfil, tarjeta **Tratamientos** → **«Nuevo tratamiento»** (o «Crear un
+tratamiento» si no hay ninguno). Escribe el **Nombre**, las **Sesiones planeadas** (opcional: se
+crean esas sesiones «Por agendar»; vacío = sin número fijo) y **Notas**, y pica **«Crear
+tratamiento»**.
+
+**La pantalla del tratamiento** (clic en uno de la tarjeta) enseña sus sesiones en orden. Cada
+sesión dice en qué va:
+
+- **Por agendar** — sin cita, o su cita se canceló o el paciente no asistió (se dice por qué).
+- **Agendada** — tiene una cita pendiente o confirmada (con su fecha y hora).
+- **Hecha** — ya tiene su visita, o su cita se completó.
+- **Cancelada** — la cancelaste tú.
+
+Lo que puedes hacer en cada sesión:
+
+- **«Ligar una cita…»** — elige una cita del paciente; **«Desligar cita»** la suelta (la cita sigue
+  en la agenda). Si la cita de la sesión se canceló, puedes ligar otra.
+- **«Ligar una visita…»** — sólo si la sesión no tiene cita; **«Abrir su visita»** la abre.
+- **«Cancelar sesión»** — si tiene una cita activa, pregunta qué hacer con ella: **«Cancelar la
+  sesión y la cita»** (se cancela como desde la agenda, con los mismos avisos al paciente),
+  **«Cancelar sólo la sesión (la cita se queda)»** o **«No cancelar nada»**. Una sesión cancelada
+  se puede **«Reactivar»**.
+- **«Notas»** de la sesión, y **«Borrar»** mientras no tenga cita ni visita.
+- **«Agregar sesión»** agrega la siguiente. Cambiar las sesiones planeadas (en **«Editar»**) no
+  crea ni borra sesiones.
+
+Del tratamiento completo: **«Editar»** (nombre, sesiones planeadas, notas), **«Terminar»**,
+**«Cancelar tratamiento»** y **«Reactivar»**. **«Borrar»** sólo funciona mientras ninguna sesión
+tenga cita ni visita; si no, cancélalo.
+
+**Si reagendas la cita de una sesión** (desde la agenda o con el asistente), la sesión pasa sola a
+la cita nueva y te avisa. Si la sesión ya tiene su visita o está cancelada, no se mueve: te avisa y
+la ligas tú desde el tratamiento.
 
 ### Consultas
 

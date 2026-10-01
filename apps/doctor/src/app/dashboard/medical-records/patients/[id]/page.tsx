@@ -795,7 +795,7 @@ export default function PatientProfilePage() {
   // visitas («Nueva Consulta» + «Historial de Consultas»).
   const conVisitas = visitasUiActiva(doctorId);
   const visitasDelPaciente = useVisitasDelPaciente(patientId, conVisitas);
-  // TRATAMIENTOS T3 — sólo la lista de `lib/tratamientos-ui.ts` hasta el lanzamiento.
+  // TRATAMIENTOS — `tratamientosUiActiva` (lib/tratamientos-ui.ts): abierta para todos desde el lanzamiento.
   const conTratamientos = conVisitas && tratamientosUiActiva(doctorId);
   const tratamientosDelPaciente = useTratamientosDelPaciente(patientId, conTratamientos);
   const [showNuevoTratamiento, setShowNuevoTratamiento] = useState(false);

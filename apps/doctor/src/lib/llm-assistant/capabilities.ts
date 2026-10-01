@@ -220,6 +220,43 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
         },
       },
 
+      'Tratamiento': {
+        states:
+          'Tratamiento: Activo | Terminado | Cancelado. Cada sesión: Por agendar | Agendada | Hecha | Cancelada ' +
+          '(el estado de la sesión sale de su cita y su visita; sólo "Cancelada" la marca el doctor).',
+        actions: {
+
+          crear: {
+            allowedIf:
+              'Perfil del paciente → tarjeta "Tratamientos" → "Nuevo tratamiento" (o "Crear un tratamiento") → ' +
+              'Nombre, Sesiones planeadas (opcional), Notas → "Crear tratamiento".',
+            notes: 'Con sesiones planeadas se crean esas sesiones "Por agendar". "Agregar sesión" agrega la siguiente.',
+          },
+
+          'ligar una cita o una visita a una sesión': {
+            allowedIf:
+              'En la pantalla del tratamiento: "Ligar una cita…" (citas del paciente que no son de otra sesión) o, ' +
+              'sin cita, "Ligar una visita…". "Desligar cita" / "Desligar visita" las sueltan.',
+            notes: 'Ligar una cita requiere permiso de citas.',
+          },
+
+          'cancelar una sesión': {
+            allowedIf: '"Cancelar sesión". Con una cita activa pregunta: cancelar la sesión y la cita, sólo la sesión, o nada.',
+            notes: 'Cancelar la cita desde aquí es lo mismo que desde la agenda (con sus avisos). "Reactivar" la deshace.',
+          },
+
+          reagendar: {
+            allowedIf: 'Al reagendar la cita de una sesión (agenda o asistente), la sesión pasa sola a la cita nueva.',
+            blockedIf: 'La sesión ya tiene su visita o está cancelada: no se mueve, se avisa y se liga a mano.',
+          },
+
+          borrar: {
+            allowedIf: '"Borrar" sólo mientras ninguna sesión tenga cita ni visita.',
+            blockedIf: 'Alguna sesión tiene cita o visita: se usa "Cancelar tratamiento".',
+          },
+        },
+      },
+
       'Consulta (Encounter)': {
         states:
           'draft (Borrador) | completed (Completada) | amended (Enmendada)',

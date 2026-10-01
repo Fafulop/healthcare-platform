@@ -5,20 +5,17 @@
 import type { CitaDeVisita } from '@/lib/visitas-ui';
 
 /**
- * 🚧 La UI de tratamientos se ve SÓLO para estos doctores hasta el lanzamiento (como las visitas
- * antes del 2026-09-29). Al lanzar: un commit que abre esta función a todos JUNTO con el manual,
- * la guía y el widget (decidido 2026-10-01: mientras sólo dr-prueba lo vea, el manual no lo
- * describe — el widget le hablaría a los demás de algo que no tienen), y con la exportación de
- * cuenta (G6) ya en prod.
+ * La UI de tratamientos: ABIERTA PARA TODOS los doctores desde el lanzamiento (2026-10-01). Hasta
+ * entonces se veía sólo en dr-prueba (como las visitas antes del 2026-09-29). El manual, la guía y
+ * `llm-assistant/capabilities.ts` cambiaron en el MISMO commit, y la exportación de cuenta (G6) ya
+ * estaba en prod.
  *
- * No es un candado de seguridad: la API está viva para todos y revisa sus propios permisos.
+ * Queda como función para que el lanzamiento cambiara poco código. OJO: revertir NO es sólo esta
+ * línea — el manual y la guía ya describen tratamientos: se revierte el commit de lanzamiento
+ * completo. No es un candado de seguridad: la API revisa sus propios permisos.
  */
-const TRATAMIENTOS_UI_DOCTORES = new Set<string>([
-  'cmni1bov90000mk0lyeztr3ad', // dr-prueba
-]);
-
 export function tratamientosUiActiva(doctorId: string | null | undefined): boolean {
-  return !!doctorId && TRATAMIENTOS_UI_DOCTORES.has(doctorId);
+  return !!doctorId;
 }
 
 export type EstadoTratamiento = 'activo' | 'terminado' | 'cancelado';

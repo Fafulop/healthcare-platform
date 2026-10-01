@@ -46,8 +46,18 @@
    ✅ **Reagendar lleva la sesión (2026-10-01):** reagendar = cancelar + crear; la sesión pasa a la
    cita nueva con `POST /api/appointments/reagendar-sesion` (agenda y asistente, sólo el caso
    limpio; la tarjeta del asistente lo dice). Lo robusto —en el servidor, dentro del reagendado—
-   es de T4 (`03-PLAN` §5). Falta probarlo a mano tras el deploy.
-   **Para LANZAR a todos:** abrir `tratamientosUiActiva()` + manual, guía y widget en el MISMO commit. Decisiones YA tomadas (no re-litigar): P1 estado
+   es de T4 (`03-PLAN` §5). En prod `de02ce11`. ✅ Probado a mano (Chrome, dr-prueba, «pepit perez»
+   sin correo): sesión 1 en la cita del 2 oct 11:00 → «Reagendar» a 12:00 → toast «La sesión 1 de 2
+   de «PRUEBA REAGENDAR» pasó a la nueva cita» y la sesión quedó en la de 12:00; auditoría
+   `link_sesion_cita` con motivo «cita reagendada». Limpieza: tratamiento borrado, las dos citas de
+   prueba CANCELADAS. Visto de paso (NO es de esto, ya existía): el modal de reagendar dice «Correo
+   enviado automáticamente» aunque la cita no tenga correo (no se mandó: `confirmationEmailSentAt`
+   null), y reagendar desde la agenda NO copia las notas de la cita.
+   ✅ **LANZAMIENTO de Tratamientos a todos (2026-10-01):** `tratamientosUiActiva()` → `!!doctorId`;
+   manual (sección «Tratamientos» + perfil y visita), guía y `capabilities.ts` en el MISMO commit.
+   26 rótulos citados verificados contra los `.tsx`. Revertir = revertir el commit completo.
+   **Siguiente: T4** (`03-PLAN` §5): reagendar en el servidor, aviso «Sesión N de M» en la agenda,
+   G1b, y que la visita automática se escriba en la sesión. Decisiones YA tomadas (no re-litigar): P1 estado
    DERIVADO (sólo `cancelada` se guarda), **P2 revisado: la sesión SIEMPRE guarda su visita**, P3
    números fijos, P4 `precio_paquete` sin usar hasta T6, P5 seguimientos al final, G10 todos los
    planes, T1–T4 antes que el dinero (T5–T6).

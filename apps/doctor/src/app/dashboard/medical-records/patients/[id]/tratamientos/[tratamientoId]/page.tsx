@@ -36,11 +36,10 @@ export default function TratamientoPage() {
     );
   }
 
-  // 🚧 Hasta el lanzamiento, sólo la lista de `lib/tratamientos-ui.ts`.
+  // `tratamientosUiActiva` ya está abierta para todos: sin `doctorId` en la sesión no se pudo cargar.
   if (!tratamientosUiActiva(t.doctorId) || t.estado !== 'ok' || !tratamiento) {
-    const texto = !tratamientosUiActiva(t.doctorId)
-      ? 'Los tratamientos todavía no están disponibles en tu cuenta.'
-      : t.estado === 'no-existe' ? 'Este tratamiento no existe o ya se borró.'
+    const texto = t.estado === 'no-existe'
+      ? 'Este tratamiento no existe o ya se borró.'
       : 'No se pudo cargar el tratamiento. Recarga la página para intentar de nuevo.';
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto">

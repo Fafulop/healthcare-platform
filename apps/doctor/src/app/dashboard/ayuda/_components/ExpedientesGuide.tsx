@@ -34,6 +34,7 @@ import {
   Save,
   Eye,
   CalendarCheck,
+  ListChecks,
 } from "lucide-react";
 import { SectionAccordion } from "./SectionAccordion";
 import { WorkflowStep } from "./WorkflowStep";
@@ -338,6 +339,31 @@ export function ExpedientesGuide() {
         </div>
       </SectionAccordion>
 
+      {/* ── Tratamientos ── */}
+      <SectionAccordion
+        title="Tratamientos"
+        subtitle="Un plan de varias sesiones con un paciente"
+        icon={ListChecks}
+        accentColor="blue"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <Btn color="bg-white text-blue-600 border border-blue-200"><Plus className="w-3 h-3" />Nuevo tratamiento</Btn>
+          <AppBadge variant="doctor" />
+        </div>
+        <div className="space-y-0">
+          <WorkflowStep number={1} title="Crear un tratamiento" icon={ListChecks}>
+            En el perfil, tarjeta <strong>Tratamientos</strong> → <strong>Nuevo tratamiento</strong>: <strong>Nombre</strong>, <strong>Sesiones planeadas</strong> (opcional: se crean «Por agendar») y <strong>Notas</strong> → <strong>Crear tratamiento</strong>.
+          </WorkflowStep>
+          <WorkflowStep number={2} title="Las sesiones" icon={Calendar}>
+            Cada sesión dice en qué va: <strong>Por agendar</strong>, <strong>Agendada</strong> (con la fecha de su cita), <strong>Hecha</strong> (ya tiene su visita) o <strong>Cancelada</strong>. Liga su cita con <strong>Ligar una cita…</strong> o, sin cita, su visita con <strong>Ligar una visita…</strong>. <strong>Agregar sesión</strong> agrega la siguiente.
+          </WorkflowStep>
+          <WorkflowStep number={3} title="Cancelar y reagendar"
+            tip="Si reagendas la cita de una sesión, la sesión pasa sola a la cita nueva (salvo que ya tenga su visita o esté cancelada: entonces te avisa).">
+            <strong>Cancelar sesión</strong> con una cita activa pregunta: <strong>Cancelar la sesión y la cita</strong>, <strong>Cancelar sólo la sesión (la cita se queda)</strong> o <strong>No cancelar nada</strong>. El tratamiento se puede <strong>Terminar</strong>, <strong>Cancelar tratamiento</strong> o <strong>Reactivar</strong>; <strong>Borrar</strong> sólo si ninguna sesión tiene cita ni visita.
+          </WorkflowStep>
+        </div>
+      </SectionAccordion>
+
       {/* ── Nueva Consulta ── */}
       <SectionAccordion
         title="Crear una consulta"
@@ -523,6 +549,7 @@ export function ExpedientesGuide() {
               "Información de Contacto: folio, edad, sexo, teléfono, email, dirección. La flecha de abajo abre el Contacto de Emergencia y las Notas Generales (texto libre del perfil), si hay.",
               "Visitas: las 3 más recientes y «Ver N más»; clic en una para abrirla.",
               "Consultas sin visita (sólo si hay): las registradas fuera de una visita (3 más recientes y «Ver N más»).",
+              "Tratamientos: los planes de varias sesiones del paciente, con cuántas van hechas (3, los activos primero, y «Ver N más»); «Nuevo tratamiento» crea uno.",
               "Formularios: los formularios pre-cita que contestó el paciente (3 más recientes y «Ver N más»).",
               "Notas Recientes: las 3 más recientes y «Ver N más»; «Ver todas» abre Notas.",
               "Resumen Paciente (columna derecha): el resumen generado con IA.",
