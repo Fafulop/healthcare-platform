@@ -358,6 +358,14 @@ barrido para las citas que se borran por cascada. Por eso se recomienda P1.)
 - **T5 — Agendar N sesiones de una vez** (DISEÑO §4): cada cita por la MISMA ruta de la agenda (no
   un quinto camino; lección CONSULTORIOS), falla parcial = se crea lo que cabe y el resto queda «por
   agendar» con su motivo, **un** correo resumen al paciente. Toca `apps/api` (correo) — riesgo medio.
+- ✅ **T6a (2026-10-01) APLICADO EN PROD:** `ledger_entries.tratamiento_id` (TEXT NULL, sin FK
+  entre esquemas — como `patient_id`) + índice `(doctor_id, tratamiento_id)`
+  (`add-ledger-tratamiento-id.sql`). Ensayo y aplicación con `scripts/visitas/tratamientos-probe-
+  t6a.cjs` (5/5; el `--aplicar` sólo hace commit si todo pasa). 957 filas, ninguna tocada. Se
+  descartaron: tabla aparte de pagos (sacaría dinero de Flujo de Dinero, contra el modelo de UNA
+  tabla) y reconocer pagos por el texto del concepto (frágil). Decisiones del usuario para T6b:
+  precio y pagos sólo con permiso `flujo`; links de pago BLOQUEADOS en sesiones cubiertas por el
+  paquete; cambiar el precio no reescribe los $0 ya registrados.
 - **T6 — Dinero** (DISEÑO §5): `precio_paquete` visible; `tratamientoId` opcional en `LedgerEntry`
   (migración aparte); pagos del paquete; al concluir una sesión de un tratamiento CON paquete, el
   **servidor** registra el cobro de $0 «cubierta por paquete» (hoy `createCitaLedgerEntry` sólo

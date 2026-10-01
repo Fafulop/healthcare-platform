@@ -1279,6 +1279,10 @@ model LedgerEntry {
   // Plain link back to the originating patient (no cross-schema FK on purpose).
   // Lets an agent trace income <-> patient directly (e.g. consults missing a factura).
   patientId        String?           @map("patient_id")
+  /// TRATAMIENTOS T6: el tratamiento con precio de paquete al que pertenece este movimiento — un PAGO
+  /// del paquete (sin cita) o el cobro de una SESIÓN de ese tratamiento ($0 «cubierta por el paquete» o
+  /// el extra). Liga simple, sin FK entre esquemas (como `patientId`). SQL: add-ledger-tratamiento-id.sql.
+  tratamientoId    String?           @map("tratamiento_id")
 
   // Link to Service (source of truth for income entries)
   serviceId       String?            @map("service_id")
@@ -1342,6 +1346,7 @@ model LedgerEntry {
   @@index([serviceId])
   @@index([satCfdiUuid])
   @@index([doctorId, patientId])
+  @@index([doctorId, tratamientoId])
   @@index([doctorId, counterpartyRfc])
   @@map("ledger_entries")
   @@schema("practice_management")
