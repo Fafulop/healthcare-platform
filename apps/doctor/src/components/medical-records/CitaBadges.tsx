@@ -50,7 +50,7 @@ export interface PatientBooking {
   paymentStatus?: string | null;
   amountPaid?: number | null;
   /** VEREDICTO de cobro del servidor (ingreso + links juntos) y su método ya legible. */
-  estadoPago?: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO';
+  estadoPago?: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO' | 'CUBIERTA';
   metodoPago?: string | null;
   /** VEREDICTO del servidor (resolveFacturaVerdict) — no se re-deriva aquí. */
   facturada?: boolean;
@@ -88,11 +88,15 @@ export function BookingStatusPill({ status }: { status: string }) {
  *  Aquí solo se pinta: dos componentes leyendo mitades distintas es lo que hacía
  *  que una misma tarjeta dijera "Por cobrar" y "Pagado" a la vez.
  *
- *  Siempre pinta algo (los cuatro estados tienen chip), a diferencia de la
+ *  Siempre pinta algo (los cinco estados tienen chip), a diferencia de la
  *  versión anterior, que se callaba cuando no había ingreso. */
 export function PagoBadge({
   estadoPago, metodoPago,
-}: { estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO'; metodoPago: string | null }) {
+}: { estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO' | 'CUBIERTA'; metodoPago: string | null }) {
+  // T6: sesión cubierta por el paquete de su tratamiento — no se cobró aparte (ingreso de $0).
+  if (estadoPago === 'CUBIERTA') {
+    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">Cubierta por el paquete</span>;
+  }
   // Gris y neutro: no afirma una deuda, dice que no hay registro. Es el estado de
   // las 49 citas anteriores a que completar creara el ingreso (may–jun 2026).
   if (estadoPago === 'SIN_REGISTRO') {
@@ -118,11 +122,16 @@ export function PagoBadge({
 /** Dos hechos INDEPENDIENTES en un solo chip, por orden de importancia: ya está
  *  facturada (veredicto del servidor) gana sobre la petición. Si la pidieron y no
  *  está, ese es el pendiente que hay que ver. */
-export function FacturaBadge({ facturada, solicitada }: { facturada: boolean; solicitada: boolean }) {
+export function FacturaBadge({
+  facturada, solicitada, cubierta = false,
+}: { facturada: boolean; solicitada: boolean; cubierta?: boolean }) {
   if (facturada) {
     return <span className="text-[11px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">Facturado</span>;
   }
-  if (solicitada) {
+  // T6: una sesión cubierta por el paquete ($0) no se factura — se factura el pago del paquete —,
+  // así que su casilla «¿Necesita factura?» no se convierte en una deuda de factura. `cubierta` viene
+  // de `estadoPago` (sólo con `flujo`); sin ese permiso no se sabe y el chip queda como antes.
+  if (solicitada && !cubierta) {
     return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">Necesita factura</span>;
   }
   return null;

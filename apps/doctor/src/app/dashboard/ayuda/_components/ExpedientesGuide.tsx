@@ -355,11 +355,11 @@ export function ExpedientesGuide() {
             En el perfil, tarjeta <strong>Tratamientos</strong> → <strong>Nuevo tratamiento</strong>: <strong>Nombre</strong>, <strong>Sesiones planeadas</strong> (opcional: se crean «Por agendar») y <strong>Notas</strong> → <strong>Crear tratamiento</strong>.
           </WorkflowStep>
           <WorkflowStep number={2} title="Las sesiones" icon={Calendar}>
-            Cada sesión dice en qué va: <strong>Por agendar</strong>, <strong>Agendada</strong> (con la fecha de su cita), <strong>Hecha</strong> (ya tiene su visita) o <strong>Cancelada</strong>. Liga su cita con <strong>Ligar una cita…</strong> o, sin cita, su visita con <strong>Ligar una visita…</strong>. <strong>Agregar sesión</strong> agrega la siguiente. Con <strong>Precio del paquete</strong> (en Editar) ves Precio · Pagado · Saldo y anotas pagos con <strong>Registrar pago del paquete</strong>; al completar una sesión del paquete queda en $0 «cubierta por el paquete» (o sólo el cargo extra). <strong>Agendar sesiones…</strong> (sólo en tratamientos activos) agenda varias de golpe (primera fecha, hora y cada cuántos días); si alguna no cabe, las demás sí se agendan. En presencial al paciente le llega un solo correo con todas; en telemedicina, uno por cita con su liga de Meet (en ambos casos, si tiene correo y tu cuenta de Google está conectada).
+            Cada sesión dice en qué va: <strong>Por agendar</strong>, <strong>Agendada</strong> (con la fecha de su cita), <strong>Hecha</strong> (ya tiene su visita) o <strong>Cancelada</strong>. Liga su cita con <strong>Ligar una cita…</strong> o, sin cita, su visita con <strong>Ligar una visita…</strong>. <strong>Agregar sesión</strong> agrega la siguiente. Con <strong>Precio del paquete</strong> (en Editar) ves Precio · Pagado · Saldo y anotas pagos con <strong>Registrar pago del paquete</strong>; al completar una sesión del paquete queda en $0 y dice <strong>Cubierta por el paquete</strong> (o sólo el cargo extra). <strong>Agendar sesiones…</strong> (sólo en tratamientos activos) agenda varias de golpe (primera fecha, hora y cada cuántos días); si alguna no cabe, las demás sí se agendan. En presencial al paciente le llega un solo correo con todas; en telemedicina, uno por cita con su liga de Meet (en ambos casos, si tiene correo y tu cuenta de Google está conectada).
           </WorkflowStep>
           <WorkflowStep number={3} title="Cancelar y reagendar"
             tip="Si reagendas la cita de una sesión, la sesión pasa sola a la cita nueva (salvo que ya tenga su visita o esté cancelada: entonces te avisa).">
-            <strong>Cancelar sesión</strong> con una cita activa pregunta: <strong>Cancelar la sesión y la cita</strong>, <strong>Cancelar sólo la sesión (la cita se queda)</strong> o <strong>No cancelar nada</strong>. El tratamiento se puede <strong>Terminar</strong>, <strong>Cancelar tratamiento</strong> o <strong>Reactivar</strong>; <strong>Borrar</strong> sólo si ninguna sesión tiene cita ni visita.
+            <strong>Cancelar sesión</strong> con una cita activa pregunta: <strong>Cancelar la sesión y la cita</strong>, <strong>Cancelar sólo la sesión (la cita se queda)</strong> o <strong>No cancelar nada</strong>. El tratamiento se puede <strong>Terminar</strong>, <strong>Cancelar tratamiento</strong> o <strong>Reactivar</strong>; <strong>Borrar</strong> sólo si ninguna sesión tiene cita ni visita y no hay pagos registrados.
           </WorkflowStep>
         </div>
       </SectionAccordion>
@@ -547,11 +547,11 @@ export function ExpedientesGuide() {
           <ul className="space-y-1.5 text-xs text-gray-600">
             {[
               "Información de Contacto: folio, edad, sexo, teléfono, email, dirección. La flecha de abajo abre el Contacto de Emergencia y las Notas Generales (texto libre del perfil), si hay.",
-              "Visitas: las 3 más recientes y «Ver N más»; clic en una para abrirla.",
+              "Visitas: las 3 más recientes y «Ver N más»; clic en una para abrirla; «Nueva visita» crea una.",
               "Consultas sin visita (sólo si hay): las registradas fuera de una visita (3 más recientes y «Ver N más»).",
               "Tratamientos: los planes de varias sesiones del paciente, con cuántas van hechas (3, los activos primero, y «Ver N más»); «Nuevo tratamiento» crea uno.",
-              "Formularios: los formularios pre-cita que contestó el paciente (3 más recientes y «Ver N más»).",
-              "Notas Recientes: las 3 más recientes y «Ver N más»; «Ver todas» abre Notas.",
+              "Formularios: los formularios pre-cita que contestó el paciente (3 más recientes y «Ver N más»); «Nuevo formulario» genera el enlace de uno para este paciente (con permiso de Citas).",
+              "Notas Recientes: las 3 más recientes y «Ver N más»; «Ver todas» abre Notas y «Nueva nota» abre una en blanco.",
               "Resumen Paciente (columna derecha): el resumen generado con IA.",
               "Datos Fiscales (columna derecha): RFC y régimen para facturar.",
               "Citas e Ingresos (columna derecha): citas, cobros y CFDIs del paciente (3 más recientes y «Ver N más»).",

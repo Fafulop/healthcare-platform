@@ -99,7 +99,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     for (const k of ['nombre', 'estado', 'sesionesPlaneadas', 'intervaloDias', 'plantillaSugeridaId'] as const) {
       if (antes[k] !== updated[k]) changes[k] = { from: antes[k], to: updated[k] };
     }
-    if (data.notas !== undefined) changes.notas = 'editado';
+    // «Editar» manda las notas siempre: sólo se anota si de verdad cambiaron (el texto no se copia).
+    if (data.notas !== undefined && (antes.notas ?? null) !== (updated.notas ?? null)) changes.notas = 'editado';
     if (precioPaquete !== undefined) {
       const from = precioAntes === null || precioAntes === undefined ? null : Number(precioAntes);
       if (from !== precioPaquete) changes.precioPaquete = { from, to: precioPaquete };

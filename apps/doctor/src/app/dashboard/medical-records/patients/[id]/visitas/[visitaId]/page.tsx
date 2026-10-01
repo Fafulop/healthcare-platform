@@ -191,7 +191,7 @@ export default function VisitaPage() {
               {booking && (verCobro || verFactura) && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {verCobro && <PagoBadge estadoPago={booking.estadoPago ?? 'SIN_REGISTRO'} metodoPago={booking.metodoPago ?? null} />}
-                  {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} />}
+                  {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} cubierta={booking.estadoPago === 'CUBIERTA'} />}
                 </div>
               )}
               {/* La visita automática ES la de su cita: no se desliga (la API contesta 409). */}

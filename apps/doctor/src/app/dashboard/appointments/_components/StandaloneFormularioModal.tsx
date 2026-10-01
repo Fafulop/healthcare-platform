@@ -23,9 +23,11 @@ interface PatientResult {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  /** Abierto desde el EXPEDIENTE: el paciente ya está elegido y no se cambia. */
+  pacienteFijo?: PatientResult;
 }
 
-export function StandaloneFormularioModal({ isOpen, onClose }: Props) {
+export function StandaloneFormularioModal({ isOpen, onClose, pacienteFijo }: Props) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -49,7 +51,7 @@ export function StandaloneFormularioModal({ isOpen, onClose }: Props) {
     setSelectedTemplateId("");
     setPatientSearch("");
     setPatientResults([]);
-    setSelectedPatient(null);
+    setSelectedPatient(pacienteFijo ?? null);
     setCopied(false);
 
     async function fetchTemplates() {
@@ -183,7 +185,7 @@ export function StandaloneFormularioModal({ isOpen, onClose }: Props) {
                     {selectedPatient.firstName} {selectedPatient.lastName}
                   </span>
                 </div>
-                {!generatedUrl && (
+                {!generatedUrl && !pacienteFijo && (
                   <button
                     onClick={() => { setSelectedPatient(null); setPatientSearch(""); }}
                     className="text-xs text-violet-600 hover:text-violet-800"

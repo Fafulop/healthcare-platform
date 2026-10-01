@@ -12,6 +12,7 @@ import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
 import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 import { TratamientosCard } from '@/components/medical-records/tratamientos/TratamientosCard';
 import { NuevoTratamientoModal } from '@/components/medical-records/tratamientos/NuevoTratamientoModal';
+import { StandaloneFormularioModal } from '@/app/dashboard/appointments/_components/StandaloneFormularioModal';
 import { useTratamientosDelPaciente } from '@/components/medical-records/tratamientos/useTratamientosDelPaciente';
 import { tratamientosUiActiva } from '@/lib/tratamientos-ui';
 import { PatientSummaryModal } from '@/components/medical-records/PatientSummaryModal';
@@ -596,6 +597,7 @@ function CitasIngresosSection({ bookings, permisos, estado, patient }: CitasIngr
                         <FacturaBadge
                           facturada={b.facturada === true}
                           solicitada={b.facturaSolicitada === true}
+                          cubierta={b.estadoPago === 'CUBIERTA'}
                         />
                       )}
                     </div>
@@ -663,7 +665,7 @@ function CitasIngresosSection({ bookings, permisos, estado, patient }: CitasIngr
                       ) : b.ledgerEntryId && b.amount === 0 ? (
                         /* T6: sesión cubierta por el paquete de un tratamiento — su ingreso es $0 y no
                            se factura (se factura el PAGO del paquete). Sólo se sabe con `flujo`. */
-                        <span className="text-xs text-gray-500">Cubierta por el paquete — no se factura</span>
+                        <span className="text-xs text-gray-500">No se factura: lo que se factura es el pago del paquete</span>
                       ) : (
                         <div className="flex items-center gap-2">
                           <AlertCircle className={`w-4 h-4 ${b.facturaSolicitada ? 'text-orange-500' : 'text-amber-500'}`} />
@@ -805,6 +807,7 @@ export default function PatientProfilePage() {
   const tratamientosDelPaciente = useTratamientosDelPaciente(patientId, conTratamientos);
   const [showNuevoTratamiento, setShowNuevoTratamiento] = useState(false);
   const [showNuevaVisita, setShowNuevaVisita] = useState(false);
+  const [showNuevoFormulario, setShowNuevoFormulario] = useState(false);
   // «Nueva Visita» desde otra pantalla (Línea de Tiempo) llega con `?nuevaVisita=1`: abre el modal
   // una vez y quita el parámetro, para que recargar la página no lo vuelva a abrir.
   const routerPerfil = useRouter();
@@ -1159,7 +1162,15 @@ export default function PatientProfilePage() {
                 <ClipboardList className="w-5 h-5" />
                 Formularios
               </h2>
-
+              {/* El enlace se crea en `appointments/form-links` (apps/api) ⇒ exige `citas`. */}
+              {!permsLoading && can('citas') && (
+                <button
+                  onClick={() => setShowNuevoFormulario(true)}
+                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50"
+                >
+                  <Plus className="w-4 h-4" />Nuevo formulario
+                </button>
+              )}
             </div>
             {patientFormularios.length > 0 ? (
               <ListaColapsable className="space-y-2">
@@ -1200,12 +1211,21 @@ export default function PatientProfilePage() {
                 <NotebookPen className="w-5 h-5" />
                 Notas Recientes
               </h2>
-              <Link
-                href={`/dashboard/medical-records/patients/${patient.id}/notas`}
-                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                Ver todas
-              </Link>
+              <div className="flex items-center gap-1">
+                <Link
+                  href={`/dashboard/medical-records/patients/${patient.id}/notas`}
+                  className="text-sm text-blue-600 hover:text-blue-800 transition-colors px-2 py-1"
+                >
+                  Ver todas
+                </Link>
+                {/* `?nueva=1` abre una nota en blanco (que pregunta «¿A qué visita pertenece?»). */}
+                <Link
+                  href={`/dashboard/medical-records/patients/${patient.id}/notas?nueva=1`}
+                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50"
+                >
+                  <Plus className="w-4 h-4" />Nueva nota
+                </Link>
+              </div>
             </div>
             {recentNotes.length > 0 ? (
               <ListaColapsable className="space-y-2">
@@ -1344,6 +1364,16 @@ export default function PatientProfilePage() {
       {showNuevoTratamiento && (
         <NuevoTratamientoModal patientId={patient.id} onClose={() => setShowNuevoTratamiento(false)} />
       )}
+
+      {/* «Nuevo formulario» del expediente: el mismo «Formulario libre» de la agenda, con ESTE paciente. */}
+      <StandaloneFormularioModal
+        isOpen={showNuevoFormulario}
+        onClose={() => setShowNuevoFormulario(false)}
+        pacienteFijo={{
+          id: patient.id, firstName: patient.firstName, lastName: patient.lastName,
+          phone: patient.phone ?? null, email: patient.email ?? null,
+        }}
+      />
 
       {/* Summary Modal — outside the grid: it used to be a grid child, so with
           the 5-column split an open modal pushed the right column to a new row. */}

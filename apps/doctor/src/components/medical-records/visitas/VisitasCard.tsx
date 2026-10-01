@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertCircle, CalendarCheck, ChevronRight, FileText, StickyNote } from 'lucide-react';
+import { AlertCircle, CalendarCheck, ChevronRight, FileText, Plus, StickyNote } from 'lucide-react';
 import { FacturaBadge, PagoBadge, type PatientBooking } from '@/components/medical-records/CitaBadges';
 import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
 import { tieneNotas } from '@/components/citas/NotasCita';
@@ -27,10 +27,19 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
-        <CalendarCheck className="w-5 h-5" />
-        Visitas
-      </h2>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <CalendarCheck className="w-5 h-5" />
+          Visitas
+        </h2>
+        {/* Mismo botón arriba a la derecha que las demás tarjetas del expediente. */}
+        <button
+          onClick={onNuevaVisita}
+          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50"
+        >
+          <Plus className="w-4 h-4" />Nueva visita
+        </button>
+      </div>
 
       {estado === 'cargando' ? (
         <p className="text-sm text-gray-400 text-center py-6">Cargando visitas…</p>
@@ -75,7 +84,7 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
                       {b && (verCobro || verFactura) && (
                         <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
                           {verCobro && <PagoBadge estadoPago={b.estadoPago ?? 'SIN_REGISTRO'} metodoPago={b.metodoPago ?? null} />}
-                          {verFactura && <FacturaBadge facturada={b.facturada === true} solicitada={b.facturaSolicitada === true} />}
+                          {verFactura && <FacturaBadge facturada={b.facturada === true} solicitada={b.facturaSolicitada === true} cubierta={b.estadoPago === 'CUBIERTA'} />}
                         </div>
                       )}
                     </div>

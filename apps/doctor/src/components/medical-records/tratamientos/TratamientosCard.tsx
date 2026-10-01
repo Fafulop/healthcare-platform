@@ -24,7 +24,8 @@ export function TratamientosCard({ patientId, estado, tratamientos, onNuevo }: P
           <ListChecks className="w-5 h-5" />
           Tratamientos
         </h2>
-        {estado === 'ok' && tratamientos.length > 0 && (
+        {/* Mismo botón arriba a la derecha que Visitas, Formularios y Notas (también sin tratamientos). */}
+        {estado === 'ok' && (
           <button
             onClick={onNuevo}
             className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50"

@@ -90,6 +90,8 @@ export async function GET(
             doctorId: true,
             amount: true,
             formaDePago: true,
+            // T6: sesión cubierta por el paquete de su tratamiento ⇒ ingreso de $0 con tratamiento.
+            tratamientoId: true,
             // ¿Ya se COBRÓ? El estado de pago vive en el ingreso, no en la cita:
             // un link de pago pagado crea el ingreso PAID aunque la cita siga
             // agendada, y completar una cita registra el ingreso aunque no haya
@@ -180,8 +182,13 @@ export async function GET(
       // `.catch(...)`), y nadie reintenta. Ahí el dinero SÍ entró y el link lo
       // prueba en el mismo payload — pintar "Sin cobro registrado" sería afirmar
       // en gris que no hay cobro sobre una cita cobrada.
-      const estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO' =
-        !le && !linkStripePagado && !linkMpPagado ? 'SIN_REGISTRO'
+      //
+      // CUBIERTA (T6): un ingreso de $0 ligado a un tratamiento es una sesión cubierta por el
+      // paquete. Decir «Pagado · Efectivo» es cierto en el libro pero confunde: esa sesión no se
+      // cobró, la pagó el paquete. Se decide aquí, como los demás estados.
+      const estadoPago: 'PAGADO' | 'PARCIAL' | 'PENDIENTE' | 'SIN_REGISTRO' | 'CUBIERTA' =
+        le && le.tratamientoId && Number(le.amount) === 0 ? 'CUBIERTA'
+        : !le && !linkStripePagado && !linkMpPagado ? 'SIN_REGISTRO'
         : le?.paymentStatus === 'PARTIAL' ? 'PARCIAL'
         : (le?.paymentStatus === 'PAID' || linkStripePagado || linkMpPagado) ? 'PAGADO'
         : 'PENDIENTE';
@@ -189,7 +196,7 @@ export async function GET(
       // de pago del ingreso: "Mercado Pago" dice de dónde salió el dinero, que es
       // justo lo que el doctor quiere ver; el webhook escribe además una forma
       // genérica ("tarjeta") que sola no distingue un cobro en ventanilla.
-      const metodoPago = estadoPago === 'PENDIENTE' || estadoPago === 'SIN_REGISTRO'
+      const metodoPago = estadoPago === 'PENDIENTE' || estadoPago === 'SIN_REGISTRO' || estadoPago === 'CUBIERTA'
         ? null
         : linkStripePagado ? 'Stripe'
         : linkMpPagado ? 'Mercado Pago'

@@ -20,7 +20,10 @@ export default function PatientNotasPage() {
   const patientId = params.id as string;
   // VISITAS D4 — «Nueva nota» from a visit arrives with `?visitaId=`: it opens a new note that is
   // created in that visit, and «Volver» goes back to it.
-  const visitaId = useSearchParams().get('visitaId');
+  const searchParams = useSearchParams();
+  const visitaId = searchParams.get('visitaId');
+  // «+ Nueva nota» de la tarjeta del expediente llega con `?nueva=1`: abre una nota en blanco.
+  const abrirNueva = !!visitaId || searchParams.get('nueva') === '1';
   const volverHref = visitaId
     ? visitaHref(patientId, visitaId)
     : `/dashboard/medical-records/patients/${patientId}`;
@@ -64,15 +67,15 @@ export default function PatientNotasPage() {
 
   const isEditorOpen = isNewNote || selectedNote !== null;
 
-  // Coming from a visit means coming to WRITE: open the new note right away (once).
+  // Coming from a visit (or «+ Nueva nota») means coming to WRITE: open the new note right away (once).
   const abrioNueva = useRef(false);
   useEffect(() => {
-    if (visitaId && !abrioNueva.current) {
+    if (abrirNueva && !abrioNueva.current) {
       abrioNueva.current = true;
       newNote();
       setMobileView('editor');
     }
-  }, [visitaId, newNote]);
+  }, [abrirNueva, newNote]);
 
   // D5b — mover la nota abierta: pregunta primero (como «Mover a…» de las plantillas) y mueve ya.
   async function handleMoverNota(destino: string) {

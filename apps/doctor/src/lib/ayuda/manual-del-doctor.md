@@ -372,6 +372,11 @@ de abajo abre su Contacto de Emergencia y sus Notas Generales — sin ninguno de
 flecha) · **Visitas** · **Consultas sin visita** (sólo si hay) · **Tratamientos** · Formularios (los
 pre-consulta que contestó) · Notas Recientes.
 
+Cada tarjeta trae arriba a la derecha su botón para crear: **«Nueva visita»** (lo mismo que el botón
+de arriba), **«Nuevo tratamiento»**, **«Nuevo formulario»** (el «Formulario libre» de la agenda con
+este paciente ya elegido: escoges la plantilla y te da el enlace para mandárselo; sólo si tienes
+permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
+
 **Columna derecha:**
 
 - **Resumen Paciente** — un resumen del expediente hecho con IA: «Generar Resumen» /
@@ -465,12 +470,13 @@ su liga de Meet.
 cada pago entra a Flujo de Dinero como ingreso. Al **completar** una sesión del paquete no se pide
 precio: queda en $0 «cubierta por el paquete» (si hubo algo aparte, capturas el **cargo extra**). A
 esas sesiones no se les puede generar link de pago, y lo que se factura es el pago del paquete, no la
-sesión. Sin precio de paquete, cada sesión se cobra al completarla como siempre. Lo del paquete sólo
+sesión: en el perfil y en la visita esas sesiones dicen **«Cubierta por el paquete»** en vez de
+«Pagado». Sin precio de paquete, cada sesión se cobra al completarla como siempre. Lo del paquete sólo
 lo ve quien tiene permiso de Flujo de Dinero.
 
 Del tratamiento completo: **«Editar»** (nombre, sesiones planeadas, notas), **«Terminar»**,
 **«Cancelar tratamiento»** y **«Reactivar»**. **«Borrar»** sólo funciona mientras ninguna sesión
-tenga cita ni visita; si no, cancélalo.
+tenga cita ni visita y no tenga pagos registrados; si no, cancélalo.
 
 En la **agenda**, una cita que es sesión de un tratamiento dice **«Sesión 3 de 6 — (nombre del
 tratamiento)»**; clic para abrir el tratamiento.
