@@ -4,7 +4,7 @@
 // Correr: cd packages/database && railway run --service pgvector npx tsx ../../scripts/visitas/tratamientos-probe-t4.ts
 import { PrismaClient } from '../../packages/database/node_modules/@prisma/client';
 import { syncVisitaForBooking } from '../../packages/database/src/visitas';
-import { pasarSesionAlReagendar } from '../../packages/database/src/tratamientos';
+import { ligarSesionACitaNueva, pasarSesionAlReagendar } from '../../packages/database/src/tratamientos';
 
 const prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL } } });
 const ROLLBACK = new Error('ROLLBACK');
@@ -81,6 +81,31 @@ const quien = { userId: 'probe-t4', userRole: 'DOCTOR' };
       });
       const conSesion = agenda.find((b) => b.id === B_VIEJA)?.tratamientoSesion;
       ok('GET agenda: incluye la sesión de la cita', conSesion?.numero === 2 && conSesion.tratamiento.nombre === 'PROBE T4', JSON.stringify(conSesion));
+
+      // 6. T5 — ligar una cita RECIÉN creada a su sesión (`paraSesion`). Sesión 2 sin cita ni visita.
+      await tx.tratamientoSesion.update({ where: { id: s2.id }, data: { bookingId: null, visitaId: null } });
+      await tx.booking.update({ where: { id: B_VIEJA }, data: { status: 'CONFIRMED', patientId } });
+      const l1 = await ligarSesionACitaNueva(tx, { doctorId, sesionId: s2.id, bookingId: B_VIEJA, ...quien });
+      const s2l = await tx.tratamientoSesion.findUnique({ where: { id: s2.id }, select: { bookingId: true } });
+      ok('T5: cita nueva ligada a su sesión', l1.ligada === true && s2l?.bookingId === B_VIEJA, JSON.stringify(l1));
+      const l2 = await ligarSesionACitaNueva(tx, { doctorId, sesionId: s2.id, bookingId: B_VIEJA, ...quien });
+      ok('T5: una sesión con cita vigente no se pisa', l2.ligada === false && (l2 as any).motivo === 'sesion_con_cita', JSON.stringify(l2));
+
+      // 7. T5 — la forma del resumen (bookings/resumen-tratamiento).
+      const res = await tx.booking.findMany({
+        where: { id: { in: [B_VIEJA] }, doctorId, status: { in: ['PENDING', 'CONFIRMED'] } },
+        select: {
+          id: true, doctorId: true, patientId: true, patientName: true, patientEmail: true,
+          date: true, startTime: true, endTime: true, confirmationCode: true,
+          slot: { select: { date: true, startTime: true, endTime: true } },
+          location: { select: { name: true, address: true, phone: true } },
+          patient: { select: { email: true } },
+          tratamientoSesion: { select: { numero: true, tratamiento: { select: { nombre: true, sesionesPlaneadas: true } } } },
+          doctor: { select: { doctorFullName: true, primarySpecialty: true, clinicAddress: true, clinicPhone: true,
+            user: { select: { id: true, email: true, googleAccessToken: true, googleRefreshToken: true, googleTokenExpiry: true } } } },
+        },
+      });
+      ok('T5: forma del resumen', res.length === 1 && res[0].tratamientoSesion?.numero === 2, JSON.stringify(res[0]?.tratamientoSesion));
 
       throw ROLLBACK;
     }, { timeout: 60000 });

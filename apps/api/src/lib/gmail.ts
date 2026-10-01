@@ -577,3 +577,98 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+// ─── Resumen de sesiones de un tratamiento (T5) ───────────────────────────────
+
+export interface TreatmentScheduleEmailData {
+  patientName: string;
+  patientEmail: string;
+  doctorName: string;
+  specialty?: string | null;
+  /** Nombre del tratamiento («Fisioterapia de rodilla»). */
+  tratamiento: string;
+  clinicName?: string | null;
+  clinicAddress?: string | null;
+  clinicPhone?: string | null;
+  /** Una por cita creada, en orden de fecha. `lugar`: sólo si las citas NO son todas en el mismo consultorio. */
+  citas: { etiqueta: string; date: string; startTime: string; endTime: string; confirmationCode: string; lugar?: string | null }[];
+}
+
+/**
+ * TRATAMIENTOS T5 — «Agendar sesiones» crea N citas de un tratamiento; el paciente recibe UN correo
+ * con todas (no N confirmaciones). Mismo estilo que la confirmación de cita.
+ */
+export async function sendTreatmentScheduleEmail(
+  data: TreatmentScheduleEmailData,
+  accessToken: string,
+  refreshToken: string | null,
+  fromName: string,
+  fromEmail: string
+): Promise<void> {
+  const auth = buildAuthedClient(accessToken, refreshToken);
+  const gmail = google.gmail({ version: 'v1', auth });
+  const n = data.citas.length;
+  const subject = `${n === 1 ? 'Tu próxima cita' : `Tus próximas ${n} citas`} – ${data.tratamiento} – ${data.doctorName}`;
+  const raw = createRawMessage(`${fromName} <${fromEmail}>`, data.patientEmail, subject, buildTreatmentScheduleHtml(data));
+  await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
+}
+
+function buildTreatmentScheduleHtml(data: TreatmentScheduleEmailData): string {
+  const filas = data.citas.map((c) => `
+              <tr>
+                <td style="padding:14px 24px;border-bottom:1px solid #dce8ff;">
+                  <p style="margin:0 0 3px;color:#2563eb;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">${escapeHtml(c.etiqueta)}</p>
+                  <p style="margin:0;color:#1a1a2e;font-size:15px;font-weight:700;text-transform:capitalize;">${formatEmailDate(c.date)}</p>
+                  <p style="margin:3px 0 0;color:#555;font-size:13px;">${escapeHtml(c.startTime)} – ${escapeHtml(c.endTime)} hrs · Código: <strong>${escapeHtml(c.confirmationCode)}</strong></p>
+                  ${c.lugar ? `<p style="margin:3px 0 0;color:#555;font-size:13px;">Consultorio: ${escapeHtml(c.lugar)}</p>` : ''}
+                </td>
+              </tr>`).join('');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 16px;">
+  <tr>
+    <td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#1d4ed8,#2563eb);padding:32px 40px;text-align:center;">
+            <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">tusalud.pro</p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">Tus citas del tratamiento</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 40px 20px;">
+            <p style="margin:0 0 8px;color:#1a1a2e;font-size:16px;">Hola <strong>${escapeHtml(data.patientName)}</strong>,</p>
+            <p style="margin:0;color:#555;font-size:14px;line-height:1.6;">${data.citas.length === 1 ? 'Se agendó tu próxima cita' : `Se agendaron tus próximas ${data.citas.length} citas`} de <strong>${escapeHtml(data.tratamiento)}</strong> con ${escapeHtml(data.doctorName)}${data.specialty ? ` (${escapeHtml(data.specialty)})` : ''}. Guarda este correo: cada cita tiene su código de confirmación.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 40px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f8ff;border:1px solid #dce8ff;border-radius:10px;overflow:hidden;">
+              ${filas}
+              ${data.clinicAddress ? `
+              <tr>
+                <td style="padding:14px 24px;">
+                  <p style="margin:0 0 3px;color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Consultorio</p>
+                  ${data.clinicName ? `<p style="margin:0;color:#1a1a2e;font-size:14px;font-weight:500;">${escapeHtml(data.clinicName)}</p>` : ''}
+                  <p style="margin:${data.clinicName ? '3px' : '0'} 0 0;color:#555;font-size:13px;">${escapeHtml(data.clinicAddress)}</p>
+                  ${data.clinicPhone ? `<p style="margin:3px 0 0;color:#555;font-size:13px;">${escapeHtml(data.clinicPhone)}</p>` : ''}
+                </td>
+              </tr>` : ''}
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 40px 32px;">
+            <p style="margin:0;color:#888;font-size:12px;line-height:1.6;">Si necesitas cambiar o cancelar alguna, comunícate con el consultorio.</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+}

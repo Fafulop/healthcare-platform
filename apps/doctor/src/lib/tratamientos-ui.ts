@@ -31,6 +31,8 @@ export interface TratamientoResumen {
   nombre: string;
   estado: EstadoTratamiento;
   sesionesPlaneadas: number | null;
+  /** Cada cuántos días van las sesiones. Lo usa (y lo guarda) «Agendar sesiones» (T5). */
+  intervaloDias?: number | null;
   plantillaSugeridaId: string | null;
   notas: string | null;
   createdAt: string;

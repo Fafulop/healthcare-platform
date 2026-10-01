@@ -11,6 +11,7 @@ import {
 } from '@/lib/tratamientos-ui';
 import { practiceConfirm } from '@/lib/practice-confirm';
 import { useTratamientoDetalle } from '../_components/useTratamientoDetalle';
+import { AgendarSesionesModal } from '@/components/medical-records/tratamientos/AgendarSesionesModal';
 
 const inputClass = 'px-2 py-1.5 border border-gray-300 rounded-md text-sm';
 const botonTexto = 'text-sm text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 disabled:opacity-50';
@@ -27,6 +28,7 @@ export default function TratamientoPage() {
   const pacienteHref = `/dashboard/medical-records/patients/${patientId}`;
   const [editando, setEditando] = useState(false);
   const [cancelando, setCancelando] = useState<SesionDeTratamiento | null>(null);
+  const [agendando, setAgendando] = useState(false);
 
   if (t.sessionStatus === 'loading' || t.estado === 'cargando') {
     return (
@@ -117,9 +119,18 @@ export default function TratamientoPage() {
           <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
             <CalendarDays className="w-5 h-5" />Sesiones
           </h2>
-          <button onClick={t.agregarSesion} disabled={t.trabajando} className={`${botonTexto} flex items-center gap-1`}>
-            <Plus className="w-4 h-4" />Agregar sesión
-          </button>
+          <div className="flex items-center gap-1">
+            {/* T5: sólo con permiso de citas y si hay sesiones «Por agendar» (sin cita que cuente ni visita). */}
+            {(t.permisos?.citas ?? false) && tratamiento.estado === 'activo'
+              && tratamiento.sesiones.some((s) => s.estado === 'por_agendar' && !s.cancelada && !s.visita) && (
+              <button onClick={() => setAgendando(true)} disabled={t.trabajando} className={`${botonTexto} flex items-center gap-1`}>
+                <CalendarDays className="w-4 h-4" />Agendar sesiones…
+              </button>
+            )}
+            <button onClick={t.agregarSesion} disabled={t.trabajando} className={`${botonTexto} flex items-center gap-1`}>
+              <Plus className="w-4 h-4" />Agregar sesión
+            </button>
+          </div>
         </div>
         {creadas === 0 ? (
           <p className="text-sm text-gray-400">Todavía no hay sesiones. Agrega la primera cuando la necesites.</p>
@@ -131,6 +142,15 @@ export default function TratamientoPage() {
           </div>
         )}
       </div>
+
+      {agendando && (
+        <AgendarSesionesModal
+          patientId={patientId}
+          tratamiento={tratamiento}
+          onClose={() => setAgendando(false)}
+          onListo={() => { t.recargar(); }}
+        />
+      )}
 
       {cancelando && (
         <CancelarSesionModal

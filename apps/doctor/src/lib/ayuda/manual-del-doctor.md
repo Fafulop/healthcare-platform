@@ -451,6 +451,14 @@ Lo que puedes hacer en cada sesión:
 - **«Agregar sesión»** agrega la siguiente. Cambiar las sesiones planeadas (en **«Editar»**) no
   crea ni borra sesiones.
 
+**«Agendar sesiones…»** agenda varias de golpe: eliges cuáles de las «Por agendar», la **Primera**
+fecha, la **Hora**, **Cada (días)**, el **Servicio** y la **Modalidad**; ves cómo quedan y picas
+**«Agendar N citas»**. Cada cita se crea como si la agendaras en la agenda. Si alguna no se puede
+(por ejemplo, ya hay una cita a esa hora), las demás sí se agendan y ésa se queda «Por agendar»;
+la ventana te dice cuál y por qué. Sólo aparece en tratamientos activos. En presencial, al paciente le llega **un solo correo** con todas sus citas (si
+tiene correo y tu cuenta de Google está conectada); en telemedicina, cada cita manda el suyo con
+su liga de Meet.
+
 Del tratamiento completo: **«Editar»** (nombre, sesiones planeadas, notas), **«Terminar»**,
 **«Cancelar tratamiento»** y **«Reactivar»**. **«Borrar»** sólo funciona mientras ninguna sesión
 tenga cita ni visita; si no, cancélalo.

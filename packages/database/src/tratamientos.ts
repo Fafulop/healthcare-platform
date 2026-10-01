@@ -104,6 +104,68 @@ export async function pasarSesionAlReagendar(
   return { movida: true, sesion };
 }
 
+export type ResultadoLigarNueva =
+  | { ligada: true }
+  | { ligada: false; motivo: 'sin_sesion' | 'tratamiento_no_activo' | 'sesion_cancelada' | 'sesion_con_visita' | 'sesion_con_cita' | 'cita_invalida' | 'cambio' };
+
+/**
+ * T5 — «Agendar sesiones»: la cita RECIÉN creada (por la misma ruta que la agenda) se liga a SU
+ * sesión en la misma petición (`paraSesion`), para que nunca quede una cita agendada sin su sesión.
+ * Mismas reglas que «Ligar una cita…» para el caso que aquí importa: misma doctor y paciente, cita
+ * activa y de ninguna otra sesión; la sesión no cancelada, SIN visita propia, y sin una cita que
+ * siga contando (una cancelada / no-show / de otro paciente sí se reemplaza). Escritura condicionada.
+ * Audita en el expediente. NO lanza por reglas: devuelve `{ ligada: false, motivo }`.
+ */
+export async function ligarSesionACitaNueva(
+  db: Db,
+  args: { doctorId: string; sesionId: string; bookingId: string } & QuienAudita,
+): Promise<ResultadoLigarNueva> {
+  const { doctorId, sesionId, bookingId } = args;
+  const s = await db.tratamientoSesion.findFirst({
+    where: { id: sesionId, doctorId },
+    select: {
+      id: true, patientId: true, numero: true, cancelada: true, visitaId: true, bookingId: true, tratamientoId: true,
+      booking: { select: { patientId: true, status: true } },
+      tratamiento: { select: { estado: true } },
+    },
+  });
+  if (!s) return { ligada: false, motivo: 'sin_sesion' };
+  // Un tratamiento terminado o cancelado no recibe citas nuevas.
+  if (s.tratamiento.estado !== 'activo') return { ligada: false, motivo: 'tratamiento_no_activo' };
+  const motivo = motivoNoSeMueve(s);
+  if (motivo) return { ligada: false, motivo };
+  // Una cita que SIGUE contando (del mismo paciente y activa o completada) no se pisa.
+  const citaVigente = s.bookingId && s.booking?.patientId === s.patientId
+    && s.booking.status !== 'CANCELLED' && s.booking.status !== 'NO_SHOW';
+  if (citaVigente) return { ligada: false, motivo: 'sesion_con_cita' };
+
+  const b = await db.booking.findFirst({
+    where: { id: bookingId, doctorId },
+    select: { patientId: true, status: true, tratamientoSesion: { select: { id: true } } },
+  });
+  if (!b || b.patientId !== s.patientId || (b.status !== 'PENDING' && b.status !== 'CONFIRMED') || b.tratamientoSesion) {
+    return { ligada: false, motivo: 'cita_invalida' };
+  }
+
+  const { count } = await db.tratamientoSesion.updateMany({
+    where: { id: s.id, bookingId: s.bookingId, cancelada: false, visitaId: null },
+    data: { bookingId },
+  });
+  if (count === 0) return { ligada: false, motivo: 'cambio' };
+
+  await db.patientAuditLog.create({
+    data: {
+      patientId: s.patientId, doctorId, userId: args.userId, userRole: args.userRole,
+      action: 'link_sesion_cita', resourceType: 'tratamiento_sesion', resourceId: s.id,
+      changes: {
+        tratamientoId: s.tratamientoId, numero: s.numero,
+        bookingId: { from: s.bookingId, to: bookingId }, motivo: 'agendada desde el tratamiento',
+      },
+    },
+  });
+  return { ligada: true };
+}
+
 /**
  * Re-ligar la cita a OTRO paciente (G1b): la sesión del paciente ANTERIOR la suelta. Desligarla de
  * todo expediente NO la suelta (igual que la visita: volver a ligarla al mismo paciente la encuentra

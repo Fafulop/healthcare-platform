@@ -346,6 +346,15 @@ barrido para las citas que se borran por cascada. Por eso se recomienda P1.)
 
 ## 6. Después (T5–T7), en esbozo — se detallan cuando toque
 
+- ✅ **T5 (2026-10-01, escrito):** «Agendar sesiones…» en la pantalla del tratamiento
+  (`AgendarSesionesModal`): el NAVEGADOR llama UNA vez por sesión a `range-bookings/instant` (la
+  misma ruta que la agenda) con `paraSesion` (se liga en esa petición, `ligarSesionACitaNueva`) y
+  `avisoEnResumen` (sin correo ni SMS por cita); al final UN correo resumen
+  (`POST apps/api …/bookings/resumen-tratamiento`, `sendTreatmentScheduleEmail`). Falla parcial
+  = cada sesión independiente, la pantalla dice cuál no y por qué. Telemedicina (v1): cada cita
+  manda su correo con su liga de Meet (el resumen no las lleva). Se guarda `intervaloDias`.
+  Decisiones del usuario: el loop en el navegador (no una ruta nueva de alta), y el texto del
+  correo lo escribe Claude y se le enseña ANTES de mandar nada.
 - **T5 — Agendar N sesiones de una vez** (DISEÑO §4): cada cita por la MISMA ruta de la agenda (no
   un quinto camino; lección CONSULTORIOS), falla parcial = se crea lo que cabe y el resto queda «por
   agendar» con su motivo, **un** correo resumen al paciente. Toca `apps/api` (correo) — riesgo medio.

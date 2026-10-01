@@ -195,5 +195,7 @@ export function useTratamientoDetalle() {
     estado, tratamiento, patientName, bookings, permisos, visitas, ocupadas, trabajando,
     patchTratamiento, patchSesion, agregarSesion, borrarTratamiento, borrarSesion, cancelarSesion,
     ligarCita, desligarCita, ligarVisita,
+    /** Re-lee el tratamiento y lo de alrededor (T5: después de «Agendar sesiones»). */
+    recargar: () => Promise.all([cargarDetalle(), cargarAlrededor()]),
   };
 }

@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { prisma, doctorCongelado } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
-import { sesionAlReagendar } from '@/lib/reagendar-sesion';
+import { ligarSesionAlAgendar, sesionAlReagendar } from '@/lib/reagendar-sesion';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
@@ -41,6 +41,11 @@ export async function POST(request: Request) {
       isRescheduled,
       // TRATAMIENTOS T4: al reagendar, la cita VIEJA — su sesión de tratamiento pasa a ésta.
       reagendaDe,
+      // TRATAMIENTOS T5 («Agendar sesiones»): la sesión de tratamiento que esta cita agenda (se liga
+      // en esta misma petición), y si el aviso al paciente va en UN resumen al final en vez de uno
+      // por cita (sin correo ni SMS de esta cita; el resumen lo manda `bookings/resumen-tratamiento`).
+      paraSesion,
+      avisoEnResumen,
       patientId,
       // En cuál consultorio es la cita. Opcional: si no viene, se hereda del rango que la
       // contiene (booking-location.ts). Sólo hay algo que elegir cuando el doctor tiene 2+
@@ -294,6 +299,10 @@ export async function POST(request: Request) {
     }
 
     // Send SMS notifications (async, non-blocking)
+    // T5: con `avisoEnResumen` (sólo un doctor autenticado agendando sesiones) no va el CORREO de
+    // esta cita (va uno resumen al final). Los SMS siguen siendo por cita, como antes: quitarlos
+    // dejaba sin ningún aviso al paciente que sólo tiene teléfono.
+    const enResumen = avisoEnResumen === true && !!authenticatedDoctorId;
     const smsEnabled = await isSMSEnabled();
     if (smsEnabled) {
       const smsDetails = {
@@ -361,7 +370,9 @@ export async function POST(request: Request) {
       });
     }).catch((err) => console.error('[GCal sync] range-instant POST:', err))
     .finally(() => {
-      // Always send confirmation email for instant bookings
+      // Always send confirmation email for instant bookings — salvo T5 `avisoEnResumen` (un correo
+      // resumen al final de todas las sesiones, no N).
+      if (enResumen) return;
       sendBookingConfirmationEmail(booking.id).catch((err) =>
         console.error('[Email] auto-send confirmation (range-instant POST):', err)
       );
@@ -371,12 +382,19 @@ export async function POST(request: Request) {
       reagendaDe, isRescheduled, doctorId: booking.doctorId, callerDoctorId: authenticatedDoctorId,
       bookingId: booking.id, userId, role,
     });
+    // T5: la cita queda ligada a SU sesión en esta misma petición. FALLA ABIERTO: la cita ya existe;
+    // si no se pudo ligar, la respuesta lo dice para que la pantalla no afirme «agendada».
+    const sesionLigada = await ligarSesionAlAgendar({
+      paraSesion, doctorId: booking.doctorId, callerDoctorId: authenticatedDoctorId,
+      bookingId: booking.id, userId, role,
+    });
 
     return NextResponse.json(
       {
         success: true,
         message: 'Cita creada y confirmada exitosamente',
         ...(sesionReagendada ? { sesionReagendada } : {}),
+        ...(sesionLigada ? { sesionLigada } : {}),
         data: {
           id: booking.id,
           confirmationCode,
