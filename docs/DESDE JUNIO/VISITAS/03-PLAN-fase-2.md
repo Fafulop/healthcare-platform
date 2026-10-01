@@ -2,7 +2,8 @@
 
 > **Estado (2026-09-29): APROBADO — P1, P3–P5 como se recomendaron, P2 REVISADO en el code review
 > de T1 (ver abajo), G10 = todos los planes. ✅ T1 APLICADO EN PROD** (tablas vacías; nadie las usa
-> aún). Siguiente: T2. El diseño es
+> aún). **2026-10-01: T2 (la API) ESCRITO, smoke 26/26 en prod, review en 3 pasadas — ver §3.1.** Siguiente:
+> T3. El diseño es
 > `01-DISENO-visitas-y-tratamientos.md` (§3 modelo, §4 fecha, §5 precio, §6 concluir, §7 flujos,
 > §8 fases); este doc dice **cómo** se construye, en qué orden y cómo se prueba cada paso. Mismas
 > reglas que la fase 1 (`02-PLAN-fase-1.md` §0): SQL manual + `prisma db execute`, **nunca**
@@ -185,6 +186,69 @@ que el bloque de cita de una visita (`lib/booking-permisos.ts`).
 - Auditoría en `patient_audit_logs`: `create_tratamiento`, `update_tratamiento` (from → to),
   `link_sesion_cita` / `link_sesion_visita` (from → to) — NOM-024.
 - **Smoke contra prod** (tx revertida) de cada query nueva antes del push.
+
+### 3.1 ✅ Cómo quedó (2026-10-01)
+
+**Archivos:** `apps/doctor/src/lib/tratamientos.ts` (toda la lógica) + 4 rutas bajo
+`medical-records/patients/[id]/tratamientos/` (`route.ts` · `[tratamientoId]/route.ts` ·
+`[tratamientoId]/sesiones/route.ts` · `[tratamientoId]/sesiones/[sesionId]/route.ts`) + G3 en las
+rutas de visitas (`visitas/route.ts` POST y `visitas/[visitaId]/route.ts` PATCH). Las reglas comunes
+de «¿se puede ligar esta cita?» viven UNA vez en `lib/visitas.ts` → `cargarCitaLigable()` (la usan
+la visita y la sesión).
+
+**Tres desviaciones de §3/§8, aprobadas por el usuario el 2026-10-01** (P2 revisado manda sobre lo
+que se escribió antes de revisarlo):
+
+| Dónde | Decía | Quedó | Por qué |
+|---|---|---|---|
+| G2 · G3 | al ligar la cita, «`visita_id` se limpia» | **se conserva** | P2 revisado: la sesión SIEMPRE guarda su visita; limpiarla trae de vuelta el bug que P2 vino a quitar (cita borrada ⇒ sesión hecha vuelve a «por agendar»). |
+| `DELETE` tratamiento / sesión | «si no, se marca cancelado/a» | **409 con el conteo**; el cliente cancela con `PATCH` | Un DELETE que en silencio hace OTRA cosa sorprende a quien lo llama. |
+| `PATCH` sesión, `visitaId` | «ligar visita sólo sin cita» | igual, y además: con cita sólo se acepta **re-enviar la visita que la sesión muestra** | Soltar/cambiar la visita de una sesión con cita borraba la protección de P2 mientras la respuesta seguía mostrando la misma visita. |
+
+**Reglas que el review (tres pasadas: 10 + 10 + 2 hallazgos, todos reales) obligó a poner y que el plan no decía:**
+
+- **Mismo día:** ligar una cita a una visita que YA tiene plantillas exige que la cita sea del MISMO
+  día (`exigirMismoDiaSiTienePlantillas`, `lib/visitas.ts`), en los DOS caminos que lo hacen: mover
+  la visita manual de una sesión a su cita (G2) y el `PATCH` de la visita. ⚠️ **Cambio de
+  comportamiento de la fase 1:** hasta hoy sólo lo cuidaba la pantalla (`ligables`); la regla ya
+  estaba confirmada por el usuario (2026-09-29), así que la UI no cambia — sólo deja de poder
+  saltársela una llamada directa. El resto del pendiente de la fase 1 (el PUT de consultas, «Traer
+  aquí» / «Mover a…») sigue abierto.
+- **Una cita «vieja» no cuenta** (`citaEfectiva()`): la de una sesión cuya cita se re-ligó a otro
+  paciente o a ninguno no se muestra, así que tampoco bloquea ligar una visita, borrar la sesión,
+  borrar el tratamiento ni que la sesión de una visita tome una cita nueva.
+- **Formularios que mandan todo:** re-enviar la cita o la visita que la sesión MUESTRA no es
+  cambiarlas (`{ bookingId: null, visitaId: <la mostrada> }` sólo desliga la cita).
+- **Desligar la cita de una visita** que con esa cita forma una sesión → **409** («desliga desde el
+  tratamiento»). Si no, al concluirse la cita nacería una 2ª visita para la misma sesión.
+- **Desligar o CAMBIAR la cita de una sesión** (a propósito) suelta también la visita guardada
+  **si es la de esa cita** (si no, cambiar B→Y en un paso chocaba con «una visita no puede ser de
+  dos citas»): P2 protege de lo que pasa SIN que el doctor lo pida (cascada, re-ligar), no de que
+  diga «esta cita no era de la sesión».
+- **G1 al ligar:** si la cita sigue en la sesión del paciente ANTERIOR (se re-ligó y T4 aún no la
+  suelta), se suelta de ahí en la misma transacción y se audita **en el expediente de ESE paciente**.
+- **Motivos de «por agendar»:** `sin_cita` · `cita_cancelada` · `cita_no_asistio` ·
+  `cita_de_otro_paciente` · `cita_sin_expediente` (la cita se desligó de todo expediente). Aviso
+  `visita_no_abierta` en «hecha» por cita COMPLETED sin visita.
+- **Borrar un tratamiento** cuenta y borra en UNA transacción con candados `FOR UPDATE`: primero
+  el tratamiento (una sesión nueva lo necesita por la FK y espera) y luego sus sesiones (un ligado en
+  curso termina antes o espera): sin ellos, la cascada podía llevarse una sesión recién ligada. Borrar una sesión es un `deleteMany` condicionado a que siga sin cita ni visita.
+- **Tope de 100 sesiones** cuenta las que EXISTEN, no el número más alto (P3 deja huecos).
+- **`precioPaquete` en el body → 400** (no se ignora): una pantalla que lo mandara creería que se guardó.
+
+**Auditoría:** `create/update/delete/view_tratamiento`, `create/update/delete_sesion`,
+`link_sesion_cita`, `link_sesion_visita`, y `update_visita` cuando G2 mueve una visita a una cita.
+La SESIÓN tiene su propia fila aunque el cambio venga de las rutas de visitas (G3 al crear/ligar, y
+al BORRAR una visita que una sesión guardaba — la FK la suelta en silencio).
+
+**Probado:** type-check de `apps/doctor` limpio · `pnpm gates` en verde ·
+`scripts/visitas/tratamientos-probe-t2.cjs` contra prod en tx revertida **26/26** (dr-prueba; tablas
+siguen en 0 filas después) · `estadoDeSesion()` corrido con tsx contra la tabla de §1 (11/11). **NO
+probado:** las rutas por HTTP con una sesión real — eso llega con T3 (la UI) o con un `curl`
+autenticado. Hasta T3 nadie las llama.
+
+**Aceptado, sin arreglo:** el `PATCH` de la sesión lee el plan de ligado fuera de su transacción; una
+carrera la detiene el índice único y sale como 409 legible (`unicaDeSesion`), no como dato mal ligado.
 
 ## 4. T3 — La UI (apps/doctor)
 

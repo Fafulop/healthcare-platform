@@ -166,29 +166,70 @@ export async function bloquesDeCita(ctx: MedicalAuthContext, bookingIds: string[
 }
 
 /**
- * Valida que una cita se pueda ligar a una visita de este paciente:
+ * Las reglas COMUNES para ligar una cita a algo de este paciente (una visita o una sesión de
+ * tratamiento; una sola copia para que los dos caminos acepten las mismas citas):
  *   · quien liga necesita `citas` (ligar escribe en el bloque de la cita; DISEÑO §3 #5);
  *   · del MISMO doctor (la BD también lo exige, FK compuesta) y del MISMO paciente (sólo el servidor);
- *   · ni CANCELLED ni NO_SHOW (no hubo visita);
- *   · sin otra visita.
- * Devuelve el día de la cita (manda sobre `visitas.fecha`) o null si no tiene.
+ *   · ni CANCELLED ni NO_SHOW (no hubo visita).
+ * Devuelve el día de la cita (manda sobre `visitas.fecha`), su visita y su sesión de tratamiento.
  */
-export async function validarCitaParaVisita(
-  ctx: MedicalAuthContext, patientId: string, bookingId: unknown, exceptVisitaId?: string,
-): Promise<{ fechaCita: Date | null }> {
+export async function cargarCitaLigable(
+  ctx: MedicalAuthContext, patientId: string, bookingId: unknown, opts: { conSesion?: boolean } = {},
+) {
   if (!puedeVer(ctx, 'citas')) throw new AppError('PERMISSION_BLOCKED', 403);
   if (typeof bookingId !== 'string' || !bookingId) throw new AppError('bookingId inválido', 400);
   const b = await prisma.booking.findFirst({
     where: { id: bookingId, doctorId: ctx.doctorId },
-    select: { patientId: true, status: true, date: true, slot: { select: { date: true } }, visita: { select: { id: true } } },
+    select: {
+      patientId: true, status: true, date: true, slot: { select: { date: true } },
+      visita: { select: { id: true } },
+      // Sólo el camino de tratamientos la usa; la visita la relee dentro de su tx (G3).
+      ...(opts.conSesion ? { tratamientoSesion: { select: { id: true, patientId: true } } } : {}),
+    },
   });
   if (!b) throw new AppError('Cita no encontrada', 404);
   if (b.patientId !== patientId) throw new AppError('La cita no está ligada a este paciente', 409);
   if (b.status === 'CANCELLED' || b.status === 'NO_SHOW') {
     throw new AppError('La cita está cancelada o el paciente no asistió', 409);
   }
-  if (b.visita && b.visita.id !== exceptVisitaId) throw new AppError('La cita ya tiene una visita', 409);
-  return { fechaCita: b.slot?.date ?? b.date ?? null };
+  return {
+    id: bookingId,
+    fechaCita: b.slot?.date ?? b.date ?? null,
+    visitaId: b.visita?.id ?? null,
+    sesion: ('tratamientoSesion' in b ? b.tratamientoSesion : null) as { id: string; patientId: string } | null,
+  };
+}
+
+/**
+ * Una cita para una visita: las reglas comunes + que la cita no tenga OTRA visita.
+ * Devuelve el día de la cita (manda sobre `visitas.fecha`) o null si no tiene.
+ */
+export async function validarCitaParaVisita(
+  ctx: MedicalAuthContext, patientId: string, bookingId: unknown, exceptVisitaId?: string,
+): Promise<{ fechaCita: Date | null }> {
+  const c = await cargarCitaLigable(ctx, patientId, bookingId);
+  if (c.visitaId && c.visitaId !== exceptVisitaId) throw new AppError('La cita ya tiene una visita', 409);
+  return { fechaCita: c.fechaCita };
+}
+
+/**
+ * «Una sola verdad» de la fecha (DISEÑO §3): una visita CON plantillas ya tiene día (el de sus
+ * plantillas), así que sólo se le liga una cita de ESE día. Vivía sólo en la pantalla de la visita
+ * (`ligables`); ahora la cumplen en el servidor los dos caminos que ligan una cita a una visita que
+ * ya existe: el PATCH de la visita y el de una sesión de tratamiento (G2).
+ */
+export async function exigirMismoDiaSiTienePlantillas(
+  doctorId: string, patientId: string, visitaId: string, fechaVisita: Date, fechaCita: Date | null,
+  db: Prisma.TransactionClient | PrismaClient = prisma,
+) {
+  const consultas = await db.clinicalEncounter.count({ where: { visitaId, patientId, doctorId } });
+  if (consultas === 0) return;
+  if (!fechaCita) {
+    throw new AppError('La visita ya tiene plantillas y la cita no tiene fecha: no se pueden ligar', 409);
+  }
+  if (diaISO(fechaCita) !== diaISO(fechaVisita)) {
+    throw new AppError('La visita ya tiene plantillas de otro día: sólo se le puede ligar una cita de ese mismo día', 409);
+  }
 }
 
 /**

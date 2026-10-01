@@ -4,8 +4,11 @@ import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { AppError, handleApiError } from '@/lib/api-error-handler';
 import {
   bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, totalHijos,
-  unicaPorCita, validarCitaParaVisita,
+  exigirMismoDiaSiTienePlantillas, unicaPorCita, validarCitaParaVisita,
 } from '@/lib/visitas';
+import {
+  aplicarEnSesion, auditarCambioDeSesion, exigirSinSesionAlDesligar, sesionAlLigarCitaAVisita, type CambioDeSesion,
+} from '@/lib/tratamientos';
 
 // VISITAS D2 — docs/DESDE JUNIO/VISITAS/02-PLAN-fase-1.md §5.2. Permiso: `expedientes` (heredado).
 
@@ -109,6 +112,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         bookingFinal = null;
       } else {
         const { fechaCita } = await validarCitaParaVisita(ctx, patientId, body.bookingId, visitaId);
+        // Con plantillas, la visita ya tiene día: sólo una cita de ESE día (antes sólo lo cuidaba la UI).
+        await exigirMismoDiaSiTienePlantillas(ctx.doctorId, patientId, visitaId, visita.fecha, fechaCita);
         bookingFinal = body.bookingId as string;
         if (fechaCita) data.fecha = fechaCita;
       }
@@ -134,8 +139,21 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
     }
 
-    const updated = await prisma.visita
-      .update({ where: { id: visitaId }, data, select: VISITA_SELECT })
+    // Tratamientos G3: ligar una cita a la visita no puede dejar la cita en una sesión y la visita
+    // en otra; si sólo una de las dos es de una sesión, esa sesión toma la otra (P2 revisado).
+    // Desligar la cita de una visita que con ella forma una sesión → 409. Lee dentro de la tx.
+    const { updated, cambioSesion } = await prisma
+      .$transaction(async (tx) => {
+        let enSesion: CambioDeSesion | null = null;
+        if (typeof data.bookingId === 'string') {
+          enSesion = await sesionAlLigarCitaAVisita(tx, ctx.doctorId, patientId, data.bookingId, visitaId);
+        } else if (data.bookingId === null && visita.bookingId) {
+          await exigirSinSesionAlDesligar(tx, ctx.doctorId, visita.bookingId, visitaId);
+        }
+        const v = await tx.visita.update({ where: { id: visitaId }, data, select: VISITA_SELECT });
+        if (enSesion) await aplicarEnSesion(tx, enSesion, v.bookingId!, visitaId);
+        return { updated: v, cambioSesion: enSesion };
+      })
       .catch(unicaPorCita);
 
     await logAudit({
@@ -145,9 +163,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         ...(data.bookingId !== undefined ? { bookingId: { from: visita.bookingId, to: updated.bookingId } } : {}),
         ...(data.fecha !== undefined ? { fecha: { from: diaISO(visita.fecha), to: diaISO(updated.fecha) } } : {}),
         ...(data.comentario !== undefined ? { comentario: 'editado' } : {}),
+        ...(cambioSesion ? { sesionDeTratamiento: cambioSesion.sesionId } : {}),
       },
       request,
     });
+    if (cambioSesion) {
+      await auditarCambioDeSesion(ctx, request, patientId, cambioSesion, updated.bookingId!, visitaId);
+    }
 
     return NextResponse.json({ success: true, data: { ...updated, fecha: diaISO(updated.fecha) } });
   } catch (error) {
@@ -175,14 +197,35 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       );
     }
 
+    // Si una sesión de tratamiento la guarda, la FK la suelta (SET NULL) y la sesión vuelve a «por
+    // agendar»: se audita en la SESIÓN también, como cualquier otro cambio de su visita.
+    const sesion = await prisma.tratamientoSesion.findFirst({
+      where: { visitaId, doctorId: ctx.doctorId },
+      select: { id: true, tratamientoId: true, numero: true },
+    });
+
     await prisma.visita.delete({ where: { id: visitaId } });
 
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
       action: 'delete_visita', resourceType: 'visita', resourceId: visitaId,
-      changes: { fecha: diaISO(visita.fecha), bookingId: visita.bookingId, origen: visita.origen },
+      changes: {
+        fecha: diaISO(visita.fecha), bookingId: visita.bookingId, origen: visita.origen,
+        ...(sesion ? { sesionDeTratamiento: sesion.id } : {}),
+      },
       request,
     });
+    if (sesion) {
+      await logAudit({
+        patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
+        action: 'link_sesion_visita', resourceType: 'tratamiento_sesion', resourceId: sesion.id,
+        changes: {
+          tratamientoId: sesion.tratamientoId, numero: sesion.numero,
+          visitaId: { from: visitaId, to: null }, motivo: 'se borró la visita',
+        },
+        request,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

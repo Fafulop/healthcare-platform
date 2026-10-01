@@ -6,6 +6,7 @@ import {
   bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, unicaPorCita,
   validarCitaParaVisita,
 } from '@/lib/visitas';
+import { aplicarEnSesion, auditarCambioDeSesion, sesionAlLigarCitaAVisita } from '@/lib/tratamientos';
 
 // VISITAS D2 — docs/DESDE JUNIO/VISITAS/02-PLAN-fase-1.md §5.2. Permiso: `expedientes` (heredado).
 
@@ -94,19 +95,32 @@ export async function POST(
     }
     if (!fecha) throw new AppError('fecha es requerida (YYYY-MM-DD)', 400);
 
-    const visita = await prisma.visita
-      .create({
-        data: { patientId, doctorId: ctx.doctorId, fecha, comentario, bookingId, origen: 'manual' },
-        select: { id: true, fecha: true, comentario: true, origen: true, bookingId: true, createdAt: true, updatedAt: true },
+    // Tratamientos G3: si la cita es de una sesión, la sesión guarda esta visita (P2 revisado).
+    // Se lee dentro de la tx para que un choque con otra petición salga como lo que es.
+    const { visita, enSesion } = await prisma
+      .$transaction(async (tx) => {
+        const cambio = bookingId
+          ? await sesionAlLigarCitaAVisita(tx, ctx.doctorId, patientId, bookingId, null)
+          : null;
+        const v = await tx.visita.create({
+          data: { patientId, doctorId: ctx.doctorId, fecha: fecha!, comentario, bookingId, origen: 'manual' },
+          select: { id: true, fecha: true, comentario: true, origen: true, bookingId: true, createdAt: true, updatedAt: true },
+        });
+        if (cambio) await aplicarEnSesion(tx, cambio, bookingId!, v.id);
+        return { visita: v, enSesion: cambio };
       })
       .catch(unicaPorCita);
 
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
       action: 'create_visita', resourceType: 'visita', resourceId: visita.id,
-      changes: { fecha: diaISO(visita.fecha), bookingId, conComentario: !!comentario },
+      changes: {
+        fecha: diaISO(visita.fecha), bookingId, conComentario: !!comentario,
+        ...(enSesion ? { sesionDeTratamiento: enSesion.sesionId } : {}),
+      },
       request,
     });
+    if (enSesion) await auditarCambioDeSesion(ctx, request, patientId, enSesion, bookingId!, visita.id);
 
     return NextResponse.json(
       { success: true, data: { ...visita, fecha: diaISO(visita.fecha) } },

@@ -1,6 +1,6 @@
 # VISITAS — SESSION-REFRESCO (handoff para la próxima sesión)
 
-> **Actualizado: 2026-09-29 (LANZADO a todos los doctores; backfill DESCARTADO).** Léelo PRIMERO. Dice dónde estamos, qué
+> **Actualizado: 2026-10-01 (fase 2: T2 — la API de tratamientos — escrita y revisada; antes: fase 1 LANZADA a todos el 2026-09-29, backfill DESCARTADO).** Léelo PRIMERO. Dice dónde estamos, qué
 > ya está en prod, qué sigue y qué trampas ya se pisaron. El diseño vive en `01-DISENO`, el plan paso a
 > paso en `02-PLAN-fase-1.md` (§4 backfill, §5.1 D1, §5.2 D2, §5.3 D3, §5.4 D4). Este doc NO repite eso:
 > lo señala.
@@ -22,9 +22,13 @@
    Lo ajeno que sigue sin commitear en el árbol NO es de visitas: BBVA (`informe-medico/*`,
    `dicts/bbva.ts`, el PDF, `reports/[reportId]/chat/route.ts`), `ANALISIS CAT/`,
    `scripts/demo-seed/`, `.claude/settings.local.json` — nunca `git add -A`.
-2. **➡️ SIGUIENTE: T2 (la API de tratamientos)** — plan en `03-PLAN-fase-2.md` §3 + los huecos de §8 que
-   le tocan (G1a, G2, G3, G4, G5, G7, G9). Como siempre: plan → OK → código → type-check + gates +
-   smoke contra prod → review → OK → push. Decisiones YA tomadas (no re-litigar): P1 estado
+2. **✅ T2 (la API de tratamientos) — 2026-10-01: escrita, smoke 26/26 contra prod, review en 3 pasadas.**
+   Cómo quedó, las 3 desviaciones aprobadas y las reglas que añadió el review: `03-PLAN-fase-2.md`
+   §3.1. Toca código de la fase 1 (G3 en las rutas de visitas + `cargarCitaLigable` en
+   `lib/visitas.ts`). Nadie llama esas rutas hasta T3.
+   **➡️ SIGUIENTE: T3 (la UI)** — `03-PLAN` §4, detrás de la lista de dr-prueba; G6 (exportar) antes
+   de abrirla a todos; G8 (cancelar sesión con cita activa) es de la UI. Mismo ciclo: plan → OK →
+   código → type-check + gates + smoke → review → OK → push. Decisiones YA tomadas (no re-litigar): P1 estado
    DERIVADO (sólo `cancelada` se guarda), **P2 revisado: la sesión SIEMPRE guarda su visita**, P3
    números fijos, P4 `precio_paquete` sin usar hasta T6, P5 seguimientos al final, G10 todos los
    planes, T1–T4 antes que el dinero (T5–T6).
