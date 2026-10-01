@@ -5,7 +5,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { leerBody } from '@/lib/visitas';
 import {
   INTERVALO_MAX, SESIONES_MAX, TRATAMIENTO_SELECT, cargarTratamiento, parseEnteroOpcional, parseEstadoTratamiento,
-  parseNombre, parseNotas, parsePlantilla, rechazarPrecio, sesionesParaRespuesta,
+  ocupadasDelPaciente, parseNombre, parseNotas, parsePlantilla, rechazarPrecio, sesionesParaRespuesta,
 } from '@/lib/tratamientos';
 
 // VISITAS fase 2 T2 — docs/DESDE JUNIO/VISITAS/03-PLAN-fase-2.md §3. Permiso: `expedientes` (heredado).
@@ -22,14 +22,18 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (!tratamiento) {
       return NextResponse.json({ error: 'Tratamiento not found' }, { status: 404 });
     }
-    const sesiones = await sesionesParaRespuesta(ctx, patientId, { tratamientoId });
+    const [sesiones, ocupadas] = await Promise.all([
+      sesionesParaRespuesta(ctx, patientId, { tratamientoId }),
+      // T3: citas y visitas que ya son de alguna sesión del paciente (para los selectores).
+      ocupadasDelPaciente(ctx.doctorId, patientId),
+    ]);
 
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
       action: 'view_tratamiento', resourceType: 'tratamiento', resourceId: tratamientoId, request,
     });
 
-    return NextResponse.json({ success: true, data: { ...tratamiento, sesiones } });
+    return NextResponse.json({ success: true, data: { ...tratamiento, sesiones }, ocupadas });
   } catch (error) {
     return handleApiError(error, 'GET /api/medical-records/patients/[id]/tratamientos/[tratamientoId]');
   }

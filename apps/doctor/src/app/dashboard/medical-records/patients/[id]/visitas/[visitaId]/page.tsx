@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertCircle, ArrowLeft, CalendarDays, FileText, Image as ImageIcon, Loader2, NotebookPen, Pill, Plus, Trash2,
+  AlertCircle, ArrowLeft, CalendarDays, FileText, Image as ImageIcon, ListChecks, Loader2, NotebookPen, Pill, Plus, Trash2,
 } from 'lucide-react';
 import { ENCOUNTER_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from '@/components/medical-records/EncounterCard';
 import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical-records/CitaBadges';
 import { NotasCita } from '@/components/citas/NotasCita';
 import { formatoFechaVisita, totalHijos, visitasUiActiva } from '@/lib/visitas-ui';
+import { etiquetaSesion, tratamientoHref, tratamientosUiActiva } from '@/lib/tratamientos-ui';
 import { useVisitaDetalle, type ConsultaDeVisita } from '../_components/useVisitaDetalle';
 
 // Los `origen` que existen: D1 ('cita') y la API de D2 ('manual'). 'backfill' lo admite la BD (CHECK)
@@ -144,6 +145,17 @@ export default function VisitaPage() {
               Visita del {formatoFechaVisita(visita.fecha, { day: 'numeric', month: 'long', year: 'numeric' })}
             </h1>
             {v.patientName && <p className="text-base font-medium text-gray-700 mt-1">{v.patientName}</p>}
+            {/* TRATAMIENTOS T3 — la visita es una sesión de un tratamiento. */}
+            {visita.sesion && tratamientosUiActiva(v.doctorId) && (
+              <Link
+                href={tratamientoHref(patientId, visita.sesion.tratamientoId)}
+                className="text-sm text-blue-600 hover:text-blue-800 mt-1 inline-flex items-center gap-1"
+              >
+                <ListChecks className="w-4 h-4" />
+                {etiquetaSesion(visita.sesion.numero, visita.sesion.sesionesPlaneadas)} — {visita.sesion.nombre}
+                {visita.sesion.cancelada && ' (cancelada)'}
+              </Link>
+            )}
             <p className="text-sm text-gray-500 mt-1">
               {ORIGEN_TEXTO[visita.origen] ?? ''}
               {vacia && ' Todavía está vacía.'}

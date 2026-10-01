@@ -120,6 +120,21 @@ const SESION_SELECT = {
       const s1b = await tx.tratamientoSesion.findFirst({ where: { id: s1.id }, select: SESION_SELECT });
       ok('G2 visita movida a la cita', s1b.booking?.visita?.id === v.id && s1b.visitaId === v.id);
 
+      // T3 — `sesionDeVisita`: primero la que GUARDA la visita; si no, la de su cita (de este paciente).
+      const sel = { numero: true, cancelada: true, tratamiento: { select: { id: true, nombre: true, sesionesPlaneadas: true } } };
+      const sv = (await tx.tratamientoSesion.findFirst({ where: { doctorId, patientId, visitaId: v.id }, select: sel }))
+        ?? (await tx.tratamientoSesion.findFirst({ where: { doctorId, patientId, bookingId: b1.id, booking: { is: { patientId } } }, select: sel }));
+      ok('T3 sesionDeVisita', sv?.numero === 1 && sv.tratamiento.nombre === 'PROBE T2');
+      const svCita = await tx.tratamientoSesion.findFirst({ where: { doctorId, patientId, bookingId: b1.id, booking: { is: { patientId } } }, select: sel });
+      ok('T3 sesionDeVisita por cita (booking.is.patientId)', svCita?.numero === 1);
+      // T3 — `ocupadasDelPaciente`.
+      const ocup = await tx.tratamientoSesion.findMany({
+        where: { doctorId, patientId, OR: [{ bookingId: { not: null } }, { visitaId: { not: null } }] },
+        select: { bookingId: true, visitaId: true },
+      });
+      ok('T3 ocupadasDelPaciente', ocup.some((o) => o.bookingId === b1.id) && ocup.some((o) => o.visitaId === v.id));
+      ok('T3 id de dr-prueba en tratamientos-ui.ts', doctorId === 'cmni1bov90000mk0lyeztr3ad', doctorId);
+
       // Fixes del review: lecturas nuevas.
       const vFecha = await tx.visita.findMany({
         where: { id: { in: [v.id] }, patientId, doctorId },

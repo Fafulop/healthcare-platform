@@ -12,6 +12,10 @@ import { ConsultasSinVisitaCard } from '@/components/medical-records/visitas/Con
 import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
 import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 import { visitasUiActiva } from '@/lib/visitas-ui';
+import { TratamientosCard } from '@/components/medical-records/tratamientos/TratamientosCard';
+import { NuevoTratamientoModal } from '@/components/medical-records/tratamientos/NuevoTratamientoModal';
+import { useTratamientosDelPaciente } from '@/components/medical-records/tratamientos/useTratamientosDelPaciente';
+import { tratamientosUiActiva } from '@/lib/tratamientos-ui';
 import { PatientSummaryModal } from '@/components/medical-records/PatientSummaryModal';
 import { formatSex } from '@/components/medical-records/patient-display';
 import { usePatientProfile } from '../_components/usePatientProfile';
@@ -791,6 +795,10 @@ export default function PatientProfilePage() {
   // visitas («Nueva Consulta» + «Historial de Consultas»).
   const conVisitas = visitasUiActiva(doctorId);
   const visitasDelPaciente = useVisitasDelPaciente(patientId, conVisitas);
+  // TRATAMIENTOS T3 — sólo la lista de `lib/tratamientos-ui.ts` hasta el lanzamiento.
+  const conTratamientos = conVisitas && tratamientosUiActiva(doctorId);
+  const tratamientosDelPaciente = useTratamientosDelPaciente(patientId, conTratamientos);
+  const [showNuevoTratamiento, setShowNuevoTratamiento] = useState(false);
   const [showNuevaVisita, setShowNuevaVisita] = useState(false);
   // «Nueva Visita» desde otra pantalla (Línea de Tiempo) llega con `?nuevaVisita=1`: abre el modal
   // una vez y quita el parámetro, para que recargar la página no lo vuelva a abrir.
@@ -1144,6 +1152,14 @@ export default function PatientProfilePage() {
                 estado={visitasDelPaciente.estado}
                 sueltas={visitasDelPaciente.sueltas}
               />
+              {conTratamientos && (
+                <TratamientosCard
+                  patientId={patient.id}
+                  estado={tratamientosDelPaciente.estado}
+                  tratamientos={tratamientosDelPaciente.tratamientos}
+                  onNuevo={() => setShowNuevoTratamiento(true)}
+                />
+              )}
             </>
           ) : (
           <div className="bg-white rounded-lg shadow p-6">
@@ -1372,6 +1388,10 @@ export default function PatientProfilePage() {
           citasEstado={bookingsEstado}
           recargarVisitas={visitasDelPaciente.recargar}
         />
+      )}
+
+      {showNuevoTratamiento && (
+        <NuevoTratamientoModal patientId={patient.id} onClose={() => setShowNuevoTratamiento(false)} />
       )}
 
       {/* Summary Modal — outside the grid: it used to be a grid child, so with

@@ -9,6 +9,7 @@ import { practiceConfirm } from '@/lib/practice-confirm';
 import type { BookingPermisos } from '@/lib/booking-permisos';
 import type { PatientBooking } from '@/components/medical-records/CitaBadges';
 import type { CitaDeVisita } from '@/lib/visitas-ui';
+import type { SesionDeLaVisita } from '@/lib/tratamientos-ui';
 import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 
 // La forma de `GET …/visitas/[visitaId]` (apps/doctor/src/app/api/…/visitas/[visitaId]/route.ts).
@@ -33,6 +34,8 @@ export interface VisitaDetalle {
   cita: CitaDeVisita | null;
   consultas: ConsultaDeVisita[]; fotos: FotoDeVisita[]; recetas: RecetaDeVisita[];
   notas: NotaDeVisita[]; informes: InformeDeVisita[];
+  /** TRATAMIENTOS T3: la visita es la sesión N de un tratamiento (null = de ninguno). */
+  sesion?: SesionDeLaVisita | null;
 }
 
 type Estado = 'cargando' | 'error' | 'no-existe' | 'ok';

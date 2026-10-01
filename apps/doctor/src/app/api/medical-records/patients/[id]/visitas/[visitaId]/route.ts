@@ -7,7 +7,8 @@ import {
   exigirMismoDiaSiTienePlantillas, unicaPorCita, validarCitaParaVisita,
 } from '@/lib/visitas';
 import {
-  aplicarEnSesion, auditarCambioDeSesion, exigirSinSesionAlDesligar, sesionAlLigarCitaAVisita, type CambioDeSesion,
+  aplicarEnSesion, auditarCambioDeSesion, exigirSinSesionAlDesligar, sesionAlLigarCitaAVisita, sesionDeVisita,
+  type CambioDeSesion,
 } from '@/lib/tratamientos';
 
 // VISITAS D2 — docs/DESDE JUNIO/VISITAS/02-PLAN-fase-1.md §5.2. Permiso: `expedientes` (heredado).
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     }
 
     const where = { visitaId, patientId, doctorId: ctx.doctorId };
-    const [consultas, fotos, recetas, notas, informes, citas] = await Promise.all([
+    const [consultas, fotos, recetas, notas, informes, citas, sesion] = await Promise.all([
       prisma.clinicalEncounter.findMany({
         where, orderBy: { encounterDate: 'asc' },
         select: { id: true, encounterDate: true, encounterType: true, chiefComplaint: true, status: true, templateId: true },
@@ -59,6 +60,8 @@ export async function GET(request: NextRequest, { params }: Params) {
         select: { id: true, formId: true, status: true, encounterId: true, createdAt: true, issuedAt: true },
       }),
       bloquesDeCita(ctx, visita.bookingId ? [visita.bookingId] : []),
+      // Tratamientos T3: «Sesión 3 de 6 — Injerto capilar» en la pantalla de la visita.
+      sesionDeVisita(ctx.doctorId, patientId, visitaId, visita.bookingId),
     ]);
     // Con cita, la fecha es la de la CITA (se lee, DISEÑO §3), no el respaldo guardado.
     const dia = visita.bookingId ? (await diasDeCitas(ctx.doctorId, [visita.bookingId])).get(visita.bookingId) : undefined;
@@ -75,6 +78,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         fecha: diaISO(dia ?? visita.fecha),
         cita: visita.bookingId ? citas.get(visita.bookingId) ?? { id: visita.bookingId } : null,
         consultas, fotos, recetas, notas, informes,
+        sesion,
       },
     });
   } catch (error) {

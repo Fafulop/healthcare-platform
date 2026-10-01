@@ -263,6 +263,31 @@ carrera la detiene el índice único y sale como 409 legible (`unicaDeSesion`), 
 - **Precio del paquete: NO se pinta** hasta T6 (P4).
 - El manual (`manual-del-doctor.md`), la guía y el widget cambian **en el MISMO commit** que la UI.
 
+### 4.1 Cómo se está construyendo (2026-10-01) — detrás de la lista de dr-prueba
+
+**Tres decisiones del usuario (2026-10-01), cambian lo de arriba:**
+
+| # | Decía | Quedó | Por qué |
+|---|---|---|---|
+| 1 | «El manual, la guía y el widget cambian en el MISMO commit que la UI» | **Cambian en el commit de LANZAMIENTO** (como la fase 1, `42ed7f01`) | Mientras sólo dr-prueba lo ve, el widget le describiría a los demás algo que no tienen. G6 (exportar) también entra antes de lanzar. |
+| 2 | G8: «la UI pregunta ¿cancelar también la cita?» | Diálogo con **tres** salidas: cancelar sesión **y** cita · **sólo** la sesión · nada. La cita va **primero**, por la ruta de la agenda (`PATCH apps/api …/bookings/[id]` CANCELLED, con sus mismos avisos); si falla, se detiene y la sesión NO se cancela | Un confirm de sí/no no distingue «sólo la sesión» de «nada»: su «Cancelar» y el Esc cancelaban la sesión (review). |
+| 3 | — | **Sin intervalo (T5), sin precio (T6) y sin plantilla sugerida (T4)** en pantalla | Un campo que todavía no hace nada promete algo falso. La plantilla sugerida sólo sirve para pre-elegirse en «Agregar plantilla», que es T4. La API los sigue aceptando. |
+
+**Archivos:** `lib/tratamientos-ui.ts` (candado `tratamientosUiActiva()` = sólo dr-prueba, tipos y
+textos) · `components/medical-records/tratamientos/` (`TratamientosCard`, `NuevoTratamientoModal`,
+`useTratamientosDelPaciente`) · pantalla `patients/[id]/tratamientos/[tratamientoId]/` (+ su hook) ·
+renglón «Sesión 3 de 6 — X» en la pantalla de la visita.
+
+**Dos agregados a la API** (smoke contra prod en el mismo probe, **30/30**):
+`GET …/tratamientos/[tid]` devuelve también `ocupadas { citas, visitas }` (lo que ya es de alguna
+sesión del paciente, para que los selectores no ofrezcan lo que daría 409) y
+`GET …/visitas/[visitaId]` devuelve `sesion` (`sesionDeVisita()`: la sesión que GUARDA la visita
+y, si ninguna, la de su cita — sólo si la cita sigue siendo de este paciente).
+
+**Lo que la pantalla filtra para no ofrecer un 409:** citas de otra sesión; citas con su PROPIA
+visita si la sesión guarda otra (G2); citas de otro día si la visita de la sesión tiene plantillas.
+Una sesión cuya cita se canceló o no asistió («Por agendar») **sí** ofrece ligar otra.
+
 ## 5. T4 — Sincronía con la agenda
 
 **Con P1, queda poco:** el estado se deriva al leer, así que concluir, cancelar, no-show y borrar

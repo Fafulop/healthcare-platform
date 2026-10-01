@@ -26,9 +26,11 @@
    Cómo quedó, las 3 desviaciones aprobadas y las reglas que añadió el review: `03-PLAN-fase-2.md`
    §3.1. Toca código de la fase 1 (G3 en las rutas de visitas + `cargarCitaLigable` en
    `lib/visitas.ts`). Nadie llama esas rutas hasta T3.
-   **➡️ SIGUIENTE: T3 (la UI)** — `03-PLAN` §4, detrás de la lista de dr-prueba; G6 (exportar) antes
-   de abrirla a todos; G8 (cancelar sesión con cita activa) es de la UI. Mismo ciclo: plan → OK →
-   código → type-check + gates + smoke → review → OK → push. Decisiones YA tomadas (no re-litigar): P1 estado
+   T2 en prod: `272762a6` (doctor, SUCCESS verificado por `commitHash`).
+   **T3 (la UI) — 2026-10-01: escrita detrás de la lista de dr-prueba** (`tratamientosUiActiva()`);
+   decisiones y archivos en `03-PLAN` §4.1. **Falta:** probarla a mano en dr-prueba (Chrome) y,
+   para LANZAR a todos: G6 (exportar cuenta, `apps/api`) + manual, guía y widget en el mismo commit
+   de lanzamiento. Decisiones YA tomadas (no re-litigar): P1 estado
    DERIVADO (sólo `cancelada` se guarda), **P2 revisado: la sesión SIEMPRE guarda su visita**, P3
    números fijos, P4 `precio_paquete` sin usar hasta T6, P5 seguimientos al final, G10 todos los
    planes, T1–T4 antes que el dinero (T5–T6).

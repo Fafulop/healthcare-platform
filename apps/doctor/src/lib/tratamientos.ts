@@ -247,6 +247,45 @@ export async function sesionesParaRespuesta(
   });
 }
 
+/**
+ * La sesión de tratamiento de UNA visita, para la pantalla de la visita («Sesión 3 de 6 —
+ * Injerto capilar»): la que GUARDA la visita (P2) y, si ninguna, la de su cita — sólo si la cita
+ * sigue siendo de este paciente (una cita vieja, G1, no la hace sesión de nada). null = ninguna.
+ */
+export async function sesionDeVisita(doctorId: string, patientId: string, visitaId: string, bookingId: string | null) {
+  const select = {
+    numero: true, cancelada: true,
+    tratamiento: { select: { id: true, nombre: true, sesionesPlaneadas: true } },
+  } as const;
+  const s = (await prisma.tratamientoSesion.findFirst({ where: { doctorId, patientId, visitaId }, select }))
+    ?? (bookingId
+      ? await prisma.tratamientoSesion.findFirst({
+          where: { doctorId, patientId, bookingId, booking: { is: { patientId } } },
+          select,
+        })
+      : null);
+  if (!s) return null;
+  return {
+    tratamientoId: s.tratamiento.id, nombre: s.tratamiento.nombre, numero: s.numero,
+    sesionesPlaneadas: s.tratamiento.sesionesPlaneadas, cancelada: s.cancelada,
+  };
+}
+
+/**
+ * Las citas y visitas que ya son de ALGUNA sesión del paciente: los selectores de «Ligar una
+ * cita / una visita…» no ofrecen lo que el servidor rechazaría con 409.
+ */
+export async function ocupadasDelPaciente(doctorId: string, patientId: string) {
+  const sesiones = await prisma.tratamientoSesion.findMany({
+    where: { doctorId, patientId, OR: [{ bookingId: { not: null } }, { visitaId: { not: null } }] },
+    select: { bookingId: true, visitaId: true },
+  });
+  return {
+    citas: sesiones.flatMap((s) => (s.bookingId ? [s.bookingId] : [])),
+    visitas: sesiones.flatMap((s) => (s.visitaId ? [s.visitaId] : [])),
+  };
+}
+
 // ─── Cargar con tenencia ────────────────────────────────────────────────────────────────────
 
 /** Sin `precioPaquete` a propósito (G5): no viaja hasta T6. */
