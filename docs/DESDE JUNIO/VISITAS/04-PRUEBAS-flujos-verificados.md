@@ -221,7 +221,10 @@ Tratamiento de la corrida del 2026-10-01: «PRUEBA MANO» `cmuq0namj0001n20tts5k
 - **Por qué:** la columna enseña el precio con que se agendó la cita (`finalPrice`), no lo cobrado; en
   una sesión cubierta eso hacía creer que se cobraron $900. El dinero (Flujo, saldo, factura) ya estaba
   bien — era sólo la etiqueta.
-- **Resultado:** ver la corrida al final de esta entrada.
+- **Resultado 2026-10-01 (`83f0e8d6`):** ✅ PRECIO, por pantalla — lo copió el usuario de la agenda:
+  «Paquete + $200 extra» (PRUEBA EXTRA), «Paquete» (PRUEBA MANO), y «$900» en «f» (sin precio de
+  paquete) y en las citas normales. ⏳ Sin ver aún: «Cubierta por el paquete» en lugar de «Link de pago»
+  (las acciones no venían abiertas en lo copiado). Lo de la BD no cambia con este commit (sólo la UI).
 
 ### Flujos probados antes (con su evidencia en otro doc)
 
