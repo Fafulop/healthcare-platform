@@ -26,6 +26,11 @@ export interface VisitaResumen {
   origen: 'manual' | 'cita' | string;
   conteo?: ConteoHijos;
   cita: CitaDeVisita | null;
+  /** T7: la sesión de tratamiento de esta visita (null = de ninguno). */
+  sesion?: {
+    tratamientoId: string; nombre: string; estado: string; numero: number;
+    sesionesPlaneadas: number | null; cancelada: boolean;
+  } | null;
   createdAt: string;
 }
 

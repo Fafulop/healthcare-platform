@@ -1358,6 +1358,7 @@ export default function PatientProfilePage() {
           visitasEstado={visitasDelPaciente.estado}
           citasEstado={bookingsEstado}
           recargarVisitas={visitasDelPaciente.recargar}
+          tratamientos={conTratamientos ? tratamientosDelPaciente.tratamientos : []}
         />
       )}
 

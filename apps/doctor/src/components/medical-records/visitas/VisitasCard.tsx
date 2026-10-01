@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertCircle, CalendarCheck, ChevronRight, FileText, Plus, StickyNote } from 'lucide-react';
+import { AlertCircle, CalendarCheck, ChevronRight, FileText, ListChecks, Plus, StickyNote } from 'lucide-react';
+import { etiquetaSesion } from '@/lib/tratamientos-ui';
 import { FacturaBadge, PagoBadge, type PatientBooking } from '@/components/medical-records/CitaBadges';
 import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
 import { tieneNotas } from '@/components/citas/NotasCita';
@@ -70,6 +71,16 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
                         {hora && <span className="font-normal text-gray-500"> · {hora}</span>}
                       </p>
                       {v.cita?.servicio && <p className="text-xs text-gray-500 mt-0.5">{v.cita.servicio}</p>}
+                      {/* T7: la serie a la que pertenece (sin link: la fila entera ya es un link). */}
+                      {v.sesion && (
+                        <p className="text-xs text-teal-700 mt-0.5 flex items-center gap-1 min-w-0">
+                          <ListChecks className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">
+                            {etiquetaSesion(v.sesion.numero, v.sesion.sesionesPlaneadas)} — {v.sesion.nombre}
+                            {v.sesion.cancelada ? ' (cancelada)' : ''}
+                          </span>
+                        </p>
+                      )}
                       {/* Las notas de la cita, en UN renglón: la fila entera es un link, así que el
                           «ver más» de `NotasCita` navegaría. Completas, en la pantalla de la visita. */}
                       {b && tieneNotas(b.notes) && (

@@ -226,6 +226,24 @@ Tratamiento de la corrida del 2026-10-01: «PRUEBA MANO» `cmuq0namj0001n20tts5k
   paquete) y en las citas normales. ⏳ Sin ver aún: «Cubierta por el paquete» en lugar de «Link de pago»
   (las acciones no venían abiertas en lo copiado). Lo de la BD no cambia con este commit (sólo la UI).
 
+### F13 — «¿Es seguimiento?» en «Nueva Visita» (T7)
+
+- **Pasos:** perfil → «Nueva visita» → «Sin cita» (o una cita que NO sea sesión) → «¿Es seguimiento?».
+  (a) «Sesión siguiente de «X»» con un tratamiento activo; (b) «Seguimiento de una visita anterior» con
+  una visita que no sea de ningún tratamiento; (c) elegir la cita de una sesión → no debe aparecer la
+  pregunta; (d) una visita anterior de un tratamiento cancelado no aparece en la lista.
+- **Debe verse:** toast «Esta visita es la sesión N de su tratamiento» (a) / «Se creó el tratamiento
+  «Seguimiento del …»: esta visita es su sesión 2» (b); en el perfil, la tarjeta de Visitas dice «Sesión N
+  de M — X» bajo esa visita y el tratamiento aparece en Tratamientos.
+- **BD:** `scripts/visitas/verificar-tratamiento.cjs <tratamientoId>` — la sesión N con `visita` = la
+  nueva; en (b) sesión 1 = la anterior; bitácora `create_tratamiento` (motivo «seguimiento de una visita»)
+  y `link_sesion_visita` / `create_sesion` (motivo «Nueva Visita · es seguimiento»).
+- **Resultado:** ⏳ PENDIENTE a mano. Funciones reales 10/10 contra prod en tx revertida
+  (`scripts/visitas/tratamientos-probe-t7.ts`): nace «Seguimiento del 12 sep» con 1 = anterior y 2 = nueva;
+  sin sesión libre agrega al final; visita anterior ya en un tratamiento activo → ese mismo; llena la
+  primera libre de un tratamiento planeado; una sesión cuya cita se canceló cuenta como libre; cancelado → 409; visita de uno cancelado → 409; las lecturas
+  nuevas (`sesionesDeVisitas`, `esSesion`) corren.
+
 ### Flujos probados antes (con su evidencia en otro doc)
 
 - **T3** (crear tratamiento, ligar cita/visita, cancelar sesión con sus 3 salidas, borrar con 409):

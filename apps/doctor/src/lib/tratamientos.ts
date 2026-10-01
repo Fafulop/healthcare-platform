@@ -14,7 +14,7 @@ import type { NextRequest } from 'next/server';
 import { logAudit, type MedicalAuthContext } from '@/lib/medical-auth';
 import { AppError } from '@/lib/api-error-handler';
 import {
-  bloquesDeCita, cargarCitaLigable, diaISO, exigirMismoDiaSiTienePlantillas, puedeVer, unicaPorCita,
+  bloquesDeCita, cargarCitaLigable, diaISO, diasDeCitas, exigirMismoDiaSiTienePlantillas, puedeVer, unicaPorCita,
 } from '@/lib/visitas';
 
 type Db = Prisma.TransactionClient | PrismaClient;
@@ -325,6 +325,227 @@ export async function ocupadasDelPaciente(doctorId: string, patientId: string) {
     citas: sesiones.flatMap((s) => (s.bookingId ? [s.bookingId] : [])),
     visitas: sesiones.flatMap((s) => (s.visitaId ? [s.visitaId] : [])),
   };
+}
+
+/**
+ * T7 — la sesión de cada visita, para la etiqueta «Sesión N de M — X» en la tarjeta de Visitas del
+ * perfil. Misma regla que `sesionDeVisita` (la sesión que guarda la visita o, si no, la de su cita
+ * mientras siga siendo de este paciente), en UNA consulta para toda la lista.
+ */
+export async function sesionesDeVisitas(
+  doctorId: string, patientId: string, visitas: { id: string; bookingId: string | null }[],
+) {
+  const ids = visitas.map((v) => v.id);
+  const bookingIds = visitas.flatMap((v) => (v.bookingId ? [v.bookingId] : []));
+  const out = new Map<string, {
+    tratamientoId: string; nombre: string; estado: string; numero: number; sesionesPlaneadas: number | null; cancelada: boolean;
+  }>();
+  if (ids.length === 0) return out;
+  const sesiones = await prisma.tratamientoSesion.findMany({
+    where: {
+      doctorId, patientId,
+      OR: [
+        { visitaId: { in: ids } },
+        ...(bookingIds.length ? [{ bookingId: { in: bookingIds }, booking: { is: { patientId } } }] : []),
+      ],
+    },
+    select: {
+      numero: true, cancelada: true, visitaId: true, bookingId: true,
+      tratamiento: { select: { id: true, nombre: true, estado: true, sesionesPlaneadas: true } },
+    },
+  });
+  const porVisita = new Map(sesiones.filter((x) => x.visitaId).map((x) => [x.visitaId as string, x]));
+  const porCita = new Map(sesiones.filter((x) => x.bookingId).map((x) => [x.bookingId as string, x]));
+  for (const v of visitas) {
+    const x = porVisita.get(v.id) ?? (v.bookingId ? porCita.get(v.bookingId) : undefined);
+    if (x) {
+      out.set(v.id, {
+        tratamientoId: x.tratamiento.id, nombre: x.tratamiento.nombre, estado: x.tratamiento.estado, numero: x.numero,
+        sesionesPlaneadas: x.tratamiento.sesionesPlaneadas, cancelada: x.cancelada,
+      });
+    }
+  }
+  return out;
+}
+
+// ─── T7: «Es seguimiento de…» al crear una visita (DISEÑO §7, P5) ───────────────────────────
+
+/** Lo que el modal manda: unirse a un tratamiento ACTIVO, o seguir a una visita anterior. */
+export type Seguimiento = { tratamientoId: string } | { visitaId: string };
+
+export function parseSeguimiento(v: unknown): Seguimiento | null {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    const t = typeof o.tratamientoId === 'string' && o.tratamientoId ? o.tratamientoId : null;
+    const vi = typeof o.visitaId === 'string' && o.visitaId ? o.visitaId : null;
+    if (t && !vi) return { tratamientoId: t };
+    if (vi && !t) return { visitaId: vi };
+  }
+  throw new AppError('seguimiento inválido: { tratamientoId } o { visitaId }', 400);
+}
+
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+/** '2026-09-12' → '12 sep' (el día ya viene como texto: sin zonas horarias de por medio). */
+function diaCorto(iso: string) {
+  const [, m, d] = iso.split('-').map(Number);
+  return `${d} ${MESES[m - 1]}`;
+}
+
+export interface SeguimientoHecho {
+  tratamientoId: string;
+  /** El tratamiento se CREÓ aquí (seguimiento de una visita que no era de ninguno). */
+  creado: { nombre: string; sesionAnteriorId: string; visitaAnteriorId: string } | null;
+  sesionId: string;
+  numero: number;
+  /** true = se llenó una sesión «por agendar» que ya existía; false = se agregó al final. */
+  llenoExistente: boolean;
+  bookingId: string | null;
+}
+
+/**
+ * T7 — la visita RECIÉN creada (en la misma transacción) entra al tratamiento como sesión:
+ *   · `{ tratamientoId }`: un tratamiento ACTIVO del paciente;
+ *   · `{ visitaId }`: la visita anterior — si ya es de un tratamiento activo, a ése; si no es de
+ *     ninguno, nace uno chico «Seguimiento del 12 sep» con sesión 1 = la anterior y 2 = la nueva; si
+ *     es de uno terminado/cancelado, 409 (se reactiva primero — decisión del usuario 2026-10-01).
+ * La visita llena la PRIMERA sesión libre (no cancelada, sin visita y sin una cita que siga
+ * contando — la misma regla que «Agendar sesiones»); si no hay, se agrega una al final (como
+ * «Agregar sesión»: no cambia las sesiones planeadas). Si la visita trae cita y esa cita no es de
+ * ninguna sesión, la sesión la toma también. Cualquier choque de índice único → 409 legible.
+ */
+export async function unirComoSeguimiento(
+  tx: Prisma.TransactionClient, doctorId: string, patientId: string, seg: Seguimiento,
+  nueva: { id: string; bookingId: string | null },
+): Promise<SeguimientoHecho> {
+  try {
+    let tratamientoId: string;
+    let creado: SeguimientoHecho['creado'] = null;
+
+    if ('visitaId' in seg) {
+      if (seg.visitaId === nueva.id) throw new AppError('Una visita no puede ser seguimiento de sí misma', 400);
+      const prev = await tx.visita.findFirst({
+        where: { id: seg.visitaId, patientId, doctorId },
+        select: {
+          id: true, fecha: true, bookingId: true,
+          tratamientoSesion: { select: { tratamientoId: true, tratamiento: { select: { estado: true, nombre: true } } } },
+        },
+      });
+      if (!prev) throw new AppError('La visita anterior no existe o no es de este paciente', 404);
+      if (prev.tratamientoSesion) {
+        if (prev.tratamientoSesion.tratamiento.estado !== 'activo') {
+          throw new AppError(
+            `La visita anterior es de «${prev.tratamientoSesion.tratamiento.nombre}», que ya terminó o se canceló: reactívalo primero`,
+            409,
+          );
+        }
+        tratamientoId = prev.tratamientoSesion.tratamientoId;
+      } else {
+        // Con cita, el día de la visita es el de la cita (DISEÑO §3).
+        const dia = prev.bookingId ? (await diasDeCitas(doctorId, [prev.bookingId])).get(prev.bookingId) : undefined;
+        const nombre = `Seguimiento del ${diaCorto(diaISO(dia ?? prev.fecha))}`;
+        const t = await tx.tratamiento.create({ data: { patientId, doctorId, nombre }, select: { id: true } });
+        const citaPrevLibre = prev.bookingId
+          && !(await tx.tratamientoSesion.findFirst({ where: { bookingId: prev.bookingId }, select: { id: true } }))
+          ? prev.bookingId : null;
+        const s1 = await tx.tratamientoSesion.create({
+          data: { tratamientoId: t.id, patientId, doctorId, numero: 1, visitaId: prev.id, bookingId: citaPrevLibre },
+          select: { id: true },
+        });
+        tratamientoId = t.id;
+        creado = { nombre, sesionAnteriorId: s1.id, visitaAnteriorId: prev.id };
+      }
+    } else {
+      const t = await tx.tratamiento.findFirst({
+        where: { id: seg.tratamientoId, patientId, doctorId },
+        select: { id: true, estado: true, nombre: true },
+      });
+      if (!t) throw new AppError('Tratamiento no encontrado', 404);
+      if (t.estado !== 'activo') throw new AppError(`«${t.nombre}» ya terminó o se canceló: reactívalo primero`, 409);
+      tratamientoId = t.id;
+    }
+
+    // Candado: dos visitas a la vez no toman la misma sesión libre ni el mismo número nuevo. Con el
+    // candado puesto se RE-LEE el estado: un «Cancelar tratamiento» entre la lectura de arriba y aquí
+    // ya no se cuela.
+    await tx.$queryRaw`SELECT id FROM medical_records.tratamientos WHERE id = ${tratamientoId} FOR UPDATE`;
+    if (!creado) {
+      const ahora = await tx.tratamiento.findUnique({ where: { id: tratamientoId }, select: { estado: true, nombre: true } });
+      if (!ahora || ahora.estado !== 'activo') {
+        throw new AppError(`«${ahora?.nombre ?? 'El tratamiento'}» ya terminó o se canceló: reactívalo primero`, 409);
+      }
+    }
+
+    const citaNueva = nueva.bookingId
+      && !(await tx.tratamientoSesion.findFirst({ where: { bookingId: nueva.bookingId }, select: { id: true } }))
+      ? nueva.bookingId : null;
+
+    // «Libre» = lo que la pantalla del tratamiento enseña como «Por agendar»: la MISMA función
+    // (`estadoDeSesion`), no una copia de la regla — así no se pueden separar.
+    const candidatas = await tx.tratamientoSesion.findMany({
+      where: { tratamientoId, cancelada: false, visitaId: null },
+      orderBy: { numero: 'asc' },
+      select: {
+        id: true, numero: true, patientId: true, cancelada: true, bookingId: true, visitaId: true,
+        booking: CITA_PARA_ESTADO,
+      },
+    });
+    const libre = candidatas.find((x) => estadoDeSesion(x, x.booking).estado === 'por_agendar');
+
+    if (libre) {
+      await tx.tratamientoSesion.update({
+        where: { id: libre.id },
+        data: { visitaId: nueva.id, ...(citaNueva ? { bookingId: citaNueva } : {}) },
+      });
+      return { tratamientoId, creado, sesionId: libre.id, numero: libre.numero, llenoExistente: true, bookingId: citaNueva };
+    }
+    const agg = await tx.tratamientoSesion.aggregate({
+      where: { tratamientoId }, _max: { numero: true }, _count: { _all: true },
+    });
+    if (agg._count._all >= SESIONES_MAX) {
+      throw new AppError(`Un tratamiento tiene a lo más ${SESIONES_MAX} sesiones`, 409);
+    }
+    const numero = (agg._max.numero ?? 0) + 1;
+    const s = await tx.tratamientoSesion.create({
+      data: { tratamientoId, patientId, doctorId, numero, visitaId: nueva.id, bookingId: citaNueva },
+      select: { id: true },
+    });
+    return { tratamientoId, creado, sesionId: s.id, numero, llenoExistente: false, bookingId: citaNueva };
+  } catch (e) {
+    if (e instanceof AppError) throw e;
+    unicaDeSesion(e);
+  }
+}
+
+/** Auditoría (NOM-024) de un seguimiento: el tratamiento si nació aquí, y la sesión de la visita. */
+export async function auditarSeguimiento(
+  ctx: MedicalAuthContext, request: NextRequest, patientId: string, h: SeguimientoHecho, visitaId: string,
+) {
+  if (h.creado) {
+    await logAudit({
+      patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
+      action: 'create_tratamiento', resourceType: 'tratamiento', resourceId: h.tratamientoId,
+      changes: { nombre: h.creado.nombre, motivo: 'seguimiento de una visita', visitaAnteriorId: h.creado.visitaAnteriorId },
+      request,
+    });
+    await logAudit({
+      patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
+      action: 'create_sesion', resourceType: 'tratamiento_sesion', resourceId: h.creado.sesionAnteriorId,
+      changes: { tratamientoId: h.tratamientoId, numero: 1, visitaId: h.creado.visitaAnteriorId, motivo: 'visita anterior del seguimiento' },
+      request,
+    });
+  }
+  await logAudit({
+    patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
+    action: h.llenoExistente ? 'link_sesion_visita' : 'create_sesion',
+    resourceType: 'tratamiento_sesion', resourceId: h.sesionId,
+    changes: {
+      tratamientoId: h.tratamientoId, numero: h.numero, visitaId: { to: visitaId },
+      ...(h.bookingId ? { bookingId: { to: h.bookingId } } : {}),
+      motivo: 'Nueva Visita · es seguimiento',
+    },
+    request,
+  });
 }
 
 // ─── Cargar con tenencia ────────────────────────────────────────────────────────────────────

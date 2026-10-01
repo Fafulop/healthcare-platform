@@ -385,6 +385,8 @@ permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
   «Agregar» o «Editar».
 - **Citas e Ingresos** — sus citas, con si están pagadas y facturadas.
 
+En **Visitas**, una visita que es sesión de un tratamiento dice **«Sesión 2 de 6 — (tratamiento)»**.
+
 Visitas, Consultas sin visita, Formularios, Notas Recientes y Citas e Ingresos enseñan sólo las
 **3 más recientes**; Tratamientos enseña **3, los activos primero**. El botón **«Ver N más»** debajo
 abre los demás y «Ver menos» los vuelve a cerrar.
@@ -403,6 +405,12 @@ documentos, notas, recetas e informes, la cita y un comentario.
   «Sin cita» con su **Fecha**, y se crea al picar **«Crear visita»**. Si esa cita ya tiene su
   visita, el botón dice **«Abrir su visita»** y no crea otra. Un ayudante sin permiso de citas no ve
   «¿De qué cita?»: su visita se crea sin cita.
+  Si el paciente tiene tratamientos activos o visitas anteriores, también pregunta **«¿Es
+  seguimiento?»**: **«Sesión siguiente de «(tratamiento)»»** (la visita llena la siguiente sesión
+  libre o se agrega una al final) o **«Seguimiento de una visita anterior»** (se crea un tratamiento
+  **«Seguimiento del 12 sep»** con esa visita y la nueva; le cambias el nombre en «Editar»). Si la
+  cita elegida ya es sesión de un tratamiento no pregunta: la visita entra sola. Un tratamiento
+  terminado o cancelado no recibe seguimientos: reactívalo primero.
 
 **La pantalla de la visita** (clic en «Visita del …»):
 

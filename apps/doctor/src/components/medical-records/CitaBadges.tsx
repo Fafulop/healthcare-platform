@@ -42,6 +42,8 @@ export interface PatientBooking {
   /** Casilla "¿Necesita factura?" de la tabla de citas. Pregunta por CITA —
    *  distinta de `patient.requiereFactura`, que es del expediente. */
   facturaSolicitada?: boolean | null;
+  /** T7: la cita ya es sesión de un tratamiento de este paciente. */
+  esSesion?: boolean;
   // Financial
   ledgerEntryId?: number | null;
   amount?: number | null;

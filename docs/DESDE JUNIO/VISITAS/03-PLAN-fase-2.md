@@ -395,6 +395,21 @@ barrido para las citas que se borran por cascada. Por eso se recomienda P1.)
   de permutaciones. El riesgo más alto de la fase.
 - **T7 — Cierre:** exportar cuenta incluye tratamientos y sesiones (LFPDPPP; `apps/api`);
   «Es seguimiento de…» en «Nueva Visita» (P5); filtro por tratamiento donde aplique.
+- ✅ **T7 (2026-10-01, escrito):** el export ya estaba (G6). **«¿Es seguimiento?»** en «Nueva Visita»:
+  «Sesión siguiente de «X»» (tratamientos ACTIVOS) o «Seguimiento de una visita anterior» (visitas que no
+  son de ningún tratamiento). El servidor (`unirComoSeguimiento`, `lib/tratamientos.ts`) lo hace en LA
+  MISMA transacción que crea la visita: llena la PRIMERA sesión libre (no cancelada, sin visita, sin cita
+  que siga contando — la regla de T5) o agrega una al final (como «Agregar sesión»); con visita anterior
+  sin tratamiento nace «Seguimiento del 12 sep» (sesión 1 = anterior, 2 = nueva); visita anterior de uno
+  terminado/cancelado → 409 «reactívalo primero». Si la cita elegida ya es sesión, no se pregunta
+  (`esSesion` en las citas del expediente; el servidor da 409 si llega igual). La visita toma la cita
+  también si esa cita no es de ninguna sesión. Candado `FOR UPDATE` sobre el tratamiento; choques →
+  409. **Decisiones del usuario (2026-10-01):** el «filtro por tratamiento» se REEMPLAZA por la etiqueta
+  «Sesión N de M — X» en la tarjeta de Visitas (el filtro por visita de los libros se había descartado
+  en la fase 1, así que no había dónde filtrar); visita anterior de un tratamiento terminado → rechazar;
+  nombre del tratamiento chico «Seguimiento del <día>». Probe `scripts/visitas/tratamientos-probe-t7.ts`
+  10/10 contra prod (tx revertida; la función REAL). «Libre» = `estadoDeSesion(...) === 'por_agendar'` — la
+  misma función que pinta «Por agendar», no una copia de la regla (hallazgo del review).
 
 ## 7. Orden y puntos de parada
 

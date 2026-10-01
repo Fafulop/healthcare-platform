@@ -7,6 +7,7 @@ import { getClinicDateString } from '@/lib/dates';
 import { toast } from '@/lib/practice-toast';
 import type { PatientBooking } from '@/components/medical-records/CitaBadges';
 import { formatoFechaVisita, visitaHref, type VisitaResumen } from '@/lib/visitas-ui';
+import type { TratamientoResumen } from '@/lib/tratamientos-ui';
 
 interface Props {
   patientId: string;
@@ -22,6 +23,8 @@ interface Props {
   citasEstado: 'cargando' | 'error' | 'ok';
   /** Re-lee las visitas del paciente (la lista puede ser vieja: la cita se concluyó en otra pestaña). */
   recargarVisitas: () => Promise<void>;
+  /** T7 «¿Es seguimiento?»: los tratamientos del paciente (se ofrecen sólo los activos). Vacío = no hay. */
+  tratamientos?: TratamientoResumen[];
 }
 
 /**
@@ -31,11 +34,19 @@ interface Props {
  * Una cita que YA tiene visita (la automática al concluir) no se vuelve a ligar — la API contesta
  * 409 —: se ofrece ABRIR la suya. Es el camino diario: se concluye la cita y su visita ya existe.
  */
-export function NuevaVisitaModal({ patientId, onClose, bookings, verCitas, visitas, visitasEstado, citasEstado, recargarVisitas }: Props) {
+export function NuevaVisitaModal({
+  patientId, onClose, bookings, verCitas, visitas, visitasEstado, citasEstado, recargarVisitas, tratamientos = [],
+}: Props) {
   const router = useRouter();
   const [fecha, setFecha] = useState(getClinicDateString());
   const [bookingId, setBookingId] = useState('');
   const [guardando, setGuardando] = useState(false);
+  // T7 «¿Es seguimiento?»: '' = no · 't:<tratamientoId>' = sesión siguiente · 'v:<visitaId>' = de una visita anterior.
+  const [seguimiento, setSeguimiento] = useState('');
+  const activos = useMemo(() => tratamientos.filter((t) => t.estado === 'activo'), [tratamientos]);
+  // Visitas que no son de NINGÚN tratamiento: si ya son de uno activo, se elige ese tratamiento; si
+  // son de uno terminado/cancelado, el servidor lo rechaza (se reactiva primero). Las 20 más recientes.
+  const visitasSueltas = useMemo(() => visitas.filter((v) => !v.sesion).slice(0, 20), [visitas]);
 
   const visitaPorCita = useMemo(
     () => new Map(visitas.flatMap((v) => (v.cita ? [[v.cita.id, v.id] as const] : []))),
@@ -70,6 +81,9 @@ export function NuevaVisitaModal({ patientId, onClose, bookings, verCitas, visit
 
   const elegida = listo ? citas.find((b) => b.id === bookingId) ?? null : null;
   const visitaExistente = elegida ? visitaPorCita.get(elegida.id) : undefined;
+  // La cita de una sesión ya lleva su visita al tratamiento: ahí no se pregunta (el servidor diría 409).
+  const citaEsSesion = elegida?.esSesion === true;
+  const ofrecerSeguimiento = listo && !visitaExistente && !citaEsSesion && (activos.length > 0 || visitasSueltas.length > 0);
 
   const etiquetaCita = (b: PatientBooking) => [
     b.date ? formatoFechaVisita(b.date) : 'Sin fecha',
@@ -95,7 +109,12 @@ export function NuevaVisitaModal({ patientId, onClose, bookings, verCitas, visit
         // Con cita, el día lo pone la CITA y el servidor ignora `fecha`; se manda cuando hay una
         // porque una cita cuyo slot se borró no tiene día (02-PLAN §5.1) y ahí manda la escrita.
         // Vacía NO se manda: el servidor rechaza una `fecha` mal formada aunque venga cita (400).
-        body: JSON.stringify(elegida ? { bookingId: elegida.id, ...(fecha && { fecha }) } : { fecha }),
+        body: JSON.stringify({
+          ...(elegida ? { bookingId: elegida.id, ...(fecha && { fecha }) } : { fecha }),
+          ...(ofrecerSeguimiento && seguimiento
+            ? { seguimiento: seguimiento.startsWith('t:') ? { tratamientoId: seguimiento.slice(2) } : { visitaId: seguimiento.slice(2) } }
+            : {}),
+        }),
       });
       const data = await res.json().catch(() => null);
       // Sólo ESTE 409 (texto exacto de `lib/visitas.ts`): los otros 409 —cita de otro paciente,
@@ -109,6 +128,12 @@ export function NuevaVisitaModal({ patientId, onClose, bookings, verCitas, visit
         return;
       }
       if (!res.ok || !data?.data?.id) throw new Error(data?.error || 'No se pudo crear la visita');
+      const seg = data.data.seguimiento;
+      if (seg) {
+        toast.success(seg.tratamientoCreado
+          ? `Se creó el tratamiento «${seg.tratamientoCreado}»: esta visita es su sesión ${seg.numero}`
+          : `Esta visita es la sesión ${seg.numero} de su tratamiento`);
+      }
       router.push(visitaHref(patientId, data.data.id));
     } catch (err: any) {
       toast.error(err.message || 'No se pudo crear la visita');
@@ -171,6 +196,39 @@ export function NuevaVisitaModal({ patientId, onClose, bookings, verCitas, visit
               <p className="text-xs text-gray-500 mt-1">Con cita, la fecha de la visita es la de la cita.</p>
             )}
           </div>
+
+          {listo && citaEsSesion && !visitaExistente && (
+            <p className="text-xs text-gray-500">Esta cita es sesión de un tratamiento: la visita entra sola a él.</p>
+          )}
+          {ofrecerSeguimiento && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">¿Es seguimiento?</label>
+              <select value={seguimiento} onChange={(e) => setSeguimiento(e.target.value)} className={inputClass}>
+                <option value="">No</option>
+                {activos.length > 0 && (
+                  <optgroup label="Sesión siguiente de un tratamiento">
+                    {activos.map((t) => (
+                      <option key={t.id} value={`t:${t.id}`}>Sesión siguiente de «{t.nombre}»</option>
+                    ))}
+                  </optgroup>
+                )}
+                {visitasSueltas.length > 0 && (
+                  <optgroup label="Seguimiento de una visita anterior">
+                    {visitasSueltas.map((v) => (
+                      <option key={v.id} value={`v:${v.id}`}>
+                        Visita del {formatoFechaVisita(v.fecha)}{v.cita?.servicio ? ` · ${v.cita.servicio}` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              {seguimiento.startsWith('v:') && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Se crea un tratamiento «Seguimiento del …» con esa visita y ésta (le cambias el nombre en «Editar»).
+                </p>
+              )}
+            </div>
+          )}
 
           {visitaExistente && (
             <p className="text-sm text-blue-800 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">

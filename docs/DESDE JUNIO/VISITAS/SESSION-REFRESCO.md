@@ -76,11 +76,18 @@
    cambian; y en la agenda el precio de una sesión cubierta dice «Paquete» (o «Paquete + $N extra») y su
    «Link de pago» se cambia por «Cubierta por el paquete». Probado a mano y en la BD (F5b, F11, F12).
 
-   **⏭️ LO QUE SIGUE (en orden, recomendado al usuario el 2026-10-01):**
-   1. **Esperar uso real** de Tratamientos por un doctor que no sea dr-prueba antes de T7/fase 3.
-   2. **T7** (cierra la fase 2): «Es seguimiento de…» en «Nueva Visita» (P5) + filtro por tratamiento
-      (el export de T7 ya está, G6). Plan detallado en `03-PLAN` §6 ANTES de tocar código.
-   3. **Fase 3 — Progreso** (comparar sesiones): diseño y plan propios primero.
+   ✅ **T7 escrito (2026-10-01)** — «¿Es seguimiento?» en «Nueva Visita» + etiqueta «Sesión N de M — X»
+   en la tarjeta de Visitas; ver `03-PLAN` §6. Prueba a mano PENDIENTE (F13 en `04-PRUEBAS`).
+
+   **⏭️ LO QUE SIGUE (orden que fijó el usuario el 2026-10-01):**
+   1. **Probar a mano** en una sesión de quebradita: F12 (la etiqueta COBRO) y F13 (T7).
+   2. **Herramienta de importación — SÓLO guardar (sin IA):** el doctor ubica a sus pacientes y sube en
+      bloque los Word / PDF / escaneos de cada uno a su Docs y Galería. Doc de diseño primero, en
+      `docs/DESDE JUNIO/PACIENTE MIGRATION/` (ahí vive la importación .xlsx que ya está en prod). Lo de leer
+      los documentos con IA y convertirlos en notas va DESPUÉS y exige decidir antes privacidad (LFPDPPP).
+   3. **Fase 3 — Progreso:** evaluada el 2026-10-01 — mediana y de bajo riesgo (sólo lee; sin cambios de
+      BD ni dinero; recharts ya está). Recomendación: «progreso POR PACIENTE» (los tratamientos casi no
+      tienen sesiones reales aún; 17 de 33 plantillas tienen campos numéricos). Diseño propio primero.
 
    **Sin probar / pendientes chicos** (detalle en `04-PRUEBAS` §4):
    - Que los CORREOS (resumen de T5, aviso de reagendar) llegaron: sólo lo confirma la bandeja de

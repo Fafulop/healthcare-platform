@@ -324,7 +324,7 @@ export function ExpedientesGuide() {
         </div>
         <div className="space-y-0">
           <WorkflowStep number={1} title="Cómo nace una visita" icon={CalendarCheck}>
-            Sola, al <strong>completar una cita</strong> de un paciente con expediente (o al vincular el expediente a una cita ya completada). O a mano con <strong>Nueva Visita</strong>: elige <strong>¿De qué cita?</strong> (la de hoy ya viene elegida; un ayudante sin permiso de citas no la ve y su visita se crea sin cita) o <strong>Sin cita</strong> con su fecha, y <strong>Crear visita</strong>. Si esa cita ya tiene su visita, el botón dice <strong>Abrir su visita</strong>.
+            Sola, al <strong>completar una cita</strong> de un paciente con expediente (o al vincular el expediente a una cita ya completada). O a mano con <strong>Nueva Visita</strong>: elige <strong>¿De qué cita?</strong> (la de hoy ya viene elegida; un ayudante sin permiso de citas no la ve y su visita se crea sin cita) o <strong>Sin cita</strong> con su fecha, y <strong>Crear visita</strong>. Si esa cita ya tiene su visita, el botón dice <strong>Abrir su visita</strong>. Con tratamientos activos o visitas anteriores también pregunta <strong>¿Es seguimiento?</strong>: <strong>Sesión siguiente de «…»</strong> o <strong>Seguimiento de una visita anterior</strong> (crea un tratamiento «Seguimiento del …» con las dos visitas).
           </WorkflowStep>
           <WorkflowStep number={2} title="Qué hay dentro" icon={FolderOpen}>
             La cita (hora, servicio, pago y factura), <strong>Plantillas</strong>, <strong>Fotos y documentos</strong>, <strong>Notas</strong>, <strong>Recetas</strong> y un <strong>Comentario</strong>. Los botones «+» de Plantillas, Fotos, Notas y Recetas agregan directo a esta visita; los informes se hacen desde su plantilla y aparecen aquí cuando existen.
@@ -547,7 +547,7 @@ export function ExpedientesGuide() {
           <ul className="space-y-1.5 text-xs text-gray-600">
             {[
               "Información de Contacto: folio, edad, sexo, teléfono, email, dirección. La flecha de abajo abre el Contacto de Emergencia y las Notas Generales (texto libre del perfil), si hay.",
-              "Visitas: las 3 más recientes y «Ver N más»; clic en una para abrirla; «Nueva visita» crea una.",
+              "Visitas: las 3 más recientes y «Ver N más»; clic en una para abrirla; «Nueva visita» crea una. Si es sesión de un tratamiento dice «Sesión N de M — (tratamiento)».",
               "Consultas sin visita (sólo si hay): las registradas fuera de una visita (3 más recientes y «Ver N más»).",
               "Tratamientos: los planes de varias sesiones del paciente, con cuántas van hechas (3, los activos primero, y «Ver N más»); «Nuevo tratamiento» crea uno.",
               "Formularios: los formularios pre-cita que contestó el paciente (3 más recientes y «Ver N más»); «Nuevo formulario» genera el enlace de uno para este paciente (con permiso de Citas).",

@@ -61,6 +61,9 @@ export async function GET(
         // por CITA y no se deduce de `patient.requiereFactura`, que contesta otra
         // ("¿tenemos su RFC?", ver bookings/route.ts en apps/api).
         facturaSolicitada: true,
+        // T7: ¿la cita ya es sesión de un tratamiento de ESTE paciente? (el modal de «Nueva Visita»
+        // no ofrece «Es seguimiento» para ella: la visita entra sola a su tratamiento).
+        tratamientoSesion: { select: { patientId: true } },
         slot: {
           select: {
             date: true,
@@ -215,6 +218,7 @@ export async function GET(
         notes: b.notes ?? null,
         formLinkId: b.formLink?.status === 'SUBMITTED' ? (b.formLink.id ?? null) : null,
         facturaSolicitada: b.facturaSolicitada ?? null,
+        esSesion: !!b.tratamientoSesion && b.tratamientoSesion.patientId === patientId,
         // Financial
         ledgerEntryId: le?.id ?? null,
         amount: le ? Number(le.amount) : null,

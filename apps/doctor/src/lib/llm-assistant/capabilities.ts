@@ -233,6 +233,16 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             notes: 'Con sesiones planeadas se crean esas sesiones "Por agendar". "Agregar sesión" agrega la siguiente.',
           },
 
+          'marcar una visita como seguimiento': {
+            allowedIf:
+              'Al crear la visita: "Nueva Visita" → "¿Es seguimiento?" → "Sesión siguiente de «X»" (llena la siguiente ' +
+              'sesión libre de ese tratamiento activo, o agrega una) o "Seguimiento de una visita anterior" (crea un ' +
+              'tratamiento "Seguimiento del <fecha>" con las dos visitas; el nombre se cambia en "Editar").',
+            blockedIf:
+              'No aparece si la cita elegida ya es sesión de un tratamiento (la visita entra sola). Un tratamiento ' +
+              'terminado o cancelado no recibe seguimientos: hay que reactivarlo primero.',
+          },
+
           'ligar una cita o una visita a una sesión': {
             allowedIf:
               'En la pantalla del tratamiento: "Ligar una cita…" (citas del paciente que no son de otra sesión) o, ' +
@@ -251,8 +261,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           },
 
           borrar: {
-            allowedIf: '"Borrar" sólo mientras ninguna sesión tenga cita ni visita.',
-            blockedIf: 'Alguna sesión tiene cita o visita: se usa "Cancelar tratamiento".',
+            allowedIf: '"Borrar" sólo mientras ninguna sesión tenga cita ni visita y no haya pagos registrados.',
+            blockedIf: 'Alguna sesión tiene cita o visita, o hay pagos del tratamiento: se usa "Cancelar tratamiento".',
           },
 
           'cobrar por paquete': {
