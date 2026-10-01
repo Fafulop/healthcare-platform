@@ -4,7 +4,7 @@
  * (sólo su LISTADO): son lo que pesa, y siguen guardados con nosotros.
  *
  *   LEEME.txt                 qué trae y qué no
- *   pacientes.csv · consultas.csv · citas.csv · recetas.csv · adjuntos.csv · visitas.csv
+ *   pacientes.csv · consultas.csv · citas.csv · recetas.csv · adjuntos.csv · visitas.csv · tratamientos.csv
  *   expedientes/<paciente>.html   el expediente completo, uno por paciente
  *
  * Sirve a una cuenta CONGELADA (la ruta vive bajo /api/account/, que está en
@@ -211,7 +211,7 @@ export interface Exportacion {
 export async function armarExportacion(doctorId: string): Promise<Exportacion> {
   const faltantes: string[] = [];
 
-  const [doctor, pacientes, consultas, recetas, notas, historial, informes, adjuntos, citas, tareas, visitas] =
+  const [doctor, pacientes, consultas, recetas, notas, historial, informes, adjuntos, citas, tareas, visitas, tratamientos] =
     await Promise.all([
       prisma.doctor.findUniqueOrThrow({
         where: { id: doctorId },
@@ -254,6 +254,12 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
       // VISITAS: lo que pasó en un día con un paciente. El comentario lo escribió el doctor y la
       // visita la creó él (o su cita): es SU información (LFPDPPP, derecho de acceso) y va en el zip.
       prisma.visita.findMany({ where: { doctorId }, orderBy: [{ fecha: 'asc' }, { createdAt: 'asc' }] }),
+      // TRATAMIENTOS (fase 2, G6): el plan y sus sesiones los capturó el doctor ⇒ van en el zip.
+      prisma.tratamiento.findMany({
+        where: { doctorId },
+        orderBy: { createdAt: 'asc' },
+        include: { sesiones: { orderBy: { numero: 'asc' } } },
+      }),
     ]);
 
   const nombreDe = new Map(pacientes.map((p) => [p.id, `${p.firstName} ${p.lastName}`.trim()]));
@@ -333,6 +339,30 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
     return b ? [horaDeVisita(v), b.serviceName, es(b.status)].filter(Boolean).join(' · ') : '';
   };
 
+  // ── Tratamientos ───────────────────────────────────────────────────────────
+  // Una fila por SESIÓN con los HECHOS (cancelada sí/no, su cita con su estatus, su visita), no el
+  // estado «Hecha / Por agendar» que calcula la app: así no hay una segunda copia de esa regla.
+  // Una cita que ya no es de este paciente no se imprime en su fila: se dice si pasó a OTRO
+  // expediente o si ya no está en ninguno (igual que distingue la app).
+  const citaDeSesion = (patientId: string, bookingId: string | null) => {
+    if (!bookingId) return '';
+    const b = citaDe.get(bookingId);
+    if (!b) return '';
+    if (!b.patientId) return '(la cita ya no está en ningún expediente)';
+    if (b.patientId !== patientId) return '(la cita pasó a otro expediente)';
+    return [dia(b.slot?.date ?? b.date), b.slot?.startTime ?? b.startTime, b.serviceName, es(b.status)]
+      .filter(Boolean).join(' · ');
+  };
+  const ESTADO_TRATAMIENTO: Record<string, string> = { activo: 'Activo', terminado: 'Terminado', cancelado: 'Cancelado' };
+  // La visita de una sesión: la que guarda y, si no (hasta T4 la visita automática de su cita no
+  // se le escribe), la de su cita — si la cita sigue siendo de este paciente.
+  const visitaPorCita = new Map(visitas.flatMap((v) => (v.bookingId ? [[v.bookingId, v.id] as const] : [])));
+  const visitaDeSesion = (patientId: string, s: { visitaId: string | null; bookingId: string | null }) => {
+    if (s.visitaId) return visita(s.visitaId);
+    if (!s.bookingId || citaDe.get(s.bookingId)?.patientId !== patientId) return '';
+    return visita(visitaPorCita.get(s.bookingId));
+  };
+
   // ── CSV ────────────────────────────────────────────────────────────────────
   archivos['pacientes.csv'] = csv(
     ['Expediente', 'Nombre', 'Apellidos', 'Nacimiento', 'Sexo', 'Correo', 'Teléfono', 'Dirección', 'Ciudad',
@@ -361,6 +391,29 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
       b.patientName, b.patientEmail, b.patientPhone, b.serviceName, es(b.appointmentMode), es(b.status), b.finalPrice,
       b.isFirstTime ? 'Sí' : 'No', b.notes, b.confirmationCode, instante(b.createdAt)]),
   );
+
+  // Sólo si HAY tratamientos (como visitas.csv): la UI todavía no está abierta para todos.
+  if (tratamientos.length) {
+    archivos['tratamientos.csv'] = csv(
+      ['Paciente', 'Tratamiento', 'Estado del tratamiento', 'Sesión', 'Cancelada', 'Cita', 'Visita',
+        'Notas de la sesión', 'Notas del tratamiento', 'Creado'],
+      tratamientos.flatMap((t) => {
+        const comun = [paciente(t.patientId), t.nombre, ESTADO_TRATAMIENTO[t.estado] ?? t.estado];
+        const fin = [t.notas, instante(t.createdAt)];
+        // Un tratamiento sin sesiones también sale (una fila con la sesión vacía).
+        if (!t.sesiones.length) return [[...comun, '', '', '', '', '', ...fin]];
+        return t.sesiones.map((s) => [
+          ...comun,
+          t.sesionesPlaneadas ? `${s.numero} de ${t.sesionesPlaneadas}` : String(s.numero),
+          s.cancelada ? 'Sí' : 'No',
+          citaDeSesion(t.patientId, s.bookingId),
+          visitaDeSesion(t.patientId, s),
+          s.notas,
+          ...fin,
+        ]);
+      }),
+    );
+  }
 
   archivos['recetas.csv'] = csv(
     ['Fecha', 'Paciente', 'Estatus', 'Diagnóstico', 'Medicamentos', 'Estudios de imagen', 'Estudios de laboratorio',
@@ -579,6 +632,9 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
     `- tareas.csv: ${tareas.length} pendientes y recordatorios tuyos.`,
     ...(visitas.length
       ? [`- visitas.csv: ${visitas.length} visitas (qué pasó cada día con cada paciente). La columna «Visita» de consultas, recetas y adjuntos dice a cuál pertenece cada cosa.`]
+      : []),
+    ...(tratamientos.length
+      ? [`- tratamientos.csv: ${tratamientos.length} ${tratamientos.length === 1 ? 'tratamiento' : 'tratamientos'}, una fila por sesión (su cita y su visita). Los tratamientos van sólo aquí, no en los archivos de expedientes/.`]
       : []),
     `- adjuntos.csv: la LISTA de ${adjuntos.length + pacientes.filter((p) => p.photoUrl).length + pacientes.filter((p) => p.constanciaFiscalUrl).length} archivos adjuntos (nombre, fecha, paciente).`,
     `- expedientes/: un archivo por paciente con su expediente completo. Ábrelo con cualquier navegador; para guardarlo en PDF, imprímelo y elige «Guardar como PDF».`,

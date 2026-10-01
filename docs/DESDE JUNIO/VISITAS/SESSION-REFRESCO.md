@@ -28,9 +28,22 @@
    `lib/visitas.ts`). Nadie llama esas rutas hasta T3.
    T2 en prod: `272762a6` (doctor, SUCCESS verificado por `commitHash`).
    **T3 (la UI) — 2026-10-01: escrita detrás de la lista de dr-prueba** (`tratamientosUiActiva()`);
-   decisiones y archivos en `03-PLAN` §4.1. **Falta:** probarla a mano en dr-prueba (Chrome) y,
-   para LANZAR a todos: G6 (exportar cuenta, `apps/api`) + manual, guía y widget en el mismo commit
-   de lanzamiento. Decisiones YA tomadas (no re-litigar): P1 estado
+   decisiones y archivos en `03-PLAN` §4.1. En prod `75afeae9` (doctor SUCCESS).
+   ✅ **Probada a mano en prod (Chrome, dr-prueba, paciente «pepit perez» — sin correo) 2026-10-01:**
+   tarjeta vacía → «Nuevo tratamiento» (sin campo de plantilla) → 3 sesiones «Por agendar» · ligar
+   cita nueva → «Agendada» con fecha/hora y desaparece de los otros selectores · ligar visita →
+   «Hecha» y la visita dice «Sesión 2 de 3 — PRUEBA T3» · cancelar con cita: el diálogo de TRES
+   salidas («No cancelar nada» no toca nada; «sesión y cita» cancela las dos) · «Borrar» con
+   ligadas → 409 y el aviso apunta a «Cancelar tratamiento» · desligar visita/cita y borrar → ok.
+   Verificado en la BD: 0 tratamientos/sesiones al final, auditoría completa. Queda en la agenda
+   la cita de prueba CANCELADA (2 oct 10:00, nota «PRUEBA T3 tratamientos - borrar») — borrarla a
+   mano si se quiere.
+   ✅ **G6 (exportar cuenta) — 2026-10-01:** `tratamientos.csv` (sólo si hay tratamientos), una
+   fila por sesión con HECHOS (cancelada sí/no, la cita con su estatus, la visita), no el estado
+   derivado — así no hay segunda copia de `estadoDeSesion()`. Sin sección en el HTML por paciente
+   (decisión del usuario: el CSV basta; el LEEME lo dice). Corrido de verdad contra prod (lectura)
+   con un tratamiento de prueba en dr-prueba: filas = pantalla; luego borrado.
+   **Para LANZAR a todos:** abrir `tratamientosUiActiva()` + manual, guía y widget en el MISMO commit. Decisiones YA tomadas (no re-litigar): P1 estado
    DERIVADO (sólo `cancelada` se guarda), **P2 revisado: la sesión SIEMPRE guarda su visita**, P3
    números fijos, P4 `precio_paquete` sin usar hasta T6, P5 seguimientos al final, G10 todos los
    planes, T1–T4 antes que el dinero (T5–T6).
