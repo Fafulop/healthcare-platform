@@ -46,7 +46,8 @@ export default function NewEncounterPage() {
     ? visitaHref(patientId, visitaId)
     : `/dashboard/medical-records/patients/${patientId}`;
 
-  if (sessionStatus === 'loading') {
+  // Sin `?visitaId=` el hook manda al perfil («Nueva Visita»): no se pinta el formulario mientras.
+  if (sessionStatus === 'loading' || !visitaId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

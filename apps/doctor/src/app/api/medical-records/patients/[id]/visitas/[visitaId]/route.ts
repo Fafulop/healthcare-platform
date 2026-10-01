@@ -135,6 +135,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           throw new AppError('La visita tiene cita: su fecha es la de la cita', 409);
         }
       } else {
+        // «La fecha de una plantilla ES la de su visita», del lado de la VISITA: con plantillas, la
+        // visita ya tiene día y no se cambia (antes sólo lo cuidaba la pantalla, `disabled`).
+        // Re-enviar el mismo día no es cambiarlo.
+        if (diaISO(fecha) !== diaISO(visita.fecha)) {
+          const consultas = await prisma.clinicalEncounter.count({
+            where: { visitaId, patientId, doctorId: ctx.doctorId },
+          });
+          if (consultas > 0) {
+            throw new AppError('La visita ya tiene plantillas: su fecha es la de sus plantillas y no se cambia', 409);
+          }
+        }
         data.fecha = fecha;
       }
     }

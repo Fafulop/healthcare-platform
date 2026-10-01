@@ -10,7 +10,7 @@ import { usePatientNotes } from './_hooks/usePatientNotes';
 import { PatientNotesList } from './_components/PatientNotesList';
 import { PatientNoteEditor } from './_components/PatientNoteEditor';
 import { practiceConfirm } from '@/lib/practice-confirm';
-import { etiquetaVisita, visitaHref, visitasUiActiva } from '@/lib/visitas-ui';
+import { etiquetaVisita, visitaHref } from '@/lib/visitas-ui';
 import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
 import { useVisitaElegida } from '@/components/medical-records/visitas/useVisitaElegida';
 import { VisitaDelElemento } from '@/components/medical-records/visitas/VisitaDelElemento';
@@ -34,7 +34,7 @@ export default function PatientNotasPage() {
 
   // VISITAS D5 — desde Notas (sin visita fija), la nota NUEVA pregunta «¿A qué visita pertenece?».
   // D5b — una nota YA guardada se puede mover de visita (también si se llegó desde una visita).
-  const conVisitas = visitasUiActiva(session?.user?.doctorId);
+  const conVisitas = !!session?.user?.doctorId;
   const elegirVisita = conVisitas && !visitaId;
   const visita = useVisitaElegida(patientId, conVisitas);
   const [moviendo, setMoviendo] = useState(false);

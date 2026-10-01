@@ -8,7 +8,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MediaUploader } from '@/components/medical-records/MediaUploader';
 import { toast } from '@/lib/practice-toast';
-import { visitaHref, visitasUiActiva } from '@/lib/visitas-ui';
+import { visitaHref } from '@/lib/visitas-ui';
 import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
 import { useVisitaElegida } from '@/components/medical-records/visitas/useVisitaElegida';
 
@@ -36,7 +36,7 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
   });
 
   // VISITAS D5 — desde Docs y Galería (sin visita fija) se pregunta «¿A qué visita pertenece?».
-  const elegirVisita = visitasUiActiva(session?.user?.doctorId) && !visitaId;
+  const elegirVisita = !!session?.user?.doctorId && !visitaId;
   const visita = useVisitaElegida(resolvedParams.id, elegirVisita);
 
   const [patient, setPatient] = useState<Patient | null>(null);

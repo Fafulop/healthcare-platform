@@ -8,7 +8,6 @@ import type { Medication } from '@/components/medical-records/MedicationList';
 import type { ImagingStudy, LabStudy } from '@/components/medical-records/StudyList';
 import { fetchDoctorProfile, type PracticeDoctorProfile } from '@/lib/practice-utils';
 import { validateMedications } from './prescription-types';
-import { visitasUiActiva } from '@/lib/visitas-ui';
 import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 
 interface PrescriptionForEdit {
@@ -49,7 +48,7 @@ export function useEditPrescriptionForm() {
   });
   // VISITAS D5b — mover la receta BORRADOR de visita. Con plantilla, su visita ES la de la plantilla
   // (D3; otra → 409) y aquí no hay selector de plantilla: se muestra, no se cambia.
-  const conVisitas = visitasUiActiva(session?.user?.doctorId);
+  const conVisitas = !!session?.user?.doctorId;
   const visitasDelPaciente = useVisitasDelPaciente(patientId, conVisitas);
   const [visitaElegida, setVisitaElegida] = useState('');
 

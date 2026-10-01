@@ -47,6 +47,12 @@ export function useNewEncounterPage() {
   // VISITAS D4 — «Agregar plantilla» desde una visita llega con `?visitaId=`: la consulta nace
   // DENTRO de esa visita, con la fecha de la visita (DISEÑO §3), y al guardar se vuelve a ella.
   const visitaId = searchParams.get('visitaId');
+  // Sin visita (por URL o un enlace viejo) ya no se crea una consulta suelta con fecha editable:
+  // toda consulta nace en una visita. Se manda al perfil con el modal «Nueva Visita» abierto
+  // (`?nuevaVisita=1`, que el perfil abre una vez y quita). Limpieza de VISITAS 2026-10-01.
+  useEffect(() => {
+    if (!visitaId) router.replace(`/dashboard/medical-records/patients/${patientId}?nuevaVisita=1`);
+  }, [visitaId, patientId, router]);
   const [fechaVisita, setFechaVisita] = useState<string | null>(null);
   const [errorVisita, setErrorVisita] = useState(false);
 

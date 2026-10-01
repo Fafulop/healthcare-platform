@@ -8,7 +8,7 @@ import {
 import { ENCOUNTER_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from '@/components/medical-records/EncounterCard';
 import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical-records/CitaBadges';
 import { NotasCita } from '@/components/citas/NotasCita';
-import { formatoFechaVisita, totalHijos, visitasUiActiva } from '@/lib/visitas-ui';
+import { formatoFechaVisita, totalHijos } from '@/lib/visitas-ui';
 import { etiquetaSesion, tratamientoHref, tratamientosUiActiva } from '@/lib/tratamientos-ui';
 import { useVisitaDetalle, type ConsultaDeVisita } from '../_components/useVisitaDetalle';
 
@@ -77,11 +77,9 @@ export default function VisitaPage() {
     );
   }
 
-  // 🚧 Hasta el lanzamiento, sólo la lista de `lib/visitas-ui.ts` (ver ahí por qué).
-  if (!visitasUiActiva(v.doctorId) || v.estado !== 'ok' || !visita) {
-    const texto = !visitasUiActiva(v.doctorId)
-      ? 'Las visitas todavía no están disponibles en tu cuenta.'
-      : v.estado === 'no-existe' ? 'Esta visita no existe o ya se borró.'
+  if (v.estado !== 'ok' || !visita) {
+    const texto = v.estado === 'no-existe'
+      ? 'Esta visita no existe o ya se borró.'
       : 'No se pudo cargar la visita. Recarga la página para intentar de nuevo.';
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto">

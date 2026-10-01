@@ -5,13 +5,11 @@ import { NotasCita } from "@/components/citas/NotasCita";
 import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { EncounterCard } from '@/components/medical-records/EncounterCard';
 import { NuevaVisitaModal } from '@/components/medical-records/visitas/NuevaVisitaModal';
 import { VisitasCard } from '@/components/medical-records/visitas/VisitasCard';
 import { ConsultasSinVisitaCard } from '@/components/medical-records/visitas/ConsultasSinVisitaCard';
 import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
 import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
-import { visitasUiActiva } from '@/lib/visitas-ui';
 import { TratamientosCard } from '@/components/medical-records/tratamientos/TratamientosCard';
 import { NuevoTratamientoModal } from '@/components/medical-records/tratamientos/NuevoTratamientoModal';
 import { useTratamientosDelPaciente } from '@/components/medical-records/tratamientos/useTratamientosDelPaciente';
@@ -791,12 +789,12 @@ export default function PatientProfilePage() {
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
-  // VISITAS — `visitasUiActiva` (lib/visitas-ui.ts). Sin ella, la página queda como antes de las
-  // visitas («Nueva Consulta» + «Historial de Consultas»).
-  const conVisitas = visitasUiActiva(doctorId);
+  // VISITAS — abiertas para todos desde 2026-09-29 (el interruptor `visitasUiActiva` se quitó en la
+  // limpieza del 2026-10-01). Sólo esperan a que haya doctor en la sesión.
+  const conVisitas = !!doctorId;
   const visitasDelPaciente = useVisitasDelPaciente(patientId, conVisitas);
   // TRATAMIENTOS — `tratamientosUiActiva` (lib/tratamientos-ui.ts): abierta para todos desde el lanzamiento.
-  const conTratamientos = conVisitas && tratamientosUiActiva(doctorId);
+  const conTratamientos = tratamientosUiActiva(doctorId);
   const tratamientosDelPaciente = useTratamientosDelPaciente(patientId, conTratamientos);
   const [showNuevoTratamiento, setShowNuevoTratamiento] = useState(false);
   const [showNuevaVisita, setShowNuevaVisita] = useState(false);
@@ -961,23 +959,13 @@ export default function PatientProfilePage() {
           {/* Actions — three tiers: the three the doctor actually uses (Nueva
               Consulta · Recetas · Informe), then the rest, then Archivar. */}
           <div className="flex flex-wrap items-center gap-2">
-            {conVisitas ? (
-              <button
-                onClick={() => setShowNuevaVisita(true)}
-                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1.5 text-sm font-semibold transition-colors"
-              >
-                <Plus className="w-4 h-4 flex-shrink-0" />
-                <span>Nueva Visita</span>
-              </button>
-            ) : (
-            <Link
-              href={`/dashboard/medical-records/patients/${patient.id}/encounters/new`}
+            <button
+              onClick={() => setShowNuevaVisita(true)}
               className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1.5 text-sm font-semibold transition-colors"
             >
               <Plus className="w-4 h-4 flex-shrink-0" />
-              <span>Nueva Consulta</span>
-            </Link>
-            )}
+              <span>Nueva Visita</span>
+            </button>
             <Link
               href={`/dashboard/medical-records/patients/${patient.id}/prescriptions`}
               className="px-3 py-2 border border-blue-200 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 flex items-center gap-1.5 text-sm font-medium transition-colors"
@@ -1135,71 +1123,27 @@ export default function PatientProfilePage() {
             )}
           </div>
 
-          {/* Encounters List — con VISITAS (D4) la reemplaza la tarjeta de visitas. */}
-          {/* «Consultas sin visita» va en su PROPIA tarjeta, debajo de «Visitas». */}
-          {conVisitas ? (
-            <>
-              <VisitasCard
-                patientId={patient.id}
-                estado={visitasDelPaciente.estado}
-                visitas={visitasDelPaciente.visitas}
-                bookings={patientBookings}
-                permisos={bookingPermisos}
-                onNuevaVisita={() => setShowNuevaVisita(true)}
-              />
-              <ConsultasSinVisitaCard
-                patientId={patient.id}
-                estado={visitasDelPaciente.estado}
-                sueltas={visitasDelPaciente.sueltas}
-              />
-              {conTratamientos && (
-                <TratamientosCard
-                  patientId={patient.id}
-                  estado={tratamientosDelPaciente.estado}
-                  tratamientos={tratamientosDelPaciente.tratamientos}
-                  onNuevo={() => setShowNuevoTratamiento(true)}
-                />
-              )}
-            </>
-          ) : (
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Historial de Consultas
-              </h2>
-              {patient.encounters && patient.encounters.length > 0 && (
-                <Link
-                  href={`/dashboard/medical-records/patients/${patient.id}/timeline`}
-                  className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-                >
-                  Ver todas
-                </Link>
-              )}
-            </div>
-
-            {/* Las 3 más recientes y «Ver todas» → Línea de Tiempo, NO la lista colapsable:
-                `patient.encounters` trae sólo las ÚLTIMAS 5 (`take: 5` en GET …/patients/[id]),
-                así que «Ver 2 más» afirmaba que no había más en un paciente con 20. */}
-            {patient.encounters && patient.encounters.length > 0 ? (
-              <div className="space-y-3">
-                {patient.encounters.slice(0, 3).map(encounter => (
-                  <EncounterCard key={encounter.id} encounter={encounter} patientId={patient.id} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p>No hay consultas registradas</p>
-                <Link
-                  href={`/dashboard/medical-records/patients/${patient.id}/encounters/new`}
-                  className="text-blue-600 hover:text-blue-800 text-sm mt-2 inline-block"
-                >
-                  Crear primera consulta
-                </Link>
-              </div>
-            )}
-          </div>
+          {/* Visitas (D4) · «Consultas sin visita» en su PROPIA tarjeta · Tratamientos. */}
+          <VisitasCard
+            patientId={patient.id}
+            estado={visitasDelPaciente.estado}
+            visitas={visitasDelPaciente.visitas}
+            bookings={patientBookings}
+            permisos={bookingPermisos}
+            onNuevaVisita={() => setShowNuevaVisita(true)}
+          />
+          <ConsultasSinVisitaCard
+            patientId={patient.id}
+            estado={visitasDelPaciente.estado}
+            sueltas={visitasDelPaciente.sueltas}
+          />
+          {conTratamientos && (
+            <TratamientosCard
+              patientId={patient.id}
+              estado={tratamientosDelPaciente.estado}
+              tratamientos={tratamientosDelPaciente.tratamientos}
+              onNuevo={() => setShowNuevoTratamiento(true)}
+            />
           )}
           {/* Formularios */}
           <div className="bg-white rounded-lg shadow p-6">

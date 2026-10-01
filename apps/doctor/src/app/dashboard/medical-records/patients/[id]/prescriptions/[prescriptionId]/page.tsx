@@ -10,7 +10,6 @@ import { resolveRecetaCustomContent } from '@/lib/receta-custom-content';
 import { getStatusLabel, getStatusColor } from '../_components/prescription-types';
 import { usePrescriptionDetail } from '../_components/usePrescriptionDetail';
 import { useSession } from 'next-auth/react';
-import { visitasUiActiva } from '@/lib/visitas-ui';
 import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 import { VisitaDelElemento } from '@/components/medical-records/visitas/VisitaDelElemento';
 
@@ -34,7 +33,7 @@ export default function ViewPrescriptionPage() {
   } = usePrescriptionDetail();
   // VISITAS D5b — a qué visita pertenece la receta (sólo con la UI de visitas).
   const { data: session } = useSession();
-  const conVisitas = visitasUiActiva(session?.user?.doctorId);
+  const conVisitas = !!session?.user?.doctorId;
   const visitasDelPaciente = useVisitasDelPaciente(patientId, conVisitas);
 
   if (sessionStatus === 'loading' || loading) {

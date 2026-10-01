@@ -9,7 +9,6 @@ import Link from 'next/link';
 import { MediaGallery } from '@/components/medical-records/MediaGallery';
 import { MediaViewer } from '@/components/medical-records/MediaViewer';
 import { toast } from '@/lib/practice-toast';
-import { visitasUiActiva } from '@/lib/visitas-ui';
 import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 
 interface Media {
@@ -50,7 +49,7 @@ export default function MediaGalleryPage({ params }: { params: Promise<{ id: str
     },
   });
   // VISITAS D5b — el visor muestra la visita del archivo y deja cambiarla (sólo con la UI de visitas).
-  const conVisitas = visitasUiActiva(session?.user?.doctorId);
+  const conVisitas = !!session?.user?.doctorId;
   const visitasDelPaciente = useVisitasDelPaciente(resolvedParams.id, conVisitas);
 
   const [media, setMedia] = useState<Media[]>([]);

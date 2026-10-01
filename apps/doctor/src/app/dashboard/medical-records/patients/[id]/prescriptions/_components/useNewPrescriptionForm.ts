@@ -14,7 +14,6 @@ import { fetchDoctorProfile, type PracticeDoctorProfile } from '@/lib/practice-u
 import { getLocalDateString } from '@/lib/dates';
 import { validateMedications } from './prescription-types';
 import { usePermissions } from '@/lib/permissions-client';
-import { visitasUiActiva } from '@/lib/visitas-ui';
 import { useVisitaElegida } from '@/components/medical-records/visitas/useVisitaElegida';
 
 interface Patient {
@@ -49,7 +48,7 @@ export function useNewPrescriptionForm() {
   });
   // VISITAS D5 — desde Recetas (sin visita fija) se pregunta «¿A qué visita pertenece?», y el
   // selector de consulta ofrece sólo las plantillas de la visita elegida.
-  const elegirVisita = visitasUiActiva(session?.user?.doctorId) && !visitaId;
+  const elegirVisita = !!session?.user?.doctorId && !visitaId;
   const visita = useVisitaElegida(patientId, elegirVisita);
   // prescription-chat is a legacy AI surface, OWNER_ONLY regardless of the
   // Expedientes toggle (00-REQUISITOS §5.3) — found via bug hunt 2026-07-21

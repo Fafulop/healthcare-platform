@@ -61,7 +61,14 @@
    `/api/appointments/reagendar-sesion` del navegador se BORRÓ) · «Sesión N de M — X» en la agenda
    (tabla, tarjeta y modal; el nombre lo ve todo el que ve la agenda — decisión del usuario) · G1b y
    P2 dentro de `syncVisitaForBooking` · y dos bugs viejos de reagendar (las notas se perdían; el
-   «Correo enviado» sin correo). Decisiones YA tomadas (no re-litigar): P1 estado
+   «Correo enviado» sin correo).
+   En prod `585dde0a` (api Y doctor SUCCESS). Funciones reales 8/8 contra prod (tx revertida).
+   ⏳ **PENDIENTE: la prueba a mano de T4** — se dejó para cuando Claude Code y la extensión de
+   Chrome estén en la cuenta **quebradita.a** (la de lopez.fafutis no tiene la sesión de dr-prueba
+   en ese Chrome). Los 3 pasos: (1) la agenda muestra «Sesión 2 de 3 — f» en la cita del 26 ago de
+   pepit perez (tratamiento de prueba «f» que creó el usuario); (2) reagendar una cita de prueba que
+   sea sesión → toast verde y la sesión en la cita nueva; (3) completar una cita de sesión SIN
+   registrar cobro → la sesión pasa a «Hecha» con «Abrir su visita». Decisiones YA tomadas (no re-litigar): P1 estado
    DERIVADO (sólo `cancelada` se guarda), **P2 revisado: la sesión SIEMPRE guarda su visita**, P3
    números fijos, P4 `precio_paquete` sin usar hasta T6, P5 seguimientos al final, G10 todos los
    planes, T1–T4 antes que el dinero (T5–T6).
@@ -138,7 +145,19 @@ aparecerá sola cuando un doctor concluya una cita con expediente ligado.
      Re-medir con el query de tamaños (sum de `length(row_to_json(e)::text)` por paciente).
    - ✅ (2026-09-29) Comentarios que mentían: `ORIGEN_TEXTO` 'backfill' (pantalla de la visita),
      `lib/visitas.ts`, `packages/database/src/visitas.ts` y `agenda-agent/modules/expediente.ts`.
-   - ⏳ **SIGUIENTE de esta lista:** la regla «mismo día / la fecha no cambia» se cuida sólo en la
+   - ✅ **(2026-10-01) LIMPIEZA HECHA:** (a) la regla del mismo día ya está en el SERVIDOR
+     (`exigirConsultaDelDiaDeLaVisita` / `diaDeVisita` en `lib/visitas.ts`): 409 al crear una consulta
+     en una visita de otro día, al cambiarle la fecha o la visita a una consulta que quedaría en
+     otro día (re-enviar la misma fecha o editar sólo contenido NO se revisa), y al cambiar la fecha
+     de una visita SIN cita que ya tiene plantillas; (b) `visitasUiActiva()` BORRADA: las ramas
+     muertas del perfil («Nueva Consulta», «Historial de Consultas») y el aviso «no disponible» de la
+     visita se quitaron; en fotos/notas/recetas se cambió por `!!session?.user?.doctorId` (era
+     también la espera de la sesión: mismo comportamiento); (c) `encounters/new` sin `?visitaId=`
+     manda al perfil con «Nueva Visita» abierta. Aceptado del review (para después): la regla corre
+     fuera de la transacción que escribe (carrera rarísima), `diaDeVisita` repite la regla de día de
+     `diasDeCitas`, quedan ramas «sin visita» inalcanzables en la página de nueva consulta, y GET
+     …/patients/[id] sigue trayendo 5 consultas completas que el perfil ya no pinta.
+   - (histórico) la regla «mismo día / la fecha no cambia» se cuidaba sólo en la
      UI: el PUT de consultas acepta `encounterDate` aunque la consulta esté en una visita (el
      «Editar» ya la bloquea; una llamada directa a la API o una pantalla futura no). Arreglo: el PUT
      rechaza (409) cambiar la fecha de una consulta que vive en una visita, y «Traer aquí» /
