@@ -18,6 +18,7 @@ en serie (seguimientos y sesiones), con precio de paquete sin duplicar la verdad
 |---|---|---|
 | [`01-DISENO-visitas-y-tratamientos.md`](01-DISENO-visitas-y-tratamientos.md) | DISEÑO (vivo) | El modelo, las reglas de una sola fuente de verdad (fecha/hora = cita · precio del paquete ≠ cobro), la visita automática al concluir, los flujos, las fases, los riesgos y las preguntas abiertas. |
 | [`SESSION-REFRESCO.md`](SESSION-REFRESCO.md) | HANDOFF (vivo) | Dónde estamos, qué está en prod (commits), qué sigue, decisiones del usuario y trampas ya pisadas. |
+| [`04-PRUEBAS-flujos-verificados.md`](04-PRUEBAS-flujos-verificados.md) | REFERENCIA (viva) | Cómo se prueba a mano (pantalla + BD + logs), cada flujo de Tratamientos con lo que debe verse y quedar en la BD, los resultados con su evidencia, lo NO probado y las trampas. Script: `scripts/visitas/verificar-tratamiento.cjs`. |
 | [`02-PLAN-fase-1.md`](02-PLAN-fase-1.md) | PLAN | Cómo se construye la fase 1 contra una BD que sólo existe en prod: SQL aditivo, 6 comprobaciones con rollback, backfill reversible de las consultas, y los despliegues D1–D6 con sus puntos de parada. |
 
 ## Las tres reglas que no se re-litigan
