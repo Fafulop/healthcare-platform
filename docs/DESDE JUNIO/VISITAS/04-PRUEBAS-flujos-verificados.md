@@ -135,9 +135,21 @@ Tratamiento de la corrida del 2026-10-01: «PRUEBA MANO» `cmuq0namj0001n20tts5k
 - **BD:** cita `COMPLETED`; la sesión con `visita_id` (P2); UN movimiento: `amount 0`, `origin cita`,
   concepto «… (cubierta por el paquete «X»)», con `booking_id` Y `tratamiento_id`, `hasFactura false`.
 - **Resultado 2026-10-01:** ✅ pantalla y BD (movimiento #1802 $0; visita `cmuq0shcj…`).
-- **No probado aún:** el cargo EXTRA (> 0 → «paquete + extra», debe sumar en «Cargos extra», no en
-  Pagado); completar desde el ASISTENTE (su card debe decir «Cubierta por el paquete…» y su resumen
-  usar `cobroRegistrado`).
+- **No probado aún:** completar desde el ASISTENTE (su card debe decir «Cubierta por el paquete…» y
+  su resumen usar `cobroRegistrado`). El asistente está OCULTO para todos los doctores
+  (`ASISTENTE_IA_VISIBLE = false`, `lib/agenda-agent/feature-flag.ts`): no hay botón para probarlo.
+
+### F5b — Sesión cubierta CON cargo extra (T6b)
+
+- **Pasos:** como F5, pero en «Cargo extra (opcional, MXN)» escribe un monto > 0.
+- **Debe verse:** al haber extra aparece «Forma de pago» y el texto cambia a «Se registrará el cargo
+  extra en Flujo de Dinero, marcado «paquete + extra»». Toast «Cita completada · cubierta por el paquete
+  «X» + cargo extra de $N». En el tratamiento: Pagado NO cambia y aparece «Cargos extra cobrados en
+  sesiones: $N». En el expediente esa cita dice «Pagado · <forma>» con $N (sí entró dinero).
+- **BD:** UN movimiento `amount N`, `origin cita`, concepto «… (paquete + extra «X»)», con cita y
+  tratamiento.
+- **Resultado 2026-10-01:** ✅ pantalla y BD («PRUEBA EXTRA» `cmuq236pm0001ll0to6s2c6nr`, $500; #1804
+  $200 → Pagado $0 · Saldo $500 · extras $200).
 
 ### F6 — Una sesión de $0 no se factura (T6b, hallazgo 3 del review)
 
@@ -184,6 +196,33 @@ Tratamiento de la corrida del 2026-10-01: «PRUEBA MANO» `cmuq0namj0001n20tts5k
 - **Resultado 2026-10-01:** ✅ pantalla (la URL terminó en el expediente). La regla del mismo día en el
   servidor NO se probó a mano (sí por código y review).
 
+### F11 — Expediente: «+ Nuevo» en cada tarjeta y el chip «Cubierta por el paquete» (`ce7c69fb`)
+
+- **Pasos:** perfil del paciente → arriba a la derecha de cada tarjeta.
+- **Debe verse:** Visitas «Nueva visita» (abre el modal «Nueva Visita» con «¿De qué cita?»);
+  Tratamientos «Nuevo tratamiento» (también sin tratamientos); Formularios «Nuevo formulario» (abre
+  «Formulario libre» con el paciente FIJO, sin «Cambiar»; sólo con permiso `citas`); Notas Recientes
+  «Ver todas» + «Nueva nota» (abre Notas con una nota en blanco y el selector «Visita:», `?nueva=1`).
+  La sesión de $0 dice «Cubierta por el paquete» (chip verde-azulado) en «Citas e Ingresos», en la
+  tarjeta de Visitas y en la página de la visita, con «No se factura: lo que se factura es el pago del
+  paquete»; y aunque tenga marcada «¿Necesita factura?», NO sale el chip naranja «Necesita factura».
+- **BD:** el veredicto es `estadoPago = 'CUBIERTA'` (ingreso de $0 con `tratamiento_id`) en
+  `GET …/patients/[id]/bookings`; smoke de sólo lectura: 1 ingreso en todo prod lo cumple (el de la
+  prueba). «Editar» sin tocar las notas ya NO anota `notas: 'editado'` (bitácora de «PRUEBA EXTRA»).
+- **Resultado 2026-10-01:** ✅ pantalla (los 4 botones abiertos sin guardar nada; chip en las 3 vistas;
+  sin «Necesita factura» con la casilla marcada — se marcó y se desmarcó) y BD (bitácora).
+
+### F12 — La agenda de una sesión cubierta: «Paquete» en vez del precio de lista
+
+- **Pasos:** Mis Citas → «Todas las fechas» → la fila de una sesión de un tratamiento CON precio.
+- **Debe verse:** en PRECIO, chip «Paquete» (o «Paquete + $N extra» si al completarla se cobró un
+  extra) en vez de «$900», y no se puede editar; al abrir sus acciones, en COBRO dice «Cubierta por el
+  paquete» en vez del botón «Link de pago». Una cita normal sigue igual ($ editable y «Link de pago»).
+- **Por qué:** la columna enseña el precio con que se agendó la cita (`finalPrice`), no lo cobrado; en
+  una sesión cubierta eso hacía creer que se cobraron $900. El dinero (Flujo, saldo, factura) ya estaba
+  bien — era sólo la etiqueta.
+- **Resultado:** ver la corrida al final de esta entrada.
+
 ### Flujos probados antes (con su evidencia en otro doc)
 
 - **T3** (crear tratamiento, ligar cita/visita, cancelar sesión con sus 3 salidas, borrar con 409):
@@ -196,7 +235,6 @@ Tratamiento de la corrida del 2026-10-01: «PRUEBA MANO» `cmuq0namj0001n20tts5k
 | Qué | Por qué | Cómo se probaría |
 |---|---|---|
 | Que los correos (resumen de T5, aviso de reagendar) LLEGARON y su redacción | apps/api no registra los envíos de correo; la UI sólo dice que se mandó | El usuario revisa la bandeja de `quebradita.a@gmail.com` |
-| Cargo extra en una sesión cubierta | No se hizo en la corrida | F5 con extra > 0: concepto «(paquete + extra «X»)», `origin cita`, suma en «Cargos extra» |
 | El asistente: completar una sesión cubierta y el barrido «qué falta facturar» con pagos de paquete | Sólo probe + type-check; un contrato con un LLM no se verifica leyendo el código | Pedirle al asistente que complete la sesión 2 y que diga qué falta facturar de pepit perez |
 | Un ayudante SIN `flujo` | No hay sesión de ayudante en ese Chrome | No debe ver «Paquete», ni el precio en «Editar», y la ruta de pago debe dar 403 |
 
@@ -217,5 +255,7 @@ Tratamiento de la corrida del 2026-10-01: «PRUEBA MANO» `cmuq0namj0001n20tts5k
 
 «PRUEBA MANO» (`cmuq0namj0001n20tts5k98bh`) activo con citas del 8 y 16 oct; movimientos #1802 ($0) y
 #1803 ($600) en Flujo de Dinero de dr-prueba; la casilla «¿Necesita factura?» marcada en la cita del
-1 oct; pepit perez con correo `quebradita.a@gmail.com` y teléfono `0000000000`. Si se limpian, anotar
-aquí cuándo.
+1 oct; pepit perez con correo `quebradita.a@gmail.com` y teléfono `0000000000`.
+**Limpiado el 2026-10-01:** «PRUEBA MANO» cancelado (sesiones 2 y 3 y sus citas canceladas), casilla
+desmarcada, contacto de pepit perez vacío. Quedan en Flujo de Dinero de dr-prueba #1802 ($0), #1803
+($600) y, de F5b, #1804 ($200) — borrar movimientos es decisión del usuario. «PRUEBA EXTRA» cancelado.

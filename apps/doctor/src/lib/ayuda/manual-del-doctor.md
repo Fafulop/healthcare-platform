@@ -471,7 +471,7 @@ cada pago entra a Flujo de Dinero como ingreso. Al **completar** una sesión del
 precio: queda en $0 «cubierta por el paquete» (si hubo algo aparte, capturas el **cargo extra**). A
 esas sesiones no se les puede generar link de pago, y lo que se factura es el pago del paquete, no la
 sesión: en el perfil y en la visita esas sesiones dicen **«Cubierta por el paquete»** en vez de
-«Pagado». Sin precio de paquete, cada sesión se cobra al completarla como siempre. Lo del paquete sólo
+«Pagado», y en la agenda su precio dice **«Paquete»** (o «Paquete + $N extra»). Sin precio de paquete, cada sesión se cobra al completarla como siempre. Lo del paquete sólo
 lo ve quien tiene permiso de Flujo de Dinero.
 
 Del tratamiento completo: **«Editar»** (nombre, sesiones planeadas, notas), **«Terminar»**,

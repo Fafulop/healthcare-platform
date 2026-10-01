@@ -108,6 +108,21 @@ export function PriceCell({
     if (e.key === "Escape") { setEditing(false); setValue(String(Number(booking.finalPrice))); }
   };
 
+  // TRATAMIENTOS T6: una sesión cubierta por el paquete NO se cobra al precio de lista — mostrar
+  // «$900» haría creer que se cobró. Se dice «Paquete» (y el extra, si al completarla se registró uno).
+  // No se edita: ese precio no es lo que se cobra. `cubiertaPorPaquete` lo decide el servidor.
+  if (booking.cubiertaPorPaquete) {
+    const extra = booking.ingreso && booking.ingreso.amount > 0 ? booking.ingreso.amount : 0;
+    return (
+      <span
+        title="Cubierta por el paquete de su tratamiento: no se cobra aparte"
+        className="text-[11px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-800 whitespace-nowrap"
+      >
+        Paquete{extra > 0 ? ` + $${extra.toLocaleString()} extra` : ""}
+      </span>
+    );
+  }
+
   if (editing) {
     return (
       <div className="flex items-center gap-1">
@@ -632,6 +647,11 @@ export function StatusActions({
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Cobro</span>
           {/* Mismo respaldo que el envío y la fila: si el correo/teléfono solo viven en
               el expediente, el link de pago debe poder pre-llenarlos igual. */}
+          {/* T6: a una sesión cubierta por el paquete no se le genera link (el servidor lo rechaza
+              igual, `checkBookingLinkSlot`); en vez de un botón que falla, se dice por qué. */}
+          {booking.cubiertaPorPaquete ? (
+            <span className="text-xs text-teal-700">Cubierta por el paquete</span>
+          ) : (
           <PaymentLinkButton
             bookingId={booking.id}
             patientId={booking.patientId}
@@ -656,6 +676,7 @@ export function StatusActions({
               amount: booking.mpPaymentPreference.amount,
             } : null}
           />
+          )}
         </div>
       );
 

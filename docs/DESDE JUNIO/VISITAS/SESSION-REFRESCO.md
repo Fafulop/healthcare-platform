@@ -68,9 +68,31 @@
    ver `03-PLAN` §6), con los 10 hallazgos del code review arreglados. Probe 14/14. **En prod
    `0a0a9fe7`** (api + doctor SUCCESS).
    ✅ **PRUEBAS A MANO de T4 · T5 · T6b · limpieza (2026-10-01): hechas, verificadas en pantalla Y en la BD**
-   — flujos, evidencia, lo NO probado (correos, cargo extra, asistente, ayudante sin `flujo`) y las trampas
-   en **`04-PRUEBAS-flujos-verificados.md`**. El párrafo de «PENDIENTE: la prueba a mano de T4» de abajo
-   quedó CUMPLIDO.
+   — flujos, evidencia, lo NO probado y las trampas en **`04-PRUEBAS-flujos-verificados.md`**. El párrafo
+   de «PENDIENTE: la prueba a mano de T4» de abajo quedó CUMPLIDO.
+   ✅ **Después, también en prod (2026-10-01):** `ce7c69fb` — «+ Nuevo» arriba a la derecha de cada tarjeta
+   del expediente (Visitas · Tratamientos · Formularios · Notas), chip «Cubierta por el paquete»
+   (`estadoPago = 'CUBIERTA'`, server) sin «Necesita factura» a su lado, bitácora de `notas` sólo si
+   cambian; y en la agenda el precio de una sesión cubierta dice «Paquete» (o «Paquete + $N extra») y su
+   «Link de pago» se cambia por «Cubierta por el paquete». Probado a mano y en la BD (F5b, F11, F12).
+
+   **⏭️ LO QUE SIGUE (en orden, recomendado al usuario el 2026-10-01):**
+   1. **Esperar uso real** de Tratamientos por un doctor que no sea dr-prueba antes de T7/fase 3.
+   2. **T7** (cierra la fase 2): «Es seguimiento de…» en «Nueva Visita» (P5) + filtro por tratamiento
+      (el export de T7 ya está, G6). Plan detallado en `03-PLAN` §6 ANTES de tocar código.
+   3. **Fase 3 — Progreso** (comparar sesiones): diseño y plan propios primero.
+
+   **Sin probar / pendientes chicos** (detalle en `04-PRUEBAS` §4):
+   - Que los CORREOS (resumen de T5, aviso de reagendar) llegaron: sólo lo confirma la bandeja de
+     `quebradita.a@gmail.com` (apps/api no registra envíos).
+   - El ASISTENTE con paquetes (card de completar, barrido «qué falta facturar»): está OCULTO para
+     todos (`ASISTENTE_IA_VISIBLE = false`); probarlo antes de volver a encenderlo.
+   - Un ayudante SIN `flujo` no debe ver nada del paquete (no probado).
+   - Datos de prueba que quedan en dr-prueba: movimientos #1802 ($0), #1803 ($600), #1804 ($200);
+     tratamientos «PRUEBA MANO» y «PRUEBA EXTRA» cancelados. Borrar movimientos = decisión del usuario.
+   - Ya conocidos, no de T6: reagendar llena el contacto VACÍO del expediente con el de la cita; carrera
+     mínima entre «Registrar pago» y «Borrar» el tratamiento (el pago quedaría con un `tratamiento_id`
+     huérfano — sin FK, nada truena).
    ⏳ **PENDIENTE: la prueba a mano de T4** — se dejó para cuando Claude Code y la extensión de
    Chrome estén en la cuenta **quebradita.a** (la de lopez.fafutis no tiene la sesión de dr-prueba
    en ese Chrome). Los 3 pasos: (1) la agenda muestra «Sesión 2 de 3 — f» en la cita del 26 ago de
