@@ -10,6 +10,7 @@ import {
 } from '@/lib/sms';
 import { sendNewBookingTelegram, isTelegramConfigured } from '@/lib/telegram';
 import { validateAuthToken } from '@/lib/auth';
+import { sesionAlReagendar } from '@/lib/reagendar-sesion';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent, updateSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
@@ -52,10 +53,12 @@ export async function POST(request: Request) {
     // Optional auth — doctors/admins get auto-confirmed bookings, public gets PENDING.
     let callerRole: string | null = null;
     let callerDoctorId: string | null = null;
+    let callerUserId: string | null = null;
     try {
       const auth = await validateAuthToken(request);
       callerRole = auth.role;
       callerDoctorId = auth.doctorId ?? null;
+      callerUserId = auth.userId ?? null;
     } catch {}
 
     // Only rate-limit unauthenticated (public) requests
@@ -78,6 +81,8 @@ export async function POST(request: Request) {
       isFirstTime,
       appointmentMode,
       isRescheduled,
+      // TRATAMIENTOS T4: al reagendar, la cita VIEJA — su sesión de tratamiento pasa a ésta.
+      reagendaDe,
       patientId,
     } = body;
 
@@ -481,11 +486,17 @@ export async function POST(request: Request) {
       finalPrice: servicePrice,
     });
 
+    const sesionReagendada = await sesionAlReagendar({
+      reagendaDe, isRescheduled, doctorId: slot.doctorId, callerDoctorId,
+      bookingId: booking.id, userId: callerUserId, role: callerRole,
+    });
+
     return NextResponse.json(
       {
         success: true,
         data: bookingWithSlot,
         message: 'Booking created successfully',
+        ...(sesionReagendada ? { sesionReagendada } : {}),
       },
       { status: 201 }
     );
@@ -580,6 +591,15 @@ export async function GET(request: Request) {
         // no lo guardaron por ningún camino, así que la UI tiene que decir
         // "sin registrar" en vez de adivinar.
         location: { select: { id: true, name: true } },
+        // TRATAMIENTOS T4: si la cita es la sesión de un tratamiento, la agenda dice «Sesión 3 de 6 —
+        // X» (decisión del usuario 2026-10-01: el nombre lo ve todo el que ve la agenda, por ahora).
+        // La UI sólo lo pinta si la sesión es del MISMO paciente que la cita (G1).
+        tratamientoSesion: {
+          select: {
+            numero: true, cancelada: true, patientId: true,
+            tratamiento: { select: { id: true, nombre: true, sesionesPlaneadas: true } },
+          },
+        },
         doctor: {
           select: {
             doctorFullName: true,

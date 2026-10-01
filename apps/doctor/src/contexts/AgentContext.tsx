@@ -33,7 +33,7 @@ import {
   type ReactNode,
 } from 'react';
 import { authFetch } from '@/lib/auth-fetch';
-import { pasarSesionACitaReagendada } from '@/lib/tratamientos-ui';
+import { textoDeSesionReagendada } from '@/lib/tratamientos-ui';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -337,19 +337,13 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
           ? ` · precio ajustado re-aplicado ($${restorePrice})`
           : ` · ⚠️ NO se pudo re-aplicar el precio ajustado ($${restorePrice}) — ajústalo manualmente`;
       }
-      // TRATAMIENTOS: si la original era la sesión de un tratamiento (lo dijo la tarjeta), la sesión
-      // pasa a la nueva. Non-fatal como el precio: el reagendado ya quedó.
+      // TRATAMIENTOS T4: el SERVIDOR pasó la sesión a la cita nueva al crearla (`reagendaDe`);
+      // aquí sólo se cuenta. Si la tarjeta prometió que pasaba y no volvió nada, se DICE.
       let sesionNote = '';
-      if (p.params.sesionDeTratamiento) {
-        if (!newBookingId) {
-          sesionNote = ' · ⚠️ La cita era la sesión de un tratamiento y no se supo cuál es la cita nueva: lígala desde el tratamiento.';
-        } else {
-          const sesion = await pasarSesionACitaReagendada(p.params.bookingId as string, newBookingId);
-          // La tarjeta prometió que la sesión pasaba: si no volvió nada, se DICE que no pasó.
-          sesionNote = sesion
-            ? ` · ${sesion.ok ? '' : '⚠️ '}${sesion.texto}`
-            : ' · ⚠️ La sesión del tratamiento NO pasó a la nueva cita (cambió mientras tanto): revísala en el tratamiento.';
-        }
+      const sesion = textoDeSesionReagendada(createData.sesionReagendada);
+      if (sesion) sesionNote = ` · ${sesion.ok ? '' : '⚠️ '}${sesion.texto}`;
+      else if (p.params.sesionDeTratamiento) {
+        sesionNote = ' · ⚠️ La sesión del tratamiento NO pasó a la nueva cita: revísala en el tratamiento.';
       }
       return { ok: true, resumen: `Cita reagendada — original cancelada, nueva CONFIRMADA (paciente notificado de ambas)${priceNote}${sesionNote}` };
     }

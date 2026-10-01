@@ -154,18 +154,9 @@ export function citaEfectiva(s: { patientId: string; bookingId: string | null; b
   return s.bookingId && s.booking?.patientId === s.patientId ? s.bookingId : null;
 }
 
-export type MotivoNoSeMueve = 'sesion_cancelada' | 'sesion_con_visita';
-
-/**
- * Reagendar: ¿la sesión pasa SOLA a la cita nueva? Sólo en el caso limpio. Una regla, un lugar: la
- * usan la ruta `reagendar-sesion` y la tarjeta del asistente (que le dice al doctor lo que va a
- * pasar ANTES de confirmar). null = sí se mueve.
- */
-export function motivoNoSeMueve(s: { cancelada: boolean; visitaId: string | null }): MotivoNoSeMueve | null {
-  if (s.cancelada) return 'sesion_cancelada';
-  if (s.visitaId) return 'sesion_con_visita';
-  return null;
-}
+// La regla «¿la sesión pasa sola a la cita nueva al reagendar?» vive en `@healthcare/database`
+// (la usan las rutas de `apps/api` que crean la cita nueva): aquí sólo se re-exporta.
+export { motivoNoSeMueve, type MotivoNoSeMueve } from '@healthcare/database';
 
 /** Lo mínimo para DERIVAR el estado (los conteos no necesitan más). */
 const CITA_PARA_ESTADO = { select: { patientId: true, status: true, visita: { select: { id: true } } } } as const;
@@ -402,8 +393,8 @@ export async function planLigarCitaASesion(
 /**
  * Escribe una sesión que (quizá) liga una cita, en UNA transacción: suelta la sesión vieja de la
  * cita (G1), mueve la visita manual a la cita (G2) y actualiza la sesión con `data`. La usan el
- * PATCH de la sesión y el reagendado (`/api/appointments/reagendar-sesion`), para que «ligar una
- * cita» se escriba de UNA sola forma. Un choque en `visitas` sale con su mensaje (`unicaPorCita`);
+ * PATCH de la sesión (y antes el reagendado, que desde T4 vive en `apps/api` —
+ * `pasarSesionAlReagendar`, packages/database), para que «ligar una cita» se escriba de UNA forma. Un choque en `visitas` sale con su mensaje (`unicaPorCita`);
  * uno en sesiones, con el suyo (`unicaDeSesion`).
  *
  * `siSigue`: la escritura sólo procede si la sesión SIGUE así (p. ej. con la cita que se leyó);

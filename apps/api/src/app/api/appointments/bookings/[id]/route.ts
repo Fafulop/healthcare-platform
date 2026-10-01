@@ -211,7 +211,11 @@ export async function PATCH(
       // cambie: re-enviar el mismo id REPARA una visita que falló al concluir.
       let visitaWarning = false;
       try {
-        const r = await prisma.$transaction((tx) => syncVisitaForBooking(tx, id));
+        // `quien`: si la cita pasó a OTRO paciente, la sesión de tratamiento del anterior la suelta
+        // (T4 G1b) y eso se audita a nombre de quien re-ligó.
+        const r = await prisma.$transaction((tx) => syncVisitaForBooking(tx, id, {
+          quien: { userId: auth.userId ?? 'unknown', userRole: callerRole },
+        }));
         if (r.status === 'no_fecha') {
           console.warn(`[visitas] cita ${id} re-ligada SIN visita: ${r.status}`);
           visitaWarning = true;
@@ -414,10 +418,12 @@ export async function PATCH(
     // status and must include the matching confirmationCode as proof of ownership.
     let callerRole: string | null = null;
     let callerDoctorId: string | null = null;
+    let callerUserId: string | null = null;
     try {
       const auth = await validateAuthToken(request);
       callerRole = auth.role;
       callerDoctorId = auth.doctorId;
+      callerUserId = auth.userId ?? null;
     } catch {}
 
     // Get current booking with slot
@@ -662,6 +668,7 @@ export async function PATCH(
         try {
           const r = await prisma.$transaction((tx) => syncVisitaForBooking(tx, currentBooking.id, {
             fechaHint: currentBooking.slot?.date ?? currentBooking.date ?? null,
+            ...(callerUserId && callerRole ? { quien: { userId: callerUserId, userRole: callerRole } } : {}),
           }));
           if (r.status === 'created' || r.status === 'updated') visitaId = r.visitaId;
           else if (r.status === 'no_fecha' || r.status === 'booking_not_found') {

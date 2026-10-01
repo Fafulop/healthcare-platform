@@ -1,3 +1,4 @@
+import type { SesionEnCita } from "@/components/medical-records/tratamientos/SesionDeLaCita";
 import { useState, useEffect, useCallback } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
@@ -74,6 +75,8 @@ export interface Booking {
    *  predeterminado — media agenda nombraría el hospital equivocado. */
   locationId?: string | null;
   location?: { id: string; name: string } | null;
+  /** TRATAMIENTOS T4: la sesión de tratamiento de esta cita, si es una (`SesionDeLaCita`). */
+  tratamientoSesion?: SesionEnCita | null;
   isFirstTime?: boolean | null;
   appointmentMode?: string | null;
   slot: { date: string; startTime: string; endTime: string; duration: number } | null;

@@ -56,8 +56,12 @@
    ✅ **LANZAMIENTO de Tratamientos a todos (2026-10-01):** `tratamientosUiActiva()` → `!!doctorId`;
    manual (sección «Tratamientos» + perfil y visita), guía y `capabilities.ts` en el MISMO commit.
    26 rótulos citados verificados contra los `.tsx`. Revertir = revertir el commit completo.
-   **Siguiente: T4** (`03-PLAN` §5): reagendar en el servidor, aviso «Sesión N de M» en la agenda,
-   G1b, y que la visita automática se escriba en la sesión. Decisiones YA tomadas (no re-litigar): P1 estado
+   ✅ **T4 (2026-10-01, escrito; ver `03-PLAN` §5.1):** reagendar en el SERVIDOR (`reagendaDe` en
+   las 3 rutas que crean la cita; `pasarSesionAlReagendar` en packages/database; la ruta
+   `/api/appointments/reagendar-sesion` del navegador se BORRÓ) · «Sesión N de M — X» en la agenda
+   (tabla, tarjeta y modal; el nombre lo ve todo el que ve la agenda — decisión del usuario) · G1b y
+   P2 dentro de `syncVisitaForBooking` · y dos bugs viejos de reagendar (las notas se perdían; el
+   «Correo enviado» sin correo). Decisiones YA tomadas (no re-litigar): P1 estado
    DERIVADO (sólo `cancelada` se guarda), **P2 revisado: la sesión SIEMPRE guarda su visita**, P3
    números fijos, P4 `precio_paquete` sin usar hasta T6, P5 seguimientos al final, G10 todos los
    planes, T1–T4 antes que el dinero (T5–T6).

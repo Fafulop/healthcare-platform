@@ -21,6 +21,8 @@ interface Props {
   selectedService: DoctorService | null;
   onClose: () => void;
   isRescheduled?: boolean;
+  /** ¿La cita tiene a dónde mandar el aviso? Sin correo NO se manda nada (apps/api lo salta). */
+  tieneCorreo?: boolean;
 }
 
 export function SuccessStep({
@@ -29,6 +31,7 @@ export function SuccessStep({
   selectedService,
   onClose,
   isRescheduled = false,
+  tieneCorreo = false,
 }: Props) {
   return (
     <div className="text-center py-6">
@@ -89,13 +92,27 @@ export function SuccessStep({
         )}
       </div>
 
-      {isRescheduled && (
+      {/* El aviso sale en segundo plano desde apps/api, y SÓLO si hay correo y la cuenta de Google
+          del doctor está conectada: esta pantalla no sabe lo segundo, así que no afirma que se
+          mandó (decir «enviado» sin correo afirmaba algo falso — visto 2026-10-01). */}
+      {isRescheduled && tieneCorreo && (
         <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg text-left mb-4">
           <Mail className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-green-800">Correo enviado automáticamente</p>
+            <p className="text-sm font-semibold text-green-800">Aviso al paciente por correo</p>
             <p className="text-xs text-green-700 mt-0.5">
-              Se notificó al paciente la nueva fecha y horario de su cita.
+              Se le manda la nueva fecha y horario si tu cuenta de Google está conectada (Mi Cuenta → Integraciones).
+            </p>
+          </div>
+        </div>
+      )}
+      {isRescheduled && !tieneCorreo && (
+        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-left mb-4">
+          <Mail className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">No se le avisó al paciente</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              La cita no tiene correo: avísale tú de la nueva fecha y horario.
             </p>
           </div>
         </div>

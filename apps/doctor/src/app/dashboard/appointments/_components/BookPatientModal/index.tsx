@@ -1,5 +1,6 @@
 "use client";
 
+import type { RespuestaSesionReagendada } from "@/lib/tratamientos-ui";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { X, Loader2, ChevronRight } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
@@ -45,7 +46,8 @@ interface Props {
   clinicLocations: ClinicLocation[];
   /** `true` = la lista NO se pudo cargar. Distinto de "no hay consultorios" — ver page.tsx. */
   clinicLocationsError?: boolean;
-  onSuccess: (newBookingId: string) => void;
+  /** `sesionReagendada`: al reagendar, si la cita vieja era la sesión de un tratamiento (T4). */
+  onSuccess: (newBookingId: string, sesionReagendada?: RespuestaSesionReagendada) => void;
   preSelectedSlot?: AppointmentSlot | null;
   rescheduleBooking?: Booking | null;
   /** When true, uses RangeTimePickerStep instead of SlotPickerStep */
@@ -226,7 +228,8 @@ export function BookPatientModal({
       patientEmail: rp?.email || rescheduleBooking.patientEmail,
       patientPhone: rp?.phone || rescheduleBooking.patientPhone,
       patientWhatsapp: rescheduleBooking.patientWhatsapp ?? "",
-      notes: "",
+      // Reagendar conserva las notas de la cita (antes se perdían: la nueva nacía sin ellas).
+      notes: rescheduleBooking.notes ?? "",
     } : { patientFirstName: "", patientLastName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
     setWasRescheduled(false);
     setSelectedPatientId(rescheduleBooking?.patientId ?? null);
@@ -416,6 +419,8 @@ export function BookPatientModal({
             // paciente salía como "nueva cita" en vez de "reagendada" (gmail.ts usa este
             // flag para el asunto y el encabezado) y el dato quedaba mal en la BD.
             isRescheduled: !!rescheduleBooking,
+            // TRATAMIENTOS T4: la cita vieja — el servidor pasa su sesión de tratamiento a la nueva.
+            ...(rescheduleBooking ? { reagendaDe: rescheduleBooking.id } : {}),
             // Se manda SÓLO cuando no hay de dónde heredar. Si la hora cae dentro de un rango no
             // se manda nada y el servidor hereda: repetir aquí lo que el picker cree sería
             // duplicar la regla en el cliente y arriesgar que las dos se separen.
@@ -442,7 +447,7 @@ export function BookPatientModal({
         // acabara de reagendar por rangos.
         setWasRescheduled(!!rescheduleBooking);
         setStep("success");
-        onSuccess(data.data.id);
+        onSuccess(data.data.id, data.sesionReagendada);
         return;
       }
 
@@ -464,6 +469,8 @@ export function BookPatientModal({
             isFirstTime,
             appointmentMode: appointmentMode || undefined,
             isRescheduled: !!rescheduleBooking,
+            // TRATAMIENTOS T4: la cita vieja — el servidor pasa su sesión de tratamiento a la nueva.
+            ...(rescheduleBooking ? { reagendaDe: rescheduleBooking.id } : {}),
             patientId: selectedPatientId || undefined,
             ...(newSlotForm.locationId ? { locationId: newSlotForm.locationId } : {}),
           }),
@@ -488,7 +495,7 @@ export function BookPatientModal({
         sincronizarContactoConExpediente();
         setWasRescheduled(!!rescheduleBooking);
         setStep("success");
-        onSuccess(data.data.id);
+        onSuccess(data.data.id, data.sesionReagendada);
         return;
       }
 
@@ -507,6 +514,8 @@ export function BookPatientModal({
           isFirstTime,
           appointmentMode: appointmentMode || undefined,
           isRescheduled: !!rescheduleBooking,
+            // TRATAMIENTOS T4: la cita vieja — el servidor pasa su sesión de tratamiento a la nueva.
+            ...(rescheduleBooking ? { reagendaDe: rescheduleBooking.id } : {}),
           patientId: selectedPatientId || undefined,
         }),
       });
@@ -519,7 +528,7 @@ export function BookPatientModal({
 
       setWasRescheduled(!!rescheduleBooking);
       setStep("success");
-      onSuccess(bookingData.data.id);
+      onSuccess(bookingData.data.id, bookingData.sesionReagendada);
     } catch {
       setError("Error de conexión. Por favor intenta de nuevo.");
     } finally {
@@ -723,6 +732,9 @@ export function BookPatientModal({
               selectedService={selectedService}
               onClose={handleClose}
               isRescheduled={wasRescheduled}
+              // Igual que apps/api (send-confirmation-email): el correo del EXPEDIENTE primero, la copia
+              // de la cita después — si no, borrar el campo decía «no se le avisó» aunque sí se mandó.
+              tieneCorreo={!!(rescheduleBooking?.patient?.email?.trim() || formData.patientEmail?.trim())}
             />
           )}
         </div>

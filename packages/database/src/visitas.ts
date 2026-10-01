@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { guardarVisitaEnSesion, soltarSesionDeOtroPaciente, type QuienAudita } from './tratamientos';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -51,6 +52,10 @@ export type SyncVisitaResult =
  *
  * El llamador decide qué hacer si esto TRUENA; en la ruta de citas, FALLA ABIERTO.
  *
+ * TRATAMIENTOS (T4): en la MISMA transacción, la sesión de tratamiento de la cita sigue a la cita —
+ * si la cita se re-liga a OTRO paciente, la sesión del anterior la suelta (G1b); si nace la visita,
+ * la sesión de ese paciente la guarda (P2). `opts.quien` es para auditar el primer caso.
+ *
  * @param opts.fechaHint El día de la cita leído ANTES de concluir. Hace falta porque al concluir
  *   en un slot PRIVADO el slot se BORRA, y una cita de slot no tiene fecha propia: re-leída
  *   después, ya no tiene día. (Las rutas de alta guardan las fechas a MEDIODÍA UTC,
@@ -59,13 +64,15 @@ export type SyncVisitaResult =
 export async function syncVisitaForBooking(
   db: Db,
   bookingId: string,
-  opts: { fechaHint?: Date | null } = {},
+  opts: { fechaHint?: Date | null; quien?: QuienAudita } = {},
 ): Promise<SyncVisitaResult> {
   const booking = await db.booking.findUnique({
     where: { id: bookingId },
     select: { id: true, doctorId: true, patientId: true, status: true, date: true, slot: { select: { date: true } } },
   });
   if (!booking) return { status: 'booking_not_found' };
+
+  await soltarSesionDeOtroPaciente(db, booking, opts.quien);
 
   let current = await db.visita.findUnique({
     where: { bookingId },
@@ -103,6 +110,7 @@ export async function syncVisitaForBooking(
     if (current.fecha.toISOString().slice(0, 10) !== fecha.toISOString().slice(0, 10)) {
       await db.visita.update({ where: { id: current.id }, data: { fecha } });
     }
+    await guardarVisitaEnSesion(db, booking, current.id);
     return { status: 'updated', visitaId: current.id };
   }
 
@@ -118,5 +126,6 @@ export async function syncVisitaForBooking(
     update: { fecha },
     select: { id: true },
   });
+  await guardarVisitaEnSesion(db, booking, visita.id);
   return { status: 'created', visitaId: visita.id };
 }

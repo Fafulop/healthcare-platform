@@ -455,6 +455,9 @@ Del tratamiento completo: **«Editar»** (nombre, sesiones planeadas, notas), **
 **«Cancelar tratamiento»** y **«Reactivar»**. **«Borrar»** sólo funciona mientras ninguna sesión
 tenga cita ni visita; si no, cancélalo.
 
+En la **agenda**, una cita que es sesión de un tratamiento dice **«Sesión 3 de 6 — (nombre del
+tratamiento)»**; clic para abrir el tratamiento.
+
 **Si reagendas la cita de una sesión** (desde la agenda o con el asistente), la sesión pasa sola a
 la cita nueva y te avisa. Si la sesión ya tiene su visita o está cancelada, no se mueve: te avisa y
 la ligas tú desde el tratamiento.

@@ -107,40 +107,36 @@ export const tratamientoHref = (patientId: string, tratamientoId: string) =>
   `/dashboard/medical-records/patients/${patientId}/tratamientos/${tratamientoId}`;
 
 /**
- * Reagendar = cancelar la vieja + crear la nueva (agenda y asistente). Si la vieja era la sesión de
- * un tratamiento, la sesión se pasa a la nueva (`POST /api/appointments/reagendar-sesion`, que sólo
- * lo hace en el caso limpio). Se llama DESPUÉS de que el reagendado salió bien y nunca lo deshace.
- * Devuelve el texto para el doctor, o null si la cita no era de ningún tratamiento. Un error NO
- * afirma que la cita era de un tratamiento: dice que no se pudo revisar.
+ * TRATAMIENTOS T4 — lo que contestan las rutas que crean la cita nueva de un reagendado
+ * (`sesionReagendada`, apps/api → `pasarSesionAlReagendar`). Ausente = la cita vieja no era de
+ * ningún tratamiento (o no era un reagendado).
  */
-export async function pasarSesionACitaReagendada(
-  deBookingId: string, aBookingId: string,
-): Promise<{ ok: boolean; texto: string } | null> {
-  const NO_SE_PUDO = { ok: false, texto: 'No se pudo revisar si la cita era la sesión de un tratamiento: revisa los tratamientos del paciente.' };
-  try {
-    const res = await fetch('/api/appointments/reagendar-sesion', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deBookingId, aBookingId }),
-    });
-    const d = await res.json().catch(() => null);
-    if (!res.ok || !d?.success) {
-      // 409 de la regla de ligar: el servidor SÍ encontró la sesión y dice por qué no se movió.
-      return res.status === 409 && d?.error
-        ? { ok: false, texto: `La cita era la sesión de un tratamiento y no se pasó a la nueva (${d.error}): lígala desde el tratamiento.` }
-        : NO_SE_PUDO;
-    }
-    if (!d.sesion) return null;
-    const cual = `La ${etiquetaSesion(d.sesion.numero, d.sesion.sesionesPlaneadas).toLowerCase()}${d.sesion.nombre ? ` de «${d.sesion.nombre}»` : ''}`;
-    if (d.movida) return { ok: true, texto: `${cual} pasó a la nueva cita.` };
-    const porque: Record<string, string> = {
-      sesion_con_visita: 'ya tiene su visita',
-      sesion_cancelada: 'está cancelada',
-      cita_no_cancelada: 'la cita anterior no quedó cancelada',
-      no_es_reagendado: 'la cita nueva no quedó como reagendada',
+export type RespuestaSesionReagendada =
+  | { error: true }
+  | { movida: false; motivo: 'sin_sesion' }
+  | {
+      movida: boolean;
+      motivo?: 'sesion_cancelada' | 'sesion_con_visita' | 'cita_nueva_invalida' | 'cambio';
+      sesion: { tratamientoId: string; nombre: string; numero: number; sesionesPlaneadas: number | null };
     };
-    return { ok: false, texto: `${cual} no se pasó a la nueva cita (${porque[d.motivo] ?? 'no se pudo'}): revísala en el tratamiento.` };
-  } catch {
-    return NO_SE_PUDO;
+
+/**
+ * El texto para el doctor (toast de la agenda y resumen del asistente), o null si no hay nada que
+ * decir. Un error NO afirma que la cita era de un tratamiento: dice que no se pudo revisar.
+ */
+export function textoDeSesionReagendada(r: RespuestaSesionReagendada | undefined | null): { ok: boolean; texto: string } | null {
+  if (!r) return null;
+  if ('error' in r) {
+    return { ok: false, texto: 'No se pudo revisar si la cita era la sesión de un tratamiento: revisa los tratamientos del paciente.' };
   }
+  if (!('sesion' in r)) return null;
+  const cual = `La ${etiquetaSesion(r.sesion.numero, r.sesion.sesionesPlaneadas).toLowerCase()} de «${r.sesion.nombre}»`;
+  if (r.movida) return { ok: true, texto: `${cual} pasó a la nueva cita.` };
+  const porque: Record<string, string> = {
+    sesion_con_visita: 'ya tiene su visita',
+    sesion_cancelada: 'está cancelada',
+    cita_nueva_invalida: 'la cita nueva no es válida para la sesión',
+    cambio: 'la sesión cambió mientras tanto',
+  };
+  return { ok: false, texto: `${cual} no se pasó a la nueva cita (${porque[r.motivo ?? ''] ?? 'no se pudo'}): revísala en el tratamiento.` };
 }

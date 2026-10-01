@@ -30,6 +30,7 @@ import { formatLocalDate } from "@/lib/dates";
 import { resolverContacto } from "@/lib/booking-contact";
 import { resolveBookingTime } from "../_lib/event-model";
 import { BookingStatusBadge } from "./BookingStatusBadge";
+import { SesionDeLaCita } from "@/components/medical-records/tratamientos/SesionDeLaCita";
 import {
   StatusActions,
   ExpedienteCell,
@@ -126,6 +127,7 @@ export function BookingDetailModal({
                   {booking.location.name}
                 </span>
               )}
+              <SesionDeLaCita patientId={booking.patientId} sesion={booking.tratamientoSesion} />
               {booking.appointmentMode === "TELEMEDICINA" && (
                 <span className="text-xs text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">Telemedicina</span>
               )}

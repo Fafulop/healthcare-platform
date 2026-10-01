@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { prisma, doctorCongelado } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
+import { sesionAlReagendar } from '@/lib/reagendar-sesion';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken, calcEndTime } from '@/lib/appointments-utils';
@@ -17,7 +18,7 @@ import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 
 export async function POST(request: Request) {
   try {
-    const { role, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
+    const { role, userId, doctorId: authenticatedDoctorId } = await validateAuthToken(request);
 
     const body = await request.json();
     const {
@@ -35,6 +36,8 @@ export async function POST(request: Request) {
       appointmentMode,
       locationId,     // optional — links to ClinicLocation
       isRescheduled,
+      // TRATAMIENTOS T4: al reagendar, la cita VIEJA — su sesión de tratamiento pasa a ésta.
+      reagendaDe,
       patientId,
     } = body;
 
@@ -361,10 +364,16 @@ export async function POST(request: Request) {
       );
     });
 
+    const sesionReagendada = await sesionAlReagendar({
+      reagendaDe, isRescheduled, doctorId: booking.doctorId, callerDoctorId: authenticatedDoctorId,
+      bookingId: booking.id, userId, role,
+    });
+
     return NextResponse.json(
       {
         success: true,
         message: 'Cita creada y confirmada exitosamente',
+        ...(sesionReagendada ? { sesionReagendada } : {}),
         data: {
           id: booking.id,
           confirmationCode,

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { Loader2, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
-import { pasarSesionACitaReagendada, tratamientosUiActiva } from "@/lib/tratamientos-ui";
+import { textoDeSesionReagendada } from "@/lib/tratamientos-ui";
 import { toast } from "@/lib/practice-toast";
 import { useDoctorProfile } from "@/contexts/DoctorProfileContext";
 import { useCalendar } from "./_hooks/useCalendar";
@@ -519,7 +519,7 @@ export default function AppointmentsPage() {
         doctorSlug={doctorProfile?.slug}
         preselectedDate={gapPreset?.date}
         preselectedTime={gapPreset?.startTime}
-        onSuccess={async (newBookingId) => {
+        onSuccess={async (newBookingId, sesionReagendada) => {
           const toCancel = rescheduleBookingRef.current;
           if (toCancel) {
             rescheduleBookingRef.current = null;
@@ -536,12 +536,13 @@ export default function AppointmentsPage() {
             } catch {
               toast.error("No se pudo cancelar la cita anterior automáticamente");
             }
-            // TRATAMIENTOS: si la vieja era una sesión, la sesión se pasa a la nueva. Sólo si la
-            // vieja SÍ se canceló (si no, hay dos citas vivas) y sólo para quien tiene tratamientos.
-            if (cancelada && tratamientosUiActiva(doctorId)) {
-              const sesion = await pasarSesionACitaReagendada(toCancel.id, newBookingId);
-              // Que no se mueva (sesión cancelada, con visita) es un aviso, no un error: el reagendado sí quedó.
-              if (sesion) (sesion.ok ? toast.success : toast.warning)(sesion.texto);
+            // TRATAMIENTOS T4: el SERVIDOR ya pasó la sesión a la cita nueva al crearla
+            // (`reagendaDe`); aquí sólo se avisa. Que no se mueva (sesión cancelada, con visita) es
+            // un aviso, no un error: el reagendado sí quedó.
+            const sesion = textoDeSesionReagendada(sesionReagendada);
+            if (sesion) (sesion.ok ? toast.success : toast.warning)(sesion.texto);
+            if (!cancelada && sesionReagendada && 'movida' in sesionReagendada && sesionReagendada.movida) {
+              toast.warning("La sesión del tratamiento ya está en la cita nueva, pero la anterior no se canceló: cancélala desde la agenda.");
             }
           }
           await onRefresh();

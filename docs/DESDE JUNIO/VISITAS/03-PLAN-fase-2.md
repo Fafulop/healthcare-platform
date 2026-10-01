@@ -319,6 +319,31 @@ barrido para las citas que se borran por cascada. Por eso se recomienda P1.)
 
 ---
 
+### 5.1 Cómo quedó T4 (2026-10-01)
+
+- **Reagendar en el servidor:** agenda y asistente mandan `reagendaDe` (la cita vieja) a la ruta que
+  crea la nueva (`range-bookings/instant`, `bookings/instant`, `bookings`); `apps/api/src/lib/
+  reagendar-sesion.ts` → `pasarSesionAlReagendar` (packages/database) mueve la sesión JUNTO con el
+  alta: doctor de la cita (o ADMIN), `isRescheduled`, mismo paciente, nueva activa, sesión no
+  cancelada y SIN visita, escritura condicionada; si no, `{ movida: false, motivo }`. FALLA ABIERTO.
+  La respuesta trae `sesionReagendada` (toast de la agenda / resumen del asistente). La ruta del
+  navegador `/api/appointments/reagendar-sesion` se BORRÓ.
+  ⚠️ **NO exige la vieja CANCELADA:** la agenda crea la nueva ANTES de cancelar la vieja. Si la
+  cancelación falla, la agenda avisa (dos citas vivas, la sesión ya en la nueva). Aceptado.
+- **Agenda:** el GET de citas trae `tratamientoSesion`; `SesionDeLaCita` pinta «Sesión 3 de 6 — X»
+  en la tabla (escritorio), la tarjeta (celular) y el modal, sólo si la sesión es del mismo paciente.
+  El nombre lo ve todo el que ve la agenda (decisión del usuario 2026-10-01; se puede revisar).
+- **G1b y P2** dentro de `syncVisitaForBooking` (misma transacción): re-ligar la cita a OTRO paciente
+  suelta la sesión del anterior (auditado con `quien`); al nacer la visita automática, la sesión de
+  ese paciente la guarda (no si está cancelada, no si otra sesión ya la guarda).
+  Aceptado: re-ligar BORRA la visita automática vacía de la liga equivocada (ya era así) y con ella
+  la sesión la pierde — era de la liga equivocada, no una visita que ocurrió.
+- **Bugs viejos de reagendar** (no eran de tratamientos, entraron por decisión del usuario): las
+  notas de la cita ahora pasan a la nueva; la pantalla de éxito ya no dice «Correo enviado» (sin
+  correo: «No se le avisó al paciente»; con correo: depende de la cuenta de Google conectada).
+- Probado: `scripts/visitas/tratamientos-probe-t4.ts` corre las funciones REALES contra prod en tx
+  revertida (sólo con las 2 citas de prueba canceladas, nunca con una real).
+
 ## 6. Después (T5–T7), en esbozo — se detallan cuando toque
 
 - **T5 — Agendar N sesiones de una vez** (DISEÑO §4): cada cita por la MISMA ruta de la agenda (no

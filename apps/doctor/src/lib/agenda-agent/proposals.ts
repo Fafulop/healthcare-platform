@@ -1483,8 +1483,8 @@ async function proposeRescheduleBooking(
     params: {
       bookingId: b.id,
       ...(restorePrice !== null ? { restorePrice } : {}),
-      // El ejecutor sólo llama a reagendar-sesion si la TARJETA dijo «la sesión pasa a la nueva
-      // cita»: lo que el doctor confirma es lo que se escribe, ni más ni menos.
+      // La tarjeta dijo «la sesión pasa a la nueva cita»: si el servidor no la pasó, el ejecutor
+      // lo DICE en el resumen (lo que el doctor confirmó no ocurrió).
       ...(sesionPropia && !noSeMueve ? { sesionDeTratamiento: true } : {}),
       create: {
         doctorId: ctx.doctorId,
@@ -1502,6 +1502,8 @@ async function proposeRescheduleBooking(
         ...(b.patientId ? { patientId: b.patientId } : {}),
         ...(consultorioNuevo.enviar ? { locationId: consultorioNuevo.enviar } : {}),
         isRescheduled: true,
+        // TRATAMIENTOS T4: el servidor pasa la sesión de la cita vieja a la nueva al crearla.
+        reagendaDe: b.id,
       },
     },
   });

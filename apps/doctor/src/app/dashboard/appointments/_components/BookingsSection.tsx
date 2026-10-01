@@ -4,6 +4,7 @@ import { useState, Fragment } from "react";
 import { formatLocalDate } from "@/lib/dates";
 import { resolverContacto } from "@/lib/booking-contact";
 import { BookingStatusBadge } from "./BookingStatusBadge";
+import { SesionDeLaCita } from "@/components/medical-records/tratamientos/SesionDeLaCita";
 // Los controles de UNA cita viven en `BookingActions.tsx` desde que el modal del
 // calendario necesitó los mismos: una sola definición para las TRES superficies.
 import {
@@ -332,6 +333,7 @@ export function BookingsSection({
                             {booking.location.name}
                           </span>
                         )}
+                        <SesionDeLaCita patientId={booking.patientId} sesion={booking.tratamientoSesion} />
                         {booking.appointmentMode === "TELEMEDICINA" && (
                           <span className="text-xs text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">Telemedicina</span>
                         )}
@@ -465,6 +467,12 @@ export function BookingsSection({
                             )}
                             {booking.isFirstTime === false && (
                               <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">Recurrente</span>
+                            )}
+                            {/* Tratamientos T4: también en la TABLA (escritorio), no sólo en la tarjeta del celular. */}
+                            {booking.tratamientoSesion && (
+                              <div className="mt-0.5">
+                                <SesionDeLaCita patientId={booking.patientId} sesion={booking.tratamientoSesion} />
+                              </div>
                             )}
                           </td>
                           <td className="py-3 px-3 text-gray-600 align-top">
