@@ -298,10 +298,10 @@ async function getFlujoStatus(ctx: ToolContext) {
       where: { doctorId, entryType: 'ingreso', hasFactura: true, ...bankUnmatchedFilter },
     }),
     prisma.ledgerEntry.count({
-      where: { doctorId, entryType: 'ingreso', hasFactura: false, ...bankMatchedFilter },
+      where: { doctorId, entryType: 'ingreso', hasFactura: false, amount: { gt: 0 }, ...bankMatchedFilter }, // T6: sin los $0 «cubierta por el paquete»
     }),
     prisma.ledgerEntry.count({
-      where: { doctorId, entryType: 'ingreso', hasFactura: false, ...bankUnmatchedFilter },
+      where: { doctorId, entryType: 'ingreso', hasFactura: false, amount: { gt: 0 }, ...bankUnmatchedFilter }, // T6: sin los $0 «cubierta por el paquete»
     }),
   ]);
 

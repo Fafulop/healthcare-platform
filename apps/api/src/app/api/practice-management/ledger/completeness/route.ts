@@ -124,11 +124,11 @@ export async function GET(request: NextRequest) {
       }),
       // Bank matched but no invoice
       prisma.ledgerEntry.count({
-        where: { doctorId, entryType: 'ingreso', hasFactura: false, ...bankMatchedFilter },
+        where: { doctorId, entryType: 'ingreso', hasFactura: false, amount: { gt: 0 }, ...bankMatchedFilter }, // T6: sin los $0 «cubierta por el paquete»
       }),
       // Undocumented: no CFDI, no bank match
       prisma.ledgerEntry.count({
-        where: { doctorId, entryType: 'ingreso', hasFactura: false, ...bankUnmatchedFilter },
+        where: { doctorId, entryType: 'ingreso', hasFactura: false, amount: { gt: 0 }, ...bankUnmatchedFilter }, // T6: sin los $0 «cubierta por el paquete»
       }),
     ]);
 

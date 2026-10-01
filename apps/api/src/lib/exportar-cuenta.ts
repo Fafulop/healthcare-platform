@@ -395,10 +395,13 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
   // Sólo si HAY tratamientos (como visitas.csv): la UI todavía no está abierta para todos.
   if (tratamientos.length) {
     archivos['tratamientos.csv'] = csv(
-      ['Paciente', 'Tratamiento', 'Estado del tratamiento', 'Sesión', 'Cancelada', 'Cita', 'Visita',
+      ['Paciente', 'Tratamiento', 'Estado del tratamiento', 'Precio del paquete', 'Sesión', 'Cancelada', 'Cita', 'Visita',
         'Notas de la sesión', 'Notas del tratamiento', 'Creado'],
       tratamientos.flatMap((t) => {
-        const comun = [paciente(t.patientId), t.nombre, ESTADO_TRATAMIENTO[t.estado] ?? t.estado];
+        // T6: el precio ACORDADO del paquete (vacío = se cobra por sesión). Los pagos son movimientos
+        // de Flujo de Dinero, que esta exportación no incluye.
+        const comun = [paciente(t.patientId), t.nombre, ESTADO_TRATAMIENTO[t.estado] ?? t.estado,
+          t.precioPaquete !== null ? Number(t.precioPaquete) : ''];
         const fin = [t.notas, instante(t.createdAt)];
         // Un tratamiento sin sesiones también sale (una fila con la sesión vacía).
         if (!t.sesiones.length) return [[...comun, '', '', '', '', '', ...fin]];

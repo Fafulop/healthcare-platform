@@ -660,6 +660,10 @@ function CitasIngresosSection({ bookings, permisos, estado, patient }: CitasIngr
                             </span>
                           )}
                         </div>
+                      ) : b.ledgerEntryId && b.amount === 0 ? (
+                        /* T6: sesión cubierta por el paquete de un tratamiento — su ingreso es $0 y no
+                           se factura (se factura el PAGO del paquete). Sólo se sabe con `flujo`. */
+                        <span className="text-xs text-gray-500">Cubierta por el paquete — no se factura</span>
                       ) : (
                         <div className="flex items-center gap-2">
                           <AlertCircle className={`w-4 h-4 ${b.facturaSolicitada ? 'text-orange-500' : 'text-amber-500'}`} />
@@ -691,6 +695,9 @@ function CitasIngresosSection({ bookings, permisos, estado, patient }: CitasIngr
                              ingreso). Antes esto no pintaba NADA y la cita marcada
                              "necesita factura" parecía rota. */
                           <span className="text-xs text-gray-400">Se factura al registrar el cobro</span>
+                        ) : b.amount === 0 ? (
+                          /* T6: $0 «cubierta por el paquete» — no hay qué facturar en la sesión. */
+                          null
                         ) : drafts.length > 0 ? (
                           /* DOS CAMINOS SOBRE EL MISMO INGRESO. Con un borrador vivo,
                              un botón "Facturar" al lado abre el form SIN el borrador

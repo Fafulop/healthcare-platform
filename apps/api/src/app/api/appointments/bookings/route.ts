@@ -2,7 +2,7 @@
 // GET /api/appointments/bookings - Get bookings (for doctor or admin)
 
 import { NextResponse } from 'next/server';
-import { prisma, resolveFacturaVerdict, buildSatStatusMap, satUuidQueryVariants } from '@healthcare/database';
+import { prisma, resolveFacturaVerdict, buildSatStatusMap, satUuidQueryVariants, linkDePagoVivo } from '@healthcare/database';
 import {
   sendPatientSMS,
   sendDoctorSMS,
@@ -597,7 +597,8 @@ export async function GET(request: Request) {
         tratamientoSesion: {
           select: {
             numero: true, cancelada: true, patientId: true,
-            tratamiento: { select: { id: true, nombre: true, sesionesPlaneadas: true } },
+            // `precioPaquete` SÓLO para calcular `cubiertaPorPaquete` abajo: no viaja (es de `flujo`).
+            tratamiento: { select: { id: true, nombre: true, sesionesPlaneadas: true, precioPaquete: true } },
           },
         },
         doctor: {
@@ -744,8 +745,28 @@ export async function GET(request: Request) {
     // comparten esta ruta y la del expediente (antes cada una miraba un subconjunto
     // distinto de las mismas tres señales).
     // Sin `ledgerEntry` (cita que nunca generó ingreso) ⇒ no facturada.
-    const data = bookings.map(({ ledgerEntry, ...booking }) => ({
+    const data = bookings.map(({ ledgerEntry, tratamientoSesion, ...booking }) => ({
       ...booking,
+      // T6: la sesión sin el precio del paquete (el precio es de `flujo`; la agenda sólo necesita
+      // saber si la cita está CUBIERTA para no pedir precio al completarla). Misma regla que
+      // `paqueteDeCita`: sesión de ESTE paciente, no cancelada, tratamiento con precio de paquete.
+      tratamientoSesion: tratamientoSesion
+        ? {
+            numero: tratamientoSesion.numero,
+            cancelada: tratamientoSesion.cancelada,
+            patientId: tratamientoSesion.patientId,
+            tratamiento: {
+              id: tratamientoSesion.tratamiento.id,
+              nombre: tratamientoSesion.tratamiento.nombre,
+              sesionesPlaneadas: tratamientoSesion.tratamiento.sesionesPlaneadas,
+            },
+          }
+        : null,
+      cubiertaPorPaquete: !!tratamientoSesion && !tratamientoSesion.cancelada
+        && tratamientoSesion.patientId === booking.patientId
+        && tratamientoSesion.tratamiento.precioPaquete !== null
+        // Con un link de pago vivo, la cita conserva su cobro normal (misma regla que `paqueteDeCita`).
+        && !linkDePagoVivo(booking),
       facturada: resolveFacturaVerdict(ledgerEntry, satStatusByUuid).facturada,
       // `null` = no hay ingreso registrado ⇒ completar lo va a CREAR con lo que capture
       // el doctor. Presente = ya existe ⇒ completar NO lo toca, y estos son los valores

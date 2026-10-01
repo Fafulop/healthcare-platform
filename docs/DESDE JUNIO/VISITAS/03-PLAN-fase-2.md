@@ -366,6 +366,26 @@ barrido para las citas que se borran por cascada. Por eso se recomienda P1.)
   tabla) y reconocer pagos por el texto del concepto (frágil). Decisiones del usuario para T6b:
   precio y pagos sólo con permiso `flujo`; links de pago BLOQUEADOS en sesiones cubiertas por el
   paquete; cambiar el precio no reescribe los $0 ya registrados.
+- ✅ **T6b (2026-10-01, escrito):** precio del paquete (sólo `flujo`, en «Editar») · «Registrar pago
+  del paquete» → `POST apps/api practice-management/ledger/tratamiento-pago` (`createTratamientoPagoEntry`:
+  ingreso normal con `tratamientoId`, origin `manual`) · Precio · Pagado · Saldo CALCULADOS
+  (`dineroDelTratamiento`) · al COMPLETAR una sesión cubierta (`paqueteDeCita`, packages/database: sesión de
+  ese paciente, no cancelada, tratamiento con precio) el SERVIDOR registra $0 «cubierta por el paquete» o el
+  extra SÓLO si viene marcado (`income.extraPaquete`; el asistente/chat mandan el precio de lista y eso no es
+  extra) · links de pago bloqueados en sesiones cubiertas (`checkBookingLinkSlot`) · facturar un $0 → 409 ·
+  el asistente no cuenta los $0 como «ingresos sin factura» (las DOS cláusulas de la PARITY RULE) · el GET de
+  la agenda manda `cubiertaPorPaquete` sin el precio · `tratamientos.csv` con el precio. El match SAT ya
+  filtra por monto ±tolerancia: un $0 nunca es candidato (no se tocó). Probe de permutaciones
+  `scripts/visitas/tratamientos-probe-t6b.ts` 14/14.
+  **Code review (10 hallazgos, todos arreglados):** una cita con link de pago VIVO (activo o pagado) NO
+  queda cubierta — el pago del link es su cobro (`linkDePagoVivo`, en `paqueteDeCita` y en el GET) · el
+  servidor devuelve `cobroRegistrado` (lo que DE VERDAD registró) y la agenda y el asistente lo dicen en vez
+  de suponerlo · un $0 no aparece en «Por facturar», ni en el expediente con botón Facturar, ni en los
+  conteos de completitud · el barrido del asistente cuenta los PAGOS del paquete (`INGRESO_FACTURABLE`:
+  origin cita/webhook_pago **o** `tratamientoId`, y `amount > 0`; una sola cláusula para las dos consultas) y
+  emitir un $0 por el asistente se rechaza · borrar un tratamiento con movimientos → 409 «cancélalo» · pagado
+  y extras se clasifican por `origin` (manual / cita), no por `bookingId` · el cambio de precio se audita
+  (from→to) · extra vacío = 0 · la fecha por omisión del pago es la de México y la subárea va vacía.
 - **T6 — Dinero** (DISEÑO §5): `precio_paquete` visible; `tratamientoId` opcional en `LedgerEntry`
   (migración aparte); pagos del paquete; al concluir una sesión de un tratamiento CON paquete, el
   **servidor** registra el cobro de $0 «cubierta por paquete» (hoy `createCitaLedgerEntry` sólo

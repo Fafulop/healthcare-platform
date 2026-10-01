@@ -674,7 +674,9 @@ async function getPatientProfile(ctx: ToolContext, input: { patientId?: string }
   const [citas, facturables] = await Promise.all([
     prisma.booking.count({ where: { patientId: patient.id, doctorId: ctx.doctorId } }),
     prisma.ledgerEntry.count({
-      where: { doctorId: ctx.doctorId, patientId: patient.id, hasFactura: false, origin: { in: ['cita', 'webhook_pago'] } },
+      // `amount > 0`: una sesión cubierta por un paquete de tratamiento queda en $0 (T6) — no hay qué
+      // facturar en ella (se factura el PAGO del paquete). Misma cláusula que `baseWhere` (PARITY RULE).
+      where: { doctorId: ctx.doctorId, patientId: patient.id, hasFactura: false, ...INGRESO_FACTURABLE },
     }),
   ]);
   return {
@@ -1051,9 +1053,20 @@ async function searchCatalogoSat(
 // F2a: pending-facturas sweep. PARITY RULE (audit A3: partial WHERE replicas
 // are the dominant bug class): the base clause is EXACTLY the one behind
 // get_patient_profile's `ingresosSinFactura` verdict — hasFactura:false +
-// origin in (cita, webhook_pago) — ONE definition of "consulta sin factura".
+// INGRESO_FACTURABLE — ONE definition of "ingreso sin factura".
 // To harden it, change the source verdict first, never just this sweep.
 // -----------------------------------------------------------------------------
+
+/**
+ * «Ingreso por facturar» — la cláusula que comparten `ingresosSinFactura` (get_patient_profile) y el
+ * barrido (PARITY RULE). Los ingresos de citas y de links de pago, MÁS los del paquete de un
+ * tratamiento (T6: su pago se registra a mano, `origin: 'manual'`, ligado por `tratamientoId`).
+ * `amount > 0`: una sesión cubierta por el paquete queda en $0 — no hay qué facturar en ella.
+ */
+const INGRESO_FACTURABLE = {
+  OR: [{ origin: { in: ['cita', 'webhook_pago'] } }, { tratamientoId: { not: null } }],
+  amount: { gt: 0 },
+};
 
 async function getPendientesFactura(
   ctx: ToolContext,
@@ -1070,7 +1083,8 @@ async function getPendientesFactura(
   const baseWhere = {
     doctorId: ctx.doctorId,
     hasFactura: false,
-    origin: { in: ['cita', 'webhook_pago'] },
+    // Misma cláusula que `ingresosSinFactura` de get_patient_profile (PARITY RULE) — UNA definición.
+    ...INGRESO_FACTURABLE,
     // transactionDate is @db.Date (UTC-day convention) — dateWhere is flujo's
     // shared builder, ONE definition of the deployed ledger date boundaries.
     ...dateWhere(start ?? undefined, end ?? undefined),
@@ -1455,6 +1469,9 @@ async function resolveEmisionContext(ctx: ProposalContext, ledgerEntryIdRaw: unk
   }
   if (entry.origin !== 'cita' && entry.origin !== 'webhook_pago') {
     return { error: `Ese ingreso es de origen "${entry.origin ?? 'manual'}" — por ahora solo propongo facturas de ingresos nacidos de citas o de links de pago (los demás se facturan desde la pestaña Nueva Factura).` };
+  }
+  if (Number(entry.amount) <= 0) {
+    return { error: 'Ese ingreso es de $0 (una sesión cubierta por el paquete de un tratamiento) — no hay qué facturar en él; lo que se factura es el PAGO del paquete, desde la pestaña Nueva Factura.' };
   }
   if (entry.hasFactura) {
     return { error: 'Ese ingreso YA está facturado (hasFactura) — no se emite dos veces. Si el doctor cree que no (p. ej. una factura cancelada), el detalle está en get_billing_status y la re-emisión se hace desde la página de Facturación.' };

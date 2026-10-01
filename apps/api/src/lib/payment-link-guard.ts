@@ -12,7 +12,7 @@
 // The booking must also have a LINKED EXPEDIENTE (patientId): a cobro without a patient record
 // produces income that can't be traced, invoiced, or shown in the patient's history.
 
-import { prisma } from '@healthcare/database';
+import { prisma, paqueteDeCita } from '@healthcare/database';
 
 export type BookingLinkSlot =
   | { ok: true; staleStripeLinkId: string | null; staleMpPreferenceId: string | null }
@@ -52,6 +52,15 @@ export async function checkBookingLinkSlot(
     return {
       ok: false,
       error: 'La cita no tiene expediente vinculado. Crea o vincula el expediente del paciente antes de generar un link de pago.',
+    };
+  }
+  // TRATAMIENTOS T6: una sesión CUBIERTA por el paquete de su tratamiento ya está pagada (o se
+  // paga) con el paquete: un link le cobraría otra vez. El extra, si lo hay, se cobra al completarla.
+  const paquete = await paqueteDeCita(prisma, bookingId);
+  if (paquete) {
+    return {
+      ok: false,
+      error: `Esta sesión está cubierta por el paquete «${paquete.nombre}»: no se le genera link de pago. Si hay un cargo extra, cóbralo al completar la cita.`,
     };
   }
 

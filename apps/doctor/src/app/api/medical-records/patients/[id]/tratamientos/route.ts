@@ -5,7 +5,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { leerBody } from '@/lib/visitas';
 import {
   INTERVALO_MAX, SESIONES_MAX, TRATAMIENTO_SELECT, conteosPorTratamiento, parseEnteroOpcional, parseNombre,
-  parseNotas, parsePlantilla, rechazarPrecio,
+  parseNotas, parsePlantilla, parsePrecioPaquete,
 } from '@/lib/tratamientos';
 
 // VISITAS fase 2 T2 — docs/DESDE JUNIO/VISITAS/03-PLAN-fase-2.md §3. Permiso: `expedientes` (heredado).
@@ -57,7 +57,7 @@ export async function POST(
     const ctx = await requireDoctorAuth(request);
     const { id: patientId } = await params;
     const body = await leerBody(request);
-    rechazarPrecio(body);
+    const precioPaquete = parsePrecioPaquete(ctx, body.precioPaquete) ?? null;
 
     const patient = await prisma.patient.findFirst({
       where: { id: patientId, doctorId: ctx.doctorId },
@@ -76,7 +76,7 @@ export async function POST(
     // Escritura anidada = una sola transacción: o nacen el tratamiento y sus N sesiones, o nada.
     const tratamiento = await prisma.tratamiento.create({
       data: {
-        patientId, doctorId: ctx.doctorId, nombre, sesionesPlaneadas, intervaloDias, plantillaSugeridaId, notas,
+        patientId, doctorId: ctx.doctorId, nombre, sesionesPlaneadas, intervaloDias, plantillaSugeridaId, notas, precioPaquete,
         ...(sesionesPlaneadas
           ? {
               sesiones: {
@@ -94,7 +94,7 @@ export async function POST(
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
       action: 'create_tratamiento', resourceType: 'tratamiento', resourceId: tratamiento.id,
-      changes: { nombre, sesionesPlaneadas, intervaloDias, plantillaSugeridaId, conNotas: !!notas },
+      changes: { nombre, sesionesPlaneadas, intervaloDias, plantillaSugeridaId, conNotas: !!notas, ...(precioPaquete !== null ? { precioPaquete } : {}) },
       request,
     });
 

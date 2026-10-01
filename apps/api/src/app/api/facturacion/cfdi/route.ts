@@ -117,12 +117,22 @@ export async function POST(request: NextRequest) {
     if (ledgerEntryId) {
       const entry = await prisma.ledgerEntry.findFirst({
         where: { id: ledgerEntryId, doctorId: doctor.id },
-        select: { hasFactura: true },
+        select: { hasFactura: true, amount: true, tratamientoId: true },
       });
       if (!entry) {
         return NextResponse.json(
           { error: 'Entrada de ledger no encontrada' },
           { status: 404 }
+        );
+      }
+      // TRATAMIENTOS T6: una sesión cubierta por el paquete cobra $0 — no hay qué facturar en ella.
+      // Lo que se factura es el PAGO del paquete (su propio movimiento en Flujo de Dinero).
+      if (Number(entry.amount) <= 0) {
+        return NextResponse.json(
+          { error: entry.tratamientoId
+            ? 'Esta sesión está cubierta por el paquete ($0): factura el pago del paquete, no la sesión.'
+            : 'Este ingreso es de $0: no hay qué facturar.' },
+          { status: 409 }
         );
       }
       // Double-emission guard at the SOURCE (F2b review finding #1): every

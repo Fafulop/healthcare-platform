@@ -64,6 +64,8 @@
    «Correo enviado» sin correo).
    En prod `585dde0a` (api Y doctor SUCCESS). Funciones reales 8/8 contra prod (tx revertida).
    ✅ **T5 (2026-10-01): «Agendar sesiones…»** escrito (ver `03-PLAN` §6). Probe 11/11.
+   ✅ **T6a EN PROD** (`d064bec2`: `ledger_entries.tratamiento_id`) · **T6b escrito** (dinero del paquete —
+   ver `03-PLAN` §6), con los 10 hallazgos del code review arreglados. Probe 14/14.
    ⏳ **PENDIENTE: la prueba a mano de T4** — se dejó para cuando Claude Code y la extensión de
    Chrome estén en la cuenta **quebradita.a** (la de lopez.fafutis no tiene la sesión de dr-prueba
    en ese Chrome). Los 3 pasos: (1) la agenda muestra «Sesión 2 de 3 — f» en la cita del 26 ago de

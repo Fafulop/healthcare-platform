@@ -247,11 +247,28 @@ async function executeOne(p: AgendaProposal): Promise<{ ok: boolean; resumen: st
             '⚠️ Cita COMPLETADA, pero el ingreso NO se registró en Flujo de Dinero — regístralo manualmente',
         };
       }
-      // H2 (no income to create) or the entry already existed (race with a payment webhook).
-      if (!ledger || patchData.ledgerAlreadyExisted) {
-        return { ok: true, resumen: 'Cita COMPLETADA · el ingreso ya estaba registrado en Flujo de Dinero (no se duplicó)' };
+      // T6: lo que el SERVIDOR de verdad registró manda (una sesión cubierta por el paquete es $0,
+      // aunque la tarjeta se haya armado antes de que alguien pusiera el precio del paquete).
+      const cobro = patchData.cobroRegistrado as { monto?: number; paquete?: string } | undefined;
+      if (cobro?.paquete) {
+        const extra = Number(cobro.monto) || 0;
+        return {
+          ok: true,
+          resumen: extra > 0
+            ? `Cita COMPLETADA · cubierta por el paquete «${cobro.paquete}» + cargo extra de $${extra}`
+            : `Cita COMPLETADA · cubierta por el paquete «${cobro.paquete}» (se registró en $0 en Flujo de Dinero)`,
+        };
       }
-      const monto = ledger.amount;
+      // H2 (no income to create) or the entry already existed (race with a payment webhook).
+      if (patchData.ledgerAlreadyExisted || (!ledger && !cobro)) {
+        return {
+          ok: true,
+          resumen: patchData.ledgerAlreadyExisted || !p.params.paquete
+            ? 'Cita COMPLETADA · el ingreso ya estaba registrado en Flujo de Dinero (no se duplicó)'
+            : '⚠️ Cita COMPLETADA, pero no se registró ningún movimiento (el paquete pudo cambiar): revisa Flujo de Dinero',
+        };
+      }
+      const monto = cobro?.monto ?? ledger?.amount;
       return { ok: true, resumen: `Cita COMPLETADA · ingreso registrado en Flujo de Dinero${monto ? ` ($${monto})` : ''}` };
     }
 

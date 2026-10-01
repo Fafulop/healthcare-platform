@@ -127,8 +127,9 @@ export function useTratamientoDetalle() {
     } catch (err: any) {
       // 409: tiene sesiones con cita o visita. Lo que procede es CANCELARLO (decisión 2026-10-01);
       // el botón «Cancelar tratamiento» se ofrece en cualquier estado que no sea «cancelado».
+      // T6: también 409 si tiene pagos en Flujo de Dinero — el porqué lo dice el servidor.
       toast.error(err.status === 409
-        ? 'Tiene sesiones con cita o visita: no se borra. Usa «Cancelar tratamiento».'
+        ? `No se borra: ${err.data?.conteo?.conDinero ? 'tiene pagos registrados en Flujo de Dinero' : 'tiene sesiones con cita o visita'}. Usa «Cancelar tratamiento».`
         : err.message || 'No se pudo borrar el tratamiento');
       setTrabajando(false);
     }
@@ -195,6 +196,18 @@ export function useTratamientoDetalle() {
     estado, tratamiento, patientName, bookings, permisos, visitas, ocupadas, trabajando,
     patchTratamiento, patchSesion, agregarSesion, borrarTratamiento, borrarSesion, cancelarSesion,
     ligarCita, desligarCita, ligarVisita,
+    /**
+     * T6 — «Registrar pago del paquete»: un ingreso de Flujo de Dinero ligado al tratamiento (apps/api,
+     * bajo `practice-management/ledger` ⇒ exige `flujo`). El saldo se recalcula al recargar.
+     */
+    registrarPago: (monto: number, formaDePago: string, fecha: string) =>
+      escribir(async () => {
+        const res = await authFetch(`${API_URL}/api/practice-management/ledger/tratamiento-pago`, {
+          method: 'POST', body: JSON.stringify({ tratamientoId, amount: monto, formaDePago, fecha }),
+        });
+        const d = await res.json().catch(() => null);
+        if (!res.ok || !d?.success) throw new Error(d?.error || 'No se pudo registrar el pago');
+      }, 'Pago del paquete registrado'),
     /** Re-lee el tratamiento y lo de alrededor (T5: después de «Agendar sesiones»). */
     recargar: () => Promise.all([cargarDetalle(), cargarAlrededor()]),
   };

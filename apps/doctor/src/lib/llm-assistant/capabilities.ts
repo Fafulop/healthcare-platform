@@ -254,6 +254,15 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             allowedIf: '"Borrar" sólo mientras ninguna sesión tenga cita ni visita.',
             blockedIf: 'Alguna sesión tiene cita o visita: se usa "Cancelar tratamiento".',
           },
+
+          'cobrar por paquete': {
+            allowedIf:
+              'Con permiso de Flujo de Dinero: "Editar" → "Precio del paquete"; "Registrar pago del paquete" anota ' +
+              'cada pago (ingreso en Flujo de Dinero). Precio · Pagado · Saldo se calculan.',
+            notes:
+              'Al completar una sesión del paquete se registra en $0 "cubierta por el paquete" (o sólo el cargo extra). ' +
+              'Esas sesiones no aceptan link de pago y no se facturan: se factura el pago del paquete.',
+          },
         },
       },
 

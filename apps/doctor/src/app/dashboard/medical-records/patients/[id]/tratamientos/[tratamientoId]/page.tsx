@@ -6,10 +6,11 @@ import { ArrowLeft, CalendarDays, ListChecks, Loader2, Pencil, Plus, Trash2, X }
 import { BookingStatusPill } from '@/components/medical-records/CitaBadges';
 import { formatoFechaVisita, visitaHref } from '@/lib/visitas-ui';
 import {
-  ESTADO_SESION, ESTADO_TRATAMIENTO, describirAvance, detalleDeSesion, etiquetaSesion, tratamientosUiActiva,
+  ESTADO_SESION, ESTADO_TRATAMIENTO, describirAvance, detalleDeSesion, etiquetaSesion, pesos, tratamientosUiActiva,
   type SesionDeTratamiento,
 } from '@/lib/tratamientos-ui';
 import { practiceConfirm } from '@/lib/practice-confirm';
+import { getClinicDateString } from '@/lib/dates';
 import { useTratamientoDetalle } from '../_components/useTratamientoDetalle';
 import { AgendarSesionesModal } from '@/components/medical-records/tratamientos/AgendarSesionesModal';
 
@@ -112,6 +113,9 @@ export default function TratamientoPage() {
           {editando && <EditarDatos t={t} onListo={() => setEditando(false)} />}
         </div>
       </div>
+
+      {/* T6 — el dinero del paquete: sólo con permiso de `flujo` (si no, `dinero` no viaja). */}
+      {tratamiento.dinero !== undefined && <DineroDelPaquete t={t} />}
 
       {/* Sesiones */}
       <div className="bg-white rounded-lg shadow p-5">
@@ -243,12 +247,18 @@ function EditarDatos({ t, onListo }: { t: Detalle; onListo: () => void }) {
   const [nombre, setNombre] = useState(tr.nombre);
   const [sesiones, setSesiones] = useState(tr.sesionesPlaneadas?.toString() ?? '');
   const [notas, setNotas] = useState(tr.notas ?? '');
+  const conFlujo = tr.dinero !== undefined;
+  const [precio, setPrecio] = useState(tr.dinero ? String(tr.dinero.precioPaquete) : '');
 
   const guardar = async () => {
     const n = sesiones.trim() ? Number(sesiones) : null;
     const ok = await t.patchTratamiento(
       // Sin plantilla sugerida hasta T4 (ver NuevoTratamientoModal): no se manda, no se toca.
-      { nombre: nombre.trim(), sesionesPlaneadas: n, notas: notas.trim() || null },
+      {
+        nombre: nombre.trim(), sesionesPlaneadas: n, notas: notas.trim() || null,
+        // T6: el precio del paquete sólo lo manda quien lo ve (`flujo`); vacío = sin paquete.
+        ...(conFlujo ? { precioPaquete: precio.trim() ? Number(precio) : null } : {}),
+      },
       'Tratamiento actualizado',
     );
     if (ok) onListo();
@@ -266,6 +276,16 @@ function EditarDatos({ t, onListo }: { t: Detalle; onListo: () => void }) {
         {/* G7: cambiar el número NO crea ni borra sesiones. */}
         <p className="text-xs text-gray-500 mt-1">Cambia sólo el número del plan: no crea ni borra sesiones.</p>
       </div>
+      {conFlujo && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Precio del paquete (opcional, MXN)</label>
+          <input type="number" min={0} step="0.01" value={precio} onChange={(e) => setPrecio(e.target.value)} className={`${inputClass} w-40`} />
+          <p className="text-xs text-gray-500 mt-1">
+            Con precio, las sesiones se registran en $0 «cubiertas por el paquete» al completarlas y el pago se
+            registra aparte. Vacío = cada sesión se cobra al completarla. Cambiarlo no toca lo ya registrado.
+          </p>
+        </div>
+      )}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
         <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={3} maxLength={5000} className={`${inputClass} w-full`} />
@@ -278,6 +298,89 @@ function EditarDatos({ t, onListo }: { t: Detalle; onListo: () => void }) {
           Cancelar
         </button>
       </div>
+    </div>
+  );
+}
+
+/** T6 — precio del paquete · pagado · saldo (CALCULADOS en el servidor), los pagos, y registrar uno. */
+function DineroDelPaquete({ t }: { t: Detalle }) {
+  const d = t.tratamiento!.dinero;
+  const [abierto, setAbierto] = useState(false);
+  const [monto, setMonto] = useState('');
+  const [forma, setForma] = useState('efectivo');
+  const [fecha, setFecha] = useState(getClinicDateString());
+  const n = Number(monto);
+  const valido = monto.trim() !== '' && Number.isFinite(n) && n > 0;
+
+  if (!d) {
+    return (
+      <div className="bg-white rounded-lg shadow p-5 text-sm text-gray-600">
+        Sin precio de paquete: cada sesión se cobra al completarla. Para cobrar el tratamiento completo, pon el
+        precio del paquete en «Editar».
+      </div>
+    );
+  }
+  return (
+    <div className="bg-white rounded-lg shadow p-5 space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h2 className="text-base font-semibold text-gray-900">Paquete</h2>
+        {!abierto && (
+          <button onClick={() => setAbierto(true)} disabled={t.trabajando} className={botonTexto}>
+            <Plus className="w-4 h-4 inline mr-1" />Registrar pago del paquete
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-3 gap-3 text-sm">
+        <div><p className="text-gray-500">Precio</p><p className="font-semibold text-gray-900">{pesos(d.precioPaquete)}</p></div>
+        <div><p className="text-gray-500">Pagado</p><p className="font-semibold text-gray-900">{pesos(d.pagado)}</p></div>
+        <div>
+          <p className="text-gray-500">Saldo</p>
+          <p className={`font-semibold ${d.saldo > 0 ? 'text-amber-700' : 'text-green-700'}`}>{pesos(d.saldo)}</p>
+        </div>
+      </div>
+      {d.extras > 0 && <p className="text-xs text-gray-500">Cargos extra cobrados en sesiones: {pesos(d.extras)}</p>}
+      {d.pagos.length > 0 && (
+        <ul className="text-xs text-gray-600 space-y-0.5">
+          {d.pagos.map((p) => (
+            <li key={p.id}>{formatoFechaVisita(p.fecha)} · {pesos(p.monto)}{p.formaDePago ? ` · ${p.formaDePago}` : ''}</li>
+          ))}
+        </ul>
+      )}
+      {abierto && (
+        <div className="pt-3 border-t border-gray-100 space-y-2">
+          <div className="flex items-end gap-2 flex-wrap">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Monto (MXN)</label>
+              <input type="number" min={0} step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} className={`${inputClass} w-32`} autoFocus />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Forma de pago</label>
+              <select value={forma} onChange={(e) => setForma(e.target.value)} className={inputClass}>
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="cheque">Cheque</option>
+                <option value="deposito">Depósito</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Fecha</label>
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={inputClass} />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">Se registra como ingreso en Flujo de Dinero, ligado a este tratamiento.</p>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => { if (await t.registrarPago(n, forma, fecha)) { setAbierto(false); setMonto(''); } }}
+              disabled={t.trabajando || !valido}
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >Registrar pago</button>
+            <button onClick={() => setAbierto(false)} disabled={t.trabajando} className="px-3 py-1.5 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

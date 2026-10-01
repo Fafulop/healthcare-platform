@@ -56,9 +56,25 @@ export interface SesionDeTratamiento {
   cita: CitaDeVisita | null;
 }
 
+/** T6 — el dinero del tratamiento (CALCULADO de Flujo de Dinero). Sólo viaja con permiso `flujo`. */
+export interface DineroDelTratamiento {
+  precioPaquete: number;
+  pagado: number;
+  saldo: number;
+  /** Cargos extra cobrados en sesiones del paquete. */
+  extras: number;
+  pagos: { id: number; monto: number; fecha: string; formaDePago: string | null }[];
+}
+
 export interface TratamientoDetalle extends TratamientoResumen {
   sesiones: SesionDeTratamiento[];
+  /** Ausente = sin permiso de `flujo` · null = sin precio de paquete (se cobra por sesión). */
+  dinero?: DineroDelTratamiento | null;
 }
+
+/** «$12,500» — pesos sin centavos si son cero. */
+export const pesos = (n: number) =>
+  n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: Number.isInteger(n) ? 0 : 2 });
 
 /** `GET …/visitas/[id]` → `sesion`: la visita es la sesión N de un tratamiento. */
 export interface SesionDeLaVisita {

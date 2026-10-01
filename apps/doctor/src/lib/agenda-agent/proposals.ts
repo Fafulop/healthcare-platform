@@ -23,6 +23,7 @@
  */
 
 import { citaEfectiva, motivoNoSeMueve } from '@/lib/tratamientos';
+import { paqueteDeCita } from '@healthcare/database';
 import { prisma, tierAllows } from '@healthcare/database';
 import type { AnthropicTool } from './anthropic';
 import {
@@ -1580,6 +1581,35 @@ async function proposeCompleteBooking(
       cita: bookingLabel(b),
       ingreso: `ya registrado (${montoTxt}${viaLink ? ', pagado con link de pago' : ''})`,
       nota: 'El ingreso ya existía — solo se marcará COMPLETADA, sin duplicarlo. No hace falta preguntar la forma de pago.',
+    };
+  }
+
+  // TRATAMIENTOS T6: sesión CUBIERTA por el paquete de su tratamiento — el SERVIDOR la registra en $0
+  // «cubierta por el paquete» al completarla (regla 0). La tarjeta lo DICE en vez de anunciar el precio
+  // de lista; el asistente no captura cargos extra (eso se hace en la agenda).
+  const paquete = await paqueteDeCita(prisma, b.id);
+  if (paquete) {
+    const proposal = ctx.collector.add({
+      type: 'complete_booking',
+      titulo: `Completar cita ${bookingLabel(b)}`,
+      detalle: [
+        `${b.serviceName ?? 'Sin servicio'} · pasa a COMPLETADA`,
+        `💰 Cubierta por el paquete «${paquete.nombre}»: se registra en Flujo de Dinero en $0 (no se cobra otra vez)`,
+      ],
+      advertencias: [
+        'COMPLETADA es estado FINAL — no se puede revertir.',
+        'Si hubo un cargo extra fuera del paquete, complétala desde la agenda para capturarlo.',
+        ...(gate.dependencia ? [gate.dependencia] : []),
+      ],
+      params: { bookingId: b.id, ledger: null, paquete: paquete.nombre },
+    });
+    if (!proposal) return { error: CAP_ERROR };
+    return {
+      propuestaId: proposal.id,
+      orden: proposal.orden,
+      cita: bookingLabel(b),
+      ingreso: `cubierta por el paquete «${paquete.nombre}» ($0)`,
+      nota: 'Sesión de un tratamiento con precio de paquete: se registra en $0. No hace falta preguntar monto ni forma de pago.',
     };
   }
 

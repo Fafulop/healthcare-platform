@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
-import { leerBody } from '@/lib/visitas';
+import { leerBody, puedeVer } from '@/lib/visitas';
 import {
   INTERVALO_MAX, SESIONES_MAX, TRATAMIENTO_SELECT, cargarTratamiento, parseEnteroOpcional, parseEstadoTratamiento,
-  ocupadasDelPaciente, parseNombre, parseNotas, parsePlantilla, rechazarPrecio, sesionesParaRespuesta,
+  dineroDelTratamiento, ocupadasDelPaciente, parseNombre, parseNotas, parsePlantilla, parsePrecioPaquete,
+  sesionesParaRespuesta,
 } from '@/lib/tratamientos';
 
 // VISITAS fase 2 T2 — docs/DESDE JUNIO/VISITAS/03-PLAN-fase-2.md §3. Permiso: `expedientes` (heredado).
@@ -22,18 +23,28 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (!tratamiento) {
       return NextResponse.json({ error: 'Tratamiento not found' }, { status: 404 });
     }
-    const [sesiones, ocupadas] = await Promise.all([
+    const [sesiones, ocupadas, conPrecio] = await Promise.all([
       sesionesParaRespuesta(ctx, patientId, { tratamientoId }),
       // T3: citas y visitas que ya son de alguna sesión del paciente (para los selectores).
       ocupadasDelPaciente(ctx.doctorId, patientId),
+      // T6: el precio del paquete viaja SÓLO con `flujo` (G5).
+      puedeVer(ctx, 'flujo')
+        ? prisma.tratamiento.findUnique({ where: { id: tratamientoId }, select: { precioPaquete: true } })
+        : Promise.resolve(null),
     ]);
+    const dinero = conPrecio ? await dineroDelTratamiento(ctx.doctorId, tratamientoId, conPrecio.precioPaquete) : undefined;
 
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
       action: 'view_tratamiento', resourceType: 'tratamiento', resourceId: tratamientoId, request,
     });
 
-    return NextResponse.json({ success: true, data: { ...tratamiento, sesiones }, ocupadas });
+    // `dinero`: ausente = sin permiso de `flujo`; null = sin precio de paquete.
+    return NextResponse.json({
+      success: true,
+      data: { ...tratamiento, sesiones, ...(dinero !== undefined ? { dinero } : {}) },
+      ocupadas,
+    });
   } catch (error) {
     return handleApiError(error, 'GET /api/medical-records/patients/[id]/tratamientos/[tratamientoId]');
   }
@@ -46,7 +57,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const ctx = await requireDoctorAuth(request);
     const { id: patientId, tratamientoId } = await params;
     const body = await leerBody(request);
-    rechazarPrecio(body);
 
     const antes = await cargarTratamiento(ctx.doctorId, patientId, tratamientoId);
     if (!antes) {
@@ -63,6 +73,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (sesionesPlaneadas !== undefined) data.sesionesPlaneadas = sesionesPlaneadas;
     const intervaloDias = parseEnteroOpcional(body.intervaloDias, 'intervaloDias', INTERVALO_MAX);
     if (intervaloDias !== undefined) data.intervaloDias = intervaloDias;
+    // T6: el precio del paquete (sólo con `flujo`). Cambiarlo NO reescribe los $0 ya registrados.
+    const precioPaquete = parsePrecioPaquete(ctx, body.precioPaquete);
+    if (precioPaquete !== undefined) data.precioPaquete = precioPaquete;
     // Re-enviar la MISMA plantilla (un formulario que manda todo) no la re-valida: pudo desactivarse.
     if (body.plantillaSugeridaId !== undefined && body.plantillaSugeridaId !== antes.plantillaSugeridaId) {
       data.plantillaSugeridaId = await parsePlantilla(ctx.doctorId, body.plantillaSugeridaId);
@@ -71,6 +84,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
     }
+
+    // T6: el precio no está en TRATAMIENTO_SELECT (viaja sólo con `flujo`), así que el «antes» se lee
+    // aparte, y sólo si viene — es dinero y su cambio queda en la bitácora.
+    const precioAntes = precioPaquete !== undefined
+      ? (await prisma.tratamiento.findUnique({ where: { id: tratamientoId }, select: { precioPaquete: true } }))?.precioPaquete ?? null
+      : undefined;
 
     const updated = await prisma.tratamiento.update({
       where: { id: tratamientoId }, data, select: TRATAMIENTO_SELECT,
@@ -81,6 +100,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       if (antes[k] !== updated[k]) changes[k] = { from: antes[k], to: updated[k] };
     }
     if (data.notas !== undefined) changes.notas = 'editado';
+    if (precioPaquete !== undefined) {
+      const from = precioAntes === null || precioAntes === undefined ? null : Number(precioAntes);
+      if (from !== precioPaquete) changes.precioPaquete = { from, to: precioPaquete };
+    }
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
       action: 'update_tratamiento', resourceType: 'tratamiento', resourceId: tratamientoId,
@@ -116,17 +139,27 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       await tx.$queryRaw`SELECT id FROM medical_records.tratamientos WHERE id = ${tratamientoId} FOR UPDATE`;
       await tx.$queryRaw`
         SELECT id FROM medical_records.tratamiento_sesiones WHERE tratamiento_id = ${tratamientoId} FOR UPDATE`;
-      const [conCita, conVisita, total] = await Promise.all([
+      const [conCita, conVisita, total, conDinero] = await Promise.all([
         // Sólo citas que siguen siendo de ESTE paciente (`citaEfectiva`): una vieja no se ve ni se
         // puede desligar desde aquí, así que no bloquea (la cascada sólo borra la sesión).
         tx.tratamientoSesion.count({ where: { ...where, booking: { is: { patientId } } } }),
         tx.tratamientoSesion.count({ where: { ...where, visitaId: { not: null } } }),
         tx.tratamientoSesion.count({ where }),
+        // T6: movimientos de Flujo de Dinero ligados al tratamiento (pagos del paquete, sesiones en
+        // $0). Borrarlo los dejaría apuntando a nada y el saldo desaparecería: se cancela, no se borra.
+        tx.ledgerEntry.count({ where: { doctorId: ctx.doctorId, tratamientoId } }),
       ]);
+      if (conDinero > 0) return { borrado: false as const, conDinero };
       if (conCita > 0 || conVisita > 0) return { borrado: false as const, conCita, conVisita };
       await tx.tratamiento.delete({ where: { id: tratamientoId } });
       return { borrado: true as const, total };
     });
+    if (!r.borrado && 'conDinero' in r) {
+      return NextResponse.json(
+        { error: 'El tratamiento tiene pagos registrados en Flujo de Dinero; márcalo como cancelado', conteo: { conDinero: r.conDinero } },
+        { status: 409 },
+      );
+    }
     if (!r.borrado) {
       return NextResponse.json(
         {

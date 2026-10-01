@@ -13,7 +13,9 @@ import { prisma, Prisma, type PrismaClient, type BookingStatus } from '@healthca
 import type { NextRequest } from 'next/server';
 import { logAudit, type MedicalAuthContext } from '@/lib/medical-auth';
 import { AppError } from '@/lib/api-error-handler';
-import { bloquesDeCita, cargarCitaLigable, diaISO, exigirMismoDiaSiTienePlantillas, unicaPorCita } from '@/lib/visitas';
+import {
+  bloquesDeCita, cargarCitaLigable, diaISO, exigirMismoDiaSiTienePlantillas, puedeVer, unicaPorCita,
+} from '@/lib/visitas';
 
 type Db = Prisma.TransactionClient | PrismaClient;
 
@@ -77,13 +79,48 @@ export async function parsePlantilla(doctorId: string, v: unknown): Promise<stri
 }
 
 /**
- * G5: el precio del paquete es de T6. Si alguien lo manda HOY se rechaza en vez de ignorarlo: una
- * pantalla que lo enviara creería que quedó guardado.
+ * T6 — el PRECIO DEL PAQUETE (lo acordado por el tratamiento completo). Es dinero: escribirlo exige
+ * `flujo` (G5), igual que verlo. `undefined` = no vino · `null` = quitarlo (las sesiones vuelven a
+ * cobrarse una por una; los $0 ya registrados se quedan como historia) · número ≥ 0 = el precio.
  */
-export function rechazarPrecio(body: Record<string, unknown>) {
-  if (body.precioPaquete !== undefined) {
-    throw new AppError('precioPaquete todavía no se puede guardar', 400);
+export function parsePrecioPaquete(ctx: MedicalAuthContext, v: unknown): number | null | undefined {
+  if (v === undefined) return undefined;
+  if (!puedeVer(ctx, 'flujo')) throw new AppError('PERMISSION_BLOCKED', 403);
+  if (v === null) return null;
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > 10_000_000) {
+    throw new AppError('precioPaquete debe ser un número entre 0 y 10,000,000', 400);
   }
+  return Math.round(v * 100) / 100;
+}
+
+/**
+ * T6 — el DINERO de un tratamiento, para quien tiene `flujo`. Todo CALCULADO de Flujo de Dinero
+ * (DISEÑO §5), nada guardado: pagado = suma de los PAGOS DEL PAQUETE (los que registra «Registrar
+ * pago del paquete», `origin: 'manual'`); extras = lo cobrado de más en sesiones del paquete (los que
+ * nacen al completar la cita, `origin: 'cita'`, «paquete + extra»); saldo = precio − pagado. Se
+ * clasifica por CÓMO nació el movimiento, no por si tiene cita: `bookingId` se suelta si la cita se
+ * borra, y un extra se volvería «pago». Sin precio de paquete → null.
+ */
+export async function dineroDelTratamiento(doctorId: string, tratamientoId: string, precioPaquete: unknown) {
+  if (precioPaquete === null || precioPaquete === undefined) return null;
+  const precio = Number(precioPaquete);
+  const movimientos = await prisma.ledgerEntry.findMany({
+    where: { doctorId, tratamientoId, entryType: 'ingreso' },
+    orderBy: { transactionDate: 'asc' },
+    select: { id: true, amount: true, transactionDate: true, formaDePago: true, origin: true },
+  });
+  const pagos = movimientos.filter((m) => m.origin === 'manual');
+  const pagado = pagos.reduce((a, m) => a + Number(m.amount), 0);
+  const extras = movimientos.filter((m) => m.origin === 'cita').reduce((a, m) => a + Number(m.amount), 0);
+  return {
+    precioPaquete: precio,
+    pagado: Math.round(pagado * 100) / 100,
+    saldo: Math.round((precio - pagado) * 100) / 100,
+    extras: Math.round(extras * 100) / 100,
+    pagos: pagos.map((m) => ({
+      id: m.id, monto: Number(m.amount), fecha: diaISO(m.transactionDate), formaDePago: m.formaDePago,
+    })),
+  };
 }
 
 /** Choque en un índice único de sesiones (cita, visita o número) que ganó otra petición. */
