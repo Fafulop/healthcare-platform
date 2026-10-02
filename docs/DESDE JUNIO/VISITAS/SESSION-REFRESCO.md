@@ -5,6 +5,30 @@
 > paso en `02-PLAN-fase-1.md` (§4 backfill, §5.1 D1, §5.2 D2, §5.3 D3, §5.4 D4). Este doc NO repite eso:
 > lo señala.
 
+## ⏭️ PRÓXIMA SESIÓN — EMPIEZA AQUÍ (escrito 2026-10-02, al cerrar la corrida de Chrome)
+
+En este orden:
+
+1. **🔴 BUG A INVESTIGAR: «el primer clic no hace nada».** Visto en la corrida de Chrome del 2026-10-02
+   (dr-prueba): en el perfil del paciente (`/dashboard/medical-records/patients/<id>`) el botón «Nueva Visita»
+   NO abrió el modal en el primer clic 3 de 4 veces, aunque se esperó 4–5 s tras cargar; en el tratamiento
+   (`…/tratamientos/<id>`) «Agendar sesiones…» igual (1 de 1). El SEGUNDO clic siempre abrió. Una vez el
+   segundo clic tampoco abrió y el tercero (por `ref`) sí. Para un doctor se ve como «el botón no sirve».
+   Hipótesis SIN probar: el clic llega antes de que React hidrate (o un re-render que remonta el botón tras
+   un fetch); NO se midió nada. Cómo empezar: reproducir en Chrome con `performance` + un listener de
+   `click` en captura que anote si el evento llega y si React lo atiende; revisar qué fetch re-renderiza la
+   página justo después de cargar. Mirar también si pasa en otras páginas (la agenda no mostró el problema).
+2. **Lo que falta de la lista de Chrome de abajo** (correos, ayudante sin `flujo`, BÁSICO sin micrófono,
+   descargar una receta real) — necesita al usuario (su bandeja / otra cuenta).
+3. **AYUDA H2, tanda 1** (Flujo de Dinero · Facturación · Pagos · Mi Cuenta en el manual): el plan ya se le
+   presentó al usuario, falta su OK. Todo en `docs/DESDE JUNIO/AYUDA WIDGET/SESSION-REFRESCO.md` (bloque
+   2026-10-01 arriba).
+4. Pendientes chicos vistos en la corrida: «1 pacientes» en el resumen de importar documentos; filtros de
+   Docs y Galería en inglés; `scripts/visitas/verificar-tratamiento.cjs` no lee la bitácora de las SESIONES.
+5. Datos de prueba que quedaron en dr-prueba / pepit perez: tratamientos «PRUEBA F13» y «Seguimiento del 15
+   sep», 3 visitas, la cita del 8 oct 11:00 (`cmuqeyiyk…`), 2 archivos y 1 nota importados. No borrar sin
+   preguntar.
+
 ## ⏳ PRUEBAS PENDIENTES EN CHROME — hacerlas en la próxima sesión con quebradita.a
 
 > Todo esto YA está en prod (Tratamientos T6b → T7, último `6f80a698`) pero NO se ha visto en el
@@ -73,9 +97,7 @@
 - [x] **Bug encontrado y arreglado en la prueba (2026-10-02, `5f98c774`)**: «Agendar sesiones» TUMBABA la página
       («Application error», RangeError en `toISOString`) al teclear la fecha o al borrarla (valor vacío o año de 5
       dígitos). Re-probado en prod: borrar el mes ya no truena, el botón sólo se apaga.
-- [ ] **Observación sin arreglar**: en el perfil del paciente y en el tratamiento, el PRIMER clic justo después de
-      cargar («Nueva Visita», «Agendar sesiones…») a veces no abre nada (3 de 4 veces); el segundo sí. Parece
-      hidratación; no se investigó.
+- [ ] **«El primer clic no hace nada»** — 🔴 ver «PRÓXIMA SESIÓN» arriba, punto 1.
 - [ ] *(Cuando se vuelva a encender el asistente — hoy OCULTO, `ASISTENTE_IA_VISIBLE = false`)*: completar
       una sesión cubierta y «qué falta facturar» con pagos de paquete.
 
