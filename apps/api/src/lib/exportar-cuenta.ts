@@ -395,7 +395,8 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
   // Sólo si HAY tratamientos (como visitas.csv): la UI todavía no está abierta para todos.
   if (tratamientos.length) {
     archivos['tratamientos.csv'] = csv(
-      ['Paciente', 'Tratamiento', 'Estado del tratamiento', 'Precio del paquete', 'Sesión', 'Cancelada', 'Cita', 'Visita',
+      ['Paciente', 'Tratamiento', 'Estado del tratamiento', 'Precio del paquete', 'Sesión', 'Cancelada',
+        'Servicio de la sesión', 'Precio de la sesión', 'Cita', 'Visita',
         'Notas de la sesión', 'Notas del tratamiento', 'Creado'],
       tratamientos.flatMap((t) => {
         // T6: el precio ACORDADO del paquete (vacío = se cobra por sesión). Los pagos son movimientos
@@ -404,11 +405,14 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
           t.precioPaquete !== null ? Number(t.precioPaquete) : ''];
         const fin = [t.notas, instante(t.createdAt)];
         // Un tratamiento sin sesiones también sale (una fila con la sesión vacía).
-        if (!t.sesiones.length) return [[...comun, '', '', '', '', '', ...fin]];
+        if (!t.sesiones.length) return [[...comun, '', '', '', '', '', '', '', ...fin]];
         return t.sesiones.map((s) => [
           ...comun,
           t.sesionesPlaneadas ? `${s.numero} de ${t.sesionesPlaneadas}` : String(s.numero),
           s.cancelada ? 'Sí' : 'No',
+          // TRATAMIENTOS v2 · V1: el servicio y el precio PROPIOS de la sesión (vacío = sin precio propio).
+          s.servicioNombre ?? '',
+          s.precio !== null ? Number(s.precio) : '',
           citaDeSesion(t.patientId, s.bookingId),
           visitaDeSesion(t.patientId, s),
           s.notas,

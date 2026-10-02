@@ -2945,6 +2945,12 @@ model TratamientoSesion {
   bookingId      String?   @unique @map("booking_id")
   visitaId       String?   @unique @map("visita_id")
   notas          String?
+  /// TRATAMIENTOS v2 · V1 (2026-10-02): cada sesión con su servicio y su precio; el total del
+  /// tratamiento = Σ precios. `servicioId` = liga simple a public.services (sin FK), sólo el origen
+  /// del default. SQL: migrations/add-sesion-servicio-precio.sql (CHECK precio >= 0).
+  servicioId     String?   @map("servicio_id")
+  servicioNombre String?   @map("servicio_nombre") @db.VarChar(255)
+  precio         Decimal?  @db.Decimal(12, 2)
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 

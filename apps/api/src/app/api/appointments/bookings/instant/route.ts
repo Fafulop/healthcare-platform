@@ -4,7 +4,7 @@
 // No freeform bookings (slotId: null) are created — every booking references a slot.
 
 import { NextResponse } from 'next/server';
-import { prisma, doctorCongelado } from '@healthcare/database';
+import { prisma, doctorCongelado, precioParaCitaDeSesion } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
 import { sesionAlReagendar } from '@/lib/reagendar-sesion';
 import { logBookingCreated } from '@/lib/activity-logger';
@@ -159,6 +159,10 @@ export async function POST(request: Request) {
         finalPrice = Number(service.price) || 0;
       }
     }
+    // TRATAMIENTOS v2 · V1: reagendando la cita de una sesión con precio propio, la cita nueva NACE con
+    // ese precio (su evento, correo y bitácora ya lo llevan).
+    const precioSesion = await precioParaCitaDeSesion(prisma, { doctorId, reagendaDe });
+    if (precioSesion !== null) finalPrice = precioSesion;
 
     const confirmationCode = generateConfirmationCode();
     const reviewToken = generateReviewToken();

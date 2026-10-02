@@ -4,7 +4,7 @@
 // Always CONFIRMED (no PENDING state).
 
 import { NextResponse } from 'next/server';
-import { prisma, doctorCongelado } from '@healthcare/database';
+import { prisma, doctorCongelado, precioParaCitaDeSesion } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
 import { ligarSesionAlAgendar, sesionAlReagendar } from '@/lib/reagendar-sesion';
 import { logBookingCreated } from '@/lib/activity-logger';
@@ -159,7 +159,10 @@ export async function POST(request: Request) {
 
     const serviceDuration = service.durationMinutes;
     const serviceName = service.serviceName;
-    const finalPrice = Number(service.price) || 0;
+    // TRATAMIENTOS v2 · V1: agendada para una sesión (o reagendando la de una) con precio propio, la
+    // cita NACE con ese precio — su evento, correo y bitácora ya lo llevan.
+    const precioSesion = await precioParaCitaDeSesion(prisma, { doctorId, paraSesion, reagendaDe });
+    const finalPrice = precioSesion ?? (Number(service.price) || 0);
 
     // Compute endTime from startTime + service duration
     const normalizedStartTime = startTime.length > 5 ? startTime.slice(0, 5) : startTime;

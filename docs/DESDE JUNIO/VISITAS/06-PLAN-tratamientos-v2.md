@@ -1,0 +1,128 @@
+# TRATAMIENTOS v2 — el tratamiento como «carpeta» de sesiones (plan, 2026-10-02)
+
+> **Tipo: PLAN.** Lo pidió el usuario el 2026-10-02 al probar las notas de venta (VENTAS PACIENTE).
+> Sustituye el modelo de **paquete** de T6 (`03-PLAN-fase-2.md` §6). El estado vivo se anota en
+> `SESSION-REFRESCO.md`; aquí, al cerrar cada paso, sólo su commit en la tabla de §8.
+
+## 0. En una línea
+
+Un tratamiento deja de ser un paquete con un precio: es una **carpeta de sesiones**, y **cada sesión
+vive sola** — su servicio, su precio, su cita, su visita, su cobro y su nota. El tratamiento sólo
+**suma** y lo resume en un PDF.
+
+## 1. Decisiones del usuario (2026-10-02) — no se re-litigan
+
+1. **No hay paquetes.** El total de un tratamiento = **la suma de los precios de sus sesiones**
+   (4 × $2,000 = $8,000). Pagado = lo que **cobró** cada sesión; pendiente = total − pagado.
+2. **Cada sesión con su servicio y su precio**, elegidos de los servicios de Citas y editables
+   (nombre y monto), por sesión.
+3. **Agendar con flexibilidad:** por default igual que hoy (misma separación y hora) pero cada
+   sesión editable en **fecha y hora**, y la **disponibilidad se ve ANTES de confirmar** («se traslapa
+   con…»).
+4. **Cada sesión es una tarjeta de visita**, igual a la de la visita; **«Abrir visita» en cualquier
+   momento** (también antes de la sesión).
+5. **Las ventas de las visitas de las sesiones van en renglón aparte**, no dentro del total de
+   sesiones.
+6. **Al concluir la cita de una sesión** se pre-llena **el precio de la sesión** y se puede cambiar ahí
+   mismo (descuento del día). **Afinada 2026-10-02 (confirmada por el usuario):** una sesión YA cobrada
+   cuenta LO COBRADO (no su precio de lista), así que un descuento del día NO se vuelve deuda; lo
+   pendiente es lo cobrado que aún no entra (un cobro parcial o pendiente). La versión original («la
+   diferencia queda pendiente») dejaba deudas que nadie debía.
+7. **Un resumen en PDF** del tratamiento (sesiones, ventas, totales) — documento, no toca Flujo.
+
+## 2. Medido en prod (2026-10-02, read-only)
+
+- Tratamientos con `precio_paquete`: **2**, ambos de dr-prueba, **cancelados** («PRUEBA MANO» con 1
+  pago del paquete, «PRUEBA EXTRA»). Nadie real usa el paquete ⇒ quitarlo es seguro; sus datos se
+  quedan como están.
+- El servidor YA rechaza una cita que se traslapa (`range-bookings/instant` → `findBookingOverlap`,
+  409 «Este horario se traslapa con una cita existente (HH:MM–HH:MM)»), pero sólo al CREAR: hoy el
+  modal se entera al confirmar y crea «lo que cabe».
+- El paquete vive en **21 archivos** (API de citas, de tratamientos, Flujo, agenda, expediente,
+  `agenda-agent/proposals.ts`, `packages/database/src/tratamientos.ts`…). ⚠️ Tocar el agente obliga a
+  leer antes `AGENTES/GENERAL AGENTES/08-EMPIEZA-AQUI.md` y correr los gates.
+
+## 3. Pasos
+
+| Paso | Qué | BD | Riesgo |
+|---|---|---|---|
+| **V1** | Sesión con `servicio` + `precio`; totales del tratamiento (sesiones · pagado · pendiente; ventas aparte) | **sí** | medio |
+| **V2** | Quitar el paquete (UI + servidor); concluir una sesión cobra su precio | no | **alto** (dinero, 21 archivos) |
+| **V3** | Agendar flexible: renglones editables (fecha, hora, servicio, precio) + disponibilidad antes de confirmar | no | medio |
+| **V4** | Cada sesión = tarjeta de visita; «Abrir visita» siempre | no | bajo |
+| **V5** | «Resumen del tratamiento» (PDF) | no | bajo |
+
+Orden: **V1 → V2 → V3 → V4 → V5.** V1+V2 cambian el modelo de dinero: plan detallado propio (abajo),
+SQL a mano, prueba con transacción que revienta, y smoke read-only antes del push.
+
+## 4. V1 — servicio y precio por sesión, y los totales
+
+**BD** (`medical_records.tratamiento_sesiones`, SQL a mano + `prisma db execute`, ANTES del push):
+- `servicio_nombre VARCHAR(255) NULL`, `servicio_id TEXT NULL` (liga simple a `public.services`, sin
+  FK — sólo de dónde salió el default), `precio DECIMAL(12,2) NULL`.
+- Sin backfill: las sesiones viejas quedan con `precio` NULL ⇒ cuentan con el `finalPrice` de su cita
+  si la tienen, o $0 «sin precio» (se dice, no se inventa).
+
+**La fuente de cada número** (una sola regla, en el servidor — regla 0; como quedó tras 2 code reviews):
+- **Precio PLANEADO** (`precioDeSesion`) = `sesion.precio`; si es NULL, el `finalPrice` de su cita
+  propia si aún es plan (pendiente/confirmada) y > 0 (`finalPrice` 0 = «no se sabe»); si no, «sin
+  precio».
+- **Cobro** (`cobrosDeCitas`) = su movimiento de Flujo (`booking_id` = su cita), con DOS números:
+  `cargo` = `amount` (lo capturado al concluir) y `pagado` = `amountPaid` (sin él: el cargo si PAID).
+- **Importe de una sesión** = el `cargo` si ya se cobró; si no, su precio planeado (decisión 6
+  afinada). **Total** = Σ importes de las **no canceladas**. **Pagado** = Σ `pagado` de esas mismas.
+  **Pendiente** = total − pagado (si se pagó de más, «cobrado de más»). Lo que cobraron sesiones
+  CANCELADAS va aparte (`cobradoEnCanceladas`): no baja lo que deben las demás.
+- **Ventas de las sesiones** (renglón aparte) = las `sales` con `visita_id` en las visitas de sus
+  sesiones: su total y su pagado, por separado.
+
+**El precio llega a la cita** (decisión 6: concluirla lo pre-llena):
+- una cita que se CREA para la sesión (agendar `paraSesion`, reagendar `reagendaDe`, en
+  `range-bookings/instant` y `bookings/instant`) NACE con `sesion.precio` (`precioParaCitaDeSesion`) —
+  su evento de Google, su correo y su bitácora ya lo llevan;
+- editar el precio o ligar una cita existente la reprecia (`repreciarCitaDeSesion`, exige `citas`)
+  sólo si aún es plan: pendiente/confirmada, sin movimiento en Flujo y sin link PAGADO ni
+  PENDIENTE-activo (por estado: Mercado Pago apaga la preferencia al pagarse).
+- No cubierto: la ruta vieja de slots (`bookings/route.ts`, mecanismo obsoleto).
+- Límite conocido: quitarle el precio a una sesión cuya cita ya lo tomó la deja mostrando el de su
+  cita («de su cita»); para sacarla del total, se CANCELA.
+
+## 5. V2 — quitar el paquete
+
+- UI: fuera «Precio del paquete» (alta y edición) y «Registrar pago del paquete»; fuera «Cubierta por
+  el paquete» en agenda, expediente y visita.
+- Servidor: la API de tratamientos rechaza `precioPaquete`; `paqueteDeCita()` deja de aplicar ⇒
+  concluir la cita de una sesión registra su cobro normal (el monto capturado), y el link de pago
+  vuelve a permitirse (`payment-link-guard.ts`). La ruta `ledger/tratamiento-pago` se apaga (410).
+- Los 2 tratamientos viejos con paquete (cancelados, de prueba) se muestran read-only como quedaron.
+- **Antes de tocar** `agenda-agent/proposals.ts`: leer `08-EMPIEZA-AQUI.md`; el agente no debe seguir
+  diciendo «cubierta por el paquete».
+
+## 6. V3 — agendar flexible con disponibilidad
+
+- El modal arma los renglones con la regla de hoy (fecha base, hora, cada N días) y cada renglón se
+  edita (fecha, hora, servicio, precio). Cambiar la regla recalcula sólo los renglones no tocados.
+- **Disponibilidad antes de confirmar:** ruta NUEVA read-only (`apps/api`, toggle `citas`) que corre la
+  MISMA `findBookingOverlap` que usa crear, para N renglones, sin crear nada. Cada renglón: ✅ libre ·
+  🔴 «se traslapa con … HH:MM–HH:MM» (cita o bloqueo). No se confirma con un renglón rojo (se cambia
+  o se desmarca). El servidor sigue revisando al crear (otra persona pudo agendar en medio).
+
+## 7. V4 y V5
+
+- **V4:** la tarjeta de cada sesión = la de la visita (consultas, notas, recetas, imágenes, ventas).
+  «Abrir visita» siempre: si no hay, la crea ligada a la sesión y a su cita (mismo camino que «Nueva
+  Visita → sesión siguiente»); al concluir la cita, el servidor reusa esa visita (`syncVisitaForBooking`
+  busca por `bookingId`). Fecha de la visita = la de la cita.
+- **V5:** PDF «Resumen del tratamiento» con el diseño de la receta/nota: paciente, tratamiento,
+  sesiones (fecha, servicio, precio, cobrado/pendiente, folio de su nota), ventas aparte, totales.
+  Bajo demanda, toggle `flujo`.
+
+## 8. Estado
+
+| Paso | Estado | Commit |
+|---|---|---|
+| V1 | construido 2026-10-02; SQL probada en prod con transacción que revienta; 2 code reviews (10 + 10 hallazgos, todos atendidos salvo los límites anotados en §4) | — |
+| V2 | — | — |
+| V3 | — | — |
+| V4 | — | — |
+| V5 | — | — |

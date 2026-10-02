@@ -5,7 +5,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { leerBody, puedeVer } from '@/lib/visitas';
 import {
   INTERVALO_MAX, SESIONES_MAX, TRATAMIENTO_SELECT, cargarTratamiento, parseEnteroOpcional, parseEstadoTratamiento,
-  dineroDelTratamiento, ocupadasDelPaciente, parseNombre, parseNotas, parsePlantilla, parsePrecioPaquete,
+  cuentaDelTratamiento, dineroDelTratamiento, ocupadasDelPaciente, parseNombre, parseNotas, parsePlantilla, parsePrecioPaquete,
   sesionesParaRespuesta,
 } from '@/lib/tratamientos';
 
@@ -32,7 +32,14 @@ export async function GET(request: NextRequest, { params }: Params) {
         ? prisma.tratamiento.findUnique({ where: { id: tratamientoId }, select: { precioPaquete: true } })
         : Promise.resolve(null),
     ]);
-    const dinero = conPrecio ? await dineroDelTratamiento(ctx.doctorId, tratamientoId, conPrecio.precioPaquete) : undefined;
+    // Con paquete (sólo los viejos, hasta V2): `dinero`. Sin paquete (TRATAMIENTOS v2 · V1): la CUENTA
+    // = suma de sus sesiones (06-PLAN §4). Sólo con `flujo`; las dos en paralelo.
+    const [dinero, cuenta] = conPrecio
+      ? await Promise.all([
+          dineroDelTratamiento(ctx.doctorId, tratamientoId, conPrecio.precioPaquete),
+          conPrecio.precioPaquete === null ? cuentaDelTratamiento(ctx.doctorId, patientId, tratamientoId) : Promise.resolve(undefined),
+        ])
+      : [undefined, undefined];
 
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
@@ -42,7 +49,11 @@ export async function GET(request: NextRequest, { params }: Params) {
     // `dinero`: ausente = sin permiso de `flujo`; null = sin precio de paquete.
     return NextResponse.json({
       success: true,
-      data: { ...tratamiento, sesiones, ...(dinero !== undefined ? { dinero } : {}) },
+      data: {
+        ...tratamiento, sesiones,
+        ...(dinero !== undefined ? { dinero } : {}),
+        ...(cuenta !== undefined ? { cuenta } : {}),
+      },
       ocupadas,
     });
   } catch (error) {
@@ -76,6 +87,21 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     // T6: el precio del paquete (sólo con `flujo`). Cambiarlo NO reescribe los $0 ya registrados.
     const precioPaquete = parsePrecioPaquete(ctx, body.precioPaquete);
     if (precioPaquete !== undefined) data.precioPaquete = precioPaquete;
+    // TRATAMIENTOS v2 · V1: quitarle el precio a un paquete que YA tiene pagos lo pasaría a la cuenta
+    // por sesiones, que no ve esos pagos (no son de ninguna cita): el paciente aparecería debiendo lo
+    // que ya pagó. Se rechaza (los paquetes desaparecen en V2; los viejos quedan como están).
+    if (precioPaquete === null) {
+      const pagoDelPaquete = await prisma.ledgerEntry.findFirst({
+        where: { doctorId: ctx.doctorId, tratamientoId, bookingId: null },
+        select: { id: true },
+      });
+      if (pagoDelPaquete) {
+        return NextResponse.json(
+          { error: 'Este paquete ya tiene pagos registrados: no se le puede quitar el precio' },
+          { status: 409 },
+        );
+      }
+    }
     // Re-enviar la MISMA plantilla (un formulario que manda todo) no la re-valida: pudo desactivarse.
     if (body.plantillaSugeridaId !== undefined && body.plantillaSugeridaId !== antes.plantillaSugeridaId) {
       data.plantillaSugeridaId = await parsePlantilla(ctx.doctorId, body.plantillaSugeridaId);

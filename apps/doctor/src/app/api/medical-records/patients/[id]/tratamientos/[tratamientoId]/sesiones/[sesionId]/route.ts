@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, Prisma } from '@healthcare/database';
+import { prisma, Prisma, repreciarCitaDeSesion } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { AppError, handleApiError } from '@/lib/api-error-handler';
 import { leerBody, puedeVer } from '@/lib/visitas';
 import {
-  auditarEfectosDeLigar, cargarSesion, citaEfectiva, escribirSesion, parseNotas, planLigarCitaASesion,
-  sesionesParaRespuesta, validarVisitaParaSesion, type PlanLigarCita,
+  auditarEfectosDeLigar, cargarSesion, citaEfectiva, escribirSesion, parseNotas, parsePrecioSesion,
+  parseServicioSesion, planLigarCitaASesion, sesionesParaRespuesta, validarVisitaParaSesion, type PlanLigarCita,
 } from '@/lib/tratamientos';
 
 // VISITAS fase 2 T2 — docs/DESDE JUNIO/VISITAS/03-PLAN-fase-2.md §3 + G1, G2, G4. Permiso:
@@ -43,6 +43,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
     const notas = parseNotas(body.notas);
     if (notas !== undefined) data.notas = notas;
+
+    // TRATAMIENTOS v2 · V1 — servicio y precio de la sesión (06-PLAN §4).
+    const servicio = await parseServicioSesion(ctx.doctorId, body, s.servicioId);
+    if (servicio.servicioId !== undefined && servicio.servicioId !== s.servicioId) data.servicioId = servicio.servicioId;
+    if (servicio.servicioNombre !== undefined && servicio.servicioNombre !== s.servicioNombre) data.servicioNombre = servicio.servicioNombre;
+    const precio = parsePrecioSesion(ctx, body.precio);
+    const precioAntes = s.precio === null ? null : Number(s.precio);
+    if (precio !== undefined && precio !== precioAntes) data.precio = precio;
 
     // Lo que la sesión MUESTRA hoy. Una cita vieja (G1: de otro paciente o de ninguno) no se
     // muestra, así que tampoco cuenta como «tiene cita» para nada de lo que sigue.
@@ -103,7 +111,22 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       tocaLigas ? { bookingId: s.bookingId, visitaId: s.visitaId } : undefined,
     );
 
+    // V1: el precio de la sesión baja a su cita (decisión 6: concluirla pre-llena ese precio) cuando
+    // cambia el precio O se le liga una cita, con la MISMA regla que agendar/reagendar
+    // (`repreciarCitaDeSesion`: sólo una cita que aún es plan, sin cobro ni link activo). Es un dato
+    // de la AGENDA: además de `flujo` (el precio) exige `citas`.
+    const precioFinal = data.precio !== undefined ? (data.precio as number | null) : precioAntes;
+    const citaNueva = data.bookingId !== undefined && !!bookingFinal;
+    let citaRepreciada = false;
+    if (bookingFinal && precioFinal !== null && (data.precio !== undefined || citaNueva) && puedeVer(ctx, 'citas')) {
+      citaRepreciada = await repreciarCitaDeSesion(prisma, { doctorId: ctx.doctorId, bookingId: bookingFinal, precio: precioFinal });
+    }
+
     const changes: Record<string, unknown> = {};
+    if (data.servicioId !== undefined) changes.servicioId = { from: s.servicioId, to: data.servicioId };
+    if (data.servicioNombre !== undefined) changes.servicioNombre = { from: s.servicioNombre, to: data.servicioNombre };
+    if (data.precio !== undefined) changes.precio = { from: precioAntes, to: data.precio };
+    if (citaRepreciada) changes.citaRepreciada = { bookingId: bookingFinal, precio: precioFinal };
     if (data.bookingId !== undefined) changes.bookingId = { from: citaActual, to: bookingFinal };
     if (data.visitaId !== undefined) changes.visitaId = { from: s.visitaId, to: data.visitaId };
     if (data.cancelada !== undefined) changes.cancelada = { from: s.cancelada, to: data.cancelada };

@@ -196,13 +196,135 @@ export function citaEfectiva(s: { patientId: string; bookingId: string | null; b
 export { motivoNoSeMueve, type MotivoNoSeMueve } from '@healthcare/database';
 
 /** Lo mínimo para DERIVAR el estado (los conteos no necesitan más). */
-const CITA_PARA_ESTADO = { select: { patientId: true, status: true, visita: { select: { id: true } } } } as const;
+const CITA_PARA_ESTADO = {
+  select: { patientId: true, status: true, finalPrice: true, visita: { select: { id: true } } },
+} as const;
 
 const SESION_SELECT = {
   id: true, tratamientoId: true, patientId: true, numero: true, cancelada: true,
   bookingId: true, visitaId: true, notas: true, createdAt: true, updatedAt: true,
+  servicioId: true, servicioNombre: true, precio: true,
   booking: CITA_PARA_ESTADO,
 } as const;
+
+/**
+ * TRATAMIENTOS v2 · V1 — el precio PLANEADO de una sesión, con su FUENTE (una sola regla, regla 0):
+ *   1. el suyo (`sesion`);
+ *   2. sin precio propio (sesiones de antes de V1): el de su cita PROPIA si aún es plan
+ *      (pendiente/confirmada) y > 0 (`cita`). `finalPrice` es NOT NULL y vale 0 cuando la cita no
+ *      tenía precio: 0 NO es un precio, es «no se sabe»;
+ *   3. si no, null = «sin precio» (se dice, no se inventa un $0).
+ * Es lo que se PLANEA cobrar. Lo que SE COBRÓ (al concluir la cita) es otro número: `cobrosDeCitas`.
+ */
+export function precioDeSesion(
+  s: {
+    precio: Prisma.Decimal | null; patientId: string; bookingId: string | null;
+    booking: { patientId: string | null; status: BookingStatus; finalPrice: Prisma.Decimal } | null;
+  },
+): { precio: number | null; fuente: 'sesion' | 'cita' | null } {
+  if (s.precio !== null) return { precio: Number(s.precio), fuente: 'sesion' };
+  if (citaEfectiva(s) && s.booking
+    && (s.booking.status === 'PENDING' || s.booking.status === 'CONFIRMED')
+    && Number(s.booking.finalPrice) > 0) {
+    return { precio: Number(s.booking.finalPrice), fuente: 'cita' };
+  }
+  return { precio: null, fuente: null };
+}
+
+/**
+ * El COBRO de cada cita (su movimiento de Flujo, 1:1 por `bookingId`), con sus DOS números separados
+ * — mezclarlos fue el error: `cargo` = lo que se cobró (`amount`, lo que el doctor capturó al
+ * concluirla) y `pagado` = lo que de eso ya entró (`amountPaid`; un movimiento viejo sin `amountPaid`
+ * cuenta pagado sólo si su estado es PAID). Un cargo PENDIENTE o PARCIAL deja ver lo que se debe.
+ */
+async function cobrosDeCitas(doctorId: string, citas: string[]) {
+  if (!citas.length) return new Map<string, { cargo: number; pagado: number; folio: string }>();
+  const movimientos = await prisma.ledgerEntry.findMany({
+    where: { doctorId, bookingId: { in: citas } },
+    select: { bookingId: true, amount: true, amountPaid: true, paymentStatus: true, internalId: true },
+  });
+  return new Map(movimientos.map((m) => {
+    const cargo = Number(m.amount);
+    const pagado = m.amountPaid !== null ? Number(m.amountPaid) : m.paymentStatus === 'PAID' ? cargo : 0;
+    return [m.bookingId!, { cargo, pagado, folio: m.internalId }];
+  }));
+}
+
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * TRATAMIENTOS v2 · V1 — la CUENTA de un tratamiento sin paquete (06-PLAN §4), para quien tiene
+ * `flujo`. Nada se guarda, todo se SUMA de lo que ya existe. El IMPORTE de cada sesión (no cancelada):
+ *   · ya cobrada (su cita concluyó y tiene movimiento) → LO COBRADO (`cargo`, fuente `cobro`): el doctor
+ *     decidió el monto al concluirla — un descuento del día o un link a otro monto NO deja un
+ *     «pendiente» que nadie debe;
+ *   · aún no → su precio PLANEADO (`precioDeSesion`); sin precio → `sinPrecio` (no se inventa).
+ *   · total     = Σ importes;
+ *   · pagado    = Σ lo que ENTRÓ de esos cargos (`pagado`): un cobro pendiente o parcial SÍ deja ver
+ *                 lo que se debe;
+ *   · pendiente = total − pagado (si se pagó de más, `cobradoDeMas` > 0 y pendiente 0);
+ *   · cobradoEnCanceladas = lo que cobraron sesiones CANCELADAS (p. ej. un cargo por no asistir): el
+ *                 dinero entró, pero contarlo en `pagado` bajaría en silencio lo que deben las otras;
+ *                 se dice aparte;
+ *   · ventas    = las de las visitas de sus sesiones, en renglón APARTE (decisión 5): su total y
+ *                 su pagado, sin ventas canceladas. No entran en el total de sesiones.
+ */
+export async function cuentaDelTratamiento(doctorId: string, patientId: string, tratamientoId: string) {
+  const sesiones = await prisma.tratamientoSesion.findMany({
+    where: { tratamientoId, patientId, doctorId },
+    orderBy: { numero: 'asc' },
+    select: SESION_SELECT,
+  });
+  const derivados = sesiones.map((s) => estadoDeSesion(s, s.booking));
+  const citas = sesiones.flatMap((s) => (citaEfectiva(s) ? [s.bookingId!] : []));
+  const visitas = derivados.flatMap((d) => (d.visitaId ? [d.visitaId] : []));
+
+  const [cobroPor, ventas] = await Promise.all([
+    cobrosDeCitas(doctorId, citas),
+    visitas.length
+      ? prisma.sale.findMany({
+          where: { doctorId, patientId, visitaId: { in: visitas }, status: { not: 'CANCELLED' } },
+          select: { total: true, amountPaid: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  let total = 0;
+  let pagado = 0;
+  let cobradoEnCanceladas = 0;
+  let sinPrecio = 0;
+  const porSesion = sesiones.map((s) => {
+    const m = citaEfectiva(s) ? cobroPor.get(s.bookingId!) : undefined;
+    const planeado = precioDeSesion(s);
+    const importe = m ? m.cargo : planeado.precio;
+    const fuente: 'cobro' | 'sesion' | 'cita' | null = m ? 'cobro' : planeado.fuente;
+    const entro = m?.pagado ?? 0;
+    if (s.cancelada) {
+      cobradoEnCanceladas += entro;
+    } else {
+      pagado += entro;
+      if (importe === null) sinPrecio += 1;
+      else total += importe;
+    }
+    return {
+      id: s.id, importe: importe === null ? null : r2(importe), fuente,
+      pagado: r2(entro), folio: m?.folio ?? null,
+    };
+  });
+
+  const ventasTotal = ventas.reduce((a, v) => a + Number(v.total), 0);
+  const ventasPagado = ventas.reduce((a, v) => a + Number(v.amountPaid ?? 0), 0);
+  return {
+    total: r2(total),
+    pagado: r2(pagado),
+    pendiente: r2(Math.max(0, total - pagado)),
+    cobradoDeMas: r2(Math.max(0, pagado - total)),
+    cobradoEnCanceladas: r2(cobradoEnCanceladas),
+    sinPrecio,
+    sesiones: porSesion,
+    ventas: { cuantas: ventas.length, total: r2(ventasTotal), pagado: r2(ventasPagado) },
+  };
+}
 
 export type ConteoSesiones = {
   total: number; hechas: number; agendadas: number; porAgendar: number; canceladas: number;
@@ -270,6 +392,9 @@ export async function sesionesParaRespuesta(
     ]),
   );
 
+  // V1: el servicio viaja siempre; el precio PLANEADO sólo con `flujo` (es dinero — misma regla que
+  // tenía el precio del paquete, G5). Lo cobrado/pagado vive en la cuenta (`cuentaDelTratamiento`).
+  const conFlujo = puedeVer(ctx, 'flujo');
   return sesiones.map((s, i) => {
     const d = derivados[i];
     return {
@@ -277,6 +402,9 @@ export async function sesionesParaRespuesta(
       numero: s.numero,
       cancelada: s.cancelada,
       notas: s.notas,
+      servicioId: s.servicioId,
+      servicioNombre: s.servicioNombre,
+      ...(conFlujo ? precioDeSesion(s) : {}),
       estado: d.estado,
       ...(d.motivo ? { motivo: d.motivo } : {}),
       ...(d.aviso ? { aviso: d.aviso } : {}),
@@ -569,9 +697,55 @@ export function cargarSesion(doctorId: string, patientId: string, tratamientoId:
     where: { id: sesionId, tratamientoId, patientId, doctorId },
     select: {
       id: true, patientId: true, numero: true, cancelada: true, bookingId: true, visitaId: true, notas: true,
+      servicioId: true, servicioNombre: true, precio: true,
       booking: CITA_PARA_ESTADO,
     },
   });
+}
+
+export const SERVICIO_NOMBRE_MAX = 255;
+export const PRECIO_SESION_MAX = 10_000_000;
+
+/**
+ * V1 — el SERVICIO de una sesión: `servicioId` (uno de los servicios de Citas del doctor; sólo dice de
+ * dónde salió) y/o `servicioNombre` (el que se guarda y se muestra, editable). undefined = no viene.
+ */
+export async function parseServicioSesion(
+  doctorId: string, body: Record<string, unknown>, actual: string | null,
+): Promise<{ servicioId?: string | null; servicioNombre?: string | null }> {
+  const out: { servicioId?: string | null; servicioNombre?: string | null } = {};
+  if (body.servicioId !== undefined) {
+    if (body.servicioId === null || body.servicioId === '') out.servicioId = null;
+    // Re-enviar el que ya tiene no es elegirlo: aunque ese servicio ya se haya borrado (liga sin FK),
+    // no debe impedir guardar el nombre o el precio.
+    else if (body.servicioId === actual) out.servicioId = actual;
+    else {
+      if (typeof body.servicioId !== 'string') throw new AppError('servicioId inválido', 400);
+      const sv = await prisma.service.findFirst({ where: { id: body.servicioId, doctorId }, select: { id: true } });
+      if (!sv) throw new AppError('Servicio no encontrado', 404);
+      out.servicioId = sv.id;
+    }
+  }
+  if (body.servicioNombre !== undefined) {
+    if (body.servicioNombre === null) out.servicioNombre = null;
+    else {
+      if (typeof body.servicioNombre !== 'string') throw new AppError('servicioNombre inválido', 400);
+      const t = body.servicioNombre.trim();
+      if (t.length > SERVICIO_NOMBRE_MAX) throw new AppError(`El servicio admite hasta ${SERVICIO_NOMBRE_MAX} caracteres`, 400);
+      out.servicioNombre = t || null;
+    }
+  }
+  return out;
+}
+
+/** V1 — el PRECIO de una sesión. Es dinero: escribirlo exige `flujo` (como el precio del paquete). */
+export function parsePrecioSesion(ctx: MedicalAuthContext, v: unknown): number | null | undefined {
+  if (v === undefined) return undefined;
+  if (!puedeVer(ctx, 'flujo')) throw new AppError('PERMISSION_BLOCKED', 403);
+  if (v === null || v === '') return null;
+  const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN;
+  if (!Number.isFinite(n) || n < 0 || n > PRECIO_SESION_MAX) throw new AppError('Precio inválido', 400);
+  return Math.round(n * 100) / 100;
 }
 
 // ─── Ligar una cita a una sesión ────────────────────────────────────────────────────────────

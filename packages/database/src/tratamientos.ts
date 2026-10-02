@@ -152,12 +152,63 @@ export type ResultadoLigarNueva =
   | { ligada: false; motivo: 'sin_sesion' | 'tratamiento_no_activo' | 'sesion_cancelada' | 'sesion_con_visita' | 'sesion_con_cita' | 'cita_invalida' | 'cambio' };
 
 /**
+ * TRATAMIENTOS v2 · V1 — el precio con el que NACE una cita que se agenda para una sesión
+ * (`paraSesion`, «Agendar sesiones») o que reagenda la cita de una (`reagendaDe`): el PROPIO de la
+ * sesión. Las rutas de agendar lo usan en vez del precio del servicio, así que la cita, su evento de
+ * Google Calendar, su correo y su bitácora llevan ya el precio correcto (corregirlo DESPUÉS de crear
+ * dejaba el viejo en todos ellos). null = la sesión no tiene precio propio → el del servicio, como hoy.
+ */
+export async function precioParaCitaDeSesion(
+  db: Db, args: { doctorId: string; paraSesion?: unknown; reagendaDe?: unknown },
+): Promise<number | null> {
+  const where = typeof args.paraSesion === 'string' && args.paraSesion
+    ? { id: args.paraSesion, doctorId: args.doctorId, cancelada: false }
+    : typeof args.reagendaDe === 'string' && args.reagendaDe
+      ? { bookingId: args.reagendaDe, doctorId: args.doctorId, cancelada: false }
+      : null;
+  if (!where) return null;
+  const s = await db.tratamientoSesion.findFirst({ where, select: { precio: true } });
+  return s?.precio != null ? Number(s.precio) : null;
+}
+
+/**
+ * TRATAMIENTOS v2 · V1 — al EDITAR el precio de una sesión o LIGARLE una cita que ya existe, la cita
+ * toma el precio de la sesión, para que concluirla lo pre-llene (decisión 6, VISITAS/06-PLAN). (Una
+ * cita que se CREA para la sesión ya nace con él: `precioParaCitaDeSesion`.) Sólo toca una cita que
+ * aún es PLAN:
+ *   · PENDING/CONFIRMED (concluida, cancelada o no-show = historia);
+ *   · SIN movimiento en Flujo (un prepago ya es dinero a otro monto);
+ *   · SIN link de pago PAGADO ni PENDIENTE-y-activo: el paciente pagó, o tiene una liga, por el monto
+ *     viejo. Por ESTADO, no por `isActive`: el webhook de Mercado Pago apaga (`isActive: false`) la
+ *     preferencia al pagarse, así que «inactiva» no quiere decir «sin pagar».
+ * Devuelve si la cambió. Quién puede pedirlo (permiso `citas`) lo decide el llamador.
+ */
+export async function repreciarCitaDeSesion(
+  db: Db, args: { doctorId: string; bookingId: string; precio: number },
+): Promise<boolean> {
+  const ligaVieja = {
+    OR: [{ status: 'PAID' as const }, { status: 'PENDING' as const, isActive: true }],
+  };
+  const { count } = await db.booking.updateMany({
+    where: {
+      id: args.bookingId, doctorId: args.doctorId,
+      status: { in: ['PENDING', 'CONFIRMED'] },
+      ledgerEntry: { is: null },
+      NOT: [{ paymentLink: { is: ligaVieja } }, { mpPaymentPreference: { is: ligaVieja } }],
+    },
+    data: { finalPrice: args.precio },
+  });
+  return count > 0;
+}
+
+/**
  * T5 — «Agendar sesiones»: la cita RECIÉN creada (por la misma ruta que la agenda) se liga a SU
  * sesión en la misma petición (`paraSesion`), para que nunca quede una cita agendada sin su sesión.
  * Mismas reglas que «Ligar una cita…» para el caso que aquí importa: misma doctor y paciente, cita
  * activa y de ninguna otra sesión; la sesión no cancelada, SIN visita propia, y sin una cita que
  * siga contando (una cancelada / no-show / de otro paciente sí se reemplaza). Escritura condicionada.
- * Audita en el expediente. NO lanza por reglas: devuelve `{ ligada: false, motivo }`.
+ * Audita en el expediente. NO lanza por reglas: devuelve `{ ligada: false, motivo }`. (Su precio lo
+ * puso ya la ruta al crearla: `precioParaCitaDeSesion`.)
  */
 export async function ligarSesionACitaNueva(
   db: Db,

@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CalendarDays, ListChecks, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { BookingStatusPill } from '@/components/medical-records/CitaBadges';
 import { formatoFechaVisita, visitaHref } from '@/lib/visitas-ui';
 import {
   ESTADO_SESION, ESTADO_TRATAMIENTO, describirAvance, detalleDeSesion, etiquetaSesion, pesos, tratamientosUiActiva,
-  type SesionDeTratamiento,
+  type CuentaDelTratamiento, type SesionDeTratamiento,
 } from '@/lib/tratamientos-ui';
 import { practiceConfirm } from '@/lib/practice-confirm';
 import { getClinicDateString } from '@/lib/dates';
@@ -114,8 +114,14 @@ export default function TratamientoPage() {
         </div>
       </div>
 
-      {/* T6 — el dinero del paquete: sólo con permiso de `flujo` (si no, `dinero` no viaja). */}
-      {tratamiento.dinero !== undefined && <DineroDelPaquete t={t} />}
+      {/* Dinero, sólo con permiso de `flujo` (si no, no viaja nada):
+          · V1 — sin paquete: la CUENTA = suma de las sesiones (lo normal desde 2026-10-02);
+          · T6 — con paquete (sólo tratamientos viejos, hasta V2): el paquete. */}
+      {tratamiento.cuenta ? (
+        <CuentaTratamiento c={tratamiento.cuenta} />
+      ) : tratamiento.dinero ? (
+        <DineroDelPaquete t={t} />
+      ) : null}
 
       {/* Sesiones */}
       <div className="bg-white rounded-lg shadow p-5">
@@ -302,6 +308,48 @@ function EditarDatos({ t, onListo }: { t: Detalle; onListo: () => void }) {
   );
 }
 
+/**
+ * TRATAMIENTOS v2 · V1 — la cuenta del tratamiento: el total es la SUMA de sus sesiones (lo cobrado en
+ * las que ya se cobraron, el precio planeado en las demás), lo pagado es lo que de eso ya entró, y las
+ * ventas de sus visitas van en renglón aparte. Todo lo calcula el servidor.
+ */
+function CuentaTratamiento({ c }: { c: CuentaDelTratamiento }) {
+  return (
+    <div className="bg-white rounded-lg shadow p-5 space-y-3">
+      <h2 className="text-base font-semibold text-gray-900">Cuenta del tratamiento</h2>
+      <div className="grid grid-cols-3 gap-3 text-sm">
+        <div><p className="text-gray-500">Total</p><p className="font-semibold text-gray-900">{pesos(c.total)}</p></div>
+        <div><p className="text-gray-500">Pagado</p><p className="font-semibold text-gray-900">{pesos(c.pagado)}</p></div>
+        <div>
+          <p className="text-gray-500">Pendiente</p>
+          <p className={`font-semibold ${c.pendiente > 0 ? 'text-amber-700' : 'text-green-700'}`}>{pesos(c.pendiente)}</p>
+        </div>
+      </div>
+      <p className="text-xs text-gray-500">
+        El total suma cada sesión (sin las canceladas): lo que se le cobró al concluir su cita, o su precio si aún no se cobra. Lo pagado es lo que de eso ya entró.
+      </p>
+      {c.cobradoEnCanceladas > 0 && (
+        <p className="text-xs text-gray-600">
+          Sesiones canceladas cobraron {pesos(c.cobradoEnCanceladas)} (p. ej. un cargo por no asistir): entró a Flujo de Dinero, pero no cuenta como pago de las demás.
+        </p>
+      )}
+      {c.cobradoDeMas > 0 && (
+        <p className="text-xs text-blue-800">Se cobró {pesos(c.cobradoDeMas)} de más sobre el precio de las sesiones.</p>
+      )}
+      {c.sinPrecio > 0 && (
+        <p className="text-xs text-amber-800">
+          {c.sinPrecio === 1 ? '1 sesión no tiene precio' : `${c.sinPrecio} sesiones no tienen precio`}: no {c.sinPrecio === 1 ? 'cuenta' : 'cuentan'} en el total. Pónselo en la sesión.
+        </p>
+      )}
+      {c.ventas.cuantas > 0 && (
+        <p className="text-sm text-gray-700 border-t border-gray-100 pt-2">
+          Ventas en las visitas de las sesiones ({c.ventas.cuantas}): {pesos(c.ventas.total)} · pagado {pesos(c.ventas.pagado)}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** T6 — precio del paquete · pagado · saldo (CALCULADOS en el servidor), los pagos, y registrar uno. */
 function DineroDelPaquete({ t }: { t: Detalle }) {
   const d = t.tratamiento!.dinero;
@@ -312,14 +360,8 @@ function DineroDelPaquete({ t }: { t: Detalle }) {
   const n = Number(monto);
   const valido = monto.trim() !== '' && Number.isFinite(n) && n > 0;
 
-  if (!d) {
-    return (
-      <div className="bg-white rounded-lg shadow p-5 text-sm text-gray-600">
-        Sin precio de paquete: cada sesión se cobra al completarla. Para cobrar el tratamiento completo, pon el
-        precio del paquete en «Editar».
-      </div>
-    );
-  }
+  // Sólo se pinta con paquete (la página manda aquí sólo si `dinero` existe); sin paquete va la cuenta.
+  if (!d) return null;
   return (
     <div className="bg-white rounded-lg shadow p-5 space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -389,6 +431,7 @@ function FilaSesion({ s, t, planeadas, onCancelar }: {
   s: SesionDeTratamiento; t: Detalle; planeadas: number | null; onCancelar: () => void;
 }) {
   const [notas, setNotas] = useState<string | null>(null);
+  const [editandoServicio, setEditandoServicio] = useState(false);
   const chip = ESTADO_SESION[s.estado];
   const detalle = detalleDeSesion(s);
   const verCitas = t.permisos?.citas ?? false;
@@ -445,6 +488,8 @@ function FilaSesion({ s, t, planeadas, onCancelar }: {
             </Link>
           )}
           {s.notas && notas === null && <p className="text-sm text-gray-600 whitespace-pre-wrap">{s.notas}</p>}
+          {/* V1 — su servicio y su precio (el precio sólo con `flujo`), y lo que cobró. */}
+          <ServicioDeSesion s={s} cuenta={t.tratamiento?.cuenta} />
         </div>
 
         <div className="flex items-center gap-1 flex-wrap">
@@ -473,6 +518,9 @@ function FilaSesion({ s, t, planeadas, onCancelar }: {
           {!cita && s.visita && (
             <button onClick={() => t.ligarVisita(s, null)} disabled={t.trabajando} className={botonGris}>Desligar visita</button>
           )}
+          <button onClick={() => setEditandoServicio((v) => !v)} disabled={t.trabajando} className={botonGris}>
+            Servicio y precio
+          </button>
           <button onClick={() => setNotas(notas === null ? s.notas ?? '' : null)} disabled={t.trabajando} className={botonGris}>
             Notas
           </button>
@@ -491,6 +539,18 @@ function FilaSesion({ s, t, planeadas, onCancelar }: {
         </div>
       </div>
 
+      {editandoServicio && (
+        <EditorServicioSesion
+          s={s}
+          conFlujo={s.precio !== undefined}
+          trabajando={t.trabajando}
+          onGuardar={async (body) => {
+            if (await t.patchSesion(s, body, 'Sesión actualizada')) setEditandoServicio(false);
+          }}
+          onCerrar={() => setEditandoServicio(false)}
+        />
+      )}
+
       {notas !== null && (
         <div className="mt-3 space-y-2">
           <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} maxLength={5000} className={`${inputClass} w-full`} />
@@ -506,6 +566,120 @@ function FilaSesion({ s, t, planeadas, onCancelar }: {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** V1 — el renglón «servicio · precio» de una sesión y lo que cobró (con el folio de su nota). */
+function ServicioDeSesion({ s, cuenta }: { s: SesionDeTratamiento; cuenta?: CuentaDelTratamiento }) {
+  const conFlujo = s.precio !== undefined;
+  // De la cuenta: si la sesión YA se cobró (fuente `cobro`), lo cobrado y lo que de eso entró.
+  const c = cuenta?.sesiones.find((x) => x.id === s.id);
+  const cobrada = c?.fuente === 'cobro' && c.importe !== null;
+  if (!s.servicioNombre && !conFlujo) return null;
+  return (
+    <p className="text-sm text-gray-700 flex items-center gap-2 flex-wrap">
+      <span>{s.servicioNombre || 'Sin servicio'}</span>
+      {conFlujo && (
+        s.precio === null || s.precio === undefined ? (
+          !cobrada && <span className="text-amber-700">· sin precio</span>
+        ) : (
+          <span>
+            · {pesos(s.precio)}
+            {s.fuente === 'cita' && <span className="text-gray-400"> (de su cita)</span>}
+          </span>
+        )
+      )}
+      {cobrada && (
+        <span className={c!.pagado >= c!.importe! ? 'text-green-700' : 'text-amber-700'}>
+          · cobrado {pesos(c!.importe!)}
+          {c!.pagado < c!.importe! && ` · pagado ${pesos(c!.pagado)}`}
+          {c!.folio ? ` (${c!.folio})` : ''}
+        </span>
+      )}
+    </p>
+  );
+}
+
+// Los servicios de Citas del doctor, frescos cada vez que se abre el editor (uno dado de alta en otra
+// pestaña aparece sin recargar).
+interface ServicioCita { id: string; serviceName: string; price: number | null }
+const cargarServicios = () =>
+  fetch('/api/doctor/services')
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+    .then((d) => (d.data || []) as ServicioCita[]);
+
+/**
+ * V1 — editar el servicio y el precio de UNA sesión: se elige uno de los servicios de Citas (llena
+ * nombre y precio) y ambos se pueden cambiar. El precio sólo con `flujo`; si la cita de la sesión
+ * aún no se concluye, el servidor le pone ese precio también (al concluirla se pre-llena).
+ */
+function EditorServicioSesion({ s, conFlujo, trabajando, onGuardar, onCerrar }: {
+  s: SesionDeTratamiento; conFlujo: boolean; trabajando: boolean;
+  onGuardar: (body: Record<string, unknown>) => void; onCerrar: () => void;
+}) {
+  const [servicios, setServicios] = useState<ServicioCita[] | null | 'error'>(null);
+  const [servicioId, setServicioId] = useState(s.servicioId ?? '');
+  const [nombre, setNombre] = useState(s.servicioNombre ?? '');
+  // Sólo su precio PROPIO se pre-llena: uno heredado (de su cita) va de placeholder, para
+  // que renombrar el servicio no lo copie a la sesión y la deje de ligar a su cita.
+  const precioInicial = s.fuente === 'sesion' && s.precio != null ? String(s.precio) : '';
+  const [precio, setPrecio] = useState(precioInicial);
+  useEffect(() => {
+    let vigente = true;
+    cargarServicios()
+      .then((x) => { if (vigente) setServicios(x); })
+      .catch(() => { if (vigente) setServicios('error'); });
+    return () => { vigente = false; };
+  }, []);
+  const n = Number(precio);
+  const precioValido = precio.trim() === '' || (Number.isFinite(n) && n >= 0);
+
+  const elegir = (id: string) => {
+    setServicioId(id);
+    const sv = Array.isArray(servicios) ? servicios.find((x) => x.id === id) : undefined;
+    if (sv) {
+      setNombre(sv.serviceName);
+      if (conFlujo && sv.price != null) setPrecio(String(sv.price));
+    }
+  };
+
+  return (
+    <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-2">
+      <div className="flex gap-2 flex-wrap items-center">
+        <select value={servicioId} onChange={(e) => elegir(e.target.value)} disabled={!Array.isArray(servicios)} className={inputClass}>
+          <option value="">{servicios === null ? 'Cargando servicios…' : servicios === 'error' ? 'No se pudieron cargar los servicios' : 'Elegir un servicio…'}</option>
+          {Array.isArray(servicios) && servicios.map((sv) => (
+            <option key={sv.id} value={sv.id}>{sv.serviceName}{sv.price != null ? ` · ${pesos(sv.price)}` : ''}</option>
+          ))}
+        </select>
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={255} placeholder="Nombre del servicio" className={`${inputClass} flex-1 min-w-[10rem]`} />
+        {conFlujo && (
+          <input
+            value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal"
+            placeholder={s.fuente === 'cita' && s.precio != null ? `${pesos(s.precio)} (de su cita)` : 'Precio'}
+            className={`${inputClass} w-40`}
+          />
+        )}
+      </div>
+      {!precioValido && <p className="text-xs text-red-700">El precio debe ser un número mayor o igual a 0.</p>}
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            // Sólo lo que CAMBIÓ: re-enviar lo mismo no es editar (el servidor contestaría «Nada que
+            // actualizar») ni debe convertir un precio heredado en propio.
+            const body: Record<string, unknown> = {};
+            if ((servicioId || null) !== (s.servicioId ?? null)) body.servicioId = servicioId || null;
+            if ((nombre.trim() || null) !== (s.servicioNombre ?? null)) body.servicioNombre = nombre.trim() || null;
+            if (conFlujo && precio.trim() !== precioInicial) body.precio = precio.trim() === '' ? null : n;
+            if (Object.keys(body).length === 0) { onCerrar(); return; }
+            onGuardar(body);
+          }}
+          disabled={trabajando || !precioValido}
+          className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        >Guardar</button>
+        <button onClick={onCerrar} className="px-3 py-1 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">Cancelar</button>
+      </div>
     </div>
   );
 }

@@ -54,6 +54,28 @@ export interface SesionDeTratamiento {
   visita: { id: string; fecha?: string } | null;
   /** Sin permiso de `citas` sólo llega `{ id }`. */
   cita: CitaDeVisita | null;
+  /** TRATAMIENTOS v2 · V1 — su servicio (siempre viaja). */
+  servicioId: string | null;
+  servicioNombre: string | null;
+  /** Su precio (sólo con `flujo`): el suyo, o el de su cita (sesiones de antes de V1); null = sin precio. */
+  precio?: number | null;
+  fuente?: 'sesion' | 'cita' | null;
+}
+
+/** V1 — la CUENTA de un tratamiento sin paquete = la suma de sus sesiones. Sólo con `flujo`. */
+export interface CuentaDelTratamiento {
+  total: number;
+  pagado: number;
+  pendiente: number;
+  cobradoDeMas: number;
+  /** Lo que cobraron sesiones CANCELADAS: entró, pero no cuenta como pago de las demás. */
+  cobradoEnCanceladas: number;
+  /** Sesiones (no canceladas) sin precio: no entran al total — se dice. */
+  sinPrecio: number;
+  /** Por sesión: su IMPORTE (lo cobrado si ya se cobró — fuente `cobro` —, si no su precio planeado) y lo que de eso ya entró. */
+  sesiones: { id: string; importe: number | null; fuente: 'sesion' | 'cita' | 'cobro' | null; pagado: number; folio: string | null }[];
+  /** Ventas de las visitas de las sesiones: renglón APARTE (decisión 5). */
+  ventas: { cuantas: number; total: number; pagado: number };
 }
 
 /** T6 — el dinero del tratamiento (CALCULADO de Flujo de Dinero). Sólo viaja con permiso `flujo`. */
@@ -70,6 +92,8 @@ export interface TratamientoDetalle extends TratamientoResumen {
   sesiones: SesionDeTratamiento[];
   /** Ausente = sin permiso de `flujo` · null = sin precio de paquete (se cobra por sesión). */
   dinero?: DineroDelTratamiento | null;
+  /** V1 — sin paquete y con `flujo`: la cuenta (suma de sesiones). Ausente si no aplica. */
+  cuenta?: CuentaDelTratamiento;
 }
 
 /** «$12,500» — pesos sin centavos si son cero. */
