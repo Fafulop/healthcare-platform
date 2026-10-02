@@ -388,7 +388,8 @@ permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
   «Agregar» o «Editar».
 - **Citas e Ingresos** — sus citas, con si están pagadas y facturadas.
 
-En **Visitas**, una visita que es sesión de un tratamiento dice **«Sesión 2 de 6 — (tratamiento)»**.
+En **Visitas** sólo salen las visitas que **no** son de un tratamiento. Las que son sesión de un
+tratamiento se abren desde el tratamiento (tarjeta **Tratamientos**); abajo de la lista dice cuántas son.
 
 Visitas, Consultas sin visita, Formularios, Notas Recientes y Citas e Ingresos enseñan sólo las
 **3 más recientes**; Tratamientos enseña **3, los activos primero**. El botón **«Ver N más»** debajo

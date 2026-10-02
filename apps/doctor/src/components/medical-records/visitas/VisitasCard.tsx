@@ -25,6 +25,12 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
   const verCobro = permisos?.flujo ?? false;
   const verFactura = permisos?.facturacion ?? false;
   const citaPorId = new Map(bookings.map((b) => [b.id, b]));
+  // TRATAMIENTOS v2 · V6 (2026-10-02, a pedido del usuario): una visita que es SESIÓN de un tratamiento
+  // no se lista aquí — revuelta con las sueltas era demasiado. Se abre DESDE su tratamiento (tarjeta
+  // «Tratamientos» de este mismo expediente). Sólo esta tarjeta filtra: las demás pantallas que usan
+  // la lista (¿Es seguimiento?, selectores de fotos/recetas) la siguen necesitando completa.
+  const sueltas = visitas.filter((v) => !v.sesion);
+  const deTratamientos = visitas.length - sueltas.length;
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -51,9 +57,9 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
         </div>
       ) : (
         <>
-          {visitas.length > 0 ? (
+          {sueltas.length > 0 ? (
             <ListaColapsable className="space-y-2">
-              {visitas.map((v) => {
+              {sueltas.map((v) => {
                 const vacia = totalHijos(v.conteo) === 0;
                 const b = v.cita ? citaPorId.get(v.cita.id) : undefined;
                 const hora = v.cita?.horaInicio;
@@ -107,11 +113,19 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
           ) : (
             <div className="text-center py-6 text-gray-500">
               <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm">No hay visitas registradas</p>
+              {/* Con visitas de tratamientos SÍ hay visitas: decir «no hay» sería falso. */}
+              <p className="text-sm">{deTratamientos > 0 ? 'No hay visitas fuera de los tratamientos' : 'No hay visitas registradas'}</p>
               <button onClick={onNuevaVisita} className="text-blue-600 hover:text-blue-800 text-sm mt-2">
-                Crear primera visita
+                {deTratamientos > 0 ? 'Nueva visita' : 'Crear primera visita'}
               </button>
             </div>
+          )}
+          {deTratamientos > 0 && (
+            <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
+              <ListChecks className="w-3.5 h-3.5 shrink-0 text-teal-600" />
+              {deTratamientos === 1 ? '1 visita es' : `${deTratamientos} visitas son`} de tratamientos: se
+              {deTratamientos === 1 ? ' abre' : ' abren'} desde su tratamiento, en la tarjeta «Tratamientos».
+            </p>
           )}
         </>
       )}

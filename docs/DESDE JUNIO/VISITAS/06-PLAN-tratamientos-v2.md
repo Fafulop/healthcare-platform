@@ -55,6 +55,20 @@ vive sola** — su servicio, su precio, su cita, su visita, su cobro y su nota. 
 Orden: **V1 → V2 → V3 → V4 → V5.** V1+V2 cambian el modelo de dinero: plan detallado propio (abajo),
 SQL a mano, prueba con transacción que revienta, y smoke read-only antes del push.
 
+### 3.1 Reorden y ajustes del usuario (2026-10-02, tras probar V1)
+
+1. **V6 (nuevo, primero) — las visitas de un tratamiento NO salen en la tarjeta «Visitas» del
+   expediente.** Se ve mucho y confunde. Una visita de sesión sólo se abre DESDE su tratamiento; en el
+   expediente el tratamiento sale como UNA tarjeta (con su avance).
+2. **V3 se muda a la CREACIÓN del tratamiento:** «Nuevo tratamiento» con N sesiones muestra de
+   inmediato N renglones — servicio (precio editable), fecha y hora (pre-llenadas con la regla de hoy,
+   editables por renglón) y disponibilidad (✅ / 🔴 se traslapa) — y al confirmar crea tratamiento,
+   sesiones y citas. Un renglón puede quedar **«por agendar»** (servicio y precio sí, fecha después).
+   «Agendar sesiones» se queda para las que quedaron por agendar o se agregaron luego.
+3. **Reagendar una sesión desde su tarjeta** (hoy sólo desde la agenda, que ya conserva la sesión).
+4. **Nuevo orden:** V6 → V3 (en la creación) → V4 (+ «Reagendar») → V2 (quitar paquete: nadie real lo
+   usa) → V5.
+
 ## 4. V1 — servicio y precio por sesión, y los totales
 
 **BD** (`medical_records.tratamiento_sesiones`, SQL a mano + `prisma db execute`, ANTES del push):
@@ -121,7 +135,8 @@ SQL a mano, prueba con transacción que revienta, y smoke read-only antes del pu
 
 | Paso | Estado | Commit |
 |---|---|---|
-| V1 | construido 2026-10-02; SQL probada en prod con transacción que revienta; 2 code reviews (10 + 10 hallazgos, todos atendidos salvo los límites anotados en §4) | — |
+| V1 | EN PROD 2026-10-02; SQL aplicada antes del push; 2 code reviews (10 + 10 hallazgos, todos atendidos salvo los límites anotados en §4) | `23bd4aab` |
+| V6 | siguiente (§3.1) | — |
 | V2 | — | — |
 | V3 | — | — |
 | V4 | — | — |
