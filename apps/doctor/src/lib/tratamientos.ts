@@ -168,7 +168,15 @@ export function estadoDeSesion(
   const base = { visitaId, citaPropia };
 
   if (s.cancelada) return { estado: 'cancelada', ...base };
-  if (visitaId) return { estado: 'hecha', ...base };
+  // V4: «Abrir visita» se puede ANTES de la sesión (decisión 4). Una visita cuya cita propia sigue
+  // siendo plan no hace «hecha» la sesión: sigue agendada hasta que llegue (o se concluya) la cita.
+  const citaEnPlan = citaPropia && (cita!.status === 'PENDING' || cita!.status === 'CONFIRMED');
+  // Y si esa cita se CAYÓ (cancelada / no asistió) y la visita es la SUYA (abierta antes), la sesión no
+  // se atendió: vuelve a «por agendar» (con su motivo). «Desligar cita» suelta las dos y deja agendarla.
+  // Una visita propia de la sesión (otra, manual) sí la deja hecha, como siempre.
+  const citaCaida = citaPropia && (cita!.status === 'CANCELLED' || cita!.status === 'NO_SHOW');
+  const visitaDeSuCita = citaPropia && !!visitaId && cita!.visita?.id === visitaId;
+  if (visitaId && !citaEnPlan && !(citaCaida && visitaDeSuCita)) return { estado: 'hecha', ...base };
   if (citaPropia) {
     const st = cita!.status;
     if (st === 'COMPLETED') return { estado: 'hecha', aviso: 'visita_no_abierta', ...base };

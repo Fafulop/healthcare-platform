@@ -102,6 +102,13 @@ export async function POST(
     }
     if (!fecha) throw new AppError('fecha es requerida (YYYY-MM-DD)', 400);
     const seguimiento = parseSeguimiento(body.seguimiento);
+    // TRATAMIENTOS v2 · V4 — «Abrir visita» de una sesión SIN cita: la visita nace ligada a ESA sesión
+    // en la misma transacción (con cita no hace falta: `bookingId` ya la liga, G3). Excluyente con cita
+    // y con «Es seguimiento».
+    const paraSesion = typeof body.paraSesion === 'string' && body.paraSesion ? body.paraSesion : null;
+    if (paraSesion && (bookingId || seguimiento)) {
+      throw new AppError('paraSesion no se combina con cita ni con seguimiento', 400);
+    }
 
     // Tratamientos G3: si la cita es de una sesión, la sesión guarda esta visita (P2 revisado).
     // Se lee dentro de la tx para que un choque con otra petición salga como lo que es.
@@ -120,6 +127,28 @@ export async function POST(
           select: { id: true, fecha: true, comentario: true, origen: true, bookingId: true, createdAt: true, updatedAt: true },
         });
         if (cambio) await aplicarEnSesion(tx, cambio, bookingId!, v.id);
+        if (paraSesion) {
+          // Escritura condicionada: sólo una sesión de ESTE paciente, de un tratamiento ACTIVO (atender
+          // una sesión nueva, como agendarla), no cancelada, SIN visita y SIN cita que cuente — la misma
+          // regla que `estadoDeSesion`: cita cancelada/no asistió, de otro paciente o de ninguno (`not`
+          // no casa NULL, por eso va aparte). Si no casa, 409 y la visita no nace (rollback).
+          const { count } = await tx.tratamientoSesion.updateMany({
+            where: {
+              id: paraSesion, doctorId: ctx.doctorId, patientId, cancelada: false, visitaId: null,
+              tratamiento: { estado: 'activo' },
+              OR: [
+                { bookingId: null },
+                { booking: { status: { in: ['CANCELLED', 'NO_SHOW'] } } },
+                { booking: { patientId: { not: patientId } } },
+                { booking: { patientId: null } },
+              ],
+            },
+            data: { visitaId: v.id },
+          });
+          if (count === 0) {
+            throw new AppError('Esa sesión ya tiene visita o cita, se canceló, o su tratamiento no está activo: recarga el tratamiento', 409);
+          }
+        }
         const hecho = seguimiento
           ? await unirComoSeguimiento(tx, ctx.doctorId, patientId, seguimiento, { id: v.id, bookingId })
           : null;
@@ -133,11 +162,21 @@ export async function POST(
       changes: {
         fecha: diaISO(visita.fecha), bookingId, conComentario: !!comentario,
         ...(enSesion ? { sesionDeTratamiento: enSesion.sesionId } : {}),
+        ...(paraSesion ? { sesionDeTratamiento: paraSesion, abiertaDesdeSesion: true } : {}),
         ...(seguimientoHecho ? { seguimiento: { tratamientoId: seguimientoHecho.tratamientoId, numero: seguimientoHecho.numero } } : {}),
       },
       request,
     });
     if (enSesion) await auditarCambioDeSesion(ctx, request, patientId, enSesion, bookingId!, visita.id);
+    if (paraSesion) {
+      // El vínculo se audita también bajo la SESIÓN (como `link_sesion_visita` del camino con cita).
+      await logAudit({
+        patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
+        action: 'link_sesion_visita', resourceType: 'tratamiento_sesion', resourceId: paraSesion,
+        changes: { visitaId: { to: visita.id }, motivo: 'visita abierta desde la sesión' },
+        request,
+      });
+    }
     if (seguimientoHecho) await auditarSeguimiento(ctx, request, patientId, seguimientoHecho, visita.id);
 
     return NextResponse.json(

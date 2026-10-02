@@ -127,6 +127,41 @@ SQL a mano, prueba con transacción que revienta, y smoke read-only antes del pu
   «Abrir visita» siempre: si no hay, la crea ligada a la sesión y a su cita (mismo camino que «Nueva
   Visita → sesión siguiente»); al concluir la cita, el servidor reusa esa visita (`syncVisitaForBooking`
   busca por `bookingId`). Fecha de la visita = la de la cita.
+### 7.1 V4 como quedó (2026-10-02, tras probar V3)
+
+El usuario encontró dos huecos al probar V3: una sesión «después» no se podía agendar desde su tarjeta,
+y una sesión agregada luego (o de un tratamiento creado con 0) no tenía dónde llenarse. V4 los cierra:
+- **Tarjeta = la de la visita:** cita (fecha, hora, estado), servicio/precio/cobrado, notas de la cita,
+  conteo de su visita (`describirConteo`), chips de cobro y factura (veredicto del servidor, como
+  `VisitasCard`). Acciones principales a la derecha; lo demás (ligar a mano, servicio y precio, notas,
+  cancelar, borrar) abajo.
+- **«Abrir visita» siempre:** con cita vigente → `POST …/visitas {bookingId}` (fecha = la de la cita;
+  G3 la guarda en la sesión); sin cita que cuente → `POST …/visitas {fecha: hoy, paraSesion}` (NUEVO:
+  liga atómica, 409 si la sesión ya tiene visita o cita vigente o se canceló), con confirmación («la
+  sesión cuenta como hecha»). Exige tratamiento activo y, con cita, poder verla.
+- **Estado derivado (cambio):** una visita cuya cita propia sigue PENDIENTE/CONFIRMADA ya **no** hace
+  «hecha» la sesión: sigue «agendada» (abrir la visita antes no es haberla atendido).
+- **«Agendar»** (por agendar) y **«Reagendar»** (cita activa, sin visita) por sesión: el mismo modal en
+  modo `sesion` / `reagendar`. Reagendar = cita nueva con `isRescheduled + reagendaDe` (el servidor pasa
+  la sesión) y luego PATCH CANCELLED a la vieja; si algo de eso falla se dice tal cual.
+- **«Agregar sesión»** abre una fila (modo `nueva`): `POST …/sesiones` ya acepta `servicioId`,
+  `servicioNombre`, `precio`; con fecha se agenda en el mismo paso. Sin `citas` o con el tratamiento
+  cerrado: sólo servicio y precio.
+- **«Agendar sesiones…»** sale como aviso arriba de la lista («N sesiones están Por agendar»).
+- Límite: una sesión con su visita ya abierta no se reagenda desde el tratamiento (el servidor no mueve
+  sesiones con visita); su cita se reagenda en la agenda y la sesión se queda en la vieja.
+- **Code review (2 pasadas, 2026-10-02) — decisión del usuario «opción A»:** si la visita se abrió antes
+  y su cita se CAE (cancelada / no asistió, o reagendada desde la agenda), la sesión vuelve a «por
+  agendar» (con motivo) en vez de quedar «hecha» atorada; «Desligar cita» suelta cita + visita (la visita
+  queda en el expediente) y se agenda de nuevo. 0 sesiones de prod cambian con esta regla. Descartadas:
+  B (la visita viaja con la cita al reagendar — toca `packages/database` + `apps/api`) y C (no abrir
+  visita antes del día de la cita — contradice la decisión 4).
+- Otros arreglos del review: reagendar manda el correo de la cita nueva por su cuenta (no en el
+  resumen); la vieja sólo se cancela si la sesión pasó a la nueva; una sesión vieja sin servicio
+  reagenda con el de su cita; `paraSesion` exige tratamiento activo, acepta cita sin expediente y se
+  audita también bajo la sesión.
+- Límite (igual que la agenda): no se reagenda a una hora que se traslapa con la cita que se reemplaza.
+
 - **V5:** PDF «Resumen del tratamiento» con el diseño de la receta/nota: paciente, tratamiento,
   sesiones (fecha, servicio, precio, cobrado/pendiente, folio de su nota), ventas aparte, totales.
   Bajo demanda, toggle `flujo`.
@@ -136,8 +171,8 @@ SQL a mano, prueba con transacción que revienta, y smoke read-only antes del pu
 | Paso | Estado | Commit |
 |---|---|---|
 | V1 | EN PROD 2026-10-02; SQL aplicada antes del push; 2 code reviews (10 + 10 hallazgos, todos atendidos salvo los límites anotados en §4) | `23bd4aab` |
-| V6 | siguiente (§3.1) | — |
+| V6 | EN PROD 2026-10-02 (visitas de tratamiento fuera de la tarjeta «Visitas») | `c0e964fd` |
+| V3 | EN PROD 2026-10-02 (crear con filas: servicio, precio, fecha/hora, después, disponibilidad; «Agendar sesiones» con las mismas filas). Falta prueba a mano | `0234dd1a` |
+| V4 | Listo para push (ver §7.1) | — |
 | V2 | — | — |
-| V3 | — | — |
-| V4 | — | — |
 | V5 | — | — |

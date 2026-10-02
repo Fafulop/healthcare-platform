@@ -46,13 +46,23 @@ export interface Fila {
   tocada: boolean;
   /** Lo que la fila tenía guardado (sólo sesiones existentes): para mandar sólo lo que cambió. */
   original?: { servicioId: string | null; servicioNombre: string | null; precio: number | null };
+  /**
+   * V4 — «Reagendar»: la cita que esta fila REEMPLAZA. Se crea como la agenda reagenda
+   * (`isRescheduled` + `reagendaDe`: el servidor pasa la sesión a la cita nueva) y luego se cancela la
+   * vieja.
+   */
+  reagendaDe?: string;
 }
 
 type Disp = { estado: 'revisando' } | { estado: 'ok' } | { estado: 'choque'; texto: string } | { estado: 'error' };
 
 export type Resultado =
   | { key: string; numero: number; fecha: string; hora: string; ok: true; ligada: boolean; bookingId: string }
-  | { key: string; numero: number; fecha: string; hora: string; ok: false; error: string };
+  | {
+      key: string; numero: number; fecha: string; hora: string; ok: false; error: string;
+      /** El texto ya dice todo (no se le agrega «se queda Por agendar»: p. ej. un reagendado a medias). */
+      completo?: boolean;
+    };
 
 /** ¿Es un día que `Date` puede usar? (un año a medio teclear tumbaba la página — 2026-10-01). */
 export function fechaUsable(fecha: string) {
@@ -141,7 +151,11 @@ export function useAgendaDeSesiones(patientId: string, filasIniciales: Fila[], i
     if (!servicios?.length) return;
     setFilas((prev) => prev.map((f) => {
       if (f.servicioId || f.despues) return f;
-      const s = servicios[0];
+      // Si la fila trae un NOMBRE (sesión vieja sin servicio: el de su cita), ese servicio — no el primero
+      // de la lista, que cambiaría servicio y precio sin que nadie lo eligiera.
+      // Si ese nombre ya no está en la lista, se queda SIN elegir («Elegir servicio…»): el doctor escoge.
+      const s = f.servicioNombre ? servicios.find((x) => x.serviceName === f.servicioNombre) : servicios[0];
+      if (!s) return f;
       return { ...f, servicioId: s.id, servicioNombre: s.serviceName, precio: f.precio || (s.price != null ? String(s.price) : '') };
     }));
   }, [servicios, cuantas]);
@@ -245,13 +259,39 @@ export async function agendarFilas(
           patientId,
           // Sólo si el doctor lo ELIGIÓ: si no, el servidor lo hereda del rango de cada día.
           ...(a.consultorioId ? { locationId: a.consultorioId } : {}),
-          paraSesion: f.sesionId,
-          avisoEnResumen: a.modalidad === 'PRESENCIAL',
+          // Agendar: la cita se liga a SU sesión. Reagendar: como la agenda — el servidor pasa la sesión
+          // de la cita vieja a la nueva (y la nueva nace con el precio de la sesión, V1).
+          ...(f.reagendaDe ? { isRescheduled: true, reagendaDe: f.reagendaDe } : { paraSesion: f.sesionId }),
+          // Reagendar: la cita nueva manda su PROPIO correo (como en la agenda) — no espera al resumen,
+          // que sólo lleva las que salieron completas: una reagendada a medias se quedaría sin aviso.
+          avisoEnResumen: a.modalidad === 'PRESENCIAL' && !f.reagendaDe,
         }),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok || !d?.success || !d?.data?.id) {
         out.push({ key: f.key, numero: f.numero, fecha: f.fecha, hora: f.hora, ok: false, error: d?.error || `Error ${res.status}` });
+      } else if (f.reagendaDe) {
+        // La vieja se cancela DESPUÉS (como la agenda) — y SÓLO si la sesión pasó a la nueva: si no, la
+        // sesión se quedaría en una cita cancelada y la nueva suelta. Mejor dos citas y decirlo.
+        const movida = d.sesionReagendada && 'movida' in d.sesionReagendada ? d.sesionReagendada.movida === true : false;
+        let cancelada = false;
+        if (movida) {
+          try {
+            const rc = await authFetch(`${API_URL}/api/appointments/bookings/${f.reagendaDe}`, {
+              method: 'PATCH', body: JSON.stringify({ status: 'CANCELLED' }),
+            });
+            cancelada = !!(await rc.json().catch(() => null))?.success;
+          } catch { /* cancelada sigue en false */ }
+        }
+        out.push(cancelada && movida
+          ? { key: f.key, numero: f.numero, fecha: f.fecha, hora: f.hora, ok: true, ligada: true, bookingId: d.data.id }
+          : {
+              key: f.key, numero: f.numero, fecha: f.fecha, hora: f.hora, ok: false,
+              error: !movida
+                ? 'la cita nueva se creó, pero la sesión NO pasó a ella y la anterior NO se canceló: en la agenda cancela la que sobra y liga la otra desde el tratamiento'
+                : 'la cita nueva se creó y la sesión pasó a ella, pero la anterior NO se canceló: cancélala desde la agenda',
+              completo: true,
+            });
       } else {
         out.push({ key: f.key, numero: f.numero, fecha: f.fecha, hora: f.hora, ok: true, ligada: d.sesionLigada?.ligada === true, bookingId: d.data.id });
       }
@@ -262,7 +302,8 @@ export async function agendarFilas(
   }
 
   // UN correo resumen (presencial). Telemedicina ya mandó uno por cita (con su liga de Meet).
-  const creadas = out.flatMap((r) => (r.ok ? [r.bookingId] : []));
+  const reagendadas = new Set(filas.flatMap((f) => (f.reagendaDe ? [f.key] : [])));
+  const creadas = out.flatMap((r) => (r.ok && !reagendadas.has(r.key) ? [r.bookingId] : []));
   let aviso: string | null = null;
   if (a.modalidad === 'PRESENCIAL' && creadas.length > 0) {
     try {
@@ -277,6 +318,9 @@ export async function agendarFilas(
     } catch {
       aviso = 'No se pudo mandar el correo con las citas: avísale tú al paciente.';
     }
+  } else if (out.some((r) => r.ok && reagendadas.has(r.key))) {
+    // Sólo si un reagendado SALIÓ completo (cita nueva creada, sesión movida, vieja cancelada).
+    aviso = 'La cita nueva le manda al paciente su propio correo, y la anterior el de cancelación (si tiene correo y tu cuenta de Google está conectada).';
   } else if (a.modalidad === 'TELEMEDICINA' && creadas.length > 0) {
     aviso = 'En telemedicina cada cita manda su propio correo con su liga de Meet, si el paciente tiene correo y tu cuenta de Google está conectada.';
   }
@@ -285,9 +329,17 @@ export async function agendarFilas(
 
 const inputClass = 'w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent';
 
-/** La regla base + las filas + modalidad, consultorio y contacto. */
-export function FormularioDeFilas({ a, planeadas }: { a: AgendaDeSesiones; planeadas: number | null }) {
+/**
+ * La regla base + las filas + modalidad, consultorio y contacto.
+ * V4: `conDespues` = false esconde «Agendar después» (agendar o reagendar UNA sesión: es a lo que se
+ * vino); `soloServicio` = sin fecha ni hora (agregar una sesión sin permiso de citas o con el
+ * tratamiento cerrado: queda «Por agendar»).
+ */
+export function FormularioDeFilas({ a, planeadas, conDespues = true, soloServicio = false }: {
+  a: AgendaDeSesiones; planeadas: number | null; conDespues?: boolean; soloServicio?: boolean;
+}) {
   const servicioPor = new Map((a.servicios ?? []).map((s) => [s.id, s]));
+  const una = a.filas.length === 1;
   return (
     <div className="space-y-4">
       {a.errorCarga && (
@@ -296,23 +348,29 @@ export function FormularioDeFilas({ a, planeadas }: { a: AgendaDeSesiones; plane
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
+      {!soloServicio && <>
+      <div className={`grid ${una ? 'grid-cols-2' : 'grid-cols-3'} gap-2`}>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Primera</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">{una ? 'Fecha' : 'Primera'}</label>
           <input type="date" value={a.base.fecha} onChange={(e) => a.setBase({ ...a.base, fecha: e.target.value })} className={inputClass} />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Hora</label>
           <input type="time" value={a.base.hora} onChange={(e) => a.setBase({ ...a.base, hora: e.target.value })} className={inputClass} />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Cada (días)</label>
-          <input type="number" min={1} max={365} value={a.base.cada} onChange={(e) => a.setBase({ ...a.base, cada: e.target.value })} className={inputClass} />
-        </div>
+        {!una && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Cada (días)</label>
+            <input type="number" min={1} max={365} value={a.base.cada} onChange={(e) => a.setBase({ ...a.base, cada: e.target.value })} className={inputClass} />
+          </div>
+        )}
       </div>
-      <p className="text-xs text-gray-500 -mt-2">
-        Llena la fecha y la hora de las sesiones; cada una se puede cambiar abajo (las que cambies a mano ya no se recalculan).
-      </p>
+      {!una && (
+        <p className="text-xs text-gray-500 -mt-2">
+          Llena la fecha y la hora de las sesiones; cada una se puede cambiar abajo (las que cambies a mano ya no se recalculan).
+        </p>
+      )}
+      </>}
 
       <div className="space-y-2">
         {a.filas.map((f) => {
@@ -321,10 +379,12 @@ export function FormularioDeFilas({ a, planeadas }: { a: AgendaDeSesiones; plane
             <div key={f.key} className={`border rounded-lg p-2 space-y-2 ${f.despues ? 'bg-gray-50 border-dashed border-gray-200' : 'border-gray-200'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-gray-900">{etiquetaSesion(f.numero, planeadas)}</span>
-                <label className="text-xs text-gray-600 flex items-center gap-1">
-                  <input type="checkbox" checked={f.despues} onChange={(e) => a.editar(f.key, { despues: e.target.checked })} />
-                  Agendar después
-                </label>
+                {conDespues && !soloServicio && (
+                  <label className="text-xs text-gray-600 flex items-center gap-1">
+                    <input type="checkbox" checked={f.despues} onChange={(e) => a.editar(f.key, { despues: e.target.checked })} />
+                    Agendar después
+                  </label>
+                )}
               </div>
               <div className="flex gap-2 flex-wrap">
                 <select
@@ -447,10 +507,10 @@ export function ResultadosDeFilas({ resultados, total, planeadas, corriendo, avi
         <div key={r.key} className="flex items-start gap-2 text-sm">
           {r.ok ? <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" /> : <XCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />}
           <span>
-            <strong>{etiquetaSesion(r.numero, planeadas)}</strong> — {formatoFechaVisita(r.fecha)} {r.hora}
+            <strong>{etiquetaSesion(r.numero, planeadas)}</strong>{r.fecha ? ` — ${formatoFechaVisita(r.fecha)} ${r.hora}` : ''}
             {r.ok
               ? r.ligada ? ' · agendada' : ' · cita creada, pero NO se ligó a la sesión: lígala desde el tratamiento'
-              : ` · no se agendó: ${r.error}. Se queda «Por agendar».`}
+              : r.completo ? ` · ${r.error}` : ` · no se agendó: ${r.error}. Se queda «Por agendar».`}
           </span>
         </div>
       ))}

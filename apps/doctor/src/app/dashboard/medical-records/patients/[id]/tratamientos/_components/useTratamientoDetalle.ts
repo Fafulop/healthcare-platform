@@ -8,7 +8,8 @@ import { practiceConfirm } from '@/lib/practice-confirm';
 import { authFetch } from '@/lib/auth-fetch';
 import type { BookingPermisos } from '@/lib/booking-permisos';
 import type { PatientBooking } from '@/components/medical-records/CitaBadges';
-import type { VisitaResumen } from '@/lib/visitas-ui';
+import { visitaHref, type VisitaResumen } from '@/lib/visitas-ui';
+import { getClinicDateString } from '@/lib/dates';
 import { etiquetaSesion, type Ocupadas, type SesionDeTratamiento, type TratamientoDetalle } from '@/lib/tratamientos-ui';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -114,7 +115,27 @@ export function useTratamientoDetalle() {
   const patchSesion = (s: SesionDeTratamiento, body: Record<string, unknown>, ok: string) =>
     escribir(() => enviar(`${urlT}/sesiones/${s.id}`, 'PATCH', body), ok);
 
-  const agregarSesion = () => escribir(() => enviar(`${urlT}/sesiones`, 'POST', {}), 'Sesión agregada');
+  /**
+   * V4 — «Abrir visita» de una sesión que aún no tiene: con su cita (activa o concluida) la visita
+   * nace de ESA cita (fecha = la de la cita; el servidor la guarda en la sesión, G3); sin cita que
+   * cuente, nace HOY ligada a la sesión (`paraSesion`). Luego se navega a ella.
+   */
+  const abrirVisita = async (s: SesionDeTratamiento) => {
+    // Una cita que no puedes ver (sin `status`) podría estar activa: no se adivina (el servidor daría 409).
+    if (s.cita && !s.cita.status) { toast.error('Esta sesión tiene una cita que no puedes ver: ábrela desde la agenda'); return; }
+    const citaVigente = s.cita && s.cita.status !== 'CANCELLED' && s.cita.status !== 'NO_SHOW';
+    setTrabajando(true);
+    try {
+      const d = await enviar(`${base}/visitas`, 'POST', citaVigente
+        ? { bookingId: s.cita!.id }
+        : { fecha: getClinicDateString(), paraSesion: s.id });
+      router.push(visitaHref(patientId, d.data.id));
+    } catch (err: any) {
+      toast.error(err.message || 'No se pudo abrir la visita');
+      await Promise.all([cargarDetalle(), cargarAlrededor()]);
+      setTrabajando(false);
+    }
+  };
 
   const borrarTratamiento = async () => {
     const ok = await practiceConfirm('Se borrará el tratamiento con sus sesiones. Las citas y visitas no se tocan.', '¿Borrar el tratamiento?');
@@ -194,7 +215,7 @@ export function useTratamientoDetalle() {
   return {
     patientId, tratamientoId, doctorId: session?.user?.doctorId ?? null, sessionStatus,
     estado, tratamiento, patientName, bookings, permisos, visitas, ocupadas, trabajando,
-    patchTratamiento, patchSesion, agregarSesion, borrarTratamiento, borrarSesion, cancelarSesion,
+    patchTratamiento, patchSesion, abrirVisita, borrarTratamiento, borrarSesion, cancelarSesion,
     ligarCita, desligarCita, ligarVisita,
     /**
      * T6 — «Registrar pago del paquete»: un ingreso de Flujo de Dinero ligado al tratamiento (apps/api,

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CalendarDays, ListChecks, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { BookingStatusPill } from '@/components/medical-records/CitaBadges';
-import { formatoFechaVisita, visitaHref } from '@/lib/visitas-ui';
+import { ArrowLeft, CalendarDays, ChevronRight, ListChecks, Loader2, Pencil, Plus, StickyNote, Trash2, X } from 'lucide-react';
+import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical-records/CitaBadges';
+import { tieneNotas } from '@/components/citas/NotasCita';
+import { describirConteo, formatoFechaVisita, totalHijos, visitaHref } from '@/lib/visitas-ui';
 import {
   ESTADO_SESION, ESTADO_TRATAMIENTO, describirAvance, detalleDeSesion, etiquetaSesion, pesos, tratamientosUiActiva,
   type CuentaDelTratamiento, type SesionDeTratamiento,
@@ -12,7 +13,7 @@ import {
 import { practiceConfirm } from '@/lib/practice-confirm';
 import { getClinicDateString } from '@/lib/dates';
 import { useTratamientoDetalle } from '../_components/useTratamientoDetalle';
-import { AgendarSesionesModal } from '@/components/medical-records/tratamientos/AgendarSesionesModal';
+import { AgendarSesionesModal, type ModoAgendar } from '@/components/medical-records/tratamientos/AgendarSesionesModal';
 
 const inputClass = 'px-2 py-1.5 border border-gray-300 rounded-md text-sm';
 const botonTexto = 'text-sm text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 disabled:opacity-50';
@@ -29,7 +30,7 @@ export default function TratamientoPage() {
   const pacienteHref = `/dashboard/medical-records/patients/${patientId}`;
   const [editando, setEditando] = useState(false);
   const [cancelando, setCancelando] = useState<SesionDeTratamiento | null>(null);
-  const [agendando, setAgendando] = useState(false);
+  const [agendando, setAgendando] = useState<ModoAgendar | null>(null);
 
   if (t.sessionStatus === 'loading' || t.estado === 'cargando') {
     return (
@@ -57,6 +58,10 @@ export default function TratamientoPage() {
   const chip = ESTADO_TRATAMIENTO[tratamiento.estado] ?? ESTADO_TRATAMIENTO.activo;
   const creadas = tratamiento.sesiones.length;
   const planeadas = tratamiento.sesionesPlaneadas;
+  // V4: agendar (y agregar con fecha) exige `citas` y un tratamiento activo — el servidor no liga citas
+  // nuevas a uno terminado o cancelado.
+  const puedeAgendar = (t.permisos?.citas ?? false) && tratamiento.estado === 'activo';
+  const porAgendar = tratamiento.sesiones.filter((s) => s.estado === 'por_agendar' && !s.cancelada && !s.visita).length;
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
@@ -130,24 +135,36 @@ export default function TratamientoPage() {
             <CalendarDays className="w-5 h-5" />Sesiones
           </h2>
           <div className="flex items-center gap-1">
-            {/* T5: sólo con permiso de citas y si hay sesiones «Por agendar» (sin cita que cuente ni visita). */}
-            {(t.permisos?.citas ?? false) && tratamiento.estado === 'activo'
-              && tratamiento.sesiones.some((s) => s.estado === 'por_agendar' && !s.cancelada && !s.visita) && (
-              <button onClick={() => setAgendando(true)} disabled={t.trabajando} className={`${botonTexto} flex items-center gap-1`}>
-                <CalendarDays className="w-4 h-4" />Agendar sesiones…
-              </button>
-            )}
-            <button onClick={t.agregarSesion} disabled={t.trabajando} className={`${botonTexto} flex items-center gap-1`}>
+            {/* V4: «Agregar sesión» abre su renglón (servicio, precio, fecha/hora o «después»). Sin
+                permiso de citas o con el tratamiento cerrado, el renglón sólo pide servicio y precio. */}
+            <button onClick={() => setAgendando({ tipo: 'nueva' })} disabled={t.trabajando} className={`${botonTexto} flex items-center gap-1`}>
               <Plus className="w-4 h-4" />Agregar sesión
             </button>
           </div>
         </div>
+        {/* T5 → V4: las «Por agendar» se ven ARRIBA, con su botón — no escondidas en la cabecera. */}
+        {puedeAgendar && porAgendar > 0 && (
+          <div className="mb-3 flex items-center justify-between gap-2 flex-wrap rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-sm text-amber-900">
+              {porAgendar === 1 ? '1 sesión está «Por agendar».' : `${porAgendar} sesiones están «Por agendar».`}
+            </p>
+            <button
+              onClick={() => setAgendando({ tipo: 'pendientes' })} disabled={t.trabajando}
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium flex items-center gap-1"
+            >
+              <CalendarDays className="w-4 h-4" />Agendar sesiones…
+            </button>
+          </div>
+        )}
         {creadas === 0 ? (
           <p className="text-sm text-gray-400">Todavía no hay sesiones. Agrega la primera cuando la necesites.</p>
         ) : (
           <div className="space-y-2">
             {tratamiento.sesiones.map((s) => (
-              <FilaSesion key={s.id} s={s} t={t} planeadas={planeadas} onCancelar={() => pedirCancelar(s)} />
+              <FilaSesion
+                key={s.id} s={s} t={t} planeadas={planeadas} puedeAgendar={puedeAgendar}
+                onCancelar={() => pedirCancelar(s)} onAgendar={setAgendando}
+              />
             ))}
           </div>
         )}
@@ -157,7 +174,9 @@ export default function TratamientoPage() {
         <AgendarSesionesModal
           patientId={patientId}
           tratamiento={tratamiento}
-          onClose={() => setAgendando(false)}
+          modo={agendando}
+          puedeAgendar={puedeAgendar}
+          onClose={() => setAgendando(null)}
           onListo={() => { t.recargar(); }}
         />
       )}
@@ -427,8 +446,14 @@ function DineroDelPaquete({ t }: { t: Detalle }) {
   );
 }
 
-function FilaSesion({ s, t, planeadas, onCancelar }: {
-  s: SesionDeTratamiento; t: Detalle; planeadas: number | null; onCancelar: () => void;
+/**
+ * La tarjeta de UNA sesión. V4: se lee como la de una visita (fecha y hora, servicio, lo que tiene su
+ * visita, notas de la cita, cobro y factura) y trae sus acciones principales a la vista: «Abrir
+ * visita» (siempre: si no tiene, la crea), «Agendar» y «Reagendar».
+ */
+function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
+  s: SesionDeTratamiento; t: Detalle; planeadas: number | null; puedeAgendar: boolean;
+  onCancelar: () => void; onAgendar: (m: ModoAgendar) => void;
 }) {
   const [notas, setNotas] = useState<string | null>(null);
   const [editandoServicio, setEditandoServicio] = useState(false);
@@ -461,6 +486,32 @@ function FilaSesion({ s, t, planeadas, onCancelar }: {
     ? t.visitas.filter((v) => !v.cita && !t.ocupadas!.visitas.includes(v.id))
     : [];
 
+  // V4 — lo de su visita y su cita, como en la tarjeta «Visitas» del expediente.
+  const booking = cita && t.bookings ? t.bookings.find((b) => b.id === cita.id) : undefined;
+  const verCobro = t.permisos?.flujo ?? false;
+  const verFactura = t.permisos?.facturacion ?? false;
+  const citaActiva = cita?.status === 'PENDING' || cita?.status === 'CONFIRMED';
+  const citaVigente = !!cita?.status && cita.status !== 'CANCELLED' && cita.status !== 'NO_SHOW';
+  // «Abrir visita» la CREA si no hay: con su cita (necesita verla: `citas`) o, sin cita que cuente, hoy
+  // (eso sólo en un tratamiento activo: es atender una sesión nueva). Una cita que no puedes ver (sin
+  // `status`) podría estar activa: no se adivina.
+  const puedeCrearVisita = !s.visita && !s.cancelada && (!cita || !!cita.status)
+    && (citaVigente || t.tratamiento?.estado === 'activo');
+  const agendable = puedeAgendar && !s.cancelada && !s.visita && s.estado === 'por_agendar';
+  // Con visita abierta la sesión ya no se mueve de cita (el servidor la deja en la suya).
+  const reagendable = puedeAgendar && !s.cancelada && !s.visita && citaActiva;
+
+  const abrirVisitaNueva = async () => {
+    if (!citaVigente) {
+      const ok = await practiceConfirm(
+        'La visita queda con fecha de HOY y la sesión cuenta como hecha. Si la sesión es otro día, mejor agéndala primero: su visita tomará la fecha de la cita.',
+        '¿Abrir la visita hoy?',
+      );
+      if (!ok) return;
+    }
+    await t.abrirVisita(s);
+  };
+
   return (
     <div className={`p-4 border rounded-lg ${s.estado === 'cancelada' ? 'border-dashed border-gray-200 bg-gray-50/50' : 'border-gray-200'}`}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -470,6 +521,12 @@ function FilaSesion({ s, t, planeadas, onCancelar }: {
             <span className={`text-xs px-2 py-0.5 rounded-full font-normal ${chip.clase}`}>{chip.texto}</span>
           </p>
           {detalle && <p className="text-xs text-gray-500">{detalle}</p>}
+          {/* Visita abierta antes y su cita se cayó: la salida es «Desligar cita» (suelta las dos). */}
+          {s.visita && cita && verCitas && !s.cancelada && (s.motivo === 'cita_cancelada' || s.motivo === 'cita_no_asistio') && (
+            <p className="text-xs text-amber-800">
+              Para agendarla de nuevo, pica «Desligar cita»: la sesión queda libre y su visita se queda en el expediente.
+            </p>
+          )}
           {cita && (
             cita.status ? (
               <p className="text-sm text-gray-700 flex items-center gap-2 flex-wrap">
@@ -482,61 +539,112 @@ function FilaSesion({ s, t, planeadas, onCancelar }: {
               <p className="text-sm text-gray-500">Tiene una cita, pero no tienes permiso para ver sus datos.</p>
             )
           )}
-          {s.visita && (
-            <Link href={visitaHref(t.patientId, s.visita.id)} className="text-sm text-blue-600 hover:text-blue-800 inline-block">
-              Abrir su visita{s.visita.fecha ? ` (${formatoFechaVisita(s.visita.fecha)})` : ''}
-            </Link>
-          )}
-          {s.notas && notas === null && <p className="text-sm text-gray-600 whitespace-pre-wrap">{s.notas}</p>}
           {/* V1 — su servicio y su precio (el precio sólo con `flujo`), y lo que cobró. */}
           <ServicioDeSesion s={s} cuenta={t.tratamiento?.cuenta} />
+          {/* Las notas de la cita, en un renglón (completas, en la visita o en la agenda). */}
+          {booking && tieneNotas(booking.notes) && (
+            <p className="text-xs text-gray-600 flex items-center gap-1 min-w-0">
+              <StickyNote className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+              <span className="truncate">{booking.notes!.trim()}</span>
+            </p>
+          )}
+          {/* Lo que tiene su visita, como en la tarjeta «Visitas». */}
+          {s.visita && (
+            <p className={`text-sm ${visitaPropia && totalHijos(visitaPropia.conteo) > 0 ? 'text-gray-600' : 'text-gray-400 italic'}`}>
+              Visita{s.visita.fecha ? ` del ${formatoFechaVisita(s.visita.fecha)}` : ''}:{' '}
+              {visitaPropia ? (totalHijos(visitaPropia.conteo) > 0 ? describirConteo(visitaPropia.conteo) : 'vacía') : 'abierta'}
+            </p>
+          )}
+          {booking && (verCobro || verFactura) && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {verCobro && <PagoBadge estadoPago={booking.estadoPago ?? 'SIN_REGISTRO'} metodoPago={booking.metodoPago ?? null} />}
+              {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} cubierta={booking.estadoPago === 'CUBIERTA'} />}
+            </div>
+          )}
+          {s.notas && notas === null && <p className="text-sm text-gray-600 whitespace-pre-wrap">{s.notas}</p>}
         </div>
 
-        <div className="flex items-center gap-1 flex-wrap">
-          {!s.cancelada && citasLigables.length > 0 && (
-            // Controlado en "": si ligar falla, vuelve al placeholder y se puede reintentar.
-            <select value="" onChange={(e) => e.target.value && t.ligarCita(s, e.target.value)} disabled={t.trabajando} className={inputClass}>
-              <option value="">Ligar una cita…</option>
-              {citasLigables.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {[b.date ? formatoFechaVisita(b.date) : 'Sin fecha', b.startTime, b.serviceName].filter(Boolean).join(' · ')}
-                </option>
-              ))}
-            </select>
-          )}
-          {cita && verCitas && (
-            <button onClick={() => t.desligarCita(s)} disabled={t.trabajando} className={botonGris}>Desligar cita</button>
-          )}
-          {!s.cancelada && visitasLigables.length > 0 && (
-            <select value="" onChange={(e) => e.target.value && t.ligarVisita(s, e.target.value)} disabled={t.trabajando} className={inputClass}>
-              <option value="">Ligar una visita…</option>
-              {visitasLigables.map((v) => (
-                <option key={v.id} value={v.id}>Visita del {formatoFechaVisita(v.fecha)}</option>
-              ))}
-            </select>
-          )}
-          {!cita && s.visita && (
-            <button onClick={() => t.ligarVisita(s, null)} disabled={t.trabajando} className={botonGris}>Desligar visita</button>
-          )}
-          <button onClick={() => setEditandoServicio((v) => !v)} disabled={t.trabajando} className={botonGris}>
-            Servicio y precio
-          </button>
-          <button onClick={() => setNotas(notas === null ? s.notas ?? '' : null)} disabled={t.trabajando} className={botonGris}>
-            Notas
-          </button>
-          {s.cancelada ? (
-            <button onClick={() => t.patchSesion(s, { cancelada: false }, 'Sesión reactivada')} disabled={t.trabajando} className={botonGris}>
-              Reactivar
+        {/* Lo principal, a la vista. */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {agendable && (
+            <button
+              onClick={() => onAgendar({ tipo: 'sesion', sesionId: s.id })} disabled={t.trabajando}
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium flex items-center gap-1"
+            >
+              <CalendarDays className="w-4 h-4" />Agendar
             </button>
-          ) : (
-            <button onClick={onCancelar} disabled={t.trabajando} className={botonGris}>Cancelar sesión</button>
           )}
-          {!cita && !s.visita && (
-            <button onClick={() => t.borrarSesion(s)} disabled={t.trabajando} className="text-sm text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50">
-              Borrar
+          {reagendable && (
+            <button
+              onClick={() => onAgendar({ tipo: 'reagendar', sesionId: s.id })} disabled={t.trabajando}
+              className="px-3 py-1.5 text-sm border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50 flex items-center gap-1"
+            >
+              <CalendarDays className="w-4 h-4" />Reagendar
+            </button>
+          )}
+          {s.visita ? (
+            <Link
+              href={visitaHref(t.patientId, s.visita.id)}
+              className="px-3 py-1.5 text-sm border border-gray-300 text-gray-800 rounded-lg hover:bg-gray-50 flex items-center gap-1"
+            >
+              Abrir visita <ChevronRight className="w-4 h-4" />
+            </Link>
+          ) : puedeCrearVisita && (
+            <button
+              onClick={abrirVisitaNueva} disabled={t.trabajando}
+              className="px-3 py-1.5 text-sm border border-gray-300 text-gray-800 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
+            >
+              {citaVigente ? 'Abrir visita' : 'Abrir visita hoy'} <ChevronRight className="w-4 h-4" />
             </button>
           )}
         </div>
+      </div>
+
+      {/* Lo demás (ligar a mano, servicio y precio, notas, cancelar, borrar). */}
+      <div className="flex items-center gap-1 flex-wrap mt-3 pt-2 border-t border-gray-100">
+        {!s.cancelada && citasLigables.length > 0 && (
+          // Controlado en "": si ligar falla, vuelve al placeholder y se puede reintentar.
+          <select value="" onChange={(e) => e.target.value && t.ligarCita(s, e.target.value)} disabled={t.trabajando} className={inputClass}>
+            <option value="">Ligar una cita…</option>
+            {citasLigables.map((b) => (
+              <option key={b.id} value={b.id}>
+                {[b.date ? formatoFechaVisita(b.date) : 'Sin fecha', b.startTime, b.serviceName].filter(Boolean).join(' · ')}
+              </option>
+            ))}
+          </select>
+        )}
+        {cita && verCitas && (
+          <button onClick={() => t.desligarCita(s)} disabled={t.trabajando} className={botonGris}>Desligar cita</button>
+        )}
+        {!s.cancelada && visitasLigables.length > 0 && (
+          <select value="" onChange={(e) => e.target.value && t.ligarVisita(s, e.target.value)} disabled={t.trabajando} className={inputClass}>
+            <option value="">Ligar una visita…</option>
+            {visitasLigables.map((v) => (
+              <option key={v.id} value={v.id}>Visita del {formatoFechaVisita(v.fecha)}</option>
+            ))}
+          </select>
+        )}
+        {!cita && s.visita && (
+          <button onClick={() => t.ligarVisita(s, null)} disabled={t.trabajando} className={botonGris}>Desligar visita</button>
+        )}
+        <button onClick={() => setEditandoServicio((v) => !v)} disabled={t.trabajando} className={botonGris}>
+          Servicio y precio
+        </button>
+        <button onClick={() => setNotas(notas === null ? s.notas ?? '' : null)} disabled={t.trabajando} className={botonGris}>
+          Notas
+        </button>
+        {s.cancelada ? (
+          <button onClick={() => t.patchSesion(s, { cancelada: false }, 'Sesión reactivada')} disabled={t.trabajando} className={botonGris}>
+            Reactivar
+          </button>
+        ) : (
+          <button onClick={onCancelar} disabled={t.trabajando} className={botonGris}>Cancelar sesión</button>
+        )}
+        {!cita && !s.visita && (
+          <button onClick={() => t.borrarSesion(s)} disabled={t.trabajando} className="text-sm text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50">
+            Borrar
+          </button>
+        )}
       </div>
 
       {editandoServicio && (

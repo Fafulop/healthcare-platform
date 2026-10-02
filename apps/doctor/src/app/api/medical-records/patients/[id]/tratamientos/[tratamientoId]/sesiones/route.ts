@@ -3,7 +3,9 @@ import { prisma, Prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { AppError, handleApiError } from '@/lib/api-error-handler';
 import { leerBody } from '@/lib/visitas';
-import { SESIONES_MAX, cargarTratamiento, parseNotas, sesionesParaRespuesta } from '@/lib/tratamientos';
+import {
+  SESIONES_MAX, cargarTratamiento, parseNotas, parsePrecioSesion, parseServicioSesion, sesionesParaRespuesta,
+} from '@/lib/tratamientos';
 
 // VISITAS fase 2 T2 — docs/DESDE JUNIO/VISITAS/03-PLAN-fase-2.md §3. Permiso: `expedientes` (heredado).
 
@@ -22,6 +24,9 @@ export async function POST(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Tratamiento not found' }, { status: 404 });
     }
     const notas = parseNotas(body.notas) ?? null;
+    // TRATAMIENTOS v2 · V4: la sesión nace con su servicio y precio («Agregar sesión» abre su fila).
+    const servicio = await parseServicioSesion(ctx.doctorId, body, null);
+    const precio = parsePrecioSesion(ctx, body.precio) ?? null;
 
     // G9: dos «+ Agregar sesión» a la vez leen el mismo máximo y chocan en (tratamiento, numero).
     // Se reintenta UNA vez releyendo el máximo; si vuelve a chocar, 409 legible.
@@ -35,7 +40,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       }
       const numero = (agg._max.numero ?? 0) + 1;
       return prisma.tratamientoSesion.create({
-        data: { tratamientoId, patientId, doctorId: ctx.doctorId, numero, notas },
+        data: {
+          tratamientoId, patientId, doctorId: ctx.doctorId, numero, notas,
+          servicioId: servicio.servicioId ?? null, servicioNombre: servicio.servicioNombre ?? null, precio,
+        },
         select: { id: true, numero: true },
       });
     };
@@ -54,7 +62,10 @@ export async function POST(request: NextRequest, { params }: Params) {
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
       action: 'create_sesion', resourceType: 'tratamiento_sesion', resourceId: sesion.id,
-      changes: { tratamientoId, numero: sesion.numero, conNotas: !!notas },
+      changes: {
+        tratamientoId, numero: sesion.numero, conNotas: !!notas,
+        ...(servicio.servicioNombre ? { servicio: servicio.servicioNombre } : {}), ...(precio !== null ? { precio } : {}),
+      },
       request,
     });
 
