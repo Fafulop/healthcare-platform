@@ -18,6 +18,15 @@ type Resultado =
   | { sesionId: string; numero: number; fecha: string; ok: true; bookingId: string; ligada: boolean }
   | { sesionId: string; numero: number; fecha: string; ok: false; error: string };
 
+/**
+ * ¿Es un día que `Date` puede usar? Al TECLEAR la fecha, el <input type="date"> pasa por valores a medias
+ * (p. ej. el año con 5+ dígitos) que `toISOString` / `Intl` rechazan con RangeError — y eso tumbaba la
+ * página entera (prueba en Chrome 2026-10-01). Mientras no sea válida, no hay plan ni botón.
+ */
+function fechaUsable(fecha: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(fecha) && !Number.isNaN(new Date(`${fecha}T12:00:00Z`).getTime());
+}
+
 /** 'YYYY-MM-DD' + n días (aritmética en UTC: sin saltos por horario de verano). */
 function sumarDias(fecha: string, n: number) {
   const d = new Date(`${fecha}T12:00:00Z`);
@@ -110,13 +119,14 @@ export function AgendarSesionesModal({ patientId, tratamiento, onClose, onListo 
   const n = Number(cadaDias);
   const cadaValido = Number.isInteger(n) && n >= 1 && n <= 365;
   const lista = porAgendar.filter((s) => elegidas.has(s.id));
-  const plan = lista.map((s, i) => ({ sesion: s, fecha: cadaValido ? sumarDias(fecha, i * n) : fecha }));
+  const fechaOk = fechaUsable(fecha);
+  const plan = fechaOk ? lista.map((s, i) => ({ sesion: s, fecha: cadaValido ? sumarDias(fecha, i * n) : fecha })) : [];
   const faltaContacto = [
     requeridos.email && !correo.trim() ? 'correo' : null,
     requeridos.phone && !telefono.trim() ? 'teléfono' : null,
     requeridos.whatsapp && !whatsapp.trim() ? 'WhatsApp' : null,
   ].filter(Boolean) as string[];
-  const listo = !!servicios && !!paciente && !!servicioId && lista.length > 0 && cadaValido && !!fecha && !!hora
+  const listo = !!servicios && !!paciente && !!servicioId && lista.length > 0 && cadaValido && fechaOk && !!hora
     && faltaContacto.length === 0 && !enviando;
 
   const agendar = async () => {
@@ -318,7 +328,7 @@ export function AgendarSesionesModal({ patientId, tratamiento, onClose, onListo 
                   <option value="TELEMEDICINA">Telemedicina</option>
                 </select>
               </div>
-              {lista.length > 0 && cadaValido && (
+              {lista.length > 0 && cadaValido && fechaOk && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm space-y-0.5">
                   {plan.map(({ sesion, fecha: dia }) => (
                     <p key={sesion.id}>{etiquetaSesion(sesion.numero, planeadas)} → {formatoFechaVisita(dia)} {hora}</p>
