@@ -234,7 +234,9 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   { prefix: 'quotation-chat', key: 'OWNER_ONLY', feature: 'ia' },
   { prefix: 'task-chat', key: 'OWNER_ONLY', feature: 'ia' },
   { prefix: 'ledger-chat', key: 'OWNER_ONLY', feature: 'ia' },
-  { prefix: 'form-builder-chat', key: 'OWNER_ONLY', feature: 'ia' },
+  // TIERS P3 (2026-10-01): armar plantillas con IA es una de las DOS IA del lanzamiento — abierta a
+  // todos los planes, con tope mensual en dólares en la ruta (lib/ai/gasto-del-mes.ts). Sin `feature`.
+  { prefix: 'form-builder-chat', key: 'OWNER_ONLY' },
   // Cubre voice/transcribe, voice/structure y voice/chat (prefijo por segmento).
   { prefix: 'voice', key: 'OWNER_ONLY', feature: 'ia' },
   { prefix: 'llm-assistant', key: 'OWNER_ONLY', feature: 'ia' },

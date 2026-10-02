@@ -116,7 +116,8 @@ export function useFormBuilderChat() {
           const assistantMsg: FormBuilderChatMessage = {
             id: generateId(),
             role: 'assistant',
-            content: `Lo siento, ocurrió un error: ${errMsg}`,
+            // El tope mensual de IA no es un error: se dice tal cual («Llegaste al límite de este mes.»).
+            content: json.error?.code === 'LIMITE_IA_MES' ? errMsg : `Lo siento, ocurrió un error: ${errMsg}`,
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, assistantMsg]);

@@ -46,6 +46,15 @@
 | **P6** | **Precio nuevo de BASICO** ($250 + IVA) en Stripe + `TierPrice`; Mi Cuenta, la pantalla de cobro y el sitio público (`/producto`, que duplica a propósito el reparto por plan) dicen lo nuevo. | Bajo, pero muchos textos |
 | **P7** | **Ayuda** (otro capítulo): pestañas por menú generadas del manual + página «Flujos» con videos — después de P1–P6, para que digan lo que de verdad incluye cada plan. | — |
 
+**✅ P1 en prod `6949b7e6`** (api, doctor, admin): Gratis 1 GB / 30, BASICO 25 GB.
+**✅ P3 escrito (2026-10-01):** `apps/doctor/src/lib/ai/gasto-del-mes.ts` (gasto del mes calendario MX por
+herramienta = tokens × precio de SU modelo; modelo desconocido al precio más caro; topes FREE $1 · BASICO $2 ·
+PRO/LAB sin tope) → `form-builder-chat` y `ayuda/chat` contestan 429 «Llegaste al límite de este mes.» antes
+de llamar al modelo; el armador de plantillas con IA se abrió a todos los planes (route map sin `feature: 'ia'`
++ `FormBuilder` por `isOwner`); su micrófono sólo donde hay voz (PRO/LAB). El usuario eligió **A: seguir con
+claude-sonnet-5** (~$0.04 por mensaje ⇒ ~24 mensajes por $1). Medido: el doctor con más uso gastó $1.39 en un
+mes (70 mensajes, con modelos viejos). Probe `scripts/tiers/ia-tope-probe.ts` 9/9 (sólo lectura).
+
 Orden sugerido: **P1 → P3 → P2+P4 → P6 → P4b → P5** (lo que no toca el cobro primero; lo que cobra al
 final y con el banco de pruebas).
 

@@ -18,6 +18,7 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
+import { limiteDeIaAlcanzado, MENSAJE_LIMITE_IA } from '@/lib/ai/gasto-del-mes';
 import { mxTodayKey } from '@/lib/agenda-agent/dates';
 import { cargarManual } from '@/lib/ayuda/manual';
 import { promptEstable, promptVolatil } from '@/lib/ayuda/prompt';
@@ -71,7 +72,7 @@ function limpiarMensajes(raw: unknown): MensajeAyuda[] | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const { doctorId } = await requireDoctorAuth(request);
+    const { doctorId, tier } = await requireDoctorAuth(request);
 
     const body = await request.json().catch(() => null);
     const mensajes = limpiarMensajes(body?.messages);
@@ -91,6 +92,14 @@ export async function POST(request: NextRequest) {
             message: `Llegaste al límite de ${TOPE_DIARIO} preguntas de hoy. Mañana puedes seguir preguntando.`,
           },
         },
+        { status: 429 }
+      );
+    }
+
+    // TIERS P3: tope mensual de IA en dólares (Gratis $1 · plan de pago $2 · PRO/LAB sin tope).
+    if ((await limiteDeIaAlcanzado(doctorId, tier, 'ayuda-chat')).alcanzado) {
+      return NextResponse.json(
+        { success: false, error: { code: 'LIMITE_IA_MES', message: MENSAJE_LIMITE_IA } },
         { status: 429 }
       );
     }

@@ -21,6 +21,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireDoctorAuth } from '@/lib/medical-auth';
+import { limiteDeIaAlcanzado, MENSAJE_LIMITE_IA } from '@/lib/ai/gasto-del-mes';
 import { handleApiError } from '@/lib/api-error-handler';
 import { logTokenUsage } from '@/lib/ai/log-token-usage';
 import { validateCustomFields } from '@/lib/custom-template-validation';
@@ -228,7 +229,7 @@ function toValidatedAction(toolName: string, input: Record<string, unknown>): { 
 
 export async function POST(request: NextRequest) {
   try {
-    const { doctorId } = await requireDoctorAuth(request);
+    const { doctorId, tier } = await requireDoctorAuth(request);
 
     const body = await request.json();
     const {
@@ -245,6 +246,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: { code: 'INVALID_REQUEST', message: 'Se requiere al menos un mensaje' } },
         { status: 400 }
+      );
+    }
+
+    // TIERS P3: tope mensual de IA en dólares (Gratis $1 · plan de pago $2 · PRO/LAB sin tope).
+    if ((await limiteDeIaAlcanzado(doctorId, tier, 'form-builder-chat')).alcanzado) {
+      return NextResponse.json(
+        { success: false, error: { code: 'LIMITE_IA_MES', message: MENSAJE_LIMITE_IA } },
+        { status: 429 }
       );
     }
 

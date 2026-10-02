@@ -18,6 +18,9 @@ Cubre hoy: Agenda y Expediente. Última revisión contra el código: 2026-09-22.
 - **Depende de tu plan** — algunos planes no la incluyen; si no está en el tuyo verás un candado
   o el botón no aparece.
 - **Sólo el titular** — la hace el dueño de la cuenta, no un asistente o miembro del equipo.
+- **Tope mensual de IA** — armar plantillas con IA y esta ayuda tienen, cada una, un tope de uso al
+  mes según tu plan (en Gratis menor que en el de pago). Al llegar verás «Llegaste al límite de este
+  mes»; se reinicia el día 1. La ayuda además tiene un máximo de preguntas por día.
 
 ---
 
@@ -609,7 +612,8 @@ antes) sin tocar el texto.
 Templates» y el botón «Create Template».)
 
 El constructor tiene: el **nombre** de la plantilla, «Vista previa», **«IA»** (un chat que agrega
-o cambia campos; **depende de tu plan**) y «Guardar».
+o cambia campos; está en todos los planes, **sólo el titular**, con **tope mensual de IA**) y
+«Guardar».
 
 **9 tipos de campo:** Texto · Texto largo · Número · Fecha · Hora · Desplegable · Selección ·
 Casilla · Archivo.

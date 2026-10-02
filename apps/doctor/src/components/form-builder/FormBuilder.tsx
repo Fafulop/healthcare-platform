@@ -47,14 +47,13 @@ function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
   // form-builder-chat is OWNER_ONLY (00-REQUISITOS §5.3) — custom-templates
   // itself is member-accessible via the Expedientes toggle, only this AI
   // shortcut isn't. Found via bug hunt 2026-07-21 (§16 hallazgo 5 family).
-  // TIERS Q2b — el chat del FormBuilder es una puerta de IA (form-builder-chat).
-  // `can('ia')` ya es false para cualquier member, así que la conducta
-  // owner-only se conserva y además se apaga en un plan sin IA.
-  // `!permsLoading`: mientras la sesión carga, permissions-client hace
-  // fail-open (`isOwner ?? true`, `tier ?? PRO`), así que `can('ia')` sería
-  // true en esa ventana y la puerta se pintaría ENCENDIDA en un plan sin IA.
-  const { can, loading: permsLoading } = usePermissions();
-  const aiAllowed = !permsLoading && can('ia');
+  // (Antes, TIERS Q2b: se apagaba con `can('ia')` en los planes sin IA.)
+  // `!permsLoading`: mientras la sesión carga, permissions-client hace fail-open
+  // (`isOwner ?? true`), así que un member vería la puerta encendida en esa ventana.
+  // TIERS P3 (2026-10-01): armar plantillas con IA es una de las dos IA del lanzamiento — abierta a
+  // TODOS los planes (con tope mensual en dólares en la ruta). Sigue siendo sólo del titular.
+  const { isOwner, loading: permsLoading } = usePermissions();
+  const aiAllowed = !permsLoading && isOwner;
   const [saving, setSaving] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
   const [dragActiveType, setDragActiveType] = useState<FieldType | null>(null);

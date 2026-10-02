@@ -35,6 +35,10 @@
       el botón de configuración de una receta sigue abriendo los controles (sin vista previa). En el
       celular: «Ver receta» / «Abrir en otra pestaña». (El dibujo se movió a `lib/receta-pdf.ts`; 13/13
       PDFs idénticos byte por byte — `scripts/receta/receta-pdf-probe.ts`.)
+- [ ] **Topes de IA (TIERS P3)** — con una cuenta GRATIS o de pago (dr-quebradita es BÁSICO): Plantillas →
+      nueva → «IA» abre el chat SIN micrófono; con PRO/LAB sí hay micrófono. Para ver el tope sin gastar $1:
+      bajar el tope a mano NO se puede (está en código) — basta ver que el chat y el «?» contestan normal; el
+      429 «Llegaste al límite de este mes.» se probó con las funciones reales (`scripts/tiers/ia-tope-probe.ts`).
 - [ ] *(Cuando se vuelva a encender el asistente — hoy OCULTO, `ASISTENTE_IA_VISIBLE = false`)*: completar
       una sesión cubierta y «qué falta facturar» con pagos de paquete.
 

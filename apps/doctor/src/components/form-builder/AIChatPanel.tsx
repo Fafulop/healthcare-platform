@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, KeyboardEvent } from 'react';
 import { Sparkles, X, Bot, User, Loader2, Send, Trash2 } from 'lucide-react';
 import { VoiceRecordButton } from '@/components/voice-assistant/chat/VoiceRecordButton';
 import { useFormBuilderChat, type FormBuilderChatMessage } from './hooks/useFormBuilderChat';
+import { usePermissions } from '@/lib/permissions-client';
 
 // -----------------------------------------------------------------------------
 // Markdown-like renderer (same pattern as ChatMessage.tsx)
@@ -103,6 +104,10 @@ interface AIChatPanelProps {
 
 export function AIChatPanel({ onClose }: AIChatPanelProps) {
   const { messages, isLoading, isTranscribing, sendMessage, clearChat, voice } = useFormBuilderChat();
+  // TIERS P3: el chat se abrió a todos los planes, pero DICTAR es otra IA (`voice/transcribe`, `ia`)
+  // que sigue apagada en Gratis y en el de pago: ahí no se enseña el micrófono (respondería con error).
+  const { can, loading: permsLoading } = usePermissions();
+  const vozPermitida = !permsLoading && can('ia');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -239,6 +244,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
       {/* Input with voice */}
       <div className="border-t border-gray-200 p-3">
         <div className="flex items-center gap-2">
+          {vozPermitida && (
           <VoiceRecordButton
             isRecording={voice.isRecording}
             isProcessing={voice.isProcessing}
@@ -248,6 +254,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
             onStopRecording={voice.stopRecording}
             onCancel={voice.cancelRecording}
           />
+          )}
           <input
             ref={inputRef}
             type="text"
