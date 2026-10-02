@@ -50,6 +50,8 @@ interface Doctor {
 // What each tier takes away, derived from the single source of truth
 // (TIER_EXCLUDED_KEYS) — never a hand-written list, so a new tier or a changed
 // exclusion shows up here on its own.
+// ⚠️ "On its own" only after the ADMIN redeploys: a commit that only touches packages/** deploys
+// nowhere. TIERS P2 (2026-10-01, Gratis gained Facturación) needed this comment to trigger it.
 //
 // TIERS Q2b: por eso FREE y BÁSICO ya muestran "Funciones de IA" sin tocar
 // nada aquí — `ia` es una TierKey (no un toggle de member), y por eso el mapa
