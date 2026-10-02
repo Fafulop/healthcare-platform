@@ -443,9 +443,23 @@ Un **tratamiento** es un plan de **varias sesiones** con un paciente (por ejempl
 (lo que pasó ese día).
 
 **Crear uno:** en el perfil, tarjeta **Tratamientos** → **«Nuevo tratamiento»** (o «Crear un
-tratamiento» si no hay ninguno). Escribe el **Nombre**, las **Sesiones planeadas** (opcional: se
-crean esas sesiones «Por agendar»; vacío = sin número fijo) y **Notas**, y pica **«Crear
-tratamiento»**.
+tratamiento» si no hay ninguno). Escribe el **Nombre** y las **Sesiones planeadas** (opcional; vacío
+= sin número fijo). Con un número aparece **una fila por sesión**, en la misma ventana:
+
+- **Servicio** (de tus servicios) y su **precio**, que puedes cambiar por sesión (el precio sólo si
+  tienes permiso de Flujo de Dinero).
+- **Fecha y hora**: arriba eliges la **Primera** fecha, la **Hora** y **Cada (días)**, y las filas se
+  llenan solas; cada fila se puede cambiar a mano (la que cambias ya no se recalcula).
+- Junto a cada fila ves si el horario está **libre** o si **se traslapa** con otra cita (o con un
+  horario bloqueado, o con otra sesión de la misma lista). No se puede confirmar con una fila en rojo:
+  cámbiala o márcala **«Agendar después»** — esa sesión se crea «Por agendar», con su servicio y precio.
+  Si no se pudo revisar, la fila lo dice y sí se puede confirmar: al crear la cita se revisa otra vez.
+- Para las que se agendan: **Consultorio**, el **correo/teléfono/WhatsApp** del paciente y la
+  **Modalidad**.
+
+Pica **«Crear y agendar N citas»** (o **«Crear tratamiento»** si ninguna se agenda ahora): nace el
+tratamiento con sus sesiones y se crea la cita de cada fila, ya con su precio. Si alguna cita no se
+puede crear, su sesión se queda «Por agendar» y la ventana te dice cuál y por qué.
 
 **La pantalla del tratamiento** (clic en uno de la tarjeta) enseña sus sesiones en orden. Cada
 sesión dice en qué va:
@@ -464,17 +478,28 @@ Lo que puedes hacer en cada sesión:
   sesión y la cita»** (se cancela como desde la agenda, con los mismos avisos al paciente),
   **«Cancelar sólo la sesión (la cita se queda)»** o **«No cancelar nada»**. Una sesión cancelada
   se puede **«Reactivar»**.
+- **«Servicio y precio»** — elige el servicio de la sesión (llena nombre y precio) y cámbialos si
+  quieres. Si su cita aún no se concluye (y no tiene un pago ni un link de pago), la cita toma ese
+  precio, así que al concluirla ya viene puesto.
 - **«Notas»** de la sesión, y **«Borrar»** mientras no tenga cita ni visita.
 - **«Agregar sesión»** agrega la siguiente. Cambiar las sesiones planeadas (en **«Editar»**) no
   crea ni borra sesiones.
 
-**«Agendar sesiones…»** agenda varias de golpe: eliges cuáles de las «Por agendar», la **Primera**
-fecha, la **Hora**, **Cada (días)**, el **Servicio** y la **Modalidad**; ves cómo quedan y picas
-**«Agendar N citas»**. Cada cita se crea como si la agendaras en la agenda. Si alguna no se puede
-(por ejemplo, ya hay una cita a esa hora), las demás sí se agendan y ésa se queda «Por agendar»;
-la ventana te dice cuál y por qué. Sólo aparece en tratamientos activos. En presencial, al paciente le llega **un solo correo** con todas sus citas (si
-tiene correo y tu cuenta de Google está conectada); en telemedicina, cada cita manda el suyo con
-su liga de Meet.
+**«Agendar sesiones…»** agenda las «Por agendar» con las **mismas filas** que «Nuevo tratamiento»:
+servicio y precio, fecha y hora (con la regla de **Primera · Hora · Cada (días)**), si el horario
+está **libre**, y **«Agendar después»** para las que no quieres agendar todavía. Picas **«Agendar N
+citas»**. Cada cita se crea como si la agendaras en la agenda. Si alguna no se puede (por ejemplo,
+alguien agendó a esa hora mientras tanto), las demás sí se agendan y ésa se queda «Por agendar»;
+la ventana te dice cuál y por qué. Sólo aparece en tratamientos activos. En presencial, al paciente
+le llega **un solo correo** con todas sus citas (si tiene correo y tu cuenta de Google está
+conectada); en telemedicina, cada cita manda el suyo con su liga de Meet. (Igual al crear el
+tratamiento con sus citas.)
+
+**Cuenta del tratamiento** (con permiso de Flujo de Dinero): **Total · Pagado · Pendiente**. El total
+suma cada sesión (sin las canceladas): lo que se le **cobró** al concluir su cita, o su **precio** si
+aún no se cobra. Si una sesión no tiene precio, se avisa y no entra al total. Lo que vendiste en las
+visitas de sus sesiones sale en un renglón aparte. Cada sesión dice su servicio, su precio y, ya
+cobrada, **«cobrado $X (folio)»**.
 
 **Precio del paquete** (si cobras el tratamiento completo, no por sesión): en **«Editar»** pon el
 **Precio del paquete**. Entonces la pantalla muestra **Precio · Pagado · Saldo**, y con
