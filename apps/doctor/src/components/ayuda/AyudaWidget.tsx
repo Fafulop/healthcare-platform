@@ -17,6 +17,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { enlaceAlManual } from '@/lib/ayuda/slug';
 import { HelpCircle, X, Trash2, Loader2, BookOpen, ArrowRight, AlertCircle, Bot, User } from 'lucide-react';
 import { ChatInput } from '@/components/llm-assistant/ChatInput';
 import { usePermissions } from '@/lib/permissions-client';
@@ -203,10 +204,13 @@ export function AyudaWidget() {
                       {m.role === 'assistant' && (m.seccion || (m.enlaces && m.enlaces.length > 0)) && (
                         <div className="ml-9 sm:ml-11 mt-1.5 space-y-1.5">
                           {m.seccion && (
-                            <p className="flex items-center gap-1 text-[11px] text-gray-400">
+                            <Link
+                              href={enlaceAlManual(m.seccion)}
+                              className="flex w-fit items-center gap-1 text-[11px] text-gray-400 hover:text-blue-700 hover:underline"
+                            >
                               <BookOpen className="w-3 h-3 shrink-0" />
                               Manual: {m.seccion}
-                            </p>
+                            </Link>
                           )}
                           {m.enlaces && m.enlaces.length > 0 && (
                             <div className="flex flex-wrap gap-1.5">

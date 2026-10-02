@@ -1,101 +1,22 @@
-"use client";
+import { Suspense } from "react";
+import { cargarManual } from "@/lib/ayuda/manual";
+import { manualEnPestanas } from "@/lib/ayuda/manual-html";
+import { AyudaPestanas } from "./_components/AyudaPestanas";
 
-import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import {
-  CalendarDays,
-  FolderOpen,
-  User,
-  Briefcase,
-  BookOpen,
-} from "lucide-react";
-import { TabNav } from "./_components/TabNav";
-import { CitasGuide } from "./_components/CitasGuide";
-import { ExpedientesGuide } from "./_components/ExpedientesGuide";
-
-const TABS = [
-  {
-    id: "citas-acciones",
-    label: "Citas: Acciones",
-    icon: <CalendarDays className="w-4 h-4" />,
-  },
-  {
-    id: "citas-status",
-    label: "Citas: Flujos",
-    icon: <CalendarDays className="w-4 h-4" />,
-  },
-  {
-    id: "expedientes",
-    label: "Expedientes",
-    icon: <FolderOpen className="w-4 h-4" />,
-  },
-  {
-    id: "perfil",
-    label: "Perfil & Contenido",
-    icon: <User className="w-4 h-4" />,
-    disabled: true,
-  },
-  {
-    id: "practica",
-    label: "Gestión de Práctica",
-    icon: <Briefcase className="w-4 h-4" />,
-    disabled: true,
-  },
-];
-
-function ComingSoonTab({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="p-4 bg-gray-100 rounded-2xl mb-4">
-        <BookOpen className="w-8 h-8 text-gray-400" />
-      </div>
-      <p className="text-base font-semibold text-gray-700">
-        Guía de {label}
-      </p>
-      <p className="text-sm text-gray-400 mt-1 max-w-xs">
-        Esta sección de ayuda estará disponible próximamente.
-      </p>
-    </div>
-  );
-}
-
-function AyudaContent() {
-  const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => {
-    const tab = searchParams.get("tab");
-    return TABS.find((t) => t.id === tab && !t.disabled) ? tab! : "citas-acciones";
-  });
-
-  const activeTabData = TABS.find((t) => t.id === activeTab);
-
-  return (
-    <>
-      <TabNav tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
-      <div className="mt-5">
-        {activeTab === "citas-acciones" && <CitasGuide view="acciones" />}
-        {activeTab === "citas-status" && <CitasGuide view="status" />}
-        {activeTab === "expedientes" && <ExpedientesGuide />}
-        {activeTab !== "citas-acciones" && activeTab !== "citas-status" && activeTab !== "expedientes" && activeTabData && (
-          <ComingSoonTab label={activeTabData.label} />
-        )}
-      </div>
-    </>
-  );
-}
-
+// Ayuda H1 (2026-10-01): la página ES el manual del doctor (`lib/ayuda/manual-del-doctor.md`), el mismo
+// que lee el widget «?». Una pestaña por menú; lo que el manual aún no cubre no tiene pestaña.
 export default function AyudaPage() {
+  const manual = manualEnPestanas(cargarManual().texto);
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <div className="mb-5">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-          Centro de ayuda
-        </h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Centro de ayuda</h1>
         <p className="text-gray-500 mt-1 text-sm">
-          Guías de flujos de trabajo para cada sección de tu plataforma.
+          Cómo se usa cada sección de tu plataforma. También puedes preguntarle al botón «?» de abajo a la derecha.
         </p>
       </div>
       <Suspense fallback={null}>
-        <AyudaContent />
+        <AyudaPestanas manual={manual} />
       </Suspense>
     </div>
   );

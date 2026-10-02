@@ -39,6 +39,12 @@
       nueva → «IA» abre el chat SIN micrófono; con PRO/LAB sí hay micrófono. Para ver el tope sin gastar $1:
       bajar el tope a mano NO se puede (está en código) — basta ver que el chat y el «?» contestan normal; el
       429 «Llegaste al límite de este mes.» se probó con las funciones reales (`scripts/tiers/ia-tope-probe.ts`).
+- [ ] **Ayuda = el manual (AYUDA H1)** — `/dashboard/ayuda`: pestañas «Antes de empezar · Agenda · Expediente»
+      con el texto del manual y el índice «En esta pestaña» a la izquierda (pantalla ancha); un enlace del
+      texto que apunte a OTRA pestaña la cambia y baja a la sección; el enlace viejo `?tab=citas` (desde la
+      agenda) abre «Agenda»; en el widget «?» la línea «Manual: Agenda > …» es clic y lleva a esa sección
+      (también estando YA en Ayuda). Probado sin navegador: 11 enlaces internos + las 38 secciones citables
+      resuelven, y el build prerenderiza el manual.
 - [ ] *(Cuando se vuelva a encender el asistente — hoy OCULTO, `ASISTENTE_IA_VISIBLE = false`)*: completar
       una sesión cubierta y «qué falta facturar» con pagos de paquete.
 

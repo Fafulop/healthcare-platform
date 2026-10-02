@@ -39,6 +39,7 @@
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.560.0",
     "mammoth": "^1.13.0",
+    "marked": "^18.0.14",
     "next": "16.0.10",
     "next-auth": "^5.0.0-beta.25",
     "openai": "^4.77.0",
