@@ -20,12 +20,12 @@
 // México) para no repetir el aviso de «no cabe» cada 15 minutos.
 // Protegido por CRON_SECRET.
 import { NextResponse } from 'next/server';
-import { prisma, setDoctorTier, cabeEnPlan, TIER_LABELS, type DoctorTier } from '@healthcare/database';
+import { prisma, setDoctorTier, cabeEnPlan, TIER_LABELS, TIER_LABELS_ADMIN, type DoctorTier } from '@healthcare/database';
 import { stripeCobro, esErrorDeStripe } from '@/lib/stripe-cobro';
 import { avisarAdmin } from '@/lib/cobro-avisos';
 import { DIAS_DE_MARGEN, finDelMargen } from '@/lib/cobro-planes';
 
-const nombre = (t: string) => TIER_LABELS[t as DoctorTier] ?? t;
+const nombre = (t: string) => TIER_LABELS_ADMIN[t as DoctorTier] ?? t;
 // Fecha en hora de México, la misma que ve el doctor (review de #6.1, hallazgo 3).
 const dia = (d: Date) => d.toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
 

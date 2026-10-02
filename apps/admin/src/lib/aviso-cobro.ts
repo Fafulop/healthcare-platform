@@ -13,7 +13,7 @@
  * fallas del review de #2 eran de esta lógica, no del marcado.
  */
 
-import { DOCTOR_TIERS, TIER_LABELS, type DoctorTier } from "@healthcare/database";
+import { DOCTOR_TIERS, TIER_LABELS, TIER_LABELS_ADMIN, type DoctorTier } from "@healthcare/database";
 
 export interface CobroDelDoctor {
   status: string;
@@ -84,7 +84,7 @@ export function avisoDeCambioManual(
   const pordebajo = planPagado !== null && rangoTier(seleccion) < rangoTier(planPagado);
 
   return {
-    pagado: planPagado ? TIER_LABELS[planPagado] : null,
+    pagado: planPagado ? TIER_LABELS_ADMIN[planPagado] : null,
     perdida: pordebajo && hasta && dias > 0 ? { hasta, dias } : null,
   };
 }

@@ -22,7 +22,7 @@ import {
   prisma,
   cabeEnPlan,
   DOCTOR_TIERS,
-  TIER_LABELS,
+  TIER_LABELS, TIER_LABELS_ADMIN,
   type DoctorTier,
 } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
@@ -113,8 +113,8 @@ export async function POST(request: Request) {
     // llama igual para que el día que se ponga la variable empiece a funcionar
     // solo. La FILA es lo que no se pierde.
     await avisarAdmin(
-      `📉 ${doctor.slug} pide bajar de ${TIER_LABELS[actual as DoctorTier] ?? actual} a ` +
-        `${TIER_LABELS[destino]}${veredicto.cabe ? '' : ' — NO CABE: ' + veredicto.motivo}`,
+      `📉 ${doctor.slug} pide bajar de ${TIER_LABELS_ADMIN[actual as DoctorTier] ?? actual} a ` +
+        `${TIER_LABELS_ADMIN[destino]}${veredicto.cabe ? '' : ' — NO CABE: ' + veredicto.motivo}`,
     );
 
     return NextResponse.json({ solicitud }, { status: 201 });

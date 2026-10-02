@@ -257,7 +257,8 @@ function FacturacionPageInner() {
           <p className={`text-sm mt-2 ${usoFacturas.lleno ? "text-red-700" : usoFacturas.extra > 0 ? "text-amber-800" : "text-gray-600"}`}>
             Facturas este mes: <strong>{usoFacturas.usadas} de {usoFacturas.incluidas}</strong>
             {usoFacturas.lleno && " · llegaste al máximo de tu plan (con el plan Pro tienes 25 al mes)"}
-            {usoFacturas.extra > 0 && ` · ${usoFacturas.extra} extra se cobran en tu siguiente factura`}
+            {/* Sin decir «se cobran»: ese cobro (P4b) todavía no existe — no se promete lo no construido. */}
+            {usoFacturas.extra > 0 && ` · ${usoFacturas.extra} por encima de las incluidas`}
           </p>
         )}
       </div>

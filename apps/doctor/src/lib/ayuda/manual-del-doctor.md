@@ -255,7 +255,7 @@ Después puedes copiar el link o mandarlo por WhatsApp, y cuando el paciente pag
 3. La factura se emite desde el **expediente del paciente**, sección «Citas e Ingresos», botón
    «Facturar» (ver [Facturar desde el expediente](#facturar-desde-el-expediente)).
 
-**Facturas al mes según tu plan:** Gratis 5 (al llegar ya no deja timbrar otra hasta el día 1; con el plan Pro tienes 25), Pro 25 incluidas (las de más se cobran en tu siguiente factura). Cuentan las facturas de ingreso del mes, **canceladas incluidas**; los complementos de pago y las notas de crédito no cuentan. Arriba de Facturación ves «Facturas este mes: N de M».
+**Facturas al mes según tu plan:** Gratis 5 (al llegar ya no deja timbrar otra hasta el día 1; con el plan Pro tienes 25), Pro 25 incluidas (puedes seguir timbrando; las de más se contarán como extra). Cuentan las facturas de ingreso del mes, **canceladas incluidas**; los complementos de pago y las notas de crédito no cuentan. Arriba de Facturación ves «Facturas este mes: N de M».
 
 La cita necesita expediente vinculado; si no, dice «Requiere expediente».
 
@@ -683,4 +683,4 @@ Sección **«Citas e Ingresos»** del perfil. Cada cita muestra si está pagada 
 - Para una factura que **no viene de una cita** (insumos, un saldo aparte), usa el botón de
   arriba de la sección: abre Facturación con este paciente ya elegido.
 
-**Facturas al mes según tu plan:** Gratis 5 (al llegar ya no deja timbrar otra hasta el día 1; con el plan Pro tienes 25), Pro 25 incluidas (las de más se cobran en tu siguiente factura). Cuentan las facturas de ingreso del mes, **canceladas incluidas**; los complementos de pago y las notas de crédito no cuentan. Arriba de Facturación ves «Facturas este mes: N de M».
+**Facturas al mes según tu plan:** Gratis 5 (al llegar ya no deja timbrar otra hasta el día 1; con el plan Pro tienes 25), Pro 25 incluidas (puedes seguir timbrando; las de más se contarán como extra). Cuentan las facturas de ingreso del mes, **canceladas incluidas**; los complementos de pago y las notas de crédito no cuentan. Arriba de Facturación ves «Facturas este mes: N de M».

@@ -42,7 +42,7 @@ import type Stripe from 'stripe';
 import {
   setDoctorTier,
   DOCTOR_TIERS,
-  TIER_LABELS,
+  TIER_LABELS, TIER_LABELS_ADMIN,
   type DoctorTier,
   type PrismaClient,
 } from '@healthcare/database';
@@ -219,7 +219,7 @@ async function sincronizar(
   };
 }
 
-const nombreTier = (t: string) => TIER_LABELS[t as DoctorTier] ?? t;
+const nombreTier = (t: string) => TIER_LABELS_ADMIN[t as DoctorTier] ?? t;
 
 export async function procesarEventoCobro(
   evento: Stripe.Event,

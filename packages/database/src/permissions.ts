@@ -141,10 +141,21 @@ export type DoctorTier = (typeof DOCTOR_TIERS)[number];
 
 /** Nombre comercial de cada tier — lo que se pinta en el admin y en la
  * pantalla de plan. El valor de BD no cambia; este texto sí puede. */
+// TIERS P6 (2026-10-01, precios del lanzamiento): se venden «Gratis» y «Pro». El «Pro» que se vende es
+// el tier BASICO (re-precio a $250 + IVA); el tier PRO es el de los doctores que se quedan como están.
+// Los DOCTORES ven los dos como «Pro»; el ADMIN los distingue con TIER_LABELS_ADMIN.
 export const TIER_LABELS: Record<DoctorTier, string> = {
   FREE: 'Gratis',
-  BASICO: 'Básico',
+  BASICO: 'Pro',
   PRO: 'Pro',
+  LAB: 'Lab',
+};
+
+/** Nombres para pantallas y avisos del ADMIN (y Telegram), donde BASICO y el PRO de antes no se pueden confundir. */
+export const TIER_LABELS_ADMIN: Record<DoctorTier, string> = {
+  FREE: 'Gratis',
+  BASICO: 'Pro',
+  PRO: 'Pro (anterior)',
   LAB: 'Lab',
 };
 

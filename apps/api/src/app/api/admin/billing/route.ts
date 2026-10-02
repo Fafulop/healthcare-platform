@@ -25,7 +25,7 @@ import { NextResponse } from 'next/server';
 import {
   prisma,
   DOCTOR_TIERS,
-  TIER_LABELS,
+  TIER_LABELS, TIER_LABELS_ADMIN,
   fijarPrecioDeTier,
   type DoctorTier,
 } from '@healthcare/database';
@@ -150,7 +150,7 @@ export async function GET(request: Request) {
           const fila = precios.find((p) => p.tier === tier);
           return {
             tier,
-            label: TIER_LABELS[tier],
+            label: TIER_LABELS_ADMIN[tier],
             configurado: !!fila,
             notaInterna: fila?.notaInterna ?? null,
             precio: fila ? porPriceId.get(fila.stripePriceId) ?? null : null,

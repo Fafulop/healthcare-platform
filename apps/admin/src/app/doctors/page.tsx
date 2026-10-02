@@ -11,7 +11,7 @@ import {
   FALLBACK_TIER,
   TIER_EXCLUDED_KEYS,
   TIER_KEY_LABELS,
-  TIER_LABELS,
+  TIER_LABELS, TIER_LABELS_ADMIN,
   TIER_LIMITS,
   type DoctorTier,
 } from "@healthcare/database";
@@ -642,7 +642,7 @@ export default function DoctorsListPage() {
                               {state === "missing"
                                 ? "—"
                                 : known
-                                  ? `${excluded.length > 0 ? "🔒 " : ""}${TIER_LABELS[known]}`
+                                  ? `${excluded.length > 0 ? "🔒 " : ""}${TIER_LABELS_ADMIN[known]}`
                                   : `⚠ ${doctor.tier || "(vacío)"}`}
                             </button>
                           );
@@ -770,7 +770,7 @@ export default function DoctorsListPage() {
                           />
                           <div>
                             <div className="font-semibold text-gray-900">
-                              {TIER_LABELS[tier]}
+                              {TIER_LABELS_ADMIN[tier]}
                               <code className="ml-2 text-xs font-normal text-gray-500 bg-gray-100 px-1 rounded">{tier}</code>
                               {tierDoctor.tier === tier && (
                                 <span className="ml-2 text-xs font-normal text-gray-500">(actual)</span>

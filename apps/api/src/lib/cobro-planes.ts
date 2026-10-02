@@ -55,6 +55,9 @@ export async function planesVendibles(
 
   for (const fila of filas) {
     if (fila.tier === 'LAB') continue;
+    // TIERS P6 (2026-10-01): el tier PRO ya no se VENDE (es de los doctores que se quedan como están);
+    // el «Pro» que se vende es BASICO. Sin esto, Gratis vería dos opciones llamadas «Pro».
+    if (fila.tier === 'PRO') continue;
     const r = rango(fila.tier);
     if (r < 0 || (r < rangoActual && !permitirMenores)) continue;
 

@@ -596,7 +596,14 @@ function monto(centavos: number, moneda: string): string {
 }
 
 function precio(centavos: number, moneda: string, intervalo: string): string {
-  return `${monto(centavos, moneda)} ${intervalo === "month" ? "al mes" : intervalo === "year" ? "al año" : `/ ${intervalo}`}`;
+  const periodo = intervalo === "month" ? "al mes" : intervalo === "year" ? "al año" : `/ ${intervalo}`;
+  // TIERS P6: el precio en Stripe es el TOTAL con IVA (decisión: $290 fijo = $250 + 16%). Se enseña como
+  // lo dijo el usuario: «$250 + IVA», con el total al lado.
+  if (moneda.toUpperCase() === "MXN") {
+    const base = Math.round(centavos / 1.16);
+    return `${monto(base, moneda)} + IVA (${monto(centavos, moneda)}) ${periodo}`;
+  }
+  return `${monto(centavos, moneda)} ${periodo}`;
 }
 
 /**

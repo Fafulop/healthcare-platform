@@ -64,6 +64,18 @@ del mes…» ANTES de llamar a Facturama; `GET /api/facturacion/uso` + «Factura
 Probe `scripts/tiers/facturas-mes-probe.ts` 9/9 — encontró que el conteo sólo tenía el borde de inicio (un mes
 pasado sumaba los siguientes): arreglado aquí y en el gasto de IA.
 
+**✅ P2+P4 en prod `1aad606c`** (api, doctor) + admin redeploy `f02b14f7`.
+**P6 parte 1 escrita (2026-10-01): nombres y precio en pantalla.** `TIER_LABELS`: BASICO → «Pro» (el PRO de antes
+también se ve «Pro» para el doctor); `TIER_LABELS_ADMIN` distingue «Pro (anterior)» en admin, Telegram y avisos de
+cobro. `planesVendibles` ya no ofrece el tier PRO (sólo se vende BASICO = «Pro»). Mi Cuenta enseña el precio MXN como
+«$250 + IVA ($290) al mes» (el precio de Stripe es el TOTAL con IVA). Además: se QUITÓ «las extra se cobran en tu
+siguiente factura» de Facturación y del manual — ese cobro es P4b y aún no existe (no se promete lo no construido).
+**P6 parte 2 — PENDIENTE DEL USUARIO:** hallazgo 2026-10-01: la API usa una llave de Stripe **en vivo** cuya cuenta
+NO tiene precios ni suscripciones; los dos `tier_prices` (BASICO, PRO) apuntan a precios que no existen ahí (son de
+modo prueba) ⇒ hoy nadie puede contratar. Para activar: crear en Stripe (vivo) el producto «Pro» con precio mensual
+de $290 MXN (IVA incluido), pasar el `price_…` y cambiarlo en `tier_prices`; probar un pago real con reembolso
+(`06-OPERACION`). Decidir aparte si los doctores necesitan CFDI de su suscripción.
+
 Orden sugerido: **P1 → P3 → P2+P4 → P6 → P4b → P5** (lo que no toca el cobro primero; lo que cobra al
 final y con el banco de pruebas).
 
