@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertCircle, ArrowLeft, CalendarDays, FileText, Image as ImageIcon, ListChecks, Loader2, NotebookPen, Pill, Plus, Trash2,
+  AlertCircle, ArrowLeft, CalendarDays, FileText, Image as ImageIcon, ListChecks, Loader2, NotebookPen, Pill, Plus, ShoppingCart, Trash2,
 } from 'lucide-react';
+import { authFetch } from '@/lib/auth-fetch';
+import { usePermissions } from '@/lib/permissions-client';
 import { ENCOUNTER_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from '@/components/medical-records/EncounterCard';
 import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical-records/CitaBadges';
 import { NotasCita } from '@/components/citas/NotasCita';
@@ -24,6 +26,13 @@ const ORIGEN_TEXTO: Record<string, string> = {
 const RECETA_ESTADO: Record<string, string> = {
   draft: 'Borrador', issued: 'Emitida', cancelled: 'Cancelada', expired: 'Expirada',
 };
+
+const VENTA_PAGO: Record<string, string> = { PENDING: 'Pendiente', PARTIAL: 'Pago parcial', PAID: 'Pagada' };
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+interface VentaDeVisita {
+  id: number; saleNumber: string; total: string; status: string; paymentStatus: string;
+  items: { description: string }[];
+}
 
 function Seccion({ icon, titulo, accion, children }: {
   icon: React.ReactNode; titulo: string; accion?: React.ReactNode; children: React.ReactNode;
@@ -69,6 +78,21 @@ export default function VisitaPage() {
   useEffect(() => { setComentario(comentarioGuardado); }, [comentarioGuardado]);
   useEffect(() => { setFecha(fechaGuardada); }, [fechaGuardada]);
 
+  // Ventas de esta visita (apps/api). null = cargando · 'error' = no se pudo (se DICE: una lista
+  // vacía afirmaría que no se le vendió nada).
+  const { can, loading: permisosCargando } = usePermissions();
+  const puedeVentas = !permisosCargando && can('ventas');
+  const [ventas, setVentas] = useState<VentaDeVisita[] | null | 'error'>(null);
+  useEffect(() => {
+    if (!puedeVentas || !visitaId) return;
+    let vigente = true;
+    authFetch(`${API_URL}/api/practice-management/ventas?visitaId=${encodeURIComponent(visitaId)}&limit=100`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d) => { if (vigente) setVentas(d.data || []); })
+      .catch(() => { if (vigente) setVentas('error'); });
+    return () => { vigente = false; };
+  }, [puedeVentas, visitaId]);
+
   if (v.sessionStatus === 'loading' || v.estado === 'cargando') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -97,10 +121,13 @@ export default function VisitaPage() {
   const verCobro = v.permisos?.flujo ?? false;
   const verFactura = v.permisos?.facturacion ?? false;
   const booking = cita && v.bookings ? v.bookings.find((b) => b.id === cita.id) : undefined;
+  // Con ventas tampoco está vacía (la API lo rechaza igual: 409). Mientras los permisos o las ventas
+  // cargan, no se ofrece borrar. Sin el toggle `ventas` no se pueden ver: se ofrece y, si las tiene,
+  // la API contesta 409 con el motivo («La visita tiene una venta»).
   const vacia = totalHijos({
     consultas: visita.consultas.length, fotos: visita.fotos.length, recetas: visita.recetas.length,
     notas: visita.notas.length, informes: visita.informes.length,
-  }) === 0;
+  }) === 0 && !permisosCargando && (!puedeVentas || (Array.isArray(ventas) && ventas.length === 0));
 
   // Citas que se pueden ligar: del paciente, ni canceladas ni no-show, y sin visita. Sólo si ya
   // cargaron las otras visitas — sin ellas no se sabe cuáles ya tienen la suya.
@@ -382,6 +409,49 @@ export default function VisitaPage() {
           <Nada>Ninguna receta todavía.</Nada>
         )}
       </Seccion>
+
+      {/* VENTAS PACIENTE paso 3: lo que se le vendió en esta visita (productos, servicios extra). Son
+          las MISMAS ventas de la página Ventas, ligadas por `visita_id`. Sólo con el toggle `ventas`. */}
+      {puedeVentas && (
+        <Seccion
+          icon={<ShoppingCart className="w-5 h-5 text-emerald-600" />}
+          titulo="Ventas"
+          accion={
+            <BotonAgregar href={`/dashboard/practice/ventas/new?patientId=${patientId}&visitaId=${visitaId}`}>
+              Nueva venta
+            </BotonAgregar>
+          }
+        >
+          {ventas === 'error' ? (
+            <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              No se pudieron cargar las ventas de esta visita. Recarga la página para intentar de nuevo.
+            </p>
+          ) : ventas === null ? (
+            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+          ) : ventas.length > 0 ? (
+            <div className="space-y-2">
+              {ventas.map((s) => (
+                <Link key={s.id} href={`/dashboard/practice/ventas/${s.id}`} className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-100 hover:bg-gray-50">
+                  <span className="text-sm text-gray-900 truncate">
+                    {s.saleNumber}
+                    <span className="text-gray-500"> · {s.items.map((i) => i.description).join(', ')}</span>
+                  </span>
+                  <span className="text-xs shrink-0 flex items-center gap-2">
+                    <span className="font-semibold text-gray-900">
+                      {Number(s.total).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+                    </span>
+                    <span className={s.status === 'CANCELLED' ? 'text-gray-400' : s.paymentStatus === 'PAID' ? 'text-green-700' : 'text-amber-700'}>
+                      {s.status === 'CANCELLED' ? 'Cancelada' : VENTA_PAGO[s.paymentStatus] ?? s.paymentStatus}
+                    </span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <Nada>Ninguna venta todavía.</Nada>
+          )}
+        </Seccion>
+      )}
 
       {/* Informes: siempre cuelgan de una plantilla (su consulta); se crean desde ella. */}
       {visita.informes.length > 0 && (

@@ -8,6 +8,7 @@ import { ArrowLeft, Edit2, Loader2, ShoppingCart, FileText } from "lucide-react"
 import { formatCurrency, formatDateLong } from "@/lib/practice-utils";
 import { useVentaDetail, statusConfig, paymentStatusConfig } from "../_components/useVentaDetail";
 import { NotaVentaModal } from "../_components/NotaVentaModal";
+import { compradorDeVenta } from "../_components/comprador";
 
 export default function ViewSalePage() {
   const { status } = useSession({
@@ -45,6 +46,7 @@ export default function ViewSalePage() {
   const statusConf = statusConfig[sale.status as keyof typeof statusConfig] || statusConfig.PENDING;
   const paymentConf = paymentStatusConfig[sale.paymentStatus as keyof typeof paymentStatusConfig] || paymentStatusConfig.PENDING;
   const balanceDue = parseFloat(sale.total) - parseFloat(sale.amountPaid);
+  const comprador = compradorDeVenta(sale);
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -130,18 +132,26 @@ export default function ViewSalePage() {
 
           {/* Client Information */}
           <div className="bg-gray-50 rounded-lg p-6 mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">CLIENTE</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{comprador.esPaciente ? 'PACIENTE' : 'CLIENTE'}</h3>
             <div className="space-y-2">
-              <p className="text-xl font-bold text-gray-900">{sale.client.businessName}</p>
-              {sale.client.contactName && <p className="text-gray-700">Contacto: {sale.client.contactName}</p>}
-              {sale.client.email && <p className="text-gray-700">Email: {sale.client.email}</p>}
-              {sale.client.phone && <p className="text-gray-700">Teléfono: {sale.client.phone}</p>}
-              {sale.client.rfc && <p className="text-gray-700">RFC: {sale.client.rfc}</p>}
-              {sale.client.street && (
-                <p className="text-gray-700">
-                  {sale.client.street}, {sale.client.city}, {sale.client.state} {sale.client.postalCode}
-                </p>
+              {comprador.esPaciente && sale.patient ? (
+                <Link
+                  href={sale.visitaId
+                    ? `/dashboard/medical-records/patients/${sale.patient.id}/visitas/${sale.visitaId}`
+                    : `/dashboard/medical-records/patients/${sale.patient.id}`}
+                  className="text-xl font-bold text-gray-900 hover:text-blue-700"
+                >
+                  {comprador.nombre}
+                </Link>
+              ) : (
+                <p className="text-xl font-bold text-gray-900">{comprador.nombre}</p>
               )}
+              {sale.visitaId && <p className="text-sm text-blue-700">Registrada en una visita del paciente</p>}
+              {comprador.detalle && <p className="text-gray-700">{comprador.esPaciente ? comprador.detalle : `Contacto: ${comprador.detalle}`}</p>}
+              {comprador.email && <p className="text-gray-700">Email: {comprador.email}</p>}
+              {comprador.phone && <p className="text-gray-700">Teléfono: {comprador.phone}</p>}
+              {comprador.rfc && <p className="text-gray-700">RFC: {comprador.rfc}</p>}
+              {comprador.direccion && <p className="text-gray-700">{comprador.direccion}</p>}
             </div>
           </div>
 
@@ -242,7 +252,24 @@ export default function ViewSalePage() {
         </div>
       </div>
 
-      {showNota && <NotaVentaModal venta={sale} onClose={() => setShowNota(false)} />}
+      {showNota && (
+        <NotaVentaModal
+          venta={{
+            ...sale,
+            // The nota names the buyer the same way the page does (patient, or an old sale's client).
+            etiquetaComprador: comprador.esPaciente ? 'Paciente' : 'Cliente',
+            client: {
+              businessName: comprador.nombre,
+              rfc: comprador.rfc,
+              contactName: comprador.esPaciente ? null : comprador.detalle,
+              email: comprador.email,
+              phone: comprador.phone,
+              street: comprador.direccion,
+            },
+          }}
+          onClose={() => setShowNota(false)}
+        />
+      )}
     </div>
   );
 }

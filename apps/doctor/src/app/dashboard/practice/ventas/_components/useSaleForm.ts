@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { authFetch } from '@/lib/auth-fetch';
-import type { CitaService, Client, Product, SaleItem } from './sale-types';
+import type { CitaService, Product, SaleItem } from './sale-types';
 import { toast } from '@/lib/practice-toast';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -14,15 +14,13 @@ function todayString() {
 
 export function useSaleForm() {
   // Data
-  const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [citaServices, setCitaServices] = useState<CitaService[]>([]);
   const [citaServicesError, setCitaServicesError] = useState(false);
-  const [loadingClients, setLoadingClients] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
   // Form state
-  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  // The buyer (a patient — VENTAS PACIENTE paso 3) lives in each page, not here.
   const [saleDate, setSaleDate] = useState(todayString());
   const [deliveryDate, setDeliveryDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -61,19 +59,6 @@ export function useSaleForm() {
   }, [items]);
 
   // Fetch helpers
-  const fetchClients = async () => {
-    try {
-      const res = await authFetch(`${API_URL}/api/practice-management/clients?status=active`);
-      if (!res.ok) throw new Error('Error al cargar clientes');
-      const result = await res.json();
-      setClients(result.data || []);
-    } catch (err) {
-      console.error('Error al cargar clientes:', err);
-    } finally {
-      setLoadingClients(false);
-    }
-  };
-
   // Two catalogs: «Productos y Servicios» (API) and the Citas services (doctor-app route). The
   // Citas one loads on the side and never holds the page spinner; if it fails, the picker SAYS so
   // (citaServicesError) instead of showing an empty list as if the doctor had no services.
@@ -261,10 +246,9 @@ export function useSaleForm() {
 
   return {
     // Data
-    clients, setClients, products, loadingClients, loadingProducts,
-    fetchClients, fetchProducts,
+    products, loadingProducts,
+    fetchProducts,
     // Form
-    selectedClientId, setSelectedClientId,
     saleDate, setSaleDate,
     deliveryDate, setDeliveryDate,
     notes, setNotes,

@@ -27,6 +27,8 @@ export interface NotaVentaDatos {
   notes: string | null;
   termsAndConditions: string | null;
   deliveryDate?: string | null;
+  /** Heading of the buyer box: «Paciente» (VENTAS PACIENTE paso 3) or «Cliente» (old sales). */
+  etiquetaComprador?: string;
   client: {
     businessName: string;
     rfc: string | null;
@@ -220,7 +222,7 @@ export function dibujarNotaVenta(
   doc.setFillColor(245, 247, 250);
   doc.roundedRect(margin, y, colW, boxH, 2, 2, 'F');
   doc.setTextColor(100, 100, 100);
-  doc.text('Cliente', margin + 4, y + 6);
+  doc.text(venta.etiquetaComprador ?? 'Cliente', margin + 4, y + 6);
   doc.text('Fecha', midX, y + 6);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);

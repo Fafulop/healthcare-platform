@@ -31,13 +31,13 @@ const VoiceChatSidebar = dynamic(
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
+// Name + internal id ONLY (GET /ventas/pacientes): the Ventas toggle must not expose the patient's
+// contact data — don't widen this to «show the email».
 interface Patient {
   id: string;
   internalId: string;
   firstName: string;
   lastName: string;
-  email?: string;
-  phone?: string;
 }
 
 export default function NewVentaPage() {
@@ -49,11 +49,17 @@ export default function NewVentaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Patients
+  // Patients — VENTAS PACIENTE paso 3: the buyer is ALWAYS a patient, saved as `patientId` on the
+  // sale. (Before, picking a patient made a name-matched COPY in `clients`.)
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loadingPatients, setLoadingPatients] = useState(true);
+  // The list failed to load: SAID in the form (an empty select would read «you have no patients»).
+  const [patientsError, setPatientsError] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [resolvingPatient, setResolvingPatient] = useState(false);
+  // Opened from a visita (`?patientId=&visitaId=`): patient fixed, sale filed in that visita.
+  const visitaId = searchParams.get('visitaId');
+  const patientIdParam = searchParams.get('patientId');
+  const desdeVisita = !!visitaId && !!patientIdParam;
 
   // Voice / Chat
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -63,7 +69,6 @@ export default function NewVentaPage() {
 
   useEffect(() => {
     if (session?.user?.email) {
-      form.fetchClients();
       form.fetchProducts();
       fetchPatients();
     }
@@ -85,7 +90,9 @@ export default function NewVentaPage() {
   }, [searchParams, aiAllowed]);
 
   useEffect(() => {
-    if (searchParams.get('voice') === 'true') {
+    // Wait for patients and products: applying (and deleting) the dictation before they load — or
+    // after the patient list FAILED — matched nobody and lost it for good.
+    if (searchParams.get('voice') === 'true' && !loadingPatients && !patientsError && !form.loadingProducts) {
       const stored = sessionStorage.getItem('voiceSaleData');
       if (stored) {
         try { handleVoiceConfirm(JSON.parse(stored).data); sessionStorage.removeItem('voiceSaleData'); }
@@ -93,65 +100,33 @@ export default function NewVentaPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, form.clients, patients]);
+  }, [searchParams, patients, loadingPatients, patientsError, form.loadingProducts]);
 
+  // `?patientId=` (from a visita, or a link from the patient) preselects that patient — fetched in
+  // the same list with `include`, so an archived one is there too.
   useEffect(() => {
-    const clientIdParam = searchParams.get('clientId');
-    if (clientIdParam && form.clients.length > 0) {
-      const id = parseInt(clientIdParam);
-      if (form.clients.find(c => c.id === id)) {
-        form.setSelectedClientId(id);
-        setSelectedPatient(null);
-      }
-    }
-  }, [searchParams, form.clients]);
+    if (!patientIdParam || patients.length === 0) return;
+    const p = patients.find(x => x.id === patientIdParam);
+    if (p) setSelectedPatient(p);
+  }, [patientIdParam, patients]);
 
   const fetchPatients = async () => {
     try {
-      const res = await fetch('/api/medical-records/patients?status=active');
+      // Under the `ventas` toggle (not `expedientes`): a helper with only Ventas can still sell.
+      const include = patientIdParam ? `?include=${encodeURIComponent(patientIdParam)}` : '';
+      const res = await authFetch(`${API_URL}/api/practice-management/ventas/pacientes${include}`);
       if (!res.ok) throw new Error('Error al cargar pacientes');
       const data = await res.json();
       setPatients(data.data || []);
-    } catch (err) { console.error('Error al cargar pacientes:', err); }
+    } catch (err) {
+      console.error('Error al cargar pacientes:', err);
+      setPatientsError(true);
+    }
     finally { setLoadingPatients(false); }
   };
 
-  const resolvePatientAsClient = async (patient: Patient) => {
-    setResolvingPatient(true);
-    const fullName = `${patient.firstName} ${patient.lastName}`;
-    const existing = form.clients.find(c => c.businessName === fullName);
-    if (existing) { form.setSelectedClientId(existing.id); setResolvingPatient(false); return; }
-    try {
-      const res = await authFetch(`${API_URL}/api/practice-management/clients`, {
-        method: 'POST',
-        body: JSON.stringify({ businessName: fullName, contactName: fullName, email: patient.email || null, phone: patient.phone || null }),
-      });
-      if (res.ok) {
-        const result = await res.json();
-        form.setClients(prev => [...prev, result.data]);
-        form.setSelectedClientId(result.data.id);
-      } else if (res.status === 409) {
-        const refreshRes = await authFetch(`${API_URL}/api/practice-management/clients?status=active`);
-        const refreshResult = await refreshRes.json();
-        const refreshed = refreshResult.data || [];
-        form.setClients(refreshed);
-        const found = refreshed.find((c: any) => c.businessName === fullName);
-        if (found) form.setSelectedClientId(found.id);
-      }
-    } catch (err) { console.error('Error al crear cliente desde paciente:', err); }
-    finally { setResolvingPatient(false); }
-  };
-
   const handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    if (!value) { form.setSelectedClientId(null); setSelectedPatient(null); return; }
-    if (value.startsWith('patient:')) {
-      const patient = patients.find(p => p.id === value.slice('patient:'.length));
-      if (patient) { setSelectedPatient(patient); resolvePatientAsClient(patient); }
-    } else {
-      form.setSelectedClientId(Number(value.slice('client:'.length)));
-      setSelectedPatient(null);
-    }
+    setSelectedPatient(patients.find(p => p.id === e.target.value) ?? null);
   };
 
   const handleVoiceModalComplete = (transcript: string, data: VoiceStructuredData, sessionId: string, transcriptId: string, audioDuration: number) => {
@@ -162,18 +137,12 @@ export default function NewVentaPage() {
 
   const handleVoiceConfirm = useCallback((data: VoiceStructuredData) => {
     const saleData = data as VoiceSaleData;
-    if (saleData.clientName) {
-      const matchedClient = form.clients.find(c =>
-        c.businessName.toLowerCase().includes(saleData.clientName!.toLowerCase()) ||
-        c.contactName?.toLowerCase().includes(saleData.clientName!.toLowerCase())
+    // From a visita the patient is fixed: dictation can't move the sale to someone else.
+    if (saleData.clientName && !desdeVisita) {
+      const matchedPatient = patients.find(p =>
+        `${p.firstName} ${p.lastName}`.toLowerCase().includes(saleData.clientName!.toLowerCase())
       );
-      if (matchedClient) { form.setSelectedClientId(matchedClient.id); setSelectedPatient(null); }
-      else {
-        const matchedPatient = patients.find(p =>
-          `${p.firstName} ${p.lastName}`.toLowerCase().includes(saleData.clientName!.toLowerCase())
-        );
-        if (matchedPatient) { setSelectedPatient(matchedPatient); resolvePatientAsClient(matchedPatient); }
-      }
+      if (matchedPatient) setSelectedPatient(matchedPatient);
     }
     if (saleData.saleDate) form.setSaleDate(saleData.saleDate);
     if (saleData.deliveryDate) form.setDeliveryDate(saleData.deliveryDate);
@@ -206,12 +175,10 @@ export default function NewVentaPage() {
       form.setItems(mappedItems);
     }
     setShowVoiceSidebar(false);
-  }, [form.clients, form.products, patients]);
+  }, [form.products, patients, desdeVisita]);
 
   const chatFormData: SaleFormData = useMemo(() => ({
-    clientName: selectedPatient
-      ? `${selectedPatient.firstName} ${selectedPatient.lastName}`
-      : form.clients.find(c => c.id === form.selectedClientId)?.businessName || '',
+    clientName: selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '',
     saleDate: form.saleDate,
     deliveryDate: form.deliveryDate,
     paymentStatus: form.paymentStatus,
@@ -224,23 +191,14 @@ export default function NewVentaPage() {
       quantity: it.quantity, unit: it.unit, unitPrice: it.unitPrice,
       discountRate: it.discountRate, taxRate: it.taxRate,
     })),
-  }), [form.clients, form.selectedClientId, selectedPatient, form.saleDate, form.deliveryDate,
+  }), [selectedPatient, form.saleDate, form.deliveryDate,
        form.paymentStatus, form.amountPaid, form.notes, form.termsAndConditions, form.items]);
 
   const handleChatFieldUpdates = useCallback((updates: Record<string, any>) => {
-    if (updates.clientName) {
-      const name = updates.clientName;
-      const mc = form.clients.find(c =>
-        c.businessName.toLowerCase().includes(name.toLowerCase()) ||
-        c.contactName?.toLowerCase().includes(name.toLowerCase())
-      );
-      if (mc) { form.setSelectedClientId(mc.id); setSelectedPatient(null); }
-      else {
-        const mp = patients.find(p =>
-          `${p.firstName} ${p.lastName}`.toLowerCase().includes(name.toLowerCase())
-        );
-        if (mp) { setSelectedPatient(mp); resolvePatientAsClient(mp); }
-      }
+    if (updates.clientName && !desdeVisita) {
+      const name = String(updates.clientName).toLowerCase();
+      const mp = patients.find(p => `${p.firstName} ${p.lastName}`.toLowerCase().includes(name));
+      if (mp) setSelectedPatient(mp);
     }
     if (updates.saleDate) form.setSaleDate(updates.saleDate);
     if (updates.deliveryDate) form.setDeliveryDate(updates.deliveryDate);
@@ -248,7 +206,7 @@ export default function NewVentaPage() {
     if (updates.amountPaid !== undefined) form.setAmountPaid(updates.amountPaid);
     if (updates.notes) form.setNotes(updates.notes);
     if (updates.termsAndConditions) form.setTermsAndConditions(updates.termsAndConditions);
-  }, [form.clients, patients]);
+  }, [patients, desdeVisita]);
 
   const handleChatItemActions = useCallback((actions: { type: string; index?: number; item?: Partial<SaleChatItem>; updates?: Partial<SaleChatItem>; items?: Partial<SaleChatItem>[] }[]) => {
     form.setItems(prev => {
@@ -287,14 +245,14 @@ export default function NewVentaPage() {
   }, []);
 
   const handleSubmit = async () => {
-    if (!session?.user?.email || !form.selectedClientId) { toast.error('Debe seleccionar un paciente'); return; }
+    if (!session?.user?.email || !selectedPatient) { toast.error('Debe seleccionar un paciente'); return; }
     if (form.items.length === 0) { toast.error('Debe agregar al menos un servicio'); return; }
     setSubmitting(true); setError(null);
     try {
       const res = await authFetch(`${API_URL}/api/practice-management/ventas`, {
         method: 'POST',
         body: JSON.stringify({
-          clientId: form.selectedClientId, saleDate: form.saleDate,
+          patientId: selectedPatient.id, visitaId: desdeVisita ? visitaId : null, saleDate: form.saleDate,
           deliveryDate: form.deliveryDate || null, status: 'PENDING',
           paymentStatus: form.paymentStatus, amountPaid: form.amountPaid,
           items: form.items.map(it => ({
@@ -307,16 +265,17 @@ export default function NewVentaPage() {
         }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Error al crear venta'); }
-      router.push('/dashboard/practice/ventas');
+      // Born in a visita → back to that visita, where it now shows under «Ventas».
+      router.push(desdeVisita
+        ? `/dashboard/medical-records/patients/${patientIdParam}/visitas/${visitaId}`
+        : '/dashboard/practice/ventas');
     } catch (err: any) { setError(err.message); }
     finally { setSubmitting(false); }
   };
 
-  const selectedClient = form.clients.find(c => c.id === form.selectedClientId);
-  const selectValue = selectedPatient ? `patient:${selectedPatient.id}` : form.selectedClientId ? `client:${form.selectedClientId}` : '';
   const subtotal = form.calculateSubtotal(), tax = form.calculateTax(), tax2 = form.calculateTax2(), total = form.calculateTotal();
 
-  if (status === 'loading' || form.loadingClients || form.loadingProducts || loadingPatients) {
+  if (status === 'loading' || form.loadingProducts || loadingPatients) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -332,9 +291,12 @@ export default function NewVentaPage() {
       {/* Header */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <Link href="/dashboard/practice/ventas" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900">
+          <Link
+            href={desdeVisita ? `/dashboard/medical-records/patients/${patientIdParam}/visitas/${visitaId}` : '/dashboard/practice/ventas'}
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
+          >
             <ArrowLeft className="w-4 h-4" />
-            Volver a Ventas
+            {desdeVisita ? 'Volver a la visita' : 'Volver a Ventas'}
           </Link>
           {aiAllowed && (
           <button
@@ -360,61 +322,33 @@ export default function NewVentaPage() {
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Paciente *</label>
               <select
-                value={selectValue}
+                value={selectedPatient?.id ?? ''}
                 onChange={handleSelectionChange}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={desdeVisita}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
               >
                 <option value="">Seleccionar paciente...</option>
-                {patients.length > 0 && (
-                  <optgroup label="Pacientes">
-                    {patients.map(p => (
-                      <option key={p.id} value={`patient:${p.id}`}>{p.firstName} {p.lastName}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {(() => {
-                  const patientNames = new Set(patients.map(p => `${p.firstName} ${p.lastName}`));
-                  const ext = form.clients.filter(c => !patientNames.has(c.businessName));
-                  return ext.length > 0 && (
-                    <optgroup label="Clientes Externos">
-                      {ext.map(c => (
-                        <option key={c.id} value={`client:${c.id}`}>
-                          {c.businessName}{c.contactName ? ` - ${c.contactName}` : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  );
-                })()}
+                {patients.map(p => (
+                  <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
+                ))}
               </select>
-              {resolvingPatient && (
-                <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Preparando datos...
+              {desdeVisita && (
+                <p className="text-xs text-gray-500 mt-1">Esta venta se registra en la visita del paciente.</p>
+              )}
+              {patientsError && (
+                <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                  No se pudieron cargar tus pacientes. Recarga la página para intentar de nuevo.
                 </p>
               )}
             </div>
 
-            {(selectedPatient || selectedClient) && (
+            {selectedPatient && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                 <div className="flex items-start gap-2">
                   <span className="text-blue-600 text-xl">✓</span>
                   <div className="flex-1">
-                    {selectedPatient ? (
-                      <>
-                        <div className="font-semibold text-gray-900">{selectedPatient.firstName} {selectedPatient.lastName}</div>
-                        <div className="text-xs text-blue-600 font-medium mt-0.5">Paciente</div>
-                        {selectedPatient.internalId && <div className="text-sm text-gray-600">ID interno: {selectedPatient.internalId}</div>}
-                        {selectedPatient.email && <div className="text-sm text-gray-600">📧 {selectedPatient.email}</div>}
-                        {selectedPatient.phone && <div className="text-sm text-gray-600">📞 {selectedPatient.phone}</div>}
-                      </>
-                    ) : selectedClient ? (
-                      <>
-                        <div className="font-semibold text-gray-900">{selectedClient.businessName}</div>
-                        {selectedClient.contactName && <div className="text-sm text-gray-600">Contacto: {selectedClient.contactName}</div>}
-                        {selectedClient.email && <div className="text-sm text-gray-600">📧 {selectedClient.email}</div>}
-                        {selectedClient.phone && <div className="text-sm text-gray-600">📞 {selectedClient.phone}</div>}
-                        {selectedClient.rfc && <div className="text-sm text-gray-600">RFC: {selectedClient.rfc}</div>}
-                      </>
-                    ) : null}
+                    <div className="font-semibold text-gray-900">{selectedPatient.firstName} {selectedPatient.lastName}</div>
+                    {selectedPatient.internalId && <div className="text-sm text-gray-600">ID interno: {selectedPatient.internalId}</div>}
                   </div>
                 </div>
               </div>
@@ -498,7 +432,7 @@ export default function NewVentaPage() {
             itemCount={form.items.length} subtotal={subtotal} tax={tax} tax2={tax2} total={total}
             taxColumnLabel={form.taxColumnLabel} taxColumnLabel2={form.taxColumnLabel2}
             amountPaid={form.amountPaid} paymentStatus={form.paymentStatus}
-            submitting={submitting} canSubmit={!!form.selectedClientId && form.items.length > 0}
+            submitting={submitting} canSubmit={!!selectedPatient && form.items.length > 0}
             submitLabel="Guardar Venta" submittingLabel="Guardando..."
             onSubmit={handleSubmit}
           />
@@ -529,11 +463,13 @@ export default function NewVentaPage() {
         <VoiceRecordingModal isOpen={showVoiceModal} onClose={() => setShowVoiceModal(false)}
           sessionType="CREATE_SALE" onComplete={handleVoiceModalComplete} />
       )}
+      {/* saleContext.clients = patients as NAME SUGGESTIONS only: `onClientSelect` is wired nowhere,
+          so the positional ids are never used as ids. */}
       {showVoiceSidebar && session?.user?.email && (
         <VoiceChatSidebar isOpen={showVoiceSidebar} onClose={() => { setShowVoiceSidebar(false); setVoiceInitialData(null); }}
           sessionType="CREATE_SALE" patientId="sale" doctorId={session.user.email}
           onConfirm={handleVoiceConfirm} initialData={voiceInitialData}
-          saleContext={{ clients: form.clients, products: form.products }} />
+          saleContext={{ clients: patients.map((p, i) => ({ id: i, businessName: `${p.firstName} ${p.lastName}` })), products: form.products }} />
       )}
       {chatPanelOpen && (
         <SaleChatPanel onClose={() => setChatPanelOpen(false)} currentFormData={chatFormData}

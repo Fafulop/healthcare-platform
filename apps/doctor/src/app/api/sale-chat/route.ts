@@ -29,7 +29,7 @@ function buildSystemPrompt(currentFormData: Record<string, any>) {
 El doctor describe la venta en lenguaje natural y tu extraes los datos para actualizar los campos del formulario.
 
 ## CAMPOS DEL FORMULARIO
-- "clientName": Nombre del paciente o cliente (texto, se usara para buscar coincidencia)
+- "clientName": Nombre del PACIENTE (texto, se usara para buscar coincidencia entre los pacientes del doctor)
 - "saleDate": Fecha de la venta (formato YYYY-MM-DD)
 - "deliveryDate": Fecha de entrega (formato YYYY-MM-DD, opcional)
 - "paymentStatus": Estado de pago - valores: "PENDING" | "PARTIAL" | "PAID"

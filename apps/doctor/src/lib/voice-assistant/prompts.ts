@@ -1124,7 +1124,7 @@ Use null for any field not explicitly mentioned.
 
 {
   "clientId": null,        // Always null - UI will handle client matching
-  "clientName": string,    // Client name mentioned in voice (for UI matching)
+  "clientName": string,    // PATIENT name mentioned in voice (for UI matching) — a sale is always to a patient
   "saleDate": "YYYY-MM-DD",
   "deliveryDate": "YYYY-MM-DD" | null,
   "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,
@@ -1148,11 +1148,11 @@ Use null for any field not explicitly mentioned.
 
 ## FIELD EXTRACTION GUIDELINES
 
-### Client Name (clientName)
-- Extract the client/customer name mentioned
-- Examples: "para Farmacia San Juan" → "Farmacia San Juan"
-- "venta a cliente López" → "López"
-- "al doctor García" → "Doctor García"
+### Patient Name (clientName)
+- Extract the PATIENT's name mentioned (every sale is to one of the doctor's patients)
+- Examples: "para la paciente María López" → "María López"
+- "venta a Juan Pérez" → "Juan Pérez"
+- "a López" → "López"
 - If not mentioned, use null
 
 ### Sale Date (saleDate)
@@ -1222,7 +1222,7 @@ Transcript: "Venta a Farmacia San Juan, 3 consultas médicas a 500 pesos cada un
 Output:
 {
   "clientId": null,
-  "clientName": "Farmacia San Juan",
+  "clientName": "María López",
   "saleDate": "[USE TODAY FROM CONTEXT]",
   "deliveryDate": null,
   "paymentStatus": "PAID",
@@ -1284,12 +1284,12 @@ Output:
 }
 
 ### Example 3: Partial Payment
-Transcript: "Venta a Clínica del Valle por 5000 pesos, 10 horas de consultoría médica a 500 cada hora, me dieron un anticipo de 2000 pesos."
+Transcript: "Venta a Ana Torres por 5000 pesos, 10 horas de consultoría médica a 500 cada hora, me dieron un anticipo de 2000 pesos."
 
 Output:
 {
   "clientId": null,
-  "clientName": "Clínica del Valle",
+  "clientName": "Ana Torres",
   "saleDate": "[USE TODAY FROM CONTEXT]",
   "deliveryDate": null,
   "paymentStatus": "PARTIAL",
@@ -1317,7 +1317,7 @@ Transcript: "Venta para Hospital Central, 5 cajas de material quirúrgico a 1000
 Output:
 {
   "clientId": null,
-  "clientName": "Hospital Central",
+  "clientName": "Roberto Sánchez",
   "saleDate": "[USE TODAY FROM CONTEXT]",
   "deliveryDate": null,
   "paymentStatus": "PAID",
@@ -2250,7 +2250,7 @@ function getSchemaForSessionType(sessionType: VoiceSessionType): string {
     case 'CREATE_SALE':
       return `{
   "clientId": number | null,        // ID del cliente (si coincide con existente)
-  "clientName": string | null,      // Nombre del cliente mencionado (para matching)
+  "clientName": string | null,      // Nombre del PACIENTE mencionado (para matching)
   "saleDate": string | null,        // YYYY-MM-DD
   "deliveryDate": string | null,    // YYYY-MM-DD (opcional)
   "paymentStatus": "PENDING" | "PARTIAL" | "PAID" | null,
@@ -2470,7 +2470,7 @@ function getAllFieldsForSessionType(
     case 'CREATE_SALE':
       return [
         { key: 'clientId', label: 'Cliente', description: 'ID del cliente (si coincide con uno existente)' },
-        { key: 'clientName', label: 'Nombre del cliente', description: 'Nombre mencionado en la voz' },
+        { key: 'clientName', label: 'Nombre del paciente', description: 'Nombre del paciente mencionado en la voz' },
         { key: 'saleDate', label: 'Fecha de venta', description: 'Fecha de la venta (YYYY-MM-DD)' },
         { key: 'deliveryDate', label: 'Fecha de entrega', description: 'Fecha de entrega (opcional)' },
         { key: 'paymentStatus', label: 'Estado de pago', description: 'PENDING, PARTIAL o PAID' },
@@ -2562,8 +2562,8 @@ function getSessionTypeGuidelines(sessionType: VoiceSessionType): string {
 
     case 'CREATE_SALE':
       return `Para CREAR VENTA:
-- Prioriza: nombre del cliente, productos/servicios con cantidades y precios, fecha de venta
-- clientId siempre usar null (el usuario seleccionará al cliente en la UI usando clientName como referencia)
+- Prioriza: nombre del PACIENTE, productos/servicios con cantidades y precios, fecha de venta
+- clientId siempre usar null (el usuario seleccionará al PACIENTE en la UI usando clientName como referencia)
 - items: Extrae cada producto o servicio mencionado
   * productId siempre null (el usuario puede vincular a productos existentes en la UI)
   * Identifica si es producto físico o servicio

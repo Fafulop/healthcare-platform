@@ -211,6 +211,15 @@ export async function DELETE(request: NextRequest, { params }: Params) {
         { status: 409 },
       );
     }
+    // VENTAS PACIENTE paso 3: `sales.visita_id` is a plain link (no FK), so deleting the visita
+    // would leave its sales pointing at nothing. Money is never dropped silently.
+    const ventas = await prisma.sale.count({ where: { visitaId, doctorId: ctx.doctorId } });
+    if (ventas > 0) {
+      return NextResponse.json(
+        { error: `La visita tiene ${ventas === 1 ? 'una venta' : `${ventas} ventas`}: no se puede borrar` },
+        { status: 409 },
+      );
+    }
 
     // Si una sesión de tratamiento la guarda, la FK la suelta (SET NULL) y la sesión vuelve a «por
     // agendar»: se audita en la SESIÓN también, como cualquier otro cambio de su visita.

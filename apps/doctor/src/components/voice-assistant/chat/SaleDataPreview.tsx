@@ -79,7 +79,7 @@ export function SaleDataPreview({
       {data.clientName && (
         <div className="border-l-2 border-purple-200 pl-3">
           <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            Cliente
+            Paciente
           </h4>
           <div className="bg-purple-50 rounded-lg p-2">
             <div className="flex items-center gap-2 mb-1">

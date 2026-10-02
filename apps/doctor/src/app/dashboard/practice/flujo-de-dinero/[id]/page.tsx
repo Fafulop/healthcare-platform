@@ -70,7 +70,7 @@ export default function FlujoDeDineroDetailPage() {
             <div className="flex gap-2">
               {entry.entryType === "ingreso" && (
                 <Link
-                  href={`/dashboard/facturacion?from=ledger&ledgerId=${entry.id}&amount=${entry.amount}&concept=${encodeURIComponent(entry.concept)}&clientName=${encodeURIComponent(entry.client?.businessName || "")}&formaDePago=${encodeURIComponent(entry.formaDePago || '')}`}
+                  href={`/dashboard/facturacion?from=ledger&ledgerId=${entry.id}&amount=${entry.amount}&concept=${encodeURIComponent(entry.concept)}&clientName=${encodeURIComponent(entry.client?.businessName || entry.counterpartyName || "")}&formaDePago=${encodeURIComponent(entry.formaDePago || '')}`}
                   onClick={(e) => {
                     if (entry.satCfdiUuid && !confirm('Este movimiento ya tiene una factura CFDI vinculada. ¿Emitir otra de todas formas?')) {
                       e.preventDefault();
@@ -221,8 +221,12 @@ export default function FlujoDeDineroDetailPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">
-                  {entry.transactionType === 'VENTA' ? 'Cliente' : 'Proveedor'}
+                  {entry.transactionType === 'VENTA' ? (entry.client ? 'Cliente' : 'Paciente') : 'Proveedor'}
                 </label>
+                {/* Ventas to a patient (VENTAS PACIENTE paso 3) carry no client: the name is on the entry. */}
+                {!entry.client && entry.transactionType === 'VENTA' && entry.counterpartyName && (
+                  <p className="text-gray-900 font-medium">{entry.counterpartyName}</p>
+                )}
                 {entry.client && (
                   <div>
                     <p className="text-gray-900 font-medium">{entry.client.businessName}</p>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { compradorDeVenta, type VentaPatient } from './comprador';
 import { authFetch } from '@/lib/auth-fetch';
 import { validateSaleTransition, SaleStatus } from '@/lib/practice/statusTransitions';
 import type { ToastType } from '@/components/ui/Toast';
@@ -38,7 +39,12 @@ export interface Sale {
   tax: string | null;
   total: string;
   amountPaid: string;
-  client: Client;
+  // VENTAS PACIENTE paso 3: new sales have a patient and no client; old ones only a client.
+  // Name the buyer with compradorDeVenta(), never sale.client directly.
+  client: Client | null;
+  patientId?: string | null;
+  visitaId?: string | null;
+  patient?: VentaPatient | null;
   quotation: Quotation | null;
 }
 
@@ -230,7 +236,7 @@ export function useVentasPage() {
       const pending = total - paid;
       const statusConf = statusConfig[sale.status as keyof typeof statusConfig] || statusConfig.PENDING;
       const paymentConf = paymentStatusConfig[sale.paymentStatus as keyof typeof paymentStatusConfig] || paymentStatusConfig.PENDING;
-      return [sale.saleNumber, sale.client.businessName, formatDate(sale.saleDate), formatCurrency(sale.total), formatCurrency(sale.amountPaid), pending > 0 ? formatCurrency(pending.toString()) : '-', paymentConf.label, statusConf.label];
+      return [sale.saleNumber, compradorDeVenta(sale).nombre, formatDate(sale.saleDate), formatCurrency(sale.total), formatCurrency(sale.amountPaid), pending > 0 ? formatCurrency(pending.toString()) : '-', paymentConf.label, statusConf.label];
     });
     autoTable(doc, {
       startY: doctorProfile ? 40 : 34,

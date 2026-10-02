@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Plus, Edit2, Trash2, ShoppingCart, Eye, Download, CheckSquare } from 'lucide-react';
 import InlineStatusSelect from '@/components/practice/InlineStatusSelect';
 import { statusConfig, paymentStatusConfig, type Sale } from './useVentasPage';
+import { compradorDeVenta } from './comprador';
 
 interface Props {
   sales: Sale[];
@@ -69,6 +70,7 @@ export function SalesTable({
         {sales.map((sale) => {
           const statusConf = statusConfig[sale.status as keyof typeof statusConfig] || statusConfig.PENDING;
           const paymentConf = paymentStatusConfig[sale.paymentStatus as keyof typeof paymentStatusConfig] || paymentStatusConfig.PENDING;
+          const comprador = compradorDeVenta(sale);
           return (
             <div key={sale.id} className={`bg-white rounded-lg shadow p-4 ${selectedIds.has(sale.id) ? 'ring-2 ring-blue-400' : ''}`}>
               <div className="flex items-start justify-between mb-3">
@@ -85,9 +87,9 @@ export function SalesTable({
                 </div>
               </div>
               <div className="mb-3">
-                <div className="text-sm font-medium text-gray-900">{sale.client.businessName}</div>
-                {sale.client.contactName && sale.client.contactName !== sale.client.businessName && (
-                  <div className="text-xs text-gray-500">{sale.client.contactName}</div>
+                <div className="text-sm font-medium text-gray-900">{comprador.nombre}</div>
+                {comprador.detalle && (
+                  <div className="text-xs text-gray-500">{comprador.detalle}</div>
                 )}
               </div>
               <div className="flex gap-4 text-xs text-gray-600 mb-3">
@@ -135,6 +137,7 @@ export function SalesTable({
               {sales.map((sale) => {
                 const statusConf = statusConfig[sale.status as keyof typeof statusConfig] || statusConfig.PENDING;
                 const paymentConf = paymentStatusConfig[sale.paymentStatus as keyof typeof paymentStatusConfig] || paymentStatusConfig.PENDING;
+                const comprador = compradorDeVenta(sale);
                 const balance = parseFloat(sale.total) - parseFloat(sale.amountPaid || '0');
                 return (
                   <tr key={sale.id} className={`hover:bg-gray-50 ${selectedIds.has(sale.id) ? 'bg-blue-50' : ''}`}>
@@ -148,9 +151,9 @@ export function SalesTable({
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{sale.client.businessName}</div>
-                      {sale.client.contactName && sale.client.contactName !== sale.client.businessName && (
-                        <div className="text-sm text-gray-500">{sale.client.contactName}</div>
+                      <div className="font-medium text-gray-900">{comprador.nombre}</div>
+                      {comprador.detalle && (
+                        <div className="text-sm text-gray-500">{comprador.detalle}</div>
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">{formatDate(sale.saleDate)}</td>

@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { authFetch } from '@/lib/auth-fetch';
+import type { VentaPatient } from './comprador';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -53,7 +54,11 @@ export interface Sale {
   amountPaid: string;
   notes: string | null;
   termsAndConditions: string | null;
-  client: Client;
+  // VENTAS PACIENTE paso 3: name the buyer with compradorDeVenta(), never sale.client directly.
+  client: Client | null;
+  patientId?: string | null;
+  visitaId?: string | null;
+  patient?: VentaPatient | null;
   quotation: SaleQuotation | null;
   items: SaleItem[];
 }

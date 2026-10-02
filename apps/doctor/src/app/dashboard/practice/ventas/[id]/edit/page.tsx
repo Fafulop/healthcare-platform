@@ -12,6 +12,9 @@ import { SaleItemsSection } from '../../_components/SaleItemsSection';
 import { SaleProductModal } from '../../_components/SaleProductModal';
 import { SaleCustomItemModal } from '../../_components/SaleCustomItemModal';
 import { SaleSummaryCard } from '../../_components/SaleSummaryCard';
+import { compradorDeVenta, type Comprador } from '../../_components/comprador';
+
+interface PacienteOpcion { id: string; firstName: string; lastName: string }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -24,6 +27,16 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingSale, setLoadingSale] = useState(true);
+  // VENTAS PACIENTE paso 3: the buyer is a patient. It can be switched to another patient, except
+  // on a sale filed in a visita (the API refuses too). Old client-only sales show their client,
+  // read-only, and keep it.
+  const [pacientes, setPacientes] = useState<PacienteOpcion[]>([]);
+  const [patientId, setPatientId] = useState<string | null>(null);
+  const [deVisita, setDeVisita] = useState(false);
+  const [compradorViejo, setCompradorViejo] = useState<Comprador | null>(null);
+  // The sale's patient no longer exists (plain link, no FK): shown as such, never as «Seleccionar…».
+  const [pacienteBorrado, setPacienteBorrado] = useState(false);
+  const [pacientesError, setPacientesError] = useState(false);
 
   useEffect(() => {
     params.then(p => setSaleId(p.id));
@@ -31,12 +44,21 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     if (session?.user?.email && saleId) {
-      form.fetchClients();
       form.fetchProducts();
       fetchSale();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleId, session?.user?.email]);
+
+  // The picker list comes AFTER the sale: one request (`include` = this sale's patient, even if
+  // archived), under the `ventas` toggle (not `expedientes`).
+  const cargarPacientes = (incluir: string | null) => {
+    const include = incluir ? `?include=${encodeURIComponent(incluir)}` : '';
+    authFetch(`${API_URL}/api/practice-management/ventas/pacientes${include}`)
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(d => setPacientes(d?.data || []))
+      .catch(() => setPacientesError(true));
+  };
 
   const fetchSale = async () => {
     if (!saleId) return;
@@ -46,7 +68,12 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
       if (!res.ok) throw new Error('Error al cargar venta');
       const { data: sale } = await res.json();
 
-      form.setSelectedClientId(sale.client.id);
+      setPatientId(sale.patientId ?? null);
+      setDeVisita(!!sale.visitaId);
+      setPacienteBorrado(!!sale.patientId && !sale.patient);
+      setCompradorViejo(sale.patientId ? null : compradorDeVenta(sale));
+      // An old client sale keeps its client: no picker to load.
+      if (sale.patientId) cargarPacientes(sale.patientId);
       form.setSaleDate(sale.saleDate.split('T')[0]);
       form.setDeliveryDate(sale.deliveryDate ? sale.deliveryDate.split('T')[0] : '');
       form.setNotes(sale.notes || '');
@@ -78,7 +105,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
   };
 
   const handleSubmit = async () => {
-    if (!saleId || !form.selectedClientId) { toast.error('Debe seleccionar un paciente'); return; }
+    if (!saleId || (!patientId && !compradorViejo)) { toast.error('Debe seleccionar un paciente'); return; }
     if (form.items.length === 0) { toast.error('Debe agregar al menos un servicio'); return; }
     if (!session) return;
     setSubmitting(true); setError(null);
@@ -86,7 +113,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
       const res = await authFetch(`${API_URL}/api/practice-management/ventas/${saleId}`, {
         method: 'PUT',
         body: JSON.stringify({
-          clientId: form.selectedClientId, saleDate: form.saleDate,
+          ...(patientId ? { patientId } : {}), saleDate: form.saleDate,
           deliveryDate: form.deliveryDate || null, status: 'PENDING',
           paymentStatus: form.paymentStatus, amountPaid: form.amountPaid,
           items: form.items.map(it => ({
@@ -104,10 +131,9 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
     finally { setSubmitting(false); }
   };
 
-  const selectedClient = form.clients.find(c => c.id === form.selectedClientId);
   const subtotal = form.calculateSubtotal(), tax = form.calculateTax(), tax2 = form.calculateTax2(), total = form.calculateTotal();
 
-  if (status === 'loading' || form.loadingClients || form.loadingProducts || loadingSale) {
+  if (status === 'loading' || form.loadingProducts || loadingSale) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -141,29 +167,38 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Información del Paciente</h2>
             {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>}
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Paciente *</label>
-              <select value={form.selectedClientId || ''} onChange={e => form.setSelectedClientId(Number(e.target.value))}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="">Seleccionar paciente...</option>
-                {form.clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.businessName}{c.contactName ? ` - ${c.contactName}` : ''}</option>
-                ))}
-              </select>
-            </div>
-
-            {selectedClient && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-600 text-xl">✓</span>
-                  <div className="flex-1">
-                    <div className="font-semibold text-gray-900">{selectedClient.businessName}</div>
-                    {selectedClient.contactName && <div className="text-sm text-gray-600">Contacto: {selectedClient.contactName}</div>}
-                    {selectedClient.email && <div className="text-sm text-gray-600">📧 {selectedClient.email}</div>}
-                    {selectedClient.phone && <div className="text-sm text-gray-600">📞 {selectedClient.phone}</div>}
-                    {selectedClient.rfc && <div className="text-sm text-gray-600">RFC: {selectedClient.rfc}</div>}
-                  </div>
-                </div>
+            {compradorViejo ? (
+              // Old sale (before patients were the buyer): its client is shown and kept as-is.
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                <div className="text-xs text-gray-500 mb-1">Cliente (venta anterior a pacientes)</div>
+                <div className="font-semibold text-gray-900">{compradorViejo.nombre}</div>
+                {compradorViejo.detalle && <div className="text-sm text-gray-600">Contacto: {compradorViejo.detalle}</div>}
+              </div>
+            ) : (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Paciente *</label>
+                <select
+                  value={patientId || ''}
+                  onChange={e => setPatientId(e.target.value || null)}
+                  disabled={deVisita}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
+                >
+                  <option value="">Seleccionar paciente...</option>
+                  {pacienteBorrado && patientId && !pacientes.some(p => p.id === patientId) && (
+                    <option value={patientId}>Paciente eliminado</option>
+                  )}
+                  {pacientes.map(p => (
+                    <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
+                  ))}
+                </select>
+                {deVisita && (
+                  <p className="text-xs text-gray-500 mt-1">Esta venta está registrada en una visita: el paciente no se cambia.</p>
+                )}
+                {pacientesError && (
+                  <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                    No se pudo cargar la lista de pacientes: puedes guardar la venta, pero no cambiarle el paciente.
+                  </p>
+                )}
               </div>
             )}
 
@@ -229,7 +264,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
             itemCount={form.items.length} subtotal={subtotal} tax={tax} tax2={tax2} total={total}
             taxColumnLabel={form.taxColumnLabel} taxColumnLabel2={form.taxColumnLabel2}
             amountPaid={form.amountPaid} paymentStatus={form.paymentStatus}
-            submitting={submitting} canSubmit={!!form.selectedClientId && form.items.length > 0}
+            submitting={submitting} canSubmit={(!!patientId || !!compradorViejo) && form.items.length > 0}
             submitLabel="Actualizar Venta" submittingLabel="Actualizando..."
             onSubmit={handleSubmit}
           />
