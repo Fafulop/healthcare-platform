@@ -20,6 +20,7 @@ import { ArrowLeft, Download, Loader2, AlertTriangle, CheckCircle2 } from 'lucid
 import { authFetch } from '@/lib/auth-fetch';
 import { usePermissions } from '@/lib/permissions-client';
 import { VerPlanesLink } from '@/components/layout/VerPlanesLink';
+import { ImportarDocumentos } from './_components/ImportarDocumentos';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -47,6 +48,8 @@ interface CommitResult {
 
 export default function ImportarPacientesPage() {
   const { isOwner, loading } = usePermissions();
+  // PACIENTE MIGRATION I2: dos pestañas — la hoja de cálculo (pacientes y consultas) y los DOCUMENTOS.
+  const [pestana, setPestana] = useState<'excel' | 'documentos'>('excel');
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -159,6 +162,19 @@ export default function ImportarPacientesPage() {
         cálculo.
       </p>
 
+      <div className="mt-4 flex gap-1 border-b border-gray-200">
+        {([['excel', 'Pacientes (Excel)'], ['documentos', 'Documentos de pacientes']] as const).map(([k, t]) => (
+          <button
+            key={k}
+            onClick={() => setPestana(k)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${pestana === k ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {pestana === 'documentos' ? <ImportarDocumentos /> : (<>
       {/* Paso 1 */}
       <ol className="mt-6 space-y-4">
         <li className="rounded-lg border border-gray-200 bg-white p-5">
@@ -282,6 +298,7 @@ export default function ImportarPacientesPage() {
           </Link>
         </div>
       )}
+      </>)}
     </div>
   );
 }

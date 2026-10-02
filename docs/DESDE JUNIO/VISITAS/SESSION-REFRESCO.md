@@ -23,6 +23,12 @@
 - [ ] **Correos** — que llegaron a `quebradita.a@gmail.com` el resumen de T5 y el aviso de reagendar
       (sólo el usuario puede verlo).
 - [ ] **Ayudante sin `flujo`** — no debe ver nada del paquete (precio, Pagado/Saldo, «Registrar pago»).
+- [ ] **Importar documentos (PACIENTE MIGRATION I3)** — Expedientes → Importar → «Documentos de
+      pacientes», en dr-prueba, con archivos FALSOS: un Word (con una imagen adentro), un PDF, una foto
+      JPG, una carpeta con el nombre de un paciente, un homónimo, un `.doc`, una HEIC y uno sin paciente.
+      Ver: emparejado, fechas, avisos, «Importar», reintentar, re-importar (→ «Ya estaba importado»); en
+      el expediente: Docs y Galería («Historial importado») y la nota con su fecha. BD: bitácora con
+      `batchId`. Detalle: `PACIENTE MIGRATION/02-DISENO-importar-documentos.md` §7.
 - [ ] *(Cuando se vuelva a encender el asistente — hoy OCULTO, `ASISTENTE_IA_VISIBLE = false`)*: completar
       una sesión cubierta y «qué falta facturar» con pagos de paquete.
 

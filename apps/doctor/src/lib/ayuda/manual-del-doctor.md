@@ -612,7 +612,10 @@ En la lista puedes marcar una como **predeterminada**: se pone sola al abrir «A
 
 ### Importar pacientes
 
-**Sólo el titular.** «Importar»:
+**Sólo el titular.** «Importar» tiene dos pestañas: **«Pacientes (Excel)»** (los pacientes y sus
+consultas, desde una hoja de cálculo) y **«Documentos de pacientes»** (sus archivos).
+
+**Pacientes (Excel):**
 
 1. **«Descargar plantilla»** — un Excel con las columnas y una hoja de instrucciones. Llénalo
    sin cambiarle el nombre a las hojas.
@@ -622,6 +625,28 @@ En la lista puedes marcar una como **predeterminada**: se pone sola al abrir «A
 3. Confirma la importación.
 
 Si tu plan tiene tope de pacientes, la importación lo respeta.
+
+**Documentos de pacientes** — para traer los archivos que ya tienes de cada paciente. **No se leen ni
+se resumen** (no usa IA):
+
+- **PDF y fotos (JPG, PNG, WebP)** se guardan en el **Docs y Galería** del paciente, como
+  **«Historial importado»**, «Sin visita».
+- **Word (.docx)** se vuelve una **nota** del paciente con el texto del documento; su primera línea dice
+  «Importado de *archivo.docx* · *fecha*». Las imágenes de adentro del Word **no pasan** (la pantalla
+  avisa); si importan, guárdalo como PDF. Un Word viejo **.doc**, uno de más de 5 MB, uno sin texto o
+  uno protegido no se pueden: guárdalos como PDF.
+- No se aceptan fotos **HEIC** (las del iPhone): conviértelas a JPG.
+
+Cómo se usa: suelta los archivos o **una carpeta entera** (o «Elegir archivos» / «Elegir carpeta»),
+hasta 300 por importación. Para cada archivo el sistema propone el **paciente** por el nombre de su
+carpeta o del archivo (o por su **folio**), sin importar acentos ni el orden de nombre y apellidos; si
+hay **varios pacientes con el mismo nombre** o no lo reconoce, lo eliges tú — y al elegirlo se pone
+también en los demás archivos de esa carpeta. La **fecha** sale del nombre del archivo
+(«2023-05-14», «14-05-2023» —día y mes—, «14 may 2023») o, si no trae, de la fecha del archivo; la
+puedes cambiar. Abajo ves cuánto se va a subir y cuánto espacio te queda; **«Importar»** sube y guarda
+(no cierres la página mientras importa). Al final, «Reintentar fallidos» vuelve a intentar sólo lo que
+falló, y si importas otra vez lo mismo, lo que ya estaba se salta («Ya estaba importado»). Los
+pacientes tienen que existir antes: si no, impórtalos primero con «Pacientes (Excel)».
 
 ### Archivar un paciente
 

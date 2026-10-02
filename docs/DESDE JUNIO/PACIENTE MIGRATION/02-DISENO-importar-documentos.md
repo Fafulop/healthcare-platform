@@ -150,6 +150,20 @@ sin texto, > 100 000 caracteres, fecha futura y 31-feb, paciente ajeno, categor�
 en México (`14 may` = `T18:00Z`) en `captureDate` y en `createdAt`/`updatedAt` de la nota (Prisma acepta
 `updatedAt` explícito), bitácora con `batchId`. Nadie la llama todavía: la pantalla es I2.
 
+**✅ I2 escrito (2026-10-01):** pestañas «Pacientes (Excel)» / «Documentos de pacientes» en Importar
+(`importar/_components/ImportarDocumentos.tsx` + `useImportarDocumentos.ts`). Lo puro (tipos, emparejar por
+nombre/folio, fecha del nombre, carpeta) en `lib/importar-documentos-emparejar.ts` → 38/38
+(`scripts/patient-import/emparejar-probe.ts`); el Word → texto en `lib/importar-documentos-word.ts` con
+`mammoth` (cargado sólo si hay Word; `{buffer}` en Node, `{arrayBuffer}` en el navegador) → 9/9 contra
+.docx de verdad que arma `scripts/patient-import/word-probe.ts` (texto, tabla, imagen avisada, sólo
+imagen, > 100 000, dañado). Sube de 10 en 10 (`uploadFiles`, que por default espera el `onUploadComplete`
+⇒ el `StoredFile` ya existe al guardar), empata el resultado por nombre+tamaño, guarda cada tanda en
+cuanto sube, reintenta sin volver a subir, mismo `batchId`. `next build` del app del doctor OK.
+Límite conocido (review de I2): el duplicado (G1) se detecta al GUARDAR, después de subir ⇒ re-importar
+la misma carpeta no duplica registros pero SÍ vuelve a subir los archivos (copias sin usar que gastan
+cupo). Arreglo en curso: preguntar al servidor qué ya está importado ANTES de subir. Prueba a
+mano PENDIENTE (I3) — en la lista de pruebas de Chrome de `VISITAS/SESSION-REFRESCO.md`.
+
 Deshacer un lote: por `batchId` en la bitácora (un script, como el de la `.xlsx`; no hay botón).
 
 Tamaño estimado: parecido a F4 de la `.xlsx` (la UI del doctor). Sin migración de base de datos.
