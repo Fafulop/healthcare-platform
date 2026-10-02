@@ -1847,7 +1847,13 @@ enum QuotationStatus {
 model Sale {
   id                 Int              @id @default(autoincrement())
   doctorId           String           @map("doctor_id")
-  clientId           Int              @map("client_id")
+  // VENTAS PACIENTE paso 3 (2026-10-02): the buyer is ALWAYS a patient. Old sales (test accounts)
+  // keep their client and no patient; DB CHECK `sales_paciente_o_cliente` requires one of the two.
+  // SQL: migrations/add-sales-patient-visita.sql
+  clientId           Int?             @map("client_id")
+  // Plain links, no cross-schema FK on purpose (like LedgerEntry.patientId); the API checks ownership.
+  patientId          String?          @map("patient_id")
+  visitaId           String?          @map("visita_id")
   quotationId        Int?             @map("quotation_id") // Optional: links to original quotation
 
   // Sale Information
@@ -1878,13 +1884,15 @@ model Sale {
 
   // Relations
   doctor             Doctor           @relation("DoctorSales", fields: [doctorId], references: [id], onDelete: Cascade)
-  client             Client           @relation("ClientSales", fields: [clientId], references: [id], onDelete: Restrict)
+  client             Client?          @relation("ClientSales", fields: [clientId], references: [id], onDelete: Restrict)
   quotation          Quotation?       @relation("QuotationSales", fields: [quotationId], references: [id], onDelete: SetNull)
   items              SaleItem[]
   ledgerEntries      LedgerEntry[]    @relation("SaleLedgerEntries")
 
   @@index([doctorId, status])
   @@index([doctorId, clientId])
+  @@index([doctorId, patientId])
+  @@index([visitaId])
   @@index([doctorId, paymentStatus])
   @@index([saleNumber])
   @@index([saleDate])

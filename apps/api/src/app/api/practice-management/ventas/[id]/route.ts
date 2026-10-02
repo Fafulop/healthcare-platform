@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { calculatePaymentStatus, computeItemTotals } from '@/lib/practice-utils';
+import { calculatePaymentStatus, computeItemTotals, withSalePatients, resolveSalePatient, salePatientName } from '@/lib/practice-utils';
 
 // PATCH /api/practice-management/ventas/:id
 // Lightweight partial update: { status } or { amountPaid }
@@ -117,7 +117,8 @@ export async function GET(
       return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
     }
 
-    return NextResponse.json({ data: sale });
+    const [conPaciente] = await withSalePatients(doctor.id, [sale]);
+    return NextResponse.json({ data: conPaciente });
   } catch (error: any) {
     console.error('Error al obtener venta:', error);
     if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
@@ -149,7 +150,8 @@ export async function PUT(
     }
 
     const {
-      clientId,
+      patientId,
+      clientId, // TRANSITIONAL — see below
       saleDate,
       deliveryDate,
       items,
@@ -159,6 +161,60 @@ export async function PUT(
       status,
       amountPaid,
     } = await request.json();
+
+    // ⚠️ TRANSITIONAL (2026-10-02), same window as POST: the OLD edit page sends `clientId` (and no
+    // `patientId`) on a client-only sale. Honor it the old way instead of silently dropping the change.
+    // REMOVE with the POST bridge (docs/DESDE JUNIO/VENTAS PACIENTE/01-DISENO.md §6).
+    let clienteViejo: number | undefined;
+    if (patientId === undefined && clientId && !existingSale.patientId) {
+      const c = await prisma.client.findFirst({ where: { id: parseInt(clientId), doctorId: doctor.id }, select: { id: true } });
+      if (!c) return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
+      clienteViejo = c.id;
+    }
+
+    // VENTAS PACIENTE paso 3: the patient can be CHANGED (re-checked) but never removed. Refused when:
+    //   · the sale is filed in a visita (re-filing it would move it into another patient's history);
+    //   · it is an old CLIENT sale (it would end up with two buyers: client + patient);
+    //   · its money is already INVOICED — the CFDI carries the old patient's RFC, and renaming the
+    //     entry would put one patient's name next to another one's factura.
+    let nuevoPaciente: string | undefined;
+    let nuevoNombre: string | undefined;
+    if (patientId !== undefined && patientId !== existingSale.patientId) {
+      const buyer = await resolveSalePatient(doctor.id, patientId, undefined);
+      if ('error' in buyer) {
+        return NextResponse.json({ error: buyer.error }, { status: buyer.status });
+      }
+      if (existingSale.visitaId) {
+        return NextResponse.json(
+          { error: 'Esta venta es de una visita: no se le puede cambiar el paciente' },
+          { status: 422 }
+        );
+      }
+      if (existingSale.clientId) {
+        return NextResponse.json(
+          { error: 'Esta venta es de un cliente (anterior a pacientes): no se le puede poner paciente' },
+          { status: 422 }
+        );
+      }
+      const facturada = await prisma.ledgerEntry.findFirst({
+        where: {
+          saleId, doctorId: doctor.id,
+          OR: [
+            { hasFactura: true }, { satCfdiUuid: { not: null } }, { counterpartyRfc: { not: null } },
+            { facturas: { some: {} } }, { facturasXml: { some: {} } }, { cfdisEmitted: { some: {} } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (facturada) {
+        return NextResponse.json(
+          { error: 'Esta venta ya tiene factura: no se le puede cambiar el paciente' },
+          { status: 422 }
+        );
+      }
+      nuevoPaciente = buyer.patient.id;
+      nuevoNombre = salePatientName(buyer.patient);
+    }
 
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -189,7 +245,8 @@ export async function PUT(
       const updatedSale = await tx.sale.update({
         where: { id: saleId },
         data: {
-          clientId: clientId ? parseInt(clientId) : existingSale.clientId,
+          ...(nuevoPaciente ? { patientId: nuevoPaciente } : {}),
+          ...(clienteViejo ? { clientId: clienteViejo } : {}),
           saleDate: saleDate ? new Date(saleDate) : existingSale.saleDate,
           deliveryDate: deliveryDate !== undefined ? (deliveryDate ? new Date(deliveryDate) : null) : existingSale.deliveryDate,
           status: finalStatus,
@@ -225,6 +282,18 @@ export async function PUT(
               amount: total,
               paymentStatus: calculatePaymentStatus(finalAmountPaid, total),
               amountPaid: finalAmountPaid,
+              // The money follows the sale's patient.
+              ...(nuevoPaciente
+                ? {
+                    patientId: nuevoPaciente,
+                    counterpartyName: nuevoNombre,
+                    // The concept names the patient too (and seeds the factura prefill). Rewrite it ONLY
+                    // if it is still the generated one: a concept the doctor edited in Flujo is theirs.
+                    ...(/^Venta \S+ - (Paciente|Cliente): /.test(linkedLedger.concept ?? '')
+                      ? { concept: `Venta ${existingSale.saleNumber} - Paciente: ${nuevoNombre}` }
+                      : {}),
+                  }
+                : {}),
             },
           });
         }
@@ -233,7 +302,8 @@ export async function PUT(
       return updatedSale;
     });
 
-    return NextResponse.json({ data: sale });
+    const [conPaciente] = await withSalePatients(doctor.id, [sale]);
+    return NextResponse.json({ data: conPaciente });
   } catch (error: any) {
     console.error('Error al actualizar venta:', error);
     if (error.message?.includes('Doctor') || error.message?.includes('access required')) {

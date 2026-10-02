@@ -379,6 +379,59 @@ export async function getDefaultArea(
   };
 }
 
+// ─── Sales ↔ patients (VENTAS PACIENTE paso 3) ──────────────────────────────
+
+/**
+ * What a sale carries about its patient (sales.patient_id is a plain link, no Prisma relation).
+ * Name + internal id ONLY: these routes are behind the `ventas` toggle, and a helper with Ventas but
+ * without Expedientes must not read the patient's contact or fiscal data through them.
+ */
+export const SALE_PATIENT_SELECT = {
+  id: true, firstName: true, lastName: true, internalId: true,
+} as const;
+export type SalePatient = { id: string; firstName: string; lastName: string; internalId: string };
+
+/** The ONE way a sale names its patient (ledger concept + counterpartyName), capped to the column. */
+export function salePatientName(p: Pick<SalePatient, 'firstName' | 'lastName'>): string {
+  return `${p.firstName} ${p.lastName}`.trim().slice(0, 300);
+}
+
+/**
+ * Attach `patient` to each sale with ONE query for the whole page. `sales.patient_id` lives in
+ * practice_management and `patients` in medical_records, with no FK on purpose, so Prisma cannot
+ * `include` it. A patient that no longer exists (or belongs to another doctor) comes back as null.
+ */
+export async function withSalePatients<T extends { patientId: string | null }>(
+  doctorId: string,
+  sales: T[],
+): Promise<(T & { patient: SalePatient | null })[]> {
+  const ids = [...new Set(sales.map((s) => s.patientId).filter((x): x is string => !!x))];
+  const patients = ids.length
+    ? await prisma.patient.findMany({ where: { id: { in: ids }, doctorId }, select: SALE_PATIENT_SELECT })
+    : [];
+  const byId = new Map(patients.map((p) => [p.id, p]));
+  return sales.map((s) => ({ ...s, patient: s.patientId ? byId.get(s.patientId) ?? null : null }));
+}
+
+/**
+ * Validate the buyer of a NEW/edited sale: the patient must be the doctor's, and the visita (if any)
+ * must be the doctor's AND that patient's. Returns the patient, or an error message for a 4xx.
+ */
+export async function resolveSalePatient(
+  doctorId: string,
+  patientId: unknown,
+  visitaId: unknown,
+): Promise<{ patient: SalePatient; visitaId: string | null } | { error: string; status: number }> {
+  if (typeof patientId !== 'string' || !patientId) return { error: 'El paciente es requerido', status: 400 };
+  const patient = await prisma.patient.findFirst({ where: { id: patientId, doctorId }, select: SALE_PATIENT_SELECT });
+  if (!patient) return { error: 'Paciente no encontrado', status: 404 };
+  if (visitaId === undefined || visitaId === null || visitaId === '') return { patient, visitaId: null };
+  if (typeof visitaId !== 'string') return { error: 'Visita inválida', status: 400 };
+  const visita = await prisma.visita.findFirst({ where: { id: visitaId, doctorId, patientId }, select: { id: true } });
+  if (!visita) return { error: 'La visita no es de este paciente', status: 404 };
+  return { patient, visitaId: visita.id };
+}
+
 // ─── Pagination ─────────────────────────────────────────────────────────────
 
 export interface PaginationParams {

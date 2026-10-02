@@ -9,6 +9,10 @@ import {
   parsePagination,
   buildPaginationMeta,
   getDefaultArea,
+  withSalePatients,
+  resolveSalePatient,
+  salePatientName,
+  type SalePatient,
 } from '@/lib/practice-utils';
 
 // GET /api/practice-management/ventas
@@ -20,6 +24,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const paymentStatus = searchParams.get('paymentStatus');
     const clientId = searchParams.get('clientId');
+    const patientId = searchParams.get('patientId');
+    const visitaId = searchParams.get('visitaId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const search = searchParams.get('search');
@@ -29,6 +35,8 @@ export async function GET(request: NextRequest) {
     if (status && status !== 'all') where.status = status;
     if (paymentStatus && paymentStatus !== 'all') where.paymentStatus = paymentStatus;
     if (clientId) where.clientId = parseInt(clientId);
+    if (patientId) where.patientId = patientId;
+    if (visitaId) where.visitaId = visitaId;
 
     if (startDate || endDate) {
       where.saleDate = {};
@@ -37,9 +45,27 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
+      // The patient is a plain link (no relation to filter through): match names first, then ids.
+      const words = search.trim().split(/\s+/).filter(Boolean);
+      const matchingPatients = words.length
+        ? await prisma.patient.findMany({
+            where: {
+              doctorId: doctor.id,
+              AND: words.map((w) => ({
+                OR: [
+                  { firstName: { contains: w, mode: 'insensitive' as const } },
+                  { lastName: { contains: w, mode: 'insensitive' as const } },
+                ],
+              })),
+            },
+            select: { id: true },
+            take: 200,
+          })
+        : [];
       where.OR = [
         { saleNumber: { contains: search, mode: 'insensitive' } },
         { client: { businessName: { contains: search, mode: 'insensitive' } } },
+        ...(matchingPatients.length ? [{ patientId: { in: matchingPatients.map((p) => p.id) } }] : []),
       ];
     }
 
@@ -64,7 +90,10 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({ data: sales, pagination: buildPaginationMeta(total, pagination) });
+    return NextResponse.json({
+      data: await withSalePatients(doctor.id, sales),
+      pagination: buildPaginationMeta(total, pagination),
+    });
   } catch (error: any) {
     console.error('Error al obtener ventas:', error);
     if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
@@ -81,7 +110,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const {
-      clientId,
+      patientId,
+      visitaId,
+      clientId, // TRANSITIONAL — see below
       quotationId,
       saleDate,
       deliveryDate,
@@ -94,9 +125,6 @@ export async function POST(request: NextRequest) {
       formaDePago,
     } = body;
 
-    if (!clientId) {
-      return NextResponse.json({ error: 'El cliente es requerido' }, { status: 400 });
-    }
     if (!items || items.length === 0) {
       return NextResponse.json(
         { error: 'Debe agregar al menos un producto o servicio' },
@@ -104,13 +132,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify client ownership
-    const client = await prisma.client.findFirst({
-      where: { id: parseInt(clientId), doctorId: doctor.id },
-    });
-    if (!client) {
-      return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
+    // VENTAS PACIENTE paso 3: the buyer is ALWAYS a patient (the old form made a name-matched copy of
+    // the patient in `clients`). Ownership of patient + visita checked.
+    //
+    // ⚠️ TRANSITIONAL (2026-10-02): a body with `clientId` and NO `patientId` is the OLD doctor UI, still
+    // live for the minutes between this API deploying and apps/doctor deploying (two pushes, API
+    // first). It is served the old way (client sale). REMOVE once apps/doctor runs the patient UI —
+    // tracked in docs/DESDE JUNIO/VENTAS PACIENTE/01-DISENO.md §6.
+    let paciente: { patient: SalePatient; visitaId: string | null } | null = null;
+    let legacyClient: { id: number; businessName: string } | null = null;
+    if (!patientId && clientId) {
+      legacyClient = await prisma.client.findFirst({
+        where: { id: parseInt(clientId), doctorId: doctor.id },
+        select: { id: true, businessName: true },
+      });
+      if (!legacyClient) return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
+    } else {
+      const buyer = await resolveSalePatient(doctor.id, patientId, visitaId);
+      if ('error' in buyer) {
+        return NextResponse.json({ error: buyer.error }, { status: buyer.status });
+      }
+      paciente = buyer;
     }
+    const buyerName = paciente ? salePatientName(paciente.patient) : legacyClient!.businessName;
 
     // Verify quotation ownership if provided
     if (quotationId) {
@@ -138,7 +182,9 @@ export async function POST(request: NextRequest) {
           const newSale = await tx.sale.create({
             data: {
               doctorId: doctor.id,
-              clientId: parseInt(clientId),
+              patientId: paciente?.patient.id ?? null,
+              visitaId: paciente?.visitaId ?? null,
+              clientId: legacyClient?.id ?? null,
               quotationId: quotationId ? parseInt(quotationId) : null,
               saleNumber,
               saleDate: saleDateValue,
@@ -167,7 +213,7 @@ export async function POST(request: NextRequest) {
             data: {
               doctorId: doctor.id,
               amount: total,
-              concept: `Venta ${saleNumber} - Cliente: ${client.businessName}`,
+              concept: `Venta ${saleNumber} - ${paciente ? 'Paciente' : 'Cliente'}: ${buyerName}`,
               entryType: 'ingreso',
               transactionDate: saleDateValue,
               area: defaultArea.area,
@@ -176,7 +222,10 @@ export async function POST(request: NextRequest) {
               internalId: ledgerInternalId,
               transactionType: 'VENTA',
               saleId: newSale.id,
-              clientId: parseInt(clientId),
+              patientId: paciente?.patient.id ?? null,
+              clientId: legacyClient?.id ?? null,
+              // Same as a cita's entry: Flujo de Dinero shows this name (no client on patient sales).
+              ...(paciente ? { counterpartyName: buyerName } : {}),
               paymentStatus: calculatePaymentStatus(paidAmount, total),
               amountPaid: paidAmount,
               formaDePago: formaDePago || 'transferencia',
@@ -194,7 +243,7 @@ export async function POST(request: NextRequest) {
     }
     if (!sale) throw new Error('No se pudo generar un número de venta único');
 
-    return NextResponse.json({ data: sale }, { status: 201 });
+    return NextResponse.json({ data: { ...sale, patient: paciente?.patient ?? null } }, { status: 201 });
   } catch (error: any) {
     console.error('Error al crear venta:', error);
     if (error.message?.includes('Doctor') || error.message?.includes('access required')) {

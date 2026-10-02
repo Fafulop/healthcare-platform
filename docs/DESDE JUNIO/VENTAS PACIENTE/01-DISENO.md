@@ -36,6 +36,12 @@
    hecho con el cobro que la cita YA tiene. Sólo los conceptos EXTRA de la visita son ventas reales
    (con su `LedgerEntry`). El modelo de dinero de la cita no se toca.
 3. **«Automático» = al COMPLETARSE la cita** (ahí ya se sabe que pasó y a qué precio).
+5. **(2026-10-02, sustituye a la 1) El comprador es SIEMPRE un paciente.** Nada de «Empresa» ni
+   de lista de clientes para el doctor: fuera del alcance del proyecto. Contexto medido en prod:
+   8 de los 9 `clients` tenían el mismo nombre que un paciente — Nueva Venta ya ofrecía pacientes,
+   pero por detrás creaba una COPIA en `clients` empatada por NOMBRE (`resolvePatientAsClient`).
+   Las ventas viejas (cuentas de prueba, según el usuario) **se dejan como están**: sin backfill;
+   se siguen pintando con su cliente.
 4. **Dos catálogos por ahora:** se leen los servicios de Citas tal cual, junto a «Productos y
    Servicios». Fusionarlos queda para después.
 
@@ -57,7 +63,7 @@ Los pasos 3 y 4 llevan plan propio por escrito y smoke test read-only contra pro
 |---|---|---|
 | 1 | construido 2026-10-02 (IVA 0 % para los de Citas; arreglo de `itemType` en Ventas y Cotizaciones); code review hecho, 6 de 9 hallazgos arreglados | — |
 | 2 | construido 2026-10-02: «Nota de venta» (`lib/nota-venta-pdf.ts` + `ventas/_components/NotaVentaModal.tsx`), reemplaza la descarga «VENTA EN FIRME» (que imprimía 16 % en cada renglón de 0 %). PDFs renderizados y LEÍDOS (A4 con el diseño real de dr-prueba; media carta 40 renglones × 5 hojas con membrete; media carta con nombres largos y venta cancelada). Code review: 6 de 9 arreglados | — |
-| 3 | — | — |
+| 3 | construido 2026-10-02: `sales.patient_id` + `visita_id` (`migrations/add-sales-patient-visita.sql`, probada contra prod en transacción que siempre revienta), comprador = paciente en API y pantallas, sección «Ventas» en la visita, `GET /ventas/pacientes` bajo el toggle `ventas`. Code review: 8 de 10 arreglados. Se sube en DOS pushes (API primero) | — |
 | 4 | — | — |
 
 ## 6. Decidido / abierto
@@ -84,6 +90,18 @@ Los pasos 3 y 4 llevan plan propio por escrito y smoke test read-only contra pro
   hacerlo en su propio commit.
 - 🟡 **Peso del PDF:** con el logo y la firma de dr-prueba la nota pesa ~9 MB (imágenes sin
   comprimir); la receta probablemente igual (mismo `addImage`). Arreglo común: comprimir al cargar.
+- 🔴 **QUITAR el puente transitorio** de `POST /api/practice-management/ventas`: acepta `clientId`
+  sin `patientId` (la UI VIEJA) sólo para los minutos entre el deploy de `apps/api` y el de
+  `apps/doctor`. En cuanto `apps/doctor` corra la UI de pacientes (verificar `commitHash`), se
+  borra en su propio commit.
+- 🟡 **Carrera borrar visita ↔ crear venta** (dos pestañas): el conteo de ventas y el `delete` de la
+  visita no van en una transacción, y `visita_id` no tiene FK ⇒ una venta creada justo en medio
+  queda apuntando a una visita borrada. Improbable; la venta sigue en Ventas y en Flujo.
+- 🟡 **Búsqueda por nombre de paciente en Ventas:** pre-consulta hasta 200 pacientes que empaten; un
+  doctor con más de 200 coincidencias de una palabra corta vería resultados incompletos.
+- **Datos del paciente en Ventas = nombre + ID interno.** Las rutas de ventas están bajo el toggle
+  `ventas`; un ayudante con Ventas y sin Expedientes NO debe leer contacto ni RFC del paciente por
+  aquí. Por eso la Nota de venta de un paciente no trae email/teléfono/RFC.
 - ❓ **IVA de un `service` de «Productos y Servicios»** sigue en 16 % (sólo los de Citas entran en
   0 %): el mismo «Consulta» puede salir con IVA distinto según de qué catálogo se eligió. Pendiente
   de decisión del usuario.
