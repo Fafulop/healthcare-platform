@@ -58,6 +58,9 @@ export const formatDate = (iso: string) =>
 export async function imagenABase64(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
+    // An HTTP error (expired signed URL, deleted object) is "no image", not its error page as base64:
+    // jsPDF's addImage would throw on it inside a silent try/catch anyway (2026-10-02).
+    if (!res.ok) return null;
     const blob = await res.blob();
     return await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();

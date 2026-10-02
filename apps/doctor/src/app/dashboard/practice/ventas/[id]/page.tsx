@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Edit2, Loader2, ShoppingCart, Download, FileText } from "lucide-react";
+import { ArrowLeft, Edit2, Loader2, ShoppingCart, FileText } from "lucide-react";
 import { formatCurrency, formatDateLong } from "@/lib/practice-utils";
 import { useVentaDetail, statusConfig, paymentStatusConfig } from "../_components/useVentaDetail";
+import { NotaVentaModal } from "../_components/NotaVentaModal";
 
 export default function ViewSalePage() {
   const { status } = useSession({
@@ -13,7 +15,8 @@ export default function ViewSalePage() {
     onUnauthenticated() { redirect("/login"); },
   });
 
-  const { sale, loading, error, exportingPDF, handleExportPDF } = useVentaDetail();
+  const { sale, loading, error } = useVentaDetail();
+  const [showNota, setShowNota] = useState(false);
 
   if (status === "loading" || loading) {
     return (
@@ -88,14 +91,14 @@ export default function ViewSalePage() {
               <Edit2 className="w-4 h-4" />
               Editar
             </Link>
+            {/* VENTAS PACIENTE paso 2: la nota con el diseño de la receta (vista previa + descarga). */}
             <button
-              onClick={handleExportPDF}
-              disabled={exportingPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-              title="Descargar PDF"
+              onClick={() => setShowNota(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              title="Ver y descargar la nota de venta"
             >
-              {exportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              PDF
+              <FileText className="w-4 h-4" />
+              Nota de venta
             </button>
           </div>
         </div>
@@ -238,6 +241,8 @@ export default function ViewSalePage() {
           )}
         </div>
       </div>
+
+      {showNota && <NotaVentaModal venta={sale} onClose={() => setShowNota(false)} />}
     </div>
   );
 }

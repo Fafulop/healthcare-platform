@@ -21,6 +21,9 @@ export async function GET(request: NextRequest) {
         primarySpecialty: true,
         subspecialties: true,
         cedulaProfesional: true,
+        // Main consultorio — printed on the «Nota de venta» (lib/nota-venta-pdf.ts).
+        clinicAddress: true,
+        clinicPhone: true,
       },
     });
 

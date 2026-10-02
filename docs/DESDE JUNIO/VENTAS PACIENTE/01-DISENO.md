@@ -56,7 +56,7 @@ Los pasos 3 y 4 llevan plan propio por escrito y smoke test read-only contra pro
 | Paso | Estado | Commit |
 |---|---|---|
 | 1 | construido 2026-10-02 (IVA 0 % para los de Citas; arreglo de `itemType` en Ventas y Cotizaciones); code review hecho, 6 de 9 hallazgos arreglados | — |
-| 2 | — | — |
+| 2 | construido 2026-10-02: «Nota de venta» (`lib/nota-venta-pdf.ts` + `ventas/_components/NotaVentaModal.tsx`), reemplaza la descarga «VENTA EN FIRME» (que imprimía 16 % en cada renglón de 0 %). PDFs renderizados y LEÍDOS (A4 con el diseño real de dr-prueba; media carta 40 renglones × 5 hojas con membrete; media carta con nombres largos y venta cancelada). Code review: 6 de 9 arreglados | — |
 | 3 | — | — |
 | 4 | — | — |
 
@@ -74,6 +74,16 @@ Los pasos 3 y 4 llevan plan propio por escrito y smoke test read-only contra pro
   renombra el servicio, el renglón viejo dice «Servicio personalizado»; un concepto libre con el
   mismo nombre se etiqueta como de Citas. Interino hasta que el paso 3 guarde `serviceId` en el
   renglón.
+- 🟡 **Nota de venta y ayudantes:** el diseño (`/api/prescription-template`) es OWNER_ONLY a propósito
+  y los ajustes de impresión (`doctor/pdf-settings`) piden `expedientes`. Un ayudante saca la nota
+  sin logo/firma/dirección (como la receta) y, sin `expedientes`, en A4 sin membrete — el modal lo
+  DICE en los dos casos.
+- 🟡 **Deuda: código copiado de la receta** — guardia de márgenes, banda del encabezado, logo y pie
+  con firma están en `dibujarReceta` Y en `dibujarNotaVenta`. Sacarlos a un `dibujarMarco()`
+  compartido toca la receta, que tiene su sonda byte a byte (`scripts/receta/receta-pdf-probe.ts`):
+  hacerlo en su propio commit.
+- 🟡 **Peso del PDF:** con el logo y la firma de dr-prueba la nota pesa ~9 MB (imágenes sin
+  comprimir); la receta probablemente igual (mismo `addImage`). Arreglo común: comprimir al cargar.
 - ❓ **IVA de un `service` de «Productos y Servicios»** sigue en 16 % (sólo los de Citas entran en
   0 %): el mismo «Consulta» puede salir con IVA distinto según de qué catálogo se eligió. Pendiente
   de decisión del usuario.
