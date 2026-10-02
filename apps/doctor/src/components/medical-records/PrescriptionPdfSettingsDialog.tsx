@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Loader2 } from 'lucide-react';
-import type { PdfSettings, RxPageSize } from '@/types/pdf-settings';
-import { DEFAULT_PDF_SETTINGS, RX_PAGE_SIZES } from '@/types/pdf-settings';
+import Link from 'next/link';
+import { X, Loader2, Eye } from 'lucide-react';
+import type { PdfSettings } from '@/types/pdf-settings';
+import { DEFAULT_PDF_SETTINGS } from '@/types/pdf-settings';
+import { usePermissions } from '@/lib/permissions-client';
+import { RecetaPrintSettingsFields, camposRxParaGuardar } from './RecetaPrintSettingsFields';
 
 interface PrescriptionPdfSettingsDialogProps {
   open: boolean;
@@ -51,19 +54,7 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
       const res = await fetch('/api/doctor/pdf-settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rxShowHeader: settings.rxShowHeader,
-          rxShowFooter: settings.rxShowFooter,
-          rxShowPatientBox: settings.rxShowPatientBox,
-          rxShowDiagnosis: settings.rxShowDiagnosis,
-          rxShowClinicalNotes: settings.rxShowClinicalNotes,
-          rxShowLogo: settings.rxShowLogo,
-          rxShowSignature: settings.rxShowSignature,
-          rxPageSize: settings.rxPageSize,
-          rxOrientation: settings.rxOrientation,
-          rxTopMarginMm: settings.rxTopMarginMm,
-          rxBottomMarginMm: settings.rxBottomMarginMm,
-        }),
+        body: JSON.stringify(camposRxParaGuardar(settings)),
       });
       const data = await res.json();
       if (data.success) {
@@ -80,16 +71,39 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
     }
   };
 
-  const toggle = (key: keyof PdfSettings) => {
-    setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const setMargin = (key: 'rxTopMarginMm' | 'rxBottomMarginMm', value: string) => {
-    const num = Math.max(0, Math.min(80, Number(value) || 0));
-    setSettings((prev) => ({ ...prev, [key]: num }));
-  };
+  const { isOwner, loading: cargandoPermisos } = usePermissions();
 
   if (!open) return null;
+  // Mientras se sabe si es titular no se pinta ninguno de los dos (no enseñar algo y luego quitarlo).
+  if (cargandoPermisos) return null;
+
+  // El TITULAR cambia el diseño completo en «Receta PDF», con la vista previa en vivo. Los AYUDANTES
+  // (que no entran a «Receta PDF»: es OWNER_ONLY por la firma) siguen cambiando aquí la impresión.
+  if (isOwner) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+        <div className="bg-white rounded-xl shadow-lg max-w-md w-full">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <h2 className="text-base font-semibold text-gray-900">Diseño de la receta</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          </div>
+          <div className="p-4 space-y-3 text-sm text-gray-700">
+            <p>
+              El tamaño, los márgenes, las secciones, el color, el logo y la firma se cambian en <strong>Receta PDF</strong>,
+              viendo la receta mientras la ajustas.
+            </p>
+            <Link
+              href="/dashboard/medical-records/receta"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+            >
+              <Eye className="w-4 h-4" />
+              Cambiar el diseño de la receta
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
@@ -112,136 +126,7 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
               <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">{error}</div>
             )}
 
-            {/* Page size */}
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Tamaño de Papel</p>
-              <select
-                value={settings.rxPageSize}
-                onChange={(e) => setSettings((prev) => ({ ...prev, rxPageSize: e.target.value as RxPageSize }))}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {RX_PAGE_SIZES.map((s) => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-400 mt-1">
-                Elige el tamaño de tu recetario si imprimes sobre hojas pre-impresas.
-              </p>
-              <div className="mt-2 flex items-center gap-4">
-                <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="rxOrientation"
-                    checked={settings.rxOrientation !== 'landscape'}
-                    onChange={() => setSettings((prev) => ({ ...prev, rxOrientation: 'portrait' }))}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  Vertical
-                </label>
-                <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="rxOrientation"
-                    checked={settings.rxOrientation === 'landscape'}
-                    onChange={() => setSettings((prev) => ({ ...prev, rxOrientation: 'landscape' }))}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  Horizontal
-                </label>
-              </div>
-            </div>
-
-            {/* Header & Footer */}
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Encabezado y Pie de Pagina</p>
-              <div className="space-y-2">
-                <CheckboxRow
-                  id="rxShowHeader"
-                  label="Mostrar encabezado (barra con RECETA MEDICA)"
-                  checked={settings.rxShowHeader}
-                  onChange={() => toggle('rxShowHeader')}
-                />
-                <CheckboxRow
-                  id="rxShowLogo"
-                  label="Mostrar logo del consultorio (en el encabezado)"
-                  checked={settings.rxShowLogo}
-                  onChange={() => toggle('rxShowLogo')}
-                />
-                <CheckboxRow
-                  id="rxShowFooter"
-                  label="Mostrar pie de pagina (datos del doctor + firma)"
-                  checked={settings.rxShowFooter}
-                  onChange={() => toggle('rxShowFooter')}
-                />
-                <CheckboxRow
-                  id="rxShowSignature"
-                  label="Mostrar firma digital (en el pie de pagina)"
-                  checked={settings.rxShowSignature}
-                  onChange={() => toggle('rxShowSignature')}
-                />
-              </div>
-            </div>
-
-            {/* Margins */}
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Margenes para Papel Membretado</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Margen superior</label>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min={0}
-                      max={80}
-                      value={settings.rxTopMarginMm}
-                      onChange={(e) => setMargin('rxTopMarginMm', e.target.value)}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-xs text-gray-500">mm</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Margen inferior</label>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min={0}
-                      max={80}
-                      value={settings.rxBottomMarginMm}
-                      onChange={(e) => setMargin('rxBottomMarginMm', e.target.value)}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-xs text-gray-500">mm</span>
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">Espacio en blanco para logo o datos pre-impresos (0-80 mm)</p>
-            </div>
-
-            {/* Sections */}
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Secciones del Documento</p>
-              <div className="space-y-2">
-                <CheckboxRow
-                  id="rxShowPatientBox"
-                  label="Datos del paciente"
-                  checked={settings.rxShowPatientBox}
-                  onChange={() => toggle('rxShowPatientBox')}
-                />
-                <CheckboxRow
-                  id="rxShowDiagnosis"
-                  label="Diagnostico"
-                  checked={settings.rxShowDiagnosis}
-                  onChange={() => toggle('rxShowDiagnosis')}
-                />
-                <CheckboxRow
-                  id="rxShowClinicalNotes"
-                  label="Notas clinicas"
-                  checked={settings.rxShowClinicalNotes}
-                  onChange={() => toggle('rxShowClinicalNotes')}
-                />
-              </div>
-            </div>
+            <RecetaPrintSettingsFields settings={settings} onChange={setSettings} />
           </div>
         )}
 
@@ -269,21 +154,6 @@ export function PrescriptionPdfSettingsDialog({ open, onClose, onSettingsLoaded 
           );
         })()}
       </div>
-    </div>
-  );
-}
-
-function CheckboxRow({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: () => void }) {
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        id={id}
-        checked={checked}
-        onChange={onChange}
-        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-      />
-      <label htmlFor={id} className="text-sm text-gray-700">{label}</label>
     </div>
   );
 }

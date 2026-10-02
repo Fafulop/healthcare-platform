@@ -539,8 +539,20 @@ emitida ya no cambia de visita.
 - Una receta estándar necesita al menos un medicamento para emitirse.
 - «Chat IA» también ayuda a llenar la receta. **Depende de tu plan.**
 
-**Cómo sale impresa** (nombre, cédulas, firma): **Expedientes Médicos → «Receta PDF»**. Sólo el
-titular.
+**Cómo sale impresa: Expedientes Médicos → «Receta PDF»** (sólo el titular). A la izquierda lo
+cambias y a la derecha **ves la receta en vivo** — una receta de ejemplo (paciente y medicamentos de
+ejemplo, con tu nombre y tus cédulas) que se redibuja medio segundo después de cada cambio, **antes de
+guardar**. Es el mismo dibujo que la receta que descargas.
+
+- **Plantilla de Receta:** tu nombre y cédulas, el **color**, el **logo** del consultorio y tu **firma**
+  (el logo y la firma se guardan al subirlos; lo demás, con «Guardar Plantilla»).
+- **Impresión:** tamaño de papel (para tu recetario), vertical u horizontal, mostrar u ocultar el
+  encabezado, el logo, el pie y la firma, los **márgenes** para hoja membretada y qué secciones lleva
+  (datos del paciente, diagnóstico, notas clínicas) → «Guardar impresión».
+- En el celular, la receta se ve abajo con «Ver receta»; si tu teléfono no la muestra, «Abrir en otra pestaña».
+
+En una receta, el botón de configuración de impresión te lleva aquí. Un **ayudante** (que no entra a
+«Receta PDF») sigue cambiando la impresión desde ese botón, sin vista previa.
 
 ### Informe para aseguradora
 

@@ -27,7 +27,16 @@ const COLOR_SCHEMES = [
   { id: 'none',   label: 'Sin color',           hex: null },
 ];
 
-export default function PrescriptionTemplateSection() {
+/** Lo que la vista previa de «Receta PDF» necesita saber del diseño, tal como está EN PANTALLA (sin guardar). */
+export interface DisenoEnPantalla {
+  logoUrl: string | null;
+  signatureUrl: string | null;
+  colorScheme: string;
+  credentials: Credential[];
+  doctorName: string;
+}
+
+export default function PrescriptionTemplateSection({ onCambio }: { onCambio?: (d: DisenoEnPantalla) => void } = {}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -86,6 +95,11 @@ export default function PrescriptionTemplateSection() {
       setSaveMessage({ type: 'error', text: 'La imagen se subió pero no se guardó — presiona Guardar Plantilla.' });
     }
   };
+
+  // La vista previa en vivo sigue lo que hay en pantalla, guardado o no.
+  useEffect(() => {
+    if (!loading) onCambio?.({ logoUrl, signatureUrl, colorScheme, credentials, doctorName });
+  }, [loading, logoUrl, signatureUrl, colorScheme, credentials, doctorName, onCambio]);
 
   const updateCredential = (index: number, patch: Partial<Credential>) => {
     setCredentials((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));

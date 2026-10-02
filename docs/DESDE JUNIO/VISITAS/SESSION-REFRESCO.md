@@ -29,6 +29,12 @@
       Ver: emparejado, fechas, avisos, «Importar», reintentar, re-importar (→ «Ya estaba importado»); en
       el expediente: Docs y Galería («Historial importado») y la nota con su fecha. BD: bitácora con
       `batchId`. Detalle: `PACIENTE MIGRATION/02-DISENO-importar-documentos.md` §7.
+- [ ] **Receta PDF con vista previa en vivo** (titular) — Expedientes → «Receta PDF»: cambiar color, logo,
+      firma, cédulas, tamaño de papel, orientación, márgenes y secciones y ver que la receta de ejemplo se
+      redibuja; luego DESCARGAR una receta real y comprobar que se ve igual. Como AYUDANTE con `expedientes`:
+      el botón de configuración de una receta sigue abriendo los controles (sin vista previa). En el
+      celular: «Ver receta» / «Abrir en otra pestaña». (El dibujo se movió a `lib/receta-pdf.ts`; 13/13
+      PDFs idénticos byte por byte — `scripts/receta/receta-pdf-probe.ts`.)
 - [ ] *(Cuando se vuelva a encender el asistente — hoy OCULTO, `ASISTENTE_IA_VISIBLE = false`)*: completar
       una sesión cubierta y «qué falta facturar» con pagos de paquete.
 

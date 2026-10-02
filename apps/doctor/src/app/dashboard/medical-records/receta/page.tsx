@@ -18,16 +18,24 @@
  * terminaría en 403 (mismo criterio que el botón «Importar» de la lista).
  */
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShieldOff } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, ShieldOff } from "lucide-react";
 import { usePermissions } from "@/lib/permissions-client";
-import PrescriptionTemplateSection from "@/components/profile/PrescriptionTemplateSection";
+import PrescriptionTemplateSection, { type DisenoEnPantalla } from "@/components/profile/PrescriptionTemplateSection";
+import { RecetaImpresionSection } from "@/components/profile/RecetaImpresionSection";
+import { RecetaVistaPrevia } from "@/components/profile/RecetaVistaPrevia";
+import type { PdfSettings } from "@/types/pdf-settings";
 
 export default function RecetaPdfPage() {
   const { isOwner, loading } = usePermissions();
+  // Lo que hay EN PANTALLA (guardado o no): de aquí dibuja la vista previa en vivo.
+  const [diseno, setDiseno] = useState<DisenoEnPantalla | null>(null);
+  const [impresion, setImpresion] = useState<PdfSettings | null>(null);
+  const [verEnMovil, setVerEnMovil] = useState(false);
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       <Link
         href="/dashboard/medical-records"
         className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-4"
@@ -47,7 +55,27 @@ export default function RecetaPdfPage() {
           enseñar el formulario y quitarlo, o enseñar «sin acceso» y sustituirlo,
           las dos afirman algo que todavía no se sabe. */}
       {loading ? null : isOwner ? (
-        <PrescriptionTemplateSection />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-8">
+            <PrescriptionTemplateSection onCambio={setDiseno} />
+            <div className="border-t border-gray-200 pt-6">
+              <RecetaImpresionSection onCambio={setImpresion} />
+            </div>
+          </div>
+          {/* En pantallas angostas la vista previa va abajo y se abre con un botón. */}
+          <div>
+            <button
+              onClick={() => setVerEnMovil((v) => !v)}
+              className="lg:hidden mb-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+            >
+              {verEnMovil ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {verEnMovil ? "Ocultar receta" : "Ver receta"}
+            </button>
+            <div className={`${verEnMovil ? "" : "hidden"} lg:block lg:sticky lg:top-4`}>
+              <RecetaVistaPrevia diseno={diseno} impresion={impresion} />
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="p-5 bg-gray-50 border border-gray-200 rounded-lg flex items-start gap-3">
           <ShieldOff className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
