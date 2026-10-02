@@ -14,6 +14,7 @@ import TrafficSourcesChart from "@/components/analytics/TrafficSourcesChart";
 import SearchQueriesTable from "@/components/analytics/SearchQueriesTable";
 import BookingsByMonthChart from "@/components/analytics/BookingsByMonthChart";
 import MedicalRecordsByMonthChart from "@/components/analytics/MedicalRecordsByMonthChart";
+import { REPORTES_PERFIL_E_IA_VISIBLE } from "@/lib/ui-visibility";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -93,14 +94,16 @@ export default function ReportesPage() {
   }, [range]);
 
   useEffect(() => {
-    if (slug) fetchAnalytics();
+    if (REPORTES_PERFIL_E_IA_VISIBLE && slug) fetchAnalytics();
   }, [slug, fetchAnalytics]);
 
   useEffect(() => {
-    fetchLlmUsage();
+    if (REPORTES_PERFIL_E_IA_VISIBLE) fetchLlmUsage();
   }, [fetchLlmUsage]);
 
-  if (status === "loading" || !slug) {
+  // El `slug` (perfil público) sólo lo necesitan las estadísticas del perfil: con ellas ocultas no
+  // se espera, o un doctor sin perfil público vería el spinner para siempre.
+  if (status === "loading" || (REPORTES_PERFIL_E_IA_VISIBLE && !slug)) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -114,11 +117,14 @@ export default function ReportesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
-          <p className="text-gray-600 mt-1">Estadisticas de tu perfil publico</p>
+          <p className="text-gray-600 mt-1">
+            {REPORTES_PERFIL_E_IA_VISIBLE ? "Estadisticas de tu perfil publico" : "Tus citas y expedientes, mes a mes"}
+          </p>
         </div>
-        <DateRangeSelector value={range} onChange={setRange} />
+        {REPORTES_PERFIL_E_IA_VISIBLE && <DateRangeSelector value={range} onChange={setRange} />}
       </div>
 
+      {REPORTES_PERFIL_E_IA_VISIBLE && (<>
       {error && (
         <div className="bg-red-50 text-red-700 rounded-lg p-4">
           {error}
@@ -180,11 +186,13 @@ export default function ReportesPage() {
           </div>
         </>
       ) : null}
+      </>)}
 
       {/* ------------------------------------------------------------------ */}
       {/* Citas por estado y mes                                               */}
       {/* ------------------------------------------------------------------ */}
-      <div className="pt-4 border-t">
+      {/* La raya separa de las estadísticas del perfil; sin ellas, Citas abre la página. */}
+      <div className={REPORTES_PERFIL_E_IA_VISIBLE ? "pt-4 border-t" : ""}>
         <div className="flex items-center gap-2 mb-4">
           <CalendarDays className="w-5 h-5 text-blue-600" />
           <h2 className="text-xl font-bold text-gray-900">Citas</h2>
@@ -206,6 +214,7 @@ export default function ReportesPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Uso de Inteligencia Artificial                                       */}
       {/* ------------------------------------------------------------------ */}
+      {REPORTES_PERFIL_E_IA_VISIBLE && (
       <div className="pt-4 border-t">
         <div className="flex items-center gap-2 mb-4">
           <Bot className="w-5 h-5 text-purple-600" />
@@ -296,6 +305,7 @@ export default function ReportesPage() {
           </>
         ) : null}
       </div>
+      )}
     </div>
   );
 }

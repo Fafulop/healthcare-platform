@@ -21,6 +21,17 @@
  */
 export const CONCILIACION_BANCARIA_VISIBLE = false;
 
+/**
+ * 🚫 OCULTO 2026-10-02 — en `/dashboard/reportes`, «Estadísticas de tu perfil público» (tarjetas,
+ * gráfica diaria, fuentes de tráfico, Search Console, desglose de eventos) y «Uso de Inteligencia
+ * Artificial». Quedan Citas y Expedientes.
+ *
+ * Una sola puerta: la página. Con el flag apagado tampoco se PIDEN sus datos
+ * (`/api/analytics/doctor/…`, `/api/llm-usage/my`) y se esconde el selector 7/28/90 días, que sólo
+ * usaban ellas. Los endpoints siguen vivos.
+ */
+export const REPORTES_PERFIL_E_IA_VISIBLE = false;
+
 // (2026-09-22) `WIDGET_AYUDA_VISIBLE` se retiró: apagaba el `llm-assistant/ChatWidget` (RAG
 // sobre los docs de desarrollo), que ya no se monta. Su lugar en la pila flotante lo tomó
 // `components/ayuda/AyudaWidget`, que no depende de ningún flag — ver AYUDA WIDGET/.
