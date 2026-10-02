@@ -12,7 +12,6 @@ import {
   withSalePatients,
   resolveSalePatient,
   salePatientName,
-  type SalePatient,
 } from '@/lib/practice-utils';
 
 // GET /api/practice-management/ventas
@@ -112,7 +111,6 @@ export async function POST(request: NextRequest) {
     const {
       patientId,
       visitaId,
-      clientId, // TRANSITIONAL — see below
       quotationId,
       saleDate,
       deliveryDate,
@@ -134,27 +132,11 @@ export async function POST(request: NextRequest) {
 
     // VENTAS PACIENTE paso 3: the buyer is ALWAYS a patient (the old form made a name-matched copy of
     // the patient in `clients`). Ownership of patient + visita checked.
-    //
-    // ⚠️ TRANSITIONAL (2026-10-02): a body with `clientId` and NO `patientId` is the OLD doctor UI, still
-    // live for the minutes between this API deploying and apps/doctor deploying (two pushes, API
-    // first). It is served the old way (client sale). REMOVE once apps/doctor runs the patient UI —
-    // tracked in docs/DESDE JUNIO/VENTAS PACIENTE/01-DISENO.md §6.
-    let paciente: { patient: SalePatient; visitaId: string | null } | null = null;
-    let legacyClient: { id: number; businessName: string } | null = null;
-    if (!patientId && clientId) {
-      legacyClient = await prisma.client.findFirst({
-        where: { id: parseInt(clientId), doctorId: doctor.id },
-        select: { id: true, businessName: true },
-      });
-      if (!legacyClient) return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
-    } else {
-      const buyer = await resolveSalePatient(doctor.id, patientId, visitaId);
-      if ('error' in buyer) {
-        return NextResponse.json({ error: buyer.error }, { status: buyer.status });
-      }
-      paciente = buyer;
+    const paciente = await resolveSalePatient(doctor.id, patientId, visitaId);
+    if ('error' in paciente) {
+      return NextResponse.json({ error: paciente.error }, { status: paciente.status });
     }
-    const buyerName = paciente ? salePatientName(paciente.patient) : legacyClient!.businessName;
+    const buyerName = salePatientName(paciente.patient);
 
     // Verify quotation ownership if provided
     if (quotationId) {
@@ -182,9 +164,8 @@ export async function POST(request: NextRequest) {
           const newSale = await tx.sale.create({
             data: {
               doctorId: doctor.id,
-              patientId: paciente?.patient.id ?? null,
-              visitaId: paciente?.visitaId ?? null,
-              clientId: legacyClient?.id ?? null,
+              patientId: paciente.patient.id,
+              visitaId: paciente.visitaId,
               quotationId: quotationId ? parseInt(quotationId) : null,
               saleNumber,
               saleDate: saleDateValue,
@@ -213,7 +194,7 @@ export async function POST(request: NextRequest) {
             data: {
               doctorId: doctor.id,
               amount: total,
-              concept: `Venta ${saleNumber} - ${paciente ? 'Paciente' : 'Cliente'}: ${buyerName}`,
+              concept: `Venta ${saleNumber} - Paciente: ${buyerName}`,
               entryType: 'ingreso',
               transactionDate: saleDateValue,
               area: defaultArea.area,
@@ -222,10 +203,9 @@ export async function POST(request: NextRequest) {
               internalId: ledgerInternalId,
               transactionType: 'VENTA',
               saleId: newSale.id,
-              patientId: paciente?.patient.id ?? null,
-              clientId: legacyClient?.id ?? null,
-              // Same as a cita's entry: Flujo de Dinero shows this name (no client on patient sales).
-              ...(paciente ? { counterpartyName: buyerName } : {}),
+              patientId: paciente.patient.id,
+              // Same as a cita's entry: Flujo de Dinero shows this name (patient sales have no client).
+              counterpartyName: buyerName,
               paymentStatus: calculatePaymentStatus(paidAmount, total),
               amountPaid: paidAmount,
               formaDePago: formaDePago || 'transferencia',
@@ -243,7 +223,7 @@ export async function POST(request: NextRequest) {
     }
     if (!sale) throw new Error('No se pudo generar un número de venta único');
 
-    return NextResponse.json({ data: { ...sale, patient: paciente?.patient ?? null } }, { status: 201 });
+    return NextResponse.json({ data: { ...sale, patient: paciente.patient } }, { status: 201 });
   } catch (error: any) {
     console.error('Error al crear venta:', error);
     if (error.message?.includes('Doctor') || error.message?.includes('access required')) {

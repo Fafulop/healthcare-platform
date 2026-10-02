@@ -151,7 +151,6 @@ export async function PUT(
 
     const {
       patientId,
-      clientId, // TRANSITIONAL — see below
       saleDate,
       deliveryDate,
       items,
@@ -161,16 +160,6 @@ export async function PUT(
       status,
       amountPaid,
     } = await request.json();
-
-    // ⚠️ TRANSITIONAL (2026-10-02), same window as POST: the OLD edit page sends `clientId` (and no
-    // `patientId`) on a client-only sale. Honor it the old way instead of silently dropping the change.
-    // REMOVE with the POST bridge (docs/DESDE JUNIO/VENTAS PACIENTE/01-DISENO.md §6).
-    let clienteViejo: number | undefined;
-    if (patientId === undefined && clientId && !existingSale.patientId) {
-      const c = await prisma.client.findFirst({ where: { id: parseInt(clientId), doctorId: doctor.id }, select: { id: true } });
-      if (!c) return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
-      clienteViejo = c.id;
-    }
 
     // VENTAS PACIENTE paso 3: the patient can be CHANGED (re-checked) but never removed. Refused when:
     //   · the sale is filed in a visita (re-filing it would move it into another patient's history);
@@ -246,7 +235,6 @@ export async function PUT(
         where: { id: saleId },
         data: {
           ...(nuevoPaciente ? { patientId: nuevoPaciente } : {}),
-          ...(clienteViejo ? { clientId: clienteViejo } : {}),
           saleDate: saleDate ? new Date(saleDate) : existingSale.saleDate,
           deliveryDate: deliveryDate !== undefined ? (deliveryDate ? new Date(deliveryDate) : null) : existingSale.deliveryDate,
           status: finalStatus,
