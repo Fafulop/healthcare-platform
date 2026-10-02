@@ -161,7 +161,9 @@ imagen, > 100 000, dañado). Sube de 10 en 10 (`uploadFiles`, que por default es
 cuanto sube, reintenta sin volver a subir, mismo `batchId`. `next build` del app del doctor OK.
 Límite conocido (review de I2): el duplicado (G1) se detecta al GUARDAR, después de subir ⇒ re-importar
 la misma carpeta no duplica registros pero SÍ vuelve a subir los archivos (copias sin usar que gastan
-cupo). Arreglo en curso: preguntar al servidor qué ya está importado ANTES de subir. Prueba a
+cupo). **Arreglado:** la pantalla pregunta antes de subir cada tanda (`tipo: 'verificar'` en la misma
+ruta, SÓLO LECTURA, misma regla nombre + tamaño) y lo que ya está se marca «Ya estaba importado» sin
+subirse; si la pregunta falla, se sube igual y el guardado vuelve a revisar. Probe 27/27. Prueba a
 mano PENDIENTE (I3) — en la lista de pruebas de Chrome de `VISITAS/SESSION-REFRESCO.md`.
 
 Deshacer un lote: por `batchId` en la bitácora (un script, como el de la `.xlsx`; no hay botón).

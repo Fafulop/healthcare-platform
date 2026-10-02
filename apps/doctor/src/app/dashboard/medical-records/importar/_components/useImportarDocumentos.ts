@@ -182,6 +182,28 @@ export function useImportarDocumentos() {
     }
   }, [actualizar]);
 
+  /**
+   * Pregunta al servidor (sólo lectura) cuáles de estos archivos YA están importados a su paciente.
+   * Si la pregunta falla, se sube igual: el guardado vuelve a revisar el duplicado (G1).
+   */
+  const verificar = useCallback(async (grupo: Fila[]): Promise<Set<string>> => {
+    if (grupo.length === 0) return new Set();
+    try {
+      const r = await fetch('/api/patient-import/documentos', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          batchId: batchId.current,
+          elementos: grupo.map((f) => ({ ref: f.id, tipo: 'verificar', patientId: f.patientId, fileName: f.nombre, bytes: f.bytes })),
+        }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok || !Array.isArray(d?.data?.resultados)) return new Set();
+      return new Set((d.data.resultados as { ref: string; estado: string }[]).filter((x) => x.estado === 'ya_importado').map((x) => x.ref));
+    } catch {
+      return new Set();
+    }
+  }, []);
+
   /** Importa lo que falta (la primera vez, o «Reintentar fallidos»: el mismo `batchId`). */
   const importar = useCallback(async () => {
     const lista = filasRef.current.filter((f) => !f.rechazo && f.patientId && f.estado !== 'guardado' && f.estado !== 'ya_importado'
@@ -194,7 +216,11 @@ export function useImportarDocumentos() {
     for (const [tipo, ruta] of [['pdf', 'medicalDocuments'], ['imagen', 'medicalImages']] as const) {
       const deTipo = lista.filter((f) => f.tipo === tipo);
       for (let i = 0; i < deTipo.length; i += POR_SUBIDA) {
-        const grupo = deTipo.slice(i, i + POR_SUBIDA).map((f) => filasRef.current.find((x) => x.id === f.id) ?? f);
+        let grupo = deTipo.slice(i, i + POR_SUBIDA).map((f) => filasRef.current.find((x) => x.id === f.id) ?? f);
+        // ANTES de subir: ¿ya está importado? (si no, re-importar lo mismo subiría copias que gastan cupo).
+        const yaEstan = await verificar(grupo.filter((f) => !f.subido));
+        for (const id of yaEstan) actualizar(id, { estado: 'ya_importado', motivo: undefined });
+        grupo = grupo.filter((f) => !yaEstan.has(f.id));
         const urls = new Map(grupo.filter((f) => f.subido).map((f) => [f.id, f.subido!.url]));
         const porSubir = grupo.filter((f) => !f.subido);
         if (porSubir.length) {
@@ -230,7 +256,7 @@ export function useImportarDocumentos() {
     }
     if (tanda.length) await guardar(tanda);
     setFase('listo');
-  }, [actualizar, guardar]);
+  }, [actualizar, guardar, verificar]);
 
   const empezarOtra = useCallback(() => {
     setFilas([]); setFase('elegir'); setAviso(null); batchId.current = nuevoId();

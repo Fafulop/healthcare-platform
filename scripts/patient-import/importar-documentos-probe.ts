@@ -58,6 +58,22 @@ const diaEnMexico = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Amer
         ...(pacienteAjeno ? [nota('n6', { patientId: pacienteAjeno.id })] : []),  // paciente ajeno
       ], async (a) => { audit.push(a); });
 
+      // `verificar` (sólo lectura, ANTES de subir): a1 ya quedó guardado (12345 bytes) → ya_importado;
+      // otro nombre o tamaño → nuevo; no escribe nada.
+      const antes = await tx.patientMedia.count({ where: { patientId } });
+      const v = await guardarTanda(tx, { doctorId, userId: 'probe' }, `PROBE-${cola}`, [
+        { ref: 'v1', tipo: 'verificar', patientId, fileName: 'a1.pdf', bytes: 12345 },
+        { ref: 'v2', tipo: 'verificar', patientId, fileName: 'a1.pdf', bytes: 999 },
+        { ref: 'v3', tipo: 'verificar', patientId, fileName: 'nuevo.pdf', bytes: 12345 },
+        { ref: 'v4', tipo: 'verificar', patientId, fileName: 'a1.pdf' },
+      ], async (a) => { audit.push(a); });
+      const despues = await tx.patientMedia.count({ where: { patientId } });
+      const dv = (ref: string) => v.find((x) => x.ref === ref)?.estado;
+      ok('verificar: mismo nombre y tamaño → ya_importado', dv('v1') === 'ya_importado');
+      ok('verificar: otro tamaño u otro nombre → nuevo', dv('v2') === 'nuevo' && dv('v3') === 'nuevo');
+      ok('verificar: sin tamaño → error', dv('v4') === 'error');
+      ok('verificar no escribe (ni registros ni bitácora)', antes === despues, `${antes} → ${despues}`);
+
       const de = (ref: string) => r.find((x) => x.ref === ref);
       ok('archivo PDF de su libro → guardado', de('a1')?.estado === 'guardado', JSON.stringify(de('a1')));
       ok('G1 el mismo archivo otra vez → ya_importado', de('a1-otra-vez')?.estado === 'ya_importado');
@@ -91,7 +107,7 @@ const diaEnMexico = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Amer
       ok('D7/G2 nota: createdAt Y updatedAt = 14 may en México (Prisma acepta updatedAt explícito)',
         !!n && diaEnMexico(n.createdAt) === '2023-05-14' && diaEnMexico(n.updatedAt) === '2023-05-14',
         `${n?.createdAt.toISOString()} / ${n?.updatedAt.toISOString()}`);
-      ok('bitácora: 4 renglones (los 4 guardados: a1, a5, n1, n1-otro-texto) con batchId', audit.length === 4 && audit.every((a) => a.changes.batchId === `PROBE-${cola}`),
+      ok('bitácora: 4 renglones (los 4 guardados: a1, a5, n1, n1-otro-texto; verificar no escribe) con batchId', audit.length === 4 && audit.every((a) => a.changes.batchId === `PROBE-${cola}`),
         audit.map((a) => a.action).join(','));
 
       throw ROLLBACK;

@@ -48,7 +48,8 @@ export function encabezadoDeNota(fileName: string, fecha: string) {
   return `Importado de ${fileName} · ${diaLargo(fecha)}`;
 }
 
-export type Resultado = { ref: string; estado: 'guardado' | 'ya_importado' | 'error'; id?: string; motivo?: string };
+/** `nuevo` sólo lo contesta `verificar` (aún no está importado: hay que subirlo). */
+export type Resultado = { ref: string; estado: 'guardado' | 'ya_importado' | 'nuevo' | 'error'; id?: string; motivo?: string };
 
 export const texto = (v: unknown, max: number) => (typeof v === 'string' && v.trim() && v.length <= max ? v.trim() : null);
 
@@ -97,6 +98,21 @@ export async function guardarTanda(
     try {
       const patientId = typeof e.patientId === 'string' ? e.patientId : '';
       if (!pacientes.has(patientId)) { error('El paciente no existe o no es tuyo'); continue; }
+
+      // `verificar` (SÓLO LECTURA): ¿este archivo ya se importó a este paciente? La pantalla pregunta
+      // ANTES de subir — si no, re-importar la misma carpeta volvería a SUBIR cada archivo (copias sin
+      // usar que gastan cupo) aunque al guardar saliera «ya importado». Misma regla que G1 abajo.
+      if (e.tipo === 'verificar') {
+        const nombre = texto(e.fileName, NOMBRE_MAX);
+        const bytes = typeof e.bytes === 'number' && Number.isInteger(e.bytes) && e.bytes > 0 ? e.bytes : null;
+        if (!nombre || !bytes) { error('Falta el nombre o el tamaño del archivo'); continue; }
+        const ya = await db.patientMedia.findFirst({
+          where: { patientId, doctorId: quien.doctorId, category: CATEGORIA_IMPORTADO, fileName: nombre, fileSize: bytes },
+          select: { id: true },
+        });
+        resultados.push(ya ? { ref, estado: 'ya_importado', id: ya.id } : { ref, estado: 'nuevo' });
+        continue;
+      }
       const fecha = fechaValida(e.fecha);
       if (!fecha) { error('Fecha inválida o en el futuro'); continue; }
       const ruta = texto(e.ruta, RUTA_MAX);
