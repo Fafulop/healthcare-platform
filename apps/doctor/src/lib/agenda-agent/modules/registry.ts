@@ -164,7 +164,19 @@ const AGENT_FEATURE_KEYS: PermissionKey[] = Array.from(
  * inside tierAllows — so it takes the fast path TODAY, and will stop doing so
  * the day PRO excludes an agent key (Q5). Don't assume "unknown ⇒ full". */
 function tierTouchesAgent(tier: string | null | undefined): boolean {
-  return AGENT_FEATURE_KEYS.some((key) => !tierAllows(tier, key));
+  return AGENT_FEATURE_KEYS.some((key) => !agentTierAllows(tier, key));
+}
+
+/**
+ * TIERS P2 (2026-10-01): Gratis ya FACTURA en la app (5 al mes), pero el asistente NO existe en Gratis ni
+ * en el plan de pago (toda la IA está apagada salvo plantillas con IA y el widget «?»). Para el ASISTENTE,
+ * Gratis se sigue viendo sin facturación: su prompt y sus tools quedan idénticos a antes (gate:prompt y
+ * gate:prosa lo comprueban). Si algún día se enciende el asistente en Gratis, se decide entonces qué
+ * facturas ve, con sus evals.
+ */
+const EXCLUSIONES_SOLO_DEL_ASISTENTE: Record<string, readonly string[]> = { FREE: ['facturacion'] };
+function agentTierAllows(tier: string | null | undefined, key: Parameters<typeof tierAllows>[1]): boolean {
+  return tierAllows(tier, key) && !(EXCLUSIONES_SOLO_DEL_ASISTENTE[tier ?? '']?.includes(key) ?? false);
 }
 
 /**
@@ -253,12 +265,12 @@ export function resolveAgentScope(access: AgentAccess): AgentScope {
     // The module's requirement AFTER the tier ceiling — also what its unkeyed
     // tools genuinely provide (flujo in CORE provides flujo+pagos, NOT
     // conciliacion, whose only tool was just dropped).
-    const effectiveRequired = required.filter((key) => tierAllows(access.tier, key));
+    const effectiveRequired = required.filter((key) => agentTierAllows(access.tier, key));
     const baseAllowed = effectiveRequired.length > 0;
     const all = [...m.readTools, ...m.proposalTools];
     const kept = all.filter((t) => {
       const own = TOOL_FEATURE_KEY[t.name];
-      return own ? tierAllows(access.tier, own) : baseAllowed;
+      return own ? agentTierAllows(access.tier, own) : baseAllowed;
     });
     if (kept.length === 0) continue;
     modules.push(m);

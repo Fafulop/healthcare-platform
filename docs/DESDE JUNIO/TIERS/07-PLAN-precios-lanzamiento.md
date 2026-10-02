@@ -52,8 +52,17 @@ herramienta = tokens × precio de SU modelo; modelo desconocido al precio más c
 PRO/LAB sin tope) → `form-builder-chat` y `ayuda/chat` contestan 429 «Llegaste al límite de este mes.» antes
 de llamar al modelo; el armador de plantillas con IA se abrió a todos los planes (route map sin `feature: 'ia'`
 + `FormBuilder` por `isOwner`); su micrófono sólo donde hay voz (PRO/LAB). El usuario eligió **A: seguir con
-claude-sonnet-5** (~$0.04 por mensaje ⇒ ~24 mensajes por $1). Medido: el doctor con más uso gastó $1.39 en un
-mes (70 mensajes, con modelos viejos). Probe `scripts/tiers/ia-tope-probe.ts` 9/9 (sólo lectura).
+claude-sonnet-5** (~$0.04 por mensaje ⇒ ~24 mensajes por $1). ⚠️ CORREGIDO: se había dicho «el doctor con más uso
+gastó $1.39 en un mes»; ese número sumaba DESDE abril en adelante (la consulta sólo tenía el borde «desde el día 1»).
+Abril solo: **$0.06** (70 mensajes, con el modelo barato de entonces). Arreglado en P4: las dos consultas del mes
+usan los DOS bordes (`inicioDelMesSiguienteMexico`). Probe `scripts/tiers/ia-tope-probe.ts` 9/9 (sólo lectura).
+
+**✅ P2+P4 escrito (2026-10-01):** `packages/database/src/facturas-del-mes.ts` (facturas de INGRESO del mes MX,
+canceladas incluidas; REP y egresos ni cuentan ni se bloquean — el SAT exige el REP); Gratis sin
+`facturacion` en sus exclusiones; `POST /api/facturacion/cfdi` (tipo I) contesta 409 «Llegaste a tus 5 facturas
+del mes…» ANTES de llamar a Facturama; `GET /api/facturacion/uso` + «Facturas este mes: N de M» en Facturación.
+Probe `scripts/tiers/facturas-mes-probe.ts` 9/9 — encontró que el conteo sólo tenía el borde de inicio (un mes
+pasado sumaba los siguientes): arreglado aquí y en el gasto de IA.
 
 Orden sugerido: **P1 → P3 → P2+P4 → P6 → P4b → P5** (lo que no toca el cobro primero; lo que cobra al
 final y con el banco de pruebas).

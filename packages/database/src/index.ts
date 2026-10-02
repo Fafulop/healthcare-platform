@@ -25,3 +25,4 @@ export * from './patient-import-validate';
 export * from './patient-import-commit';
 export * from './visitas';
 export * from './tratamientos';
+export * from './facturas-del-mes';

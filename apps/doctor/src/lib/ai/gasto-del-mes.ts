@@ -10,7 +10,7 @@
  * `project_agent_cost_optimization`): por eso el precio va por modelo, y un modelo que no está en la
  * tabla se cobra al precio MÁS CARO conocido — el tope nunca se salta por un modelo nuevo.
  */
-import { prisma } from '@healthcare/database';
+import { prisma, inicioDelMesMexico, inicioDelMesSiguienteMexico } from '@healthcare/database';
 
 /** USD por millón de tokens (entrada, salida). Precios públicos de los proveedores — re-verificar al cambiar de modelo. */
 export const PRECIO_USD_POR_MTOK: Record<string, { entrada: number; salida: number }> = {
@@ -32,11 +32,8 @@ export function topeIaUsd(tier: string | null | undefined): number | null {
   return TOPE_IA_USD_POR_TIER[tier];
 }
 
-/** El inicio del mes calendario en México (UTC−6, sin horario de verano desde 2022). */
-export function inicioDelMesMexico(ahora = new Date()): Date {
-  const hoy = ahora.toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' }); // 'YYYY-MM-DD'
-  return new Date(`${hoy.slice(0, 7)}-01T00:00:00-06:00`);
-}
+// Las fronteras del mes en México viven en @healthcare/database (facturas-del-mes.ts): una sola definición.
+export { inicioDelMesMexico };
 
 /** El costo en USD de UNA fila de `llm_token_usage`. */
 export function costoUsd(f: { model: string; promptTokens: number; completionTokens: number; budgetTokens: number | null }): number {
@@ -50,7 +47,8 @@ export function costoUsd(f: { model: string; promptTokens: number; completionTok
 /** Lo que el doctor lleva gastado ESTE mes en una herramienta, en USD. */
 export async function gastoDelMesUsd(doctorId: string, herramienta: HerramientaIa, ahora = new Date()): Promise<number> {
   const filas = await prisma.llmTokenUsage.findMany({
-    where: { doctorId, endpoint: herramienta, createdAt: { gte: inicioDelMesMexico(ahora) } },
+    // Con los DOS bordes del mes (sólo «desde el día 1» sumaba los meses de después al mirar uno pasado).
+    where: { doctorId, endpoint: herramienta, createdAt: { gte: inicioDelMesMexico(ahora), lt: inicioDelMesSiguienteMexico(ahora) } },
     select: { model: true, promptTokens: true, completionTokens: true, budgetTokens: true },
   });
   return filas.reduce((a, f) => a + costoUsd(f), 0);

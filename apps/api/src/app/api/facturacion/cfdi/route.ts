@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
+import { prisma, usoDeFacturas, MENSAJE_FACTURAS_LLENO } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 import {
   createCFDI,
@@ -81,6 +81,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { receiver, items, cfdiType, paymentForm, paymentMethod, folio, serie, ledgerEntryId,
       observations, paymentBankName, paymentAccountNumber, orderNumber, draftId } = body;
+
+    // TIERS P4: Gratis timbra hasta 5 facturas de INGRESO al mes (canceladas incluidas) y ahí se
+    // detiene; el plan de pago sigue (las extra se cobran después) y PRO/LAB no tienen tope.
+    // Antes de llamar a Facturama: un rechazo después ya habría gastado el timbre.
+    if ((cfdiType || 'I') === 'I') {
+      const { tier } = (await prisma.doctor.findUnique({ where: { id: doctor.id }, select: { tier: true } })) ?? { tier: null };
+      const uso = await usoDeFacturas(prisma, doctor.id, tier);
+      if (uso.lleno) {
+        return NextResponse.json(
+          { error: MENSAJE_FACTURAS_LLENO, limiteFacturas: true, uso },
+          { status: 409 }
+        );
+      }
+    }
 
     // Validate required fields
     if (!receiver || !items || !Array.isArray(items) || items.length === 0) {

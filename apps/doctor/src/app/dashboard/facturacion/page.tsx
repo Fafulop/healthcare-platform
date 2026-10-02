@@ -222,6 +222,16 @@ function FacturacionPageInner() {
     }
   }, [profile, csdStatus, ledgerData, draftIdParam, patientParam]);
 
+  // TIERS P4: las facturas del mes contra lo que incluye el plan (para que el tope no sea sorpresa).
+  // Va ANTES del `return` de «cargando»: un hook después de un return temprano rompe la página.
+  const [usoFacturas, setUsoFacturas] = useState<{ usadas: number; incluidas: number | null; extra: number; lleno: boolean } | null>(null);
+  useEffect(() => {
+    authFetch(`${API_URL}/api/facturacion/uso`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.data) setUsoFacturas(d.data); })
+      .catch(() => {});
+  }, [activeTab]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -243,6 +253,13 @@ function FacturacionPageInner() {
         <p className="text-sm text-gray-500 mt-1">
           Emite facturas oficiales (CFDI 4.0) directamente desde tu cuenta
         </p>
+        {usoFacturas && usoFacturas.incluidas !== null && (
+          <p className={`text-sm mt-2 ${usoFacturas.lleno ? "text-red-700" : usoFacturas.extra > 0 ? "text-amber-800" : "text-gray-600"}`}>
+            Facturas este mes: <strong>{usoFacturas.usadas} de {usoFacturas.incluidas}</strong>
+            {usoFacturas.lleno && " · llegaste al máximo de tu plan (con el plan Pro tienes 25 al mes)"}
+            {usoFacturas.extra > 0 && ` · ${usoFacturas.extra} extra se cobran en tu siguiente factura`}
+          </p>
+        )}
       </div>
 
       {/* Tabs */}

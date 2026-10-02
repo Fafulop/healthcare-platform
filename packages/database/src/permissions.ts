@@ -212,7 +212,8 @@ export const TIER_KEY_LABELS: Record<TierKey, string> = {
  * (para el agente es byte a byte la forma que tenía CORE).
  */
 export const TIER_EXCLUDED_KEYS: Record<DoctorTier, readonly TierKey[]> = {
-  FREE: ['facturacion', 'sat', 'conciliacion', 'ia'],
+  // TIERS P2 (2026-10-01): Gratis ya FACTURA (5 al mes — facturas-del-mes.ts); Descarga SAT sigue fuera.
+  FREE: ['sat', 'conciliacion', 'ia'],
   BASICO: ['ia'],
   PRO: [],
   LAB: [],
