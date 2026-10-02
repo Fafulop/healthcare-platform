@@ -28,6 +28,7 @@ import { formatLocalDate } from "@/lib/dates";
 import { waNumber } from "@/lib/whatsapp";
 import { resolverContacto, telefonoWhatsApp } from "@/lib/booking-contact";
 import type { Booking } from "../_hooks/useBookings";
+import { NotaCitaButton } from "@/components/citas/NotaCitaButton";
 
 /**
  * Envuelve los controles que viven en la fila COLAPSADA (precio, expediente) para
@@ -649,6 +650,11 @@ export function StatusActions({
               el expediente, el link de pago debe poder pre-llenarlos igual. */}
           {/* T6: a una sesión cubierta por el paquete no se le genera link (el servidor lo rechaza
               igual, `checkBookingLinkSlot`); en vez de un botón que falla, se dice por qué. */}
+          <div className="flex gap-1 flex-wrap items-center">
+          {/* VENTAS PACIENTE paso 4: la nota de la cita = su COBRO como PDF, bajo `flujo`. Se ofrece
+              cuando HAY cobro con monto (`ingreso`, el mismo dato que usa la agenda) — también una
+              cita pagada por link antes de concluirse; no en una sesión cubierta ($0). */}
+          {booking.ingreso && booking.ingreso.amount > 0 && <NotaCitaButton bookingId={booking.id} />}
           {booking.cubiertaPorPaquete ? (
             <span className="text-xs text-teal-700">Cubierta por el paquete</span>
           ) : (
@@ -677,6 +683,7 @@ export function StatusActions({
             } : null}
           />
           )}
+          </div>
         </div>
       );
 

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { usePermissions } from '@/lib/permissions-client';
+import { NotaCitaButton } from '@/components/citas/NotaCitaButton';
 import { ENCOUNTER_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from '@/components/medical-records/EncounterCard';
 import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical-records/CitaBadges';
 import { NotasCita } from '@/components/citas/NotasCita';
@@ -121,6 +122,12 @@ export default function VisitaPage() {
   const verCobro = v.permisos?.flujo ?? false;
   const verFactura = v.permisos?.facturacion ?? false;
   const booking = cita && v.bookings ? v.bookings.find((b) => b.id === cita.id) : undefined;
+  // «Nueva venta» lleva el servicio de la cita de esta visita (y si ya tiene cobro en Flujo) para que
+  // la venta AVISE si se le agrega ese mismo servicio: se cobraría dos veces (el cobro de la cita ya
+  // lo cuenta). Sólo un aviso — el servidor no lo usa para nada.
+  const citaParaVenta = booking?.serviceName
+    ? `&citaServicio=${encodeURIComponent(booking.serviceName)}${booking.ledgerEntryId != null ? '&citaCobrada=1' : ''}`
+    : '';
   // Con ventas tampoco está vacía (la API lo rechaza igual: 409). Mientras los permisos o las ventas
   // cargan, no se ofrece borrar. Sin el toggle `ventas` no se pueden ver: se ofrece y, si las tiene,
   // la API contesta 409 con el motivo («La visita tiene una venta»).
@@ -218,6 +225,12 @@ export default function VisitaPage() {
               {booking && (verCobro || verFactura) && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {verCobro && <PagoBadge estadoPago={booking.estadoPago ?? 'SIN_REGISTRO'} metodoPago={booking.metodoPago ?? null} />}
+                  {/* VENTAS PACIENTE paso 4: la nota (PDF bajo demanda) sólo si HAY movimiento en Flujo
+                      (`ledgerEntryId`) — `estadoPago` dice «Pagado» también con un link pagado SIN
+                      movimiento — y no en una sesión cubierta por el paquete ($0, sin nota). */}
+                  {verCobro && booking.ledgerEntryId != null && booking.estadoPago !== 'CUBIERTA' && (
+                    <NotaCitaButton bookingId={booking.id} />
+                  )}
                   {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} cubierta={booking.estadoPago === 'CUBIERTA'} />}
                 </div>
               )}
@@ -417,7 +430,7 @@ export default function VisitaPage() {
           icon={<ShoppingCart className="w-5 h-5 text-emerald-600" />}
           titulo="Ventas"
           accion={
-            <BotonAgregar href={`/dashboard/practice/ventas/new?patientId=${patientId}&visitaId=${visitaId}`}>
+            <BotonAgregar href={`/dashboard/practice/ventas/new?patientId=${patientId}&visitaId=${visitaId}${citaParaVenta}`}>
               Nueva venta
             </BotonAgregar>
           }

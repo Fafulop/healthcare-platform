@@ -60,6 +60,9 @@ export default function NewVentaPage() {
   const visitaId = searchParams.get('visitaId');
   const patientIdParam = searchParams.get('patientId');
   const desdeVisita = !!visitaId && !!patientIdParam;
+  // The visita's cita service (and whether it already has its charge), for the double-charge warning.
+  const citaServicio = searchParams.get('citaServicio');
+  const citaCobrada = searchParams.get('citaCobrada') === '1';
 
   // Voice / Chat
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -394,6 +397,20 @@ export default function NewVentaPage() {
               </div>
             </div>
           </div>
+
+          {/* Doble cobro: la cita de esta visita ya cobra (o cobrará al concluirse) su servicio; si la
+              venta lo trae también, cuenta dos veces. Aviso, no bloqueo (puede ser otra consulta). */}
+          {desdeVisita && citaServicio && form.items.some(it => it.description.trim().toLowerCase() === citaServicio.trim().toLowerCase()) && (
+            <div className="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-4 py-3 text-sm">
+              <p className="font-semibold">⚠️ «{citaServicio}» ya es el servicio de la cita de esta visita.</p>
+              <p className="mt-1">
+                {citaCobrada
+                  ? 'Su cobro ya está en Flujo de Dinero: si también lo vendes aquí, se cuenta dos veces.'
+                  : 'Se cobra al concluir la cita: si también lo vendes aquí, se contará dos veces.'}
+                {' '}Agrégalo sólo si es un servicio adicional.
+              </p>
+            </div>
+          )}
 
           <SaleItemsSection
             items={form.items} citaServiceNames={form.citaServiceNames}

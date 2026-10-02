@@ -64,7 +64,7 @@ Los pasos 3 y 4 llevan plan propio por escrito y smoke test read-only contra pro
 | 1 | construido 2026-10-02 (IVA 0 % para los de Citas; arreglo de `itemType` en Ventas y Cotizaciones); code review hecho, 6 de 9 hallazgos arreglados | — |
 | 2 | construido 2026-10-02: «Nota de venta» (`lib/nota-venta-pdf.ts` + `ventas/_components/NotaVentaModal.tsx`), reemplaza la descarga «VENTA EN FIRME» (que imprimía 16 % en cada renglón de 0 %). PDFs renderizados y LEÍDOS (A4 con el diseño real de dr-prueba; media carta 40 renglones × 5 hojas con membrete; media carta con nombres largos y venta cancelada). Code review: 6 de 9 arreglados | — |
 | 3 | construido 2026-10-02: `sales.patient_id` + `visita_id` (`migrations/add-sales-patient-visita.sql`, probada contra prod en transacción que siempre revienta), comprador = paciente en API y pantallas, sección «Ventas» en la visita, `GET /ventas/pacientes` bajo el toggle `ventas`. Code review: 8 de 10 arreglados. Subido en DOS pushes (API primero); **probado por el usuario en prod** | `3ec1aa1b` + `7d6043c0` |
-| 4 | — | — |
+| 4 | construido 2026-10-02: nota de la cita BAJO DEMANDA (sin archivo guardado) desde su cobro — `GET /api/appointments/bookings/:id/nota` (toggle `flujo`, regla propia `appointments/bookings/*/nota`), folio = el del cobro (`ING-…`), IVA 0 %; botón «Nota» en la tarjeta de la cita (si hay `ingreso` con monto) y en la visita (si hay movimiento y no es sesión cubierta). Sesión cubierta por el paquete ($0) ⇒ sin nota, con el motivo. Code review: 9 de 9 arreglados; queries probadas read-only en prod y PDF de una cita real revisado | — |
 
 ## 6. Decidido / abierto
 
@@ -92,9 +92,10 @@ Los pasos 3 y 4 llevan plan propio por escrito y smoke test read-only contra pro
   comprimir); la receta probablemente igual (mismo `addImage`). Arreglo común: comprimir al cargar.
 - ✅ **Puente transitorio QUITADO** (2026-10-02, tras `7d6043c0` en prod y la prueba del usuario):
   `POST`/`PUT /ventas` ya no aceptan `clientId`.
-- 🟡 **Doble cobro posible de la consulta:** el selector de una venta de visita ofrece los servicios
-  de Citas; si la cita ya se concluyó (cobró «Consulta») y además se agrega «Consulta» a la venta
-  de la visita, cuenta dos veces. Propuesto: aviso al agregar el servicio de la cita de esa visita.
+- ✅ **Aviso de doble cobro de la consulta** (2026-10-02, a pedido del usuario): «Nueva venta» desde la
+  visita lleva `citaServicio` (+ `citaCobrada=1` si ya hay movimiento); si la venta trae un renglón
+  con ESE servicio, Nueva Venta muestra el aviso («ya está en Flujo» / «se cobra al concluir la
+  cita»). Aviso, no bloqueo. Sin el toggle `citas` la visita no conoce la cita ⇒ sin aviso.
 - 🟡 **Forma de pago de una venta = siempre «transferencia»:** Nueva Venta no la pregunta y la API
   pone ese default (así era antes del paso 3).
 - 🟡 **Carrera borrar visita ↔ crear venta** (dos pestañas): el conteo de ventas y el `delete` de la

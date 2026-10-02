@@ -58,6 +58,9 @@ export interface RouteRule {
 
 export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   // ── apps/api ────────────────────────────────────────────────────────────
+  // VENTAS PACIENTE paso 4 — the cita's «Nota de venta» shows its CHARGE (folio ING-…, amount, forma
+  // de pago): money, so `flujo` like the charge itself — not `citas`. Specific beats `appointments`.
+  { prefix: 'appointments/bookings/*/nota', key: 'flujo' },
   { prefix: 'appointments', key: 'citas' },
   { prefix: 'calendar', key: 'citas' },
   { prefix: 'doctors/*/availability', key: 'citas' },
