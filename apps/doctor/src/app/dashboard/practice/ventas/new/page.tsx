@@ -462,7 +462,7 @@ export default function NewVentaPage() {
           </div>
 
           <SaleItemsSection
-            items={form.items}
+            items={form.items} citaServiceNames={form.citaServiceNames}
             taxColumnLabel={form.taxColumnLabel} taxColumnLabel2={form.taxColumnLabel2}
             onTaxColumnLabelChange={form.setTaxColumnLabel} onTaxColumnLabel2Change={form.setTaxColumnLabel2}
             onOpenServiceModal={() => { form.setProductTypeFilter('service'); form.setProductSearch(''); form.setShowProductModal(true); }}
@@ -508,10 +508,11 @@ export default function NewVentaPage() {
       {/* Modals */}
       {form.showProductModal && (
         <SaleProductModal
-          products={form.filteredProducts}
+          products={form.filteredProducts} citaServices={form.filteredCitaServices} citaServicesError={form.citaServicesError}
           productSearch={form.productSearch} onProductSearchChange={form.setProductSearch}
           productTypeFilter={form.productTypeFilter}
-          onSelect={form.addProductToSale} onClose={() => form.setShowProductModal(false)}
+          onSelect={form.addProductToSale} onSelectCitaService={form.addCitaServiceToSale}
+          onClose={() => form.setShowProductModal(false)}
         />
       )}
       {form.showCustomItemModal && (

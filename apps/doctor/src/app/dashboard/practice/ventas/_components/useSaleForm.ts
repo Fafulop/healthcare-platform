@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { authFetch } from '@/lib/auth-fetch';
-import type { Client, Product, SaleItem } from './sale-types';
+import type { CitaService, Client, Product, SaleItem } from './sale-types';
 import { toast } from '@/lib/practice-toast';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -16,6 +16,8 @@ export function useSaleForm() {
   // Data
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [citaServices, setCitaServices] = useState<CitaService[]>([]);
+  const [citaServicesError, setCitaServicesError] = useState(false);
   const [loadingClients, setLoadingClients] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
@@ -72,7 +74,21 @@ export function useSaleForm() {
     }
   };
 
+  // Two catalogs: «Productos y Servicios» (API) and the Citas services (doctor-app route). The
+  // Citas one loads on the side and never holds the page spinner; if it fails, the picker SAYS so
+  // (citaServicesError) instead of showing an empty list as if the doctor had no services.
   const fetchProducts = async () => {
+    authFetch('/api/doctor/services')
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Error al cargar servicios de citas');
+        const result = await res.json();
+        setCitaServices(result.data || []);
+        setCitaServicesError(false);
+      })
+      .catch((err) => {
+        console.error('Error al cargar servicios de citas:', err);
+        setCitaServicesError(true);
+      });
     try {
       const res = await authFetch(`${API_URL}/api/practice-management/products?status=active`);
       if (!res.ok) throw new Error('Error al cargar productos');
@@ -93,7 +109,8 @@ export function useSaleForm() {
     setItems(prev => [...prev, {
       tempId: `temp-${Date.now()}`,
       productId: product.id,
-      itemType: 'product',
+      // Was always 'product', even for catalog services (fixed 2026-10-02).
+      itemType: product.type === 'service' ? 'service' : 'product',
       description: product.name,
       sku: product.sku,
       quantity: 1,
@@ -105,6 +122,35 @@ export function useSaleForm() {
       taxRate2: 0,
       taxAmount2: 0,
       subtotal,
+    }]);
+    setShowProductModal(false);
+    setProductSearch('');
+  };
+
+  /**
+   * A Citas service as a free line of the sale. IVA defaults to 0 % (user decision 2026-10-02:
+   * a physician's consultation is usually exempt); editable on the line like any other.
+   */
+  const addCitaServiceToSale = (service: CitaService) => {
+    const unitPrice = service.price ?? 0;
+    // No silent $0 consultation: the line still goes in (the doctor may want to type the price),
+    // but it's said out loud.
+    if (service.price == null) toast.error(`«${service.serviceName}» no tiene precio: escríbelo en el renglón`);
+    setItems(prev => [...prev, {
+      tempId: `temp-${Date.now()}`,
+      productId: null,
+      itemType: 'service',
+      description: service.serviceName,
+      sku: null,
+      quantity: 1,
+      unit: 'servicio',
+      unitPrice,
+      discountRate: 0,
+      taxRate: 0,
+      taxAmount: 0,
+      taxRate2: 0,
+      taxAmount2: 0,
+      subtotal: unitPrice,
     }]);
     setShowProductModal(false);
     setProductSearch('');
@@ -201,6 +247,17 @@ export function useSaleForm() {
     const matchType = productTypeFilter ? p.type === productTypeFilter : true;
     return matchSearch && matchType;
   });
+  // Interim label source until step 3 stores a serviceId on the line: a free line whose description
+  // equals a CURRENT Citas service name is shown as «Servicio de tus citas». Renaming the service,
+  // or a custom line with the same name, changes only that label.
+  const citaServiceNames = useMemo(() => new Set(citaServices.map(s => s.serviceName)), [citaServices]);
+  // Citas services only appear under «Agregar Servicio»; same search box as the catalog.
+  const filteredCitaServices = useMemo(() => {
+    if (productTypeFilter === 'product') return [];
+    const q = productSearch.toLowerCase();
+    return citaServices.filter(s =>
+      s.serviceName.toLowerCase().includes(q) || s.shortDescription.toLowerCase().includes(q));
+  }, [citaServices, productTypeFilter, productSearch]);
 
   return {
     // Data
@@ -218,7 +275,7 @@ export function useSaleForm() {
     items, setItems,
     taxColumnLabel, setTaxColumnLabel,
     taxColumnLabel2, setTaxColumnLabel2,
-    addProductToSale, addCustomItemToSale,
+    addProductToSale, addCitaServiceToSale, addCustomItemToSale,
     removeItem, updateItemQuantity, updateItemPrice,
     updateItemDiscount, updateItemTaxRate, updateItemTaxRate2,
     // Modal
@@ -232,7 +289,7 @@ export function useSaleForm() {
     customUnit, setCustomUnit,
     customPrice, setCustomPrice,
     // Derived
-    filteredProducts,
+    filteredProducts, filteredCitaServices, citaServiceNames, citaServicesError,
     calculateSubtotal, calculateTax, calculateTax2, calculateTotal,
   };
 }

@@ -148,7 +148,8 @@ export function useQuotationForm() {
     setItems(prev => [...prev, {
       tempId: `temp-${Date.now()}`,
       productId: product.id,
-      itemType: 'product',
+      // Was always 'product', even for catalog services; ventas/from-quotation copies it as-is.
+      itemType: product.type === 'service' ? 'service' : 'product',
       description: product.name,
       sku: product.sku,
       quantity: 1,

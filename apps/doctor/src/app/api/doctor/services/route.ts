@@ -9,12 +9,14 @@ export async function GET(request: NextRequest) {
 
     const services = await prisma.service.findMany({
       where: { doctorId },
-      select: { id: true, serviceName: true, durationMinutes: true, price: true },
+      // shortDescription + isBookingActive: used by the Ventas picker (VENTAS PACIENTE step 1).
+      select: { id: true, serviceName: true, shortDescription: true, durationMinutes: true, price: true, isBookingActive: true },
       orderBy: { serviceName: 'asc' },
     });
 
     return NextResponse.json({ success: true, data: services });
   } catch (error) {
+    console.error('GET /api/doctor/services failed:', error);
     return NextResponse.json(
       { success: false, error: 'Error al obtener servicios' },
       { status: 500 }

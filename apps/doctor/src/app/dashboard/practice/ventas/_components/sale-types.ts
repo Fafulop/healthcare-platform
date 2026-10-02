@@ -18,6 +18,19 @@ export interface Product {
   type: 'product' | 'service';
 }
 
+/**
+ * A service shown in CITAS (`public.services`, the Perfil Público one) — a DIFFERENT catalog from
+ * `Product`. It enters a sale as a free line (`productId = null`): `SaleItem.productId` is an FK
+ * to `products`. See docs/DESDE JUNIO/VENTAS PACIENTE/01-DISENO.md.
+ */
+export interface CitaService {
+  id: string;
+  serviceName: string;
+  shortDescription: string;
+  price: number | null;
+  isBookingActive: boolean;
+}
+
 export interface SaleItem {
   tempId: string;
   productId: number | null;

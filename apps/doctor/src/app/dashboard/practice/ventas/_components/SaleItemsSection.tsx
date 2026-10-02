@@ -5,6 +5,8 @@ import type { SaleItem } from './sale-types';
 
 interface Props {
   items: SaleItem[];
+  /** Current Citas service names: a free line with one of these names is labeled as coming from Citas. */
+  citaServiceNames?: Set<string>;
   taxColumnLabel: string;
   taxColumnLabel2: string;
   onTaxColumnLabelChange: (v: string) => void;
@@ -21,7 +23,7 @@ interface Props {
 }
 
 export function SaleItemsSection({
-  items, taxColumnLabel, taxColumnLabel2,
+  items, citaServiceNames, taxColumnLabel, taxColumnLabel2,
   onTaxColumnLabelChange, onTaxColumnLabel2Change,
   onOpenServiceModal, onOpenProductModal, onOpenCustomModal,
   onRemoveItem, onUpdateQuantity, onUpdatePrice,
@@ -104,7 +106,7 @@ export function SaleItemsSection({
                     {item.sku && <div className="text-xs text-gray-500">SKU: {item.sku}</div>}
                     {!item.productId && (
                       <div className={`text-xs ${item.itemType === 'product' ? 'text-purple-600' : 'text-blue-600'}`}>
-                        {item.itemType === 'product' ? 'Producto personalizado' : 'Servicio personalizado'}
+                        {item.itemType === 'product' ? 'Producto personalizado' : citaServiceNames?.has(item.description) ? 'Servicio de tus citas' : 'Servicio personalizado'}
                       </div>
                     )}
                   </td>
