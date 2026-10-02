@@ -17,14 +17,32 @@
       Original: — en la agenda, abrir las acciones de una sesión cubierta («PRUEBA MANO» o
       «PRUEBA EXTRA», 1 oct): debe decir «Cubierta por el paquete» en vez del botón «Link de pago». (El
       precio «Paquete» ya se vio.)
-- [ ] **F13 (T7) «¿Es seguimiento?»** en «Nueva Visita»: (a) «Sesión siguiente de «X»» con un tratamiento
+- [x] **F13 (T7) «¿Es seguimiento?»** — ✅ 2026-10-01/02 Chrome + BD (dr-prueba, pepit perez): (a) tratamiento
+      «PRUEBA F13» `cmuqekoun0005mj0t164eqfba` → «Nueva Visita» sin cita → «Sesión siguiente de «PRUEBA F13»» → toast
+      «Esta visita es la sesión 1 de su tratamiento»; BD: sesión 1 = visita `cmuqelxzb…` + `link_sesion_visita`.
+      (b) visita suelta del 15 sep `cmuqeohom…` → otra con «Seguimiento de una visita anterior» → nace «Seguimiento
+      del 15 sep» `cmuqepgee…` (s1 = 15 sep, s2 = nueva) + `create_tratamiento`/`create_sesion`×2 en bitácora.
+      (c) se agendó la sesión 2 (8 oct 11:00, `cmuqeyiyk…`, `link_sesion_cita`) → con esa cita NO sale la pregunta,
+      dice «Esta cita es sesión de un tratamiento: la visita entra sola a él» (se canceló sin crear). (d) la lista
+      sólo ofrece tratamientos ACTIVOS y la visita suelta; las de PRUEBA MANO/EXTRA (cancelados) no salen. La
+      etiqueta «Sesión N de M — X» sale en la tarjeta de Visitas. OJO sonda: `verificar-tratamiento.cjs` filtra la
+      bitácora por `resourceId = tratamiento` y NO ve lo de las sesiones — leer `patient_audit_logs` por paciente.
+      Original: en «Nueva Visita»: (a) «Sesión siguiente de «X»» con un tratamiento
       activo; (b) «Seguimiento de una visita anterior» → nace «Seguimiento del …»; (c) con la cita de una
       sesión NO aparece la pregunta; (d) una visita de un tratamiento cancelado no sale en la lista. Y la
       etiqueta «Sesión N de M — X» en la tarjeta de Visitas. (Crear tratamientos de prueba propios; nunca «f».)
 - [ ] **Correos** — que llegaron a `quebradita.a@gmail.com` el resumen de T5 y el aviso de reagendar
       (sólo el usuario puede verlo).
 - [ ] **Ayudante sin `flujo`** — no debe ver nada del paquete (precio, Pagado/Saldo, «Registrar pago»).
-- [ ] **Importar documentos (PACIENTE MIGRATION I3)** — Expedientes → Importar → «Documentos de
+- [x] **Importar documentos (PACIENTE MIGRATION I3)** — ✅ 2026-10-01/02 Chrome + BD con archivos falsos
+      (`scratchpad/import-prueba`, generados): .doc y .heic rechazados con su motivo; «Juan Inexistente» sin
+      paciente (se quitó del lote); JPG/PDF/DOCX → pepit con la fecha del NOMBRE; el .docx avisa «Tenía 1 imagen: no
+      pasan a la nota». «3 guardados»; re-importar → «0 guardados · 3 ya estaban» y la BD tiene SÓLO 2 StoredFile
+      (no se volvió a subir nada) y 1 nota. BD: 2 PatientMedia «Historial importado», «Sin visita», captureDate
+      del nombre; la nota con fecha 14 may 2025 y primera línea «Importado de … · 14 may 2025»; bitácora
+      `upload_media`×2 + `create_note` con el mismo `batchId`. En pantalla: Docs y Galería con la insignia y la
+      nota en Notas. Detalles vistos: «1 pacientes» (plural), Docs y Galería con filtros en inglés (viejo).
+      Original: — Expedientes → Importar → «Documentos de
       pacientes», en dr-prueba, con archivos FALSOS: un Word (con una imagen adentro), un PDF, una foto
       JPG, una carpeta con el nombre de un paciente, un homónimo, un `.doc`, una HEIC y uno sin paciente.
       Ver: emparejado, fechas, avisos, «Importar», reintentar, re-importar (→ «Ya estaba importado»); en
@@ -42,13 +60,22 @@
       nueva → «IA» abre el chat SIN micrófono; con PRO/LAB sí hay micrófono. Para ver el tope sin gastar $1:
       bajar el tope a mano NO se puede (está en código) — basta ver que el chat y el «?» contestan normal; el
       429 «Llegaste al límite de este mes.» se probó con las funciones reales (`scripts/tiers/ia-tope-probe.ts`).
-- [~] **Ayuda = el manual (AYUDA H1)** — 2026-10-01 Chrome: ✅ pestañas + índice; ✅ `?tab=citas` abre «Agenda»; ✅ un enlace a otra pestaña la cambia SIN recargar; ✅ desde OTRA página, «Manual: Agenda > Reagendar una cita» del widget abre esa sección. ❌ **BUG**: al cambiar de pestaña por un enlace (del texto o del widget estando YA en Ayuda) NO baja a la sección — se queda en el scroll de antes (el scroll corría antes de pintar la pestaña, y el que hace scroll es el `<main>`, no la ventana). Arreglo escrito en `AyudaPestanas.tsx` (scroll tras pintar, vía estado `salto`); falta push y re-probar.
+- [x] **Ayuda = el manual (AYUDA H1)** — 2026-10-01 Chrome: ✅ pestañas + índice; ✅ `?tab=citas` abre «Agenda»; ✅ un enlace a otra pestaña la cambia SIN recargar; ✅ desde OTRA página, «Manual: Agenda > Reagendar una cita» del widget abre esa sección. ❌ **BUG**: al cambiar de pestaña por un enlace (del texto o del widget estando YA en Ayuda) NO baja a la sección — se queda en el scroll de antes (el scroll corría antes de pintar la pestaña, y el que hace scroll es el `<main>`, no la ventana). Arreglo escrito en `AyudaPestanas.tsx` (scroll tras pintar, vía estado `salto`); 2026-10-02: arreglado y PROBADO en prod —
+      `b100437b` (scroll tras pintar: el texto ya baja a la sección) + `5a3273d7` (el enlace del widget estando
+      YA en Ayuda no disparaba ningún scrollIntoView; ahora se atrapa el clic y va por el mismo camino): desde
+      «Expediente», «Manual: Agenda > Reagendar una cita» cambia a Agenda y deja el título arriba, sin recargar. ✅
       Original: — `/dashboard/ayuda`: pestañas «Antes de empezar · Agenda · Expediente»
       con el texto del manual y el índice «En esta pestaña» a la izquierda (pantalla ancha); un enlace del
       texto que apunte a OTRA pestaña la cambia y baja a la sección; el enlace viejo `?tab=citas` (desde la
       agenda) abre «Agenda»; en el widget «?» la línea «Manual: Agenda > …» es clic y lleva a esa sección
       (también estando YA en Ayuda). Probado sin navegador: 11 enlaces internos + las 38 secciones citables
       resuelven, y el build prerenderiza el manual.
+- [x] **Bug encontrado y arreglado en la prueba (2026-10-02, `5f98c774`)**: «Agendar sesiones» TUMBABA la página
+      («Application error», RangeError en `toISOString`) al teclear la fecha o al borrarla (valor vacío o año de 5
+      dígitos). Re-probado en prod: borrar el mes ya no truena, el botón sólo se apaga.
+- [ ] **Observación sin arreglar**: en el perfil del paciente y en el tratamiento, el PRIMER clic justo después de
+      cargar («Nueva Visita», «Agendar sesiones…») a veces no abre nada (3 de 4 veces); el segundo sí. Parece
+      hidratación; no se investigó.
 - [ ] *(Cuando se vuelva a encender el asistente — hoy OCULTO, `ASISTENTE_IA_VISIBLE = false`)*: completar
       una sesión cubierta y «qué falta facturar» con pagos de paquete.
 
