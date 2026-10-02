@@ -6,12 +6,11 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { pagePermissionKey } from "@healthcare/database";
 import { usePermissions } from "@/lib/permissions-client";
+import { esVentasCompras, useVentasComprasDestino } from "@/lib/ventas-compras-nav";
 import {
   User,
   LogOut,
-  Package,
   ShoppingCart,
-  ShoppingBag,
   X,
   CheckSquare,
   NotebookPen,
@@ -35,19 +34,21 @@ interface NavItemProps {
   href: string;
   active?: boolean;
   onClick?: () => void;
+  /** Same as the desktop Sidebar: visibility/padlock already decided by the caller (multi-key item). */
+  resolved?: { locked: boolean };
 }
 
-function NavItem({ icon: Icon, label, href, active = false, onClick }: NavItemProps) {
+function NavItem({ icon: Icon, label, href, active = false, onClick, resolved }: NavItemProps) {
   // Secondary users: hide sections their toggles don't allow (same registry
   // derivation as the desktop Sidebar).
   const { can, lockedByTier } = usePermissions();
-  const permKey = pagePermissionKey(href);
+  const permKey = resolved ? null : pagePermissionKey(href);
 
   // TIERS T4 — must mirror the desktop Sidebar exactly: a section excluded by
   // PLAN stays visible with a padlock, one the owner didn't grant disappears.
   // Without this the mobile drawer would HIDE tier-locked sections, and the
   // upgrade screen would be unreachable on a phone.
-  if (permKey && lockedByTier(permKey)) {
+  if (resolved?.locked || (permKey && lockedByTier(permKey))) {
     return (
       <Link
         href={href}
@@ -93,6 +94,7 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
   const { data: session } = useSession();
   const { isOwner } = usePermissions();
   const pathname = usePathname();
+  const ventasCompras = useVentasComprasDestino(pathname);
 
   return (
     <>
@@ -271,27 +273,17 @@ export default function MobileDrawer({ isOpen, onClose, doctorProfile }: MobileD
                 onClick={onClose}
               />
             )}
-            <NavItem
-              icon={ShoppingCart}
-              label="Ventas"
-              href="/dashboard/practice/ventas"
-              active={pathname.startsWith("/dashboard/practice/ventas")}
-              onClick={onClose}
-            />
-            <NavItem
-              icon={ShoppingBag}
-              label="Compras"
-              href="/dashboard/practice/compras"
-              active={pathname.startsWith("/dashboard/practice/compras")}
-              onClick={onClose}
-            />
-            <NavItem
-              icon={Package}
-              label="Productos y Servicios"
-              href="/dashboard/practice/products"
-              active={pathname.startsWith("/dashboard/practice/products")}
-              onClick={onClose}
-            />
+            {/* Ventas · Compras · Productos y Servicios = ONE item (lib/ventas-compras-nav.ts). */}
+            {ventasCompras && (
+              <NavItem
+                icon={ShoppingCart}
+                label="Ventas/Compras"
+                href={ventasCompras.href}
+                resolved={{ locked: ventasCompras.bloqueado }}
+                active={esVentasCompras(pathname)}
+                onClick={onClose}
+              />
+            )}
             <NavItem
               icon={HelpCircle}
               label="Ayuda"

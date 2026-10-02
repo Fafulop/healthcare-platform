@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { pagePermissionKey } from "@healthcare/database";
 import { usePermissions } from "@/lib/permissions-client";
+import { esVentasCompras, useVentasComprasDestino } from "@/lib/ventas-compras-nav";
 import {
   User,
   Calendar,
@@ -14,8 +15,6 @@ import {
   Users,
   DollarSign,
   ShoppingCart,
-  ShoppingBag,
-  Package,
   CheckSquare,
   NotebookPen,
   UserCog,
@@ -36,20 +35,26 @@ interface NavItemProps {
   label: string;
   href: string;
   active?: boolean;
+  /**
+   * The caller already decided visibility and the padlock (an item that spans
+   * SEVERAL permission keys, like «Ventas/Compras»): skip the href-derived
+   * check, which would only ever see the first key.
+   */
+  resolved?: { locked: boolean };
 }
 
-function NavItem({ icon: Icon, label, href, active = false }: NavItemProps) {
+function NavItem({ icon: Icon, label, href, active = false, resolved }: NavItemProps) {
   // Secondary users: hide sections their toggles don't allow (UI courtesy —
   // the API check is the real boundary). Key derives from the href via the
   // shared PAGE_PERMISSION_MAP, so no per-item wiring.
   const { can, lockedByTier } = usePermissions();
-  const permKey = pagePermissionKey(href);
+  const permKey = resolved ? null : pagePermissionKey(href);
 
   // TIERS T4 — the two ceilings render OPPOSITE ways (01-DISENO §6): a section
   // the PLAN excludes stays visible with a padlock (the account can buy it), a
   // section the OWNER didn't grant disappears. `lockedByTier` is already false
   // when both apply, so a member never gets an upsell they can't act on.
-  if (permKey && lockedByTier(permKey)) {
+  if (resolved?.locked || (permKey && lockedByTier(permKey))) {
     // Deviation from §6.2 ("item deshabilitado"), deliberate: a dead item makes
     // the upgrade CTA reachable only by typing the URL, which defeats the point
     // of T4. It stays a LINK — muted and padlocked so it reads as unavailable —
@@ -97,6 +102,7 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
   const { data: session } = useSession();
   const { isOwner } = usePermissions();
   const pathname = usePathname();
+  const ventasCompras = useVentasComprasDestino(pathname);
   // Icons-only mode so the content gets the width back (e.g. with the
   // assistant panel docked). Same persistence pattern as widgetsCollapsed.
   const [collapsed, setCollapsed] = useState(() => {
@@ -275,24 +281,18 @@ export default function Sidebar({ doctorProfile }: SidebarProps) {
               active={pathname?.startsWith("/dashboard/practice/conciliacion-bancaria")}
             />
           )}
-          <NavItem
-            icon={ShoppingCart}
-            label="Ventas"
-            href="/dashboard/practice/ventas"
-            active={pathname?.startsWith("/dashboard/practice/ventas")}
-          />
-          <NavItem
-            icon={ShoppingBag}
-            label="Compras"
-            href="/dashboard/practice/compras"
-            active={pathname?.startsWith("/dashboard/practice/compras")}
-          />
-          <NavItem
-            icon={Package}
-            label="Productos y Servicios"
-            href="/dashboard/practice/products"
-            active={pathname?.startsWith("/dashboard/practice/products")}
-          />
+          {/* Ventas · Compras · Productos y Servicios = ONE item since
+              2026-10-02; the three pages share a tab bar
+              (practice/layout.tsx). See lib/ventas-compras-nav.ts. */}
+          {ventasCompras && (
+            <NavItem
+              icon={ShoppingCart}
+              label="Ventas/Compras"
+              href={ventasCompras.href}
+              resolved={{ locked: ventasCompras.bloqueado }}
+              active={esVentasCompras(pathname)}
+            />
+          )}
           <NavItem
             icon={HelpCircle}
             label="Ayuda"

@@ -512,7 +512,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
               'Siempre — los movimientos de compras en Flujo de Dinero son registros automáticos ' +
               'de solo lectura. No se pueden eliminar ni editar desde esa vista.',
             resolution:
-              'Ve al módulo de Compras (Gestión de Consultorio > Compras) para gestionar ' +
+              'Ve a Compras (botón «Ventas/Compras» del menú) para gestionar ' +
               'la compra original: cambiar estado, editar monto pagado, o cancelarla.',
           },
         },

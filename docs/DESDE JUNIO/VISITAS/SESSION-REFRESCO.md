@@ -9,7 +9,16 @@
 
 En este orden:
 
-1. **🔴 BUG A INVESTIGAR: «el primer clic no hace nada».** Visto en la corrida de Chrome del 2026-10-02
+1. **🟡 «El primer clic no hace nada» — INVESTIGADO 2026-10-02, NO SE REPRODUJO; el usuario lo dejó como MENOR.**
+   Medido en Chrome (dr-prueba, pepit perez): en 7 de 7 clics hechos con el botón YA pintado se abrió el modal
+   al primer clic — «Nueva Visita» por navegación SPA y por carga completa a ~1.9/2.8/4.9/8 s, «Agendar
+   sesiones…» en «PRUEBA F13» a 2 y 8 s. El botón nace UNA vez (~1.1 s; ~0.9 s en el tratamiento), no se
+   mueve (sin layout shift) y no se remonta (MutationObserver); el listener en captura vio el `click` llegar
+   al botón. Lo ÚNICO que falló (3/3) fue clicar a ~0.7 s, cuando aún está «Cargando paciente…» y el botón no
+   existe. Hipótesis restante, sin probar: ventana de Chrome sin foco del SO (el primer clic sólo enfoca). El
+   usuario dice que **sí le ha pasado a mano**, así que no es sólo artefacto de la automatización — si se
+   retoma, pedirle página y circunstancia (¿venía de otra ventana?) antes de medir. Texto original:
+   Visto en la corrida de Chrome del 2026-10-02
    (dr-prueba): en el perfil del paciente (`/dashboard/medical-records/patients/<id>`) el botón «Nueva Visita»
    NO abrió el modal en el primer clic 3 de 4 veces, aunque se esperó 4–5 s tras cargar; en el tratamiento
    (`…/tratamientos/<id>`) «Agendar sesiones…» igual (1 de 1). El SEGUNDO clic siempre abrió. Una vez el
