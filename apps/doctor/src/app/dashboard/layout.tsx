@@ -14,6 +14,7 @@ import { AyudaWidget } from "@/components/ayuda/AyudaWidget";
 import { DayDetailsWidget } from "@/components/day-details/DayDetailsWidget";
 import { VoiceAssistantHubWidget } from "@/components/voice-hub/VoiceAssistantHubWidget";
 import { PracticeUIProvider } from "@/components/ui/PracticeUIProvider";
+import { WIDGET_ASISTENTE_VOZ_VISIBLE, WIDGET_DETALLES_DEL_DIA_VISIBLE } from "@/lib/ui-visibility";
 
 export default function DashboardRootLayout({
   children,
@@ -195,8 +196,9 @@ export default function DashboardRootLayout({
 
           {/* Widget buttons — hidden when collapsed (display:none cascades to fixed children) */}
           <div className={widgetsCollapsed ? "hidden" : ""}>
-            <VoiceAssistantHubWidget />
-            <DayDetailsWidget />
+            {/* ✨ y 📅 ocultos (2026-10-02) — ver `lib/ui-visibility.ts`. */}
+            {WIDGET_ASISTENTE_VOZ_VISIBLE && <VoiceAssistantHubWidget />}
+            {WIDGET_DETALLES_DEL_DIA_VISIBLE && <DayDetailsWidget />}
             {/* El del signo de interrogación (HelpCircle): contesta desde el manual del doctor
                 — docs/DESDE JUNIO/AYUDA WIDGET/. Tomó el lugar del `llm-assistant/ChatWidget`
                 (RAG sobre los docs de desarrollo), que ya NO se monta. */}

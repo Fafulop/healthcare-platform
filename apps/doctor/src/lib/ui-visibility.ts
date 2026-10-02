@@ -32,6 +32,18 @@ export const CONCILIACION_BANCARIA_VISIBLE = false;
  */
 export const REPORTES_PERFIL_E_IA_VISIBLE = false;
 
+/**
+ * 🚫 OCULTOS 2026-10-02 — dos de los tres botones flotantes de la derecha; queda sólo el de Ayuda (❓).
+ *
+ * Una sola puerta cada uno: su montaje en `app/dashboard/layout.tsx` (nada más los abre).
+ *   · `WIDGET_ASISTENTE_VOZ_VISIBLE` — el ✨ «Asistente IA» (`VoiceAssistantHubWidget`): dictar
+ *     cita, venta, cotización, compra… desde cualquier pantalla. Los botones «Asistente de Voz»
+ *     DENTRO de las páginas son otros y siguen.
+ *   · `WIDGET_DETALLES_DEL_DIA_VISIBLE` — el 📅 «Detalles del día» (`DayDetailsWidget`).
+ */
+export const WIDGET_ASISTENTE_VOZ_VISIBLE = false;
+export const WIDGET_DETALLES_DEL_DIA_VISIBLE = false;
+
 // (2026-09-22) `WIDGET_AYUDA_VISIBLE` se retiró: apagaba el `llm-assistant/ChatWidget` (RAG
 // sobre los docs de desarrollo), que ya no se monta. Su lugar en la pila flotante lo tomó
 // `components/ayuda/AyudaWidget`, que no depende de ningún flag — ver AYUDA WIDGET/.
