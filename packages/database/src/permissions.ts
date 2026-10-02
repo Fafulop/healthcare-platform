@@ -269,9 +269,12 @@ export interface TierLimits {
   maxPatients: number | null;
 }
 
+// Precios del lanzamiento (TIERS/07-PLAN-precios-lanzamiento.md, decisión del usuario 2026-10-01):
+// Gratis 1 GB y 30 pacientes (antes 500 MB y 50); el plan de pago (BASICO, en pantalla «Pro») 25 GB
+// (antes 15). PRO y LAB no cambian: son de los doctores que se quedan como están.
 export const TIER_LIMITS: Record<DoctorTier, TierLimits> = {
-  FREE: { storageBytes: 500 * MB, maxPatients: 50 },
-  BASICO: { storageBytes: 15 * GB, maxPatients: null },
+  FREE: { storageBytes: 1 * GB, maxPatients: 30 },
+  BASICO: { storageBytes: 25 * GB, maxPatients: null },
   PRO: { storageBytes: 50 * GB, maxPatients: null },
   LAB: { storageBytes: 50 * GB, maxPatients: null },
 };
@@ -337,7 +340,7 @@ export function storageBytesFor(tier: string | null | undefined): number {
  * global de 25 MB habría roto `medicalVideos` (128 MB hoy) y `doctorVideos`
  * (1 GB hoy), y habría RECHAZADO el archivo más grande que ya existe: un video
  * de 156.8 MB. Los 200 MB dejan pasar todo lo actual y a la vez impiden que
- * **una sola subida supere el cupo FREE entero** (1 GB = 2× los 500 MB).
+ * **una sola subida se coma el cupo FREE** (era de 500 MB; desde 2026-10-01 es de 1 GB).
  *
  * Medido en prod el 2026-09-13: 6 videos pesan 380 MB — el 72% de TODO el
  * bucket (489.5 MB). El video es lo que llena la cuenta, no lo clínico.

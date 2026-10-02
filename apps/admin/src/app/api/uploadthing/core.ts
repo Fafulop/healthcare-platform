@@ -56,7 +56,7 @@ const parserDoctorSlug = {
 //     2026-09-13, opción B). El cupo es un límite al CLIENTE; el staff actuando
 //     en su nombre no debería quedar bloqueado por él a media alta. Si el admin
 //     obedeciera el cupo, dar de alta a un doctor FREE podría fallar en el botón
-//     de subir —un video de 200MB es el 40% de sus 500MB— y no habría forma de
+//     de subir —un video de 200MB es el 20% de su 1 GB (40% de los 500 MB de antes)— y no habría forma de
 //     terminar de onboardearlo sin subirle el plan primero.
 //     El libro mayor queda COMPLETO igual: nada deja de medirse.
 //     Para volver a la opción A: llamar `assertStorageQuota` aquí.

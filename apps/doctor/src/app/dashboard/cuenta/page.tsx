@@ -984,7 +984,7 @@ function SeccionPago() {
               {/* 🔴 NO dice «ese día tu cuenta pasa a GRATIS». Esa baja
                   automática está DECIDIDA pero NO construida (04-PLAN §6 D1, y
                   el hueco G1: la guarda de cupo hoy la rechazaría para quien
-                  tenga más de 50 pacientes). Hoy el tier sólo lo mueve una
+                  tenga más de 30 pacientes —el cupo de Gratis desde 2026-10-01—). Hoy el tier sólo lo mueve una
                   persona en el admin. Prometerle al doctor una fecha en la que
                   «su cuenta pasa a Gratis» sería afirmarle un hecho falso sobre
                   su propia cuenta — justo lo que esta pantalla existe para no

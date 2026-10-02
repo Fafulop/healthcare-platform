@@ -8,6 +8,13 @@
 > es un sistema de gating nuevo sino un techo sobre el vocabulario de permisos existente) está en
 > §1–§2; los cuatro huecos que cambian la implementación están en §5.
 
+## 🆕 2026-10-01: precios del lanzamiento → [`07-PLAN-precios-lanzamiento.md`](07-PLAN-precios-lanzamiento.md)
+
+Se venden sólo **Gratis** y un **plan de pago a $250 + IVA** (BASICO re-precio). Gratis: 30 pacientes,
+1 GB, 5 facturas/mes, IA de plantillas y widget con tope de $1 USD/mes cada una. Pago: 25 GB (+ paquetes
+de 50 GB a $50 + IVA/mes), 25 facturas/mes (extra a $1 + IVA), topes de IA de $2 USD/mes. PRO/LAB se
+quedan como están. Faltan 4 preguntas chicas (§6). Sin código todavía.
+
 ## 🩺 Operar el cobro y probarlo → [`06-OPERACION-y-pruebas.md`](06-OPERACION-y-pruebas.md)
 
 **Cómo probar el ciclo completo sin esperar un mes** (el banco de pruebas de

@@ -3,7 +3,7 @@
 // Quien dejó de pagar (tarjeta que falla hasta que Stripe cancela, o cancelación
 // que ya terminó) conserva su plan DIAS_DE_MARGEN días después de lo último que
 // pagó (`subscriptions.pagado_hasta`). Pasado el margen:
-//   · si CABE en Gratis (≤ 50 pacientes y ≤ 500 MB) ⇒ pasa a Gratis;
+//   · si CABE en Gratis (≤ 30 pacientes y ≤ 1 GB desde 2026-10-01 — `TIER_LIMITS`) ⇒ pasa a Gratis;
 //   · si NO cabe ⇒ se CONGELA (`doctors.congelada_desde`, #6.2): sólo entra a
 //     «Mi Cuenta» y al cobro hasta que vuelva a pagar.
 // Las cuentas LAB (cortesías) y las que no tienen suscripción no se tocan: no
