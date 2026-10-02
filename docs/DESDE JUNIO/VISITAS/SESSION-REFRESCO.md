@@ -13,7 +13,8 @@
 > `04-PRUEBAS-flujos-verificados.md` §1–§2; cerrar cada una con pantalla **Y** BD
 > (`scripts/visitas/verificar-tratamiento.cjs`). Al terminar, marcar aquí y en `04-PRUEBAS`.
 
-- [ ] **F12 (COBRO)** — en la agenda, abrir las acciones de una sesión cubierta («PRUEBA MANO» o
+- [x] **F12 (COBRO)** — ✅ 2026-10-01 Chrome (dr-prueba = sismo.sistema1): filtro «Completada», 1 oct, las DOS sesiones (PRUEBA MANO 10:00 y PRUEBA EXTRA 09:00) dicen «COBRO · Cubierta por el paquete», sin «Link de pago».
+      Original: — en la agenda, abrir las acciones de una sesión cubierta («PRUEBA MANO» o
       «PRUEBA EXTRA», 1 oct): debe decir «Cubierta por el paquete» en vez del botón «Link de pago». (El
       precio «Paquete» ya se vio.)
 - [ ] **F13 (T7) «¿Es seguimiento?»** en «Nueva Visita»: (a) «Sesión siguiente de «X»» con un tratamiento
@@ -29,17 +30,20 @@
       Ver: emparejado, fechas, avisos, «Importar», reintentar, re-importar (→ «Ya estaba importado»); en
       el expediente: Docs y Galería («Historial importado») y la nota con su fecha. BD: bitácora con
       `batchId`. Detalle: `PACIENTE MIGRATION/02-DISENO-importar-documentos.md` §7.
-- [ ] **Receta PDF con vista previa en vivo** (titular) — Expedientes → «Receta PDF»: cambiar color, logo,
+- [~] **Receta PDF con vista previa en vivo** — ✅ 2026-10-01 Chrome (titular): «Rojo clásico» y «Horizontal» redibujan la receta de ejemplo al instante (A5 apaisada, encabezado/pie/firma, sigue en hoja 2); se regresó todo sin guardar («Impresión guardada»). FALTA: descargar una receta real y compararla, el ayudante y el celular.
+      Original: (titular) — Expedientes → «Receta PDF»: cambiar color, logo,
       firma, cédulas, tamaño de papel, orientación, márgenes y secciones y ver que la receta de ejemplo se
       redibuja; luego DESCARGAR una receta real y comprobar que se ve igual. Como AYUDANTE con `expedientes`:
       el botón de configuración de una receta sigue abriendo los controles (sin vista previa). En el
       celular: «Ver receta» / «Abrir en otra pestaña». (El dibujo se movió a `lib/receta-pdf.ts`; 13/13
       PDFs idénticos byte por byte — `scripts/receta/receta-pdf-probe.ts`.)
-- [ ] **Topes de IA (TIERS P3)** — con una cuenta GRATIS o de pago (dr-quebradita es BÁSICO): Plantillas →
+- [~] **Topes de IA (TIERS P3)** — ✅ 2026-10-01: dr-prueba (PRO) abre el chat «IA» de Plantillas CON micrófono, y el «?» contestó normal (con cita). FALTA el lado sin micrófono: entrar con dr-quebradita (BÁSICO).
+      Original: — con una cuenta GRATIS o de pago (dr-quebradita es BÁSICO): Plantillas →
       nueva → «IA» abre el chat SIN micrófono; con PRO/LAB sí hay micrófono. Para ver el tope sin gastar $1:
       bajar el tope a mano NO se puede (está en código) — basta ver que el chat y el «?» contestan normal; el
       429 «Llegaste al límite de este mes.» se probó con las funciones reales (`scripts/tiers/ia-tope-probe.ts`).
-- [ ] **Ayuda = el manual (AYUDA H1)** — `/dashboard/ayuda`: pestañas «Antes de empezar · Agenda · Expediente»
+- [~] **Ayuda = el manual (AYUDA H1)** — 2026-10-01 Chrome: ✅ pestañas + índice; ✅ `?tab=citas` abre «Agenda»; ✅ un enlace a otra pestaña la cambia SIN recargar; ✅ desde OTRA página, «Manual: Agenda > Reagendar una cita» del widget abre esa sección. ❌ **BUG**: al cambiar de pestaña por un enlace (del texto o del widget estando YA en Ayuda) NO baja a la sección — se queda en el scroll de antes (el scroll corría antes de pintar la pestaña, y el que hace scroll es el `<main>`, no la ventana). Arreglo escrito en `AyudaPestanas.tsx` (scroll tras pintar, vía estado `salto`); falta push y re-probar.
+      Original: — `/dashboard/ayuda`: pestañas «Antes de empezar · Agenda · Expediente»
       con el texto del manual y el índice «En esta pestaña» a la izquierda (pantalla ancha); un enlace del
       texto que apunte a OTRA pestaña la cambia y baja a la sección; el enlace viejo `?tab=citas` (desde la
       agenda) abre «Agenda»; en el widget «?» la línea «Manual: Agenda > …» es clic y lleva a esa sección

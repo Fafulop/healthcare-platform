@@ -2,6 +2,36 @@
 
 > **Tipo: ESTADO.** Se lee primero y se escribe al final de cada sesión.
 
+## 🆕 2026-10-01 — CAPÍTULO DE AYUDA (H1–H4) — EMPIEZA AQUÍ
+
+El usuario aprobó (2026-10-01) el plan del capítulo de ayuda; **reemplaza a las fases G1–G6** de abajo:
+
+| Fase | Qué | Estado |
+|---|---|---|
+| **H1** | `/dashboard/ayuda` = el manual: una pestaña por `##`, índice por pestaña, enlaces internos que cambian de pestaña, alias viejos (`?tab=citas`), y la línea «Manual: Área > Sección» del widget es enlace | ✅ **en prod `b6c8ff50`** (doctor SUCCESS). Falta verlo en Chrome (lista en `VISITAS/SESSION-REFRESCO.md`) |
+| **H2** | Escribir los capítulos que faltan, **desde el código**, en 3 tandas: (1) Flujo de Dinero · Facturación · Pagos · Mi Cuenta (2) Perfil Público · Pendientes · Notas · Reportes (3) Ventas · Compras · Productos y Servicios · Descarga SAT. **Conciliación NO** (oculta, no se vende) | ⏭️ **SIGUIENTE** — el plan de la tanda 1 se le presentó al usuario; falta su OK |
+| **H3** | Página «Flujos» con los 11 flujos y espacio para el video de cada uno | pendiente |
+| **H4** | Guiones de video; se suben a YouTube **no listado** | al final |
+
+**Cómo está hecho H1:** página servidor prerenderizada (`app/dashboard/ayuda/page.tsx`) →
+`manualEnPestanas()` en `lib/ayuda/manual-html.ts` (usa `marked`) → `_components/AyudaPestanas.tsx`.
+`slugAyuda` / `ALIAS_DE_PESTANA` / `enlaceAlManual` viven en `lib/ayuda/slug.ts` (sin `marked`, apto para
+cliente). **Un `##` nuevo en el manual = una pestaña nueva, sin tocar código.** Se borraron
+`CitasGuide`/`ExpedientesGuide`; `PagosGuide` sigue porque la usa `/dashboard/pagos`.
+
+**Reglas de cada tanda de H2 (acordadas):**
+- Describir sólo lo CONSTRUIDO: nada de cobro de facturas extra (P4b), paquetes de 50 GB (P5), ni pago con
+  Stripe hasta que esté vivo; Gratis/Pro según `TIER_EXCLUDED_KEYS` y `TIER_LIMITS` reales.
+- Etiquetas en «» exactas: grep de CADA una contra los `.tsx` (método de deriva).
+- Prueba de enlaces: cada `[…](#…)` y cada «Área > Sección» citable resuelve a una pestaña y un `id`
+  (la prueba de H1 hizo 56/56; rehacerla igual: `manualEnPestanas(cargarManual().texto)` + `enlaceAlManual`).
+- **Medir el tamaño**: el widget mete el manual ENTERO en el prompt. En H1 era ~35k caracteres ≈ 8.8k tokens.
+  Si pasa de ~20k tokens, parar y avisar (a ~45k gpt-4o-mini se degradó; ver bitácora 2026-09-23).
+  Correr `apps/doctor/scripts/ayuda-probar.ts` con preguntas de los capítulos nuevos.
+- El widget estaba pensado sólo para Agenda + Expediente; con más capítulos contestará de ellos también
+  (es el mismo texto) — el usuario lo sabe.
+- El usuario lee cada tanda (texto para doctores, en español) ANTES del commit.
+
 ## En una frase
 
 **2026-09-22 — EL WIDGET ESTÁ EN PROD Y FUNCIONA.** Fases 0, 1 y 2 hechas el mismo día.

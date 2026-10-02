@@ -6,7 +6,7 @@
  * sin recargar y bajan a la sección.
  */
 
-import { useCallback, useEffect, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TabNav } from "./TabNav";
 import type { ManualEnPestanas } from "@/lib/ayuda/manual-html";
@@ -26,24 +26,35 @@ export function AyudaPestanas({ manual }: { manual: ManualEnPestanas }) {
   );
   const [activa, setActiva] = useState(() => resolver(searchParams.get("tab")));
 
-  // Si se llega aquí desde OTRO enlace estando ya en la página (el widget «?»), la URL cambia sin remontar.
-  const tabDeLaUrl = searchParams.get("tab");
-  useEffect(() => { setActiva(resolver(tabDeLaUrl)); }, [tabDeLaUrl, resolver]);
+  // A dónde bajar DESPUÉS de pintar la pestaña. El scroll no puede ir en el mismo clic: la sección de otra
+  // pestaña aún no existe en el DOM. Y el que hace scroll es el <main> del dashboard, no la ventana
+  // (window.scrollTo no hace nada). `n` hace que el mismo destino dos veces vuelva a bajar.
+  const [salto, setSalto] = useState<{ seccion: string | null; n: number }>({ seccion: null, n: 0 });
+  const arriba = useRef<HTMLDivElement>(null);
+  const saltarA = (seccion: string | null) => setSalto((s) => ({ seccion, n: s.n + 1 }));
 
-  // Bajar a la sección del `#…` (al entrar con un enlace, o al cambiar de pestaña por uno).
-  const bajarA = (id: string) => {
-    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  };
+  // Al entrar, o al llegar desde OTRO enlace estando ya en la página (el widget «?»): la URL cambia sin
+  // remontar, así que la pestaña y la sección se leen de ella.
+  const tabDeLaUrl = searchParams.get("tab");
   useEffect(() => {
-    const h = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
-    if (h) bajarA(decodeURIComponent(h));
-  }, [activa]);
+    setActiva(resolver(tabDeLaUrl));
+    const h = window.location.hash.slice(1);
+    if (h) saltarA(decodeURIComponent(h));
+  }, [tabDeLaUrl, resolver]);
+
+  useEffect(() => {
+    if (salto.n === 0) return;
+    const id = requestAnimationFrame(() => {
+      const destino = salto.seccion ? document.getElementById(salto.seccion) : arriba.current;
+      destino?.scrollIntoView({ block: "start" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [salto, activa]);
 
   const irA = (pestana: string, seccion?: string) => {
     setActiva(pestana);
+    saltarA(seccion ?? null);
     router.replace(`${pathname}?tab=${pestana}${seccion ? `#${seccion}` : ""}`, { scroll: false });
-    if (seccion) bajarA(seccion);
-    else window.scrollTo({ top: 0 });
   };
 
   // Un enlace del manual a otra sección: se queda en la página (sin recargar).
@@ -59,6 +70,7 @@ export function AyudaPestanas({ manual }: { manual: ManualEnPestanas }) {
 
   return (
     <>
+      <div ref={arriba} className="scroll-mt-4" />
       <TabNav
         tabs={manual.pestanas.map((p) => ({ id: p.id, label: p.titulo }))}
         activeTab={pestana.id}
