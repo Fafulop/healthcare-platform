@@ -5,6 +5,27 @@
 > paso en `02-PLAN-fase-1.md` (§4 backfill, §5.1 D1, §5.2 D2, §5.3 D3, §5.4 D4). Este doc NO repite eso:
 > lo señala.
 
+## ⏳ PRUEBAS PENDIENTES EN CHROME — hacerlas en la próxima sesión con quebradita.a
+
+> Todo esto YA está en prod (Tratamientos T6b → T7, último `6f80a698`) pero NO se ha visto en el
+> navegador. Requiere Claude Code **y** la extensión de Chrome en la cuenta **quebradita.a**, con la sesión
+> de dr-prueba abierta (en lopez.fafutis el Chrome no la tiene). Método, datos de prueba y trampas:
+> `04-PRUEBAS-flujos-verificados.md` §1–§2; cerrar cada una con pantalla **Y** BD
+> (`scripts/visitas/verificar-tratamiento.cjs`). Al terminar, marcar aquí y en `04-PRUEBAS`.
+
+- [ ] **F12 (COBRO)** — en la agenda, abrir las acciones de una sesión cubierta («PRUEBA MANO» o
+      «PRUEBA EXTRA», 1 oct): debe decir «Cubierta por el paquete» en vez del botón «Link de pago». (El
+      precio «Paquete» ya se vio.)
+- [ ] **F13 (T7) «¿Es seguimiento?»** en «Nueva Visita»: (a) «Sesión siguiente de «X»» con un tratamiento
+      activo; (b) «Seguimiento de una visita anterior» → nace «Seguimiento del …»; (c) con la cita de una
+      sesión NO aparece la pregunta; (d) una visita de un tratamiento cancelado no sale en la lista. Y la
+      etiqueta «Sesión N de M — X» en la tarjeta de Visitas. (Crear tratamientos de prueba propios; nunca «f».)
+- [ ] **Correos** — que llegaron a `quebradita.a@gmail.com` el resumen de T5 y el aviso de reagendar
+      (sólo el usuario puede verlo).
+- [ ] **Ayudante sin `flujo`** — no debe ver nada del paquete (precio, Pagado/Saldo, «Registrar pago»).
+- [ ] *(Cuando se vuelva a encender el asistente — hoy OCULTO, `ASISTENTE_IA_VISIBLE = false`)*: completar
+      una sesión cubierta y «qué falta facturar» con pagos de paquete.
+
 ## 0. ⏭️ EMPIEZA AQUÍ (cierre de la sesión del 2026-09-29)
 
 **Estado exacto al irse el usuario:**

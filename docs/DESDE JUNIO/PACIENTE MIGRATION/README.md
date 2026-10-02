@@ -9,6 +9,10 @@
 > 📋 **El inventario de campos, con tipos y validaciones**, está en
 > [`01-CONTRATO-de-importacion.md`](01-CONTRATO-de-importacion.md). Este archivo es el plan y
 > las decisiones.
+>
+> 📎 **Documentos por paciente (PDF, Word, escaneos) — sólo guardar, sin IA:** diseño propuesto en
+> [`02-DISENO-importar-documentos.md`](02-DISENO-importar-documentos.md) (2026-10-01, falta el OK a sus
+> decisiones).
 
 ## Estado (2026-08-01)
 
