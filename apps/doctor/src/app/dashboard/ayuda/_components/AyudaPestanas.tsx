@@ -57,6 +57,24 @@ export function AyudaPestanas({ manual }: { manual: ManualEnPestanas }) {
     router.replace(`${pathname}?tab=${pestana}${seccion ? `#${seccion}` : ""}`, { scroll: false });
   };
 
+  // Un enlace a Ayuda desde FUERA del artículo (la línea «Manual: …» del widget «?») estando YA aquí: la
+  // navegación de Next cambia la URL pero el scroll nunca llegaba (probado en Chrome: cero llamadas a
+  // scrollIntoView). Se atrapa el clic antes que Next y va por `irA`, el mismo camino que sí baja.
+  const irARef = useRef(irA);
+  irARef.current = irA;
+  useEffect(() => {
+    const alClic = (e: globalThis.MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as Element | null)?.closest?.("a");
+      const m = /^\/dashboard\/ayuda\?tab=([^#&]+)(?:#(.+))?$/.exec(a?.getAttribute("href") ?? "");
+      if (!m) return;
+      e.preventDefault();
+      irARef.current(resolver(m[1]), m[2] ? decodeURIComponent(m[2]) : undefined);
+    };
+    document.addEventListener("click", alClic, true);
+    return () => document.removeEventListener("click", alClic, true);
+  }, [resolver]);
+
   // Un enlace del manual a otra sección: se queda en la página (sin recargar).
   const alHacerClic = (e: MouseEvent<HTMLElement>) => {
     const a = (e.target as HTMLElement).closest("a");
