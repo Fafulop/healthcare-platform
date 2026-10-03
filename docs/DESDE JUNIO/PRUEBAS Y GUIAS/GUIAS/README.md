@@ -48,8 +48,8 @@ Plantilla (ver `../00-PLAN.md` §6):
 | [E1-crear-un-paciente](E1-crear-un-paciente.md) | E1 | borrador — listo para revisar |
 | [E11-archivar-un-paciente](E11-archivar-un-paciente.md) | E11 | borrador — listo para revisar |
 | [E3-abrir-una-visita](E3-abrir-una-visita.md) | E3 | borrador — listo para revisar |
-| [E4a-crear-tu-propia-plantilla](E4a-crear-tu-propia-plantilla.md) | E4a | borrador — ⚠️ esperar arreglo (🔴) |
-| [E4b-llenar-una-plantilla](E4b-llenar-una-plantilla.md) | E4b | borrador — ⚠️ esperar arreglo (🔴) |
+| [E4a-crear-tu-propia-plantilla](E4a-crear-tu-propia-plantilla.md) | E4a | borrador — re-verificar tras el arreglo de H-025 |
+| [E4b-llenar-una-plantilla](E4b-llenar-una-plantilla.md) | E4b | borrador — re-verificar tras el arreglo de H-025 |
 | [E5-hacer-una-receta](E5-hacer-una-receta.md) | E5 | borrador — listo para revisar (H-027 arreglado) |
 | [E6-subir-foto-o-documento](E6-subir-foto-o-documento.md) | E6 | borrador — listo para revisar |
 | [E7-notas-y-comentario-de-la-visita](E7-notas-y-comentario-de-la-visita.md) | E7 | borrador — listo para revisar |

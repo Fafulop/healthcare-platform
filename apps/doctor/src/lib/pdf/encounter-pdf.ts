@@ -1,6 +1,7 @@
 // jsPDF is dynamically imported — safe for client-only use, no SSR issues
 import { DEFAULT_PDF_SETTINGS, type PdfSettings } from '@/types/pdf-settings';
 import { calcularEdad as calcAge } from '@/lib/edad';
+import { sinValor } from '@/lib/campo-archivo';
 
 function formatLocalDate(dateString: string): string {
   try {
@@ -219,8 +220,8 @@ export async function generateEncounterPDF(
       ? fields
           .filter((f: any) => f.showInPdf !== false)
           .map((f: any): [string, any] => [f.labelEs || f.label || f.name, encounter.customData![f.name]])
-          .filter(([, v]) => v !== undefined && v !== null && v !== '')
-      : Object.entries(encounter.customData).filter(([, v]) => v !== undefined && v !== null && v !== '');
+          .filter(([, v]) => !sinValor(v))
+      : Object.entries(encounter.customData).filter(([, v]) => !sinValor(v));
 
     for (const [label, value] of entries) {
       y = pageBreakIfNeeded(doc, y, breakThreshold, topReset);

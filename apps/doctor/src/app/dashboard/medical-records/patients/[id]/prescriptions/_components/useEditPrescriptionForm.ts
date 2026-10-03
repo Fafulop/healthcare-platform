@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { esRequerido } from '@/lib/campo-archivo';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
@@ -145,7 +146,7 @@ export function useEditPrescriptionForm() {
       } else {
         const fields = (prescription?.template?.customFields as any[]) || [];
         for (const field of fields) {
-          if (field.required) {
+          if (esRequerido(field)) {
             const value = customData[field.name];
             if (value === undefined || value === null || value === '') {
               throw new Error(`El campo "${field.labelEs || field.label}" es requerido`);

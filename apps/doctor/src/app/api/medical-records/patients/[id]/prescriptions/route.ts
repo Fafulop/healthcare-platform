@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { esRequerido } from '@/lib/campo-archivo';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { logPrescriptionCreated } from '@/lib/activity-logger';
@@ -200,7 +201,7 @@ export async function POST(
       // Validate required fields declared by the template
       const fields = (template.customFields as any[]) || [];
       for (const field of fields) {
-        if (field.required) {
+        if (esRequerido(field)) {
           const value = body.customData[field.name];
           if (value === undefined || value === null || value === '') {
             return NextResponse.json(

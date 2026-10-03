@@ -10,6 +10,8 @@
  * - prescription detail page
  */
 
+import { sinValor } from '@/lib/campo-archivo';
+
 export interface RecetaContentItem {
   label: string;
   value: string;
@@ -59,8 +61,7 @@ export function resolveRecetaCustomContent(
       })
       .filter((f) => !respectShowInPdf || f.showInPdf !== false)
       .filter((f) => {
-        const v = customData[f.name];
-        return v !== undefined && v !== null && v !== '';
+        return !sinValor(customData[f.name]);
       })
       .map((f) => ({
         label: f.labelEs || f.label || f.name,
@@ -71,6 +72,6 @@ export function resolveRecetaCustomContent(
   }
 
   return Object.entries(customData)
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .filter(([, v]) => !sinValor(v))
     .map(([k, v]) => ({ label: k, value: formatValue(v), width: 'full' as const }));
 }

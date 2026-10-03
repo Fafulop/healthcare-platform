@@ -3,6 +3,7 @@
 import { X, Trash2, Plus } from 'lucide-react';
 import { useFormBuilder } from './FormBuilderProvider';
 import { FieldTypeIcon, getFieldTypeLabel } from './FieldTypeIcon';
+import { NOTA_CAMPO_ARCHIVO } from '@/lib/campo-archivo';
 
 export function ConfigPanel() {
   const { state, selectedField, updateField, removeField, selectField, sections } =
@@ -113,7 +114,11 @@ export function ConfigPanel() {
           />
         </div>
 
-        {/* Required */}
+        {/* Required — not for a retired «Archivo» field: it has no input, so it can never be
+            filled (H-025, lib/campo-archivo.ts); esRequerido already ignores it everywhere. */}
+        {field.type === 'file' ? (
+          <p className="text-xs text-gray-500">{NOTA_CAMPO_ARCHIVO}</p>
+        ) : (
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -126,6 +131,7 @@ export function ConfigPanel() {
             Requerido
           </label>
         </div>
+        )}
 
         {/* Section */}
         <div>

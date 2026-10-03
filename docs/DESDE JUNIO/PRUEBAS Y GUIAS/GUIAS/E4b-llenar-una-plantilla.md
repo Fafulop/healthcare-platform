@@ -18,4 +18,4 @@
 
 ---
 
-**QA (interno — se quita al publicar):** 2026-10-03 — E4/E13/X5/X6/X7/X23/X25 ✅ (llenar, editar 72.5→71, requerido, mover, eliminar `delete_encounter`, PDF). ⚠️ H-021/H-046 (se lista como «Plantilla personalizada»/«consulta»), H-022 (sin fecha propia en plantillas personalizadas), H-023/H-026 (fecha cruda, «true»), H-048 (PDF sin fecha ni doctor), H-025 🔴.
+**QA (interno — se quita al publicar):** 2026-10-03 — E4/E13/X5/X6/X7/X23/X25 ✅ (llenar, editar 72.5→71, requerido, mover, eliminar `delete_encounter`, PDF). ⚠️ H-021/H-046 (se lista como «Plantilla personalizada»/«consulta»), H-022 (sin fecha propia en plantillas personalizadas), H-023/H-026 (fecha cruda, «true»), H-048 (PDF sin fecha ni doctor), H-025 (un campo «Archivo» viejo ahora muestra el aviso «Sube el archivo en Fotos y documentos…»; verificar tras el deploy).

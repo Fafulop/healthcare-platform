@@ -5,6 +5,7 @@
  */
 
 import type { FieldDefinition } from '@/types/custom-encounter';
+import { esLlenablePorModelo } from '@/lib/campo-archivo';
 
 /**
  * Generate JSON schema from custom field definitions
@@ -47,7 +48,8 @@ function generateJSONSchema(fields: FieldDefinition[]): string {
         typeAnnotation = 'boolean | null';
         break;
       case 'file':
-        typeAnnotation = 'string | null  // File reference or URL';
+        // No file can come from dictation; a string here would be invented (H-025).
+        typeAnnotation = 'null  // Archivo: siempre null — se sube en «Fotos y documentos» de la visita';
         break;
       default:
         typeAnnotation = 'any | null';
@@ -173,8 +175,10 @@ function generateFieldVocabulary(fields: FieldDefinition[]): string {
 export function generateCustomTemplateSystemPrompt(
   templateName: string,
   templateDescription: string | undefined,
-  fields: FieldDefinition[]
+  todosLosCampos: FieldDefinition[]
 ): string {
+  // «Archivo» fields are never offered: a model can't produce a file (H-025).
+  const fields = todosLosCampos.filter(esLlenablePorModelo);
   const basePrompt = `You are a clinical documentation assistant for a medical records system in Mexico.
 Your ONLY task is to extract and structure information from a doctor's voice dictation into a specific JSON format.
 
@@ -248,5 +252,5 @@ ${fields.filter(f => f.required).length > 0
  * Get all extractable field names from custom template
  */
 export function getCustomTemplateFields(fields: FieldDefinition[]): string[] {
-  return fields.map(f => f.name);
+  return fields.filter(esLlenablePorModelo).map(f => f.name);
 }

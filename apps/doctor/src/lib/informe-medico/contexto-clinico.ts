@@ -14,6 +14,7 @@
  * modelo saque de ahí cae en 🟧 ámbar.
  */
 import { prisma } from '@healthcare/database';
+import { sinValor } from '@/lib/campo-archivo';
 // 🔴 La clase de cada fecha (calendario vs instante) vive en UN solo módulo, y
 // es PURO para que lo importen también los componentes de cliente que pintan
 // estas mismas fechas. Tenerla replicada ya salió mal una vez.
@@ -100,7 +101,9 @@ function lineasDeCustomData(customData: unknown, customFields: unknown): string[
   if (typeof custom !== 'object' || custom === null || Array.isArray(custom)) return [];
   const lineas: string[] = [];
   for (const [k, v] of Object.entries(custom)) {
-    if (v === null || v === undefined || v === '') continue;
+    // sinValor also drops the `{}` of the old «Archivo» field — it reached the model as
+    // "Electrocardiograma: [object Object]" (H-025).
+    if (sinValor(v)) continue;
     lineas.push(`${etiquetaDe.get(k) ?? k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`);
   }
   return lineas;

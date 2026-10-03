@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { sinValor, tieneValores } from '@/lib/campo-archivo';
 import { FileText, Activity, Image as ImageIcon, Video, Mic, Pill, ChevronDown, ChevronUp, ExternalLink, Loader2, NotebookPen, ClipboardList, Paperclip, FileAudio, File } from 'lucide-react';
 import Link from 'next/link';
 
@@ -240,7 +241,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
           const enc = item.data as TimelineEncounter;
           const expanded = isExpanded(enc.id);
           const hasVitals = !!(enc.vitalsBloodPressure || enc.vitalsHeartRate || enc.vitalsTemperature || enc.vitalsWeight || enc.vitalsHeight || enc.vitalsOxygenSat || enc.vitalsOther);
-          const hasCustomData = !!(enc.customData && Object.keys(enc.customData).length > 0);
+          const hasCustomData = tieneValores(enc.customData);
           const templateFields = enc.templateId ? customTemplates[enc.templateId] : null;
           const hasSOAP = !!(enc.subjective || enc.objective || enc.assessment || enc.plan);
 
@@ -418,7 +419,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                             {templateFields
                               ? templateFields.map((field) => {
                                   const value = enc.customData![field.name];
-                                  if (value === undefined || value === null || value === '') return null;
+                                  if (sinValor(value)) return null;
                                   return (
                                     <div key={field.name}>
                                       <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
@@ -431,7 +432,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                                   );
                                 })
                               : Object.entries(enc.customData!).map(([key, value]) => {
-                                  if (value === undefined || value === null || value === '') return null;
+                                  if (sinValor(value)) return null;
                                   return (
                                     <div key={key}>
                                       <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">{key}</dt>

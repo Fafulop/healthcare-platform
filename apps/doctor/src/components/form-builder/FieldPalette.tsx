@@ -14,7 +14,7 @@ const FIELD_TYPES: FieldType[] = [
   'dropdown',
   'radio',
   'checkbox',
-  'file',
+  // No 'file': it never uploaded anything (H-025, see lib/campo-archivo.ts).
 ];
 
 function DraggableFieldType({ type }: { type: FieldType }) {

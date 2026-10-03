@@ -9,6 +9,8 @@
  * Returns an error string, or null when valid.
  */
 
+// 'file' stays valid on purpose: it can no longer be ADDED (palette, AI builder), but 3 prod
+// templates still carry one and must keep saving (H-025, lib/campo-archivo.ts).
 const VALID_TYPES = ['text', 'textarea', 'number', 'date', 'time', 'dropdown', 'radio', 'checkbox', 'file'];
 
 export function validateCustomFields(

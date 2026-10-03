@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { esLlenablePorModelo } from '@/lib/campo-archivo';
 import { requireDoctorAuth } from '@/lib/medical-auth';
 import { handleApiError } from '@/lib/api-error-handler';
 import { getChatProvider } from '@/lib/ai';
@@ -43,6 +44,16 @@ interface TemplateInfo {
 // System prompt
 // -----------------------------------------------------------------------------
 
+/** Drops any update aimed at an «Archivo» field, should the model fill one anyway (H-025). */
+function sinCamposDeArchivo(
+  updates: Record<string, any> | undefined,
+  templateInfo: TemplateInfo
+): Record<string, any> | undefined {
+  if (!updates || templateInfo.type !== 'custom' || !templateInfo.customFields) return updates;
+  const archivos = new Set(templateInfo.customFields.filter((f) => !esLlenablePorModelo(f)).map((f) => f.name));
+  return Object.fromEntries(Object.entries(updates).filter(([k]) => !archivos.has(k)));
+}
+
 function buildSystemPrompt(
   currentFormData: Record<string, any>,
   templateInfo: TemplateInfo
@@ -51,7 +62,9 @@ function buildSystemPrompt(
 
   if (templateInfo.type === 'custom' && templateInfo.customFields) {
     // Custom template: list custom fields
+    // «Archivo» fields are never offered: a model can't produce a file (H-025).
     fieldsDescription = templateInfo.customFields
+      .filter(esLlenablePorModelo)
       .map((f) => {
         let desc = `- "${f.name}" (${f.type}): ${f.label}`;
         if (f.options?.length) desc += ` [opciones: ${f.options.join(', ')}]`;
@@ -196,7 +209,7 @@ export async function POST(request: NextRequest) {
       data: {
         message: parsed.message,
         action: parsed.action,
-        fieldUpdates: parsed.fieldUpdates,
+        fieldUpdates: sinCamposDeArchivo(parsed.fieldUpdates, templateInfo),
       },
     });
   } catch (error: any) {

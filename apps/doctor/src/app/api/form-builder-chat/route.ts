@@ -46,6 +46,8 @@ const FIELD_SCHEMA = {
     labelEs: { type: 'string', description: 'Igual que label' },
     type: {
       type: 'string',
+      // 'file' stays in the enum ONLY so an existing «Archivo» field can be carried through
+      // set_fields; adding a new one is rejected server-side in toValidatedAction (H-025).
       enum: ['text', 'textarea', 'number', 'date', 'time', 'dropdown', 'radio', 'checkbox', 'file'],
     },
     required: { type: 'boolean' },
@@ -163,7 +165,8 @@ ${currentFields.length > 0 ? JSON.stringify(currentFields.map(({ id: _id, ...f }
 6. Pregunta o conversación sin cambios → responde solo con texto, sin herramientas.
 7. Los "name" son camelCase y únicos; las etiquetas en español; secciones lógicas; widths sensatos (fecha/hora/número como "half" o "third", textos largos "full").
 8. Puedes usar varias herramientas en un mismo turno cuando la petición lo amerite.
-9. Acompaña SIEMPRE tus acciones con una respuesta breve en español profesional describiendo lo que hiciste.`;
+9. Acompaña SIEMPRE tus acciones con una respuesta breve en español profesional describiendo lo que hiciste.
+10. No hay campo de archivo: si el doctor pide adjuntar estudios o fotos, dile que se suben en «Fotos y documentos» de la visita. Si el canvas ya trae un campo de tipo "file", consérvalo tal cual en set_fields (no lo quites ni lo cambies de tipo).`;
 }
 
 // -----------------------------------------------------------------------------
@@ -176,7 +179,15 @@ type Action =
   | { type: 'remove_fields'; names: string[] }
   | { type: 'set_metadata'; metadata: { name?: string; description?: string } };
 
-function toValidatedAction(toolName: string, input: Record<string, unknown>): { action?: Action; error?: string } {
+/**
+ * `archivosExistentes` = names of the «Archivo» fields already on the canvas. The type is retired
+ * (H-025, lib/campo-archivo.ts): those may be carried through set_fields, but no new one may appear.
+ */
+function toValidatedAction(
+  toolName: string,
+  input: Record<string, unknown>,
+  archivosExistentes: Set<string>
+): { action?: Action; error?: string } {
   switch (toolName) {
     case 'set_fields': {
       const rawFields = input.fields;
@@ -184,6 +195,10 @@ function toValidatedAction(toolName: string, input: Record<string, unknown>): { 
       const fields = rawFields.map((f) => stripUnknownKeys(f));
       const validationError = validateCustomFields(fields, { requireId: false });
       if (validationError) return { error: `set_fields inválido: ${validationError}` };
+      const archivoNuevo = fields.find((f) => f.type === 'file' && !archivosExistentes.has(String(f.name)));
+      if (archivoNuevo) {
+        return { error: `set_fields: no se pueden agregar campos de archivo («${archivoNuevo.name}»); los archivos se suben en «Fotos y documentos» de la visita` };
+      }
       return { action: { type: 'set_fields', fields: fields as Omit<FieldDefinition, 'id'>[] } };
     }
     case 'update_fields': {
@@ -197,6 +212,9 @@ function toValidatedAction(toolName: string, input: Record<string, unknown>): { 
         }
         // id is never model-controlled; unknown props never reach the canvas
         const changes = stripUnknownKeys(p.changes as Record<string, unknown>);
+        if (changes.type === 'file') {
+          return { error: `update_fields: no se puede convertir "${p.name}" en campo de archivo` };
+        }
         if (Object.keys(changes).length === 0) {
           return { error: `update_fields: patch de "${p.name}" sin cambios válidos` };
         }
@@ -241,6 +259,9 @@ export async function POST(request: NextRequest) {
       currentFields: FieldDefinition[];
       currentMetadata: { name: string; description: string };
     };
+    const archivosExistentes = new Set(
+      (Array.isArray(currentFields) ? currentFields : []).filter((f) => f?.type === 'file').map((f) => f.name)
+    );
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -315,7 +336,7 @@ export async function POST(request: NextRequest) {
       if (block.type === 'text' && block.text.trim()) {
         textParts.push(block.text.trim());
       } else if (block.type === 'tool_use') {
-        const { action, error } = toValidatedAction(block.name, block.input);
+        const { action, error } = toValidatedAction(block.name, block.input, archivosExistentes);
         if (action) {
           actions.push(action);
         } else if (error) {

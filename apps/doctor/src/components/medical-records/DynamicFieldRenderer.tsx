@@ -1,4 +1,5 @@
 import { FieldDefinition } from '@/types/custom-encounter';
+import { NOTA_CAMPO_ARCHIVO, esRequerido } from '@/lib/campo-archivo';
 
 interface DynamicFieldRendererProps {
   fields: FieldDefinition[];
@@ -161,19 +162,10 @@ export function DynamicFieldRenderer({
         );
 
       case 'file':
+        // Retired (H-025): the old input kept the browser File in state and it was saved as `{}`.
+        // No input, so nothing to lose and nothing that can block a save.
         return (
-          <input
-            type="file"
-            id={field.id}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                onChange(field.name, file);
-              }
-            }}
-            required={field.required}
-            className={baseInputClasses}
-          />
+          <p className="text-sm text-gray-500 italic">{NOTA_CAMPO_ARCHIVO}</p>
         );
 
       default:
@@ -212,7 +204,7 @@ export function DynamicFieldRenderer({
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
                   {field.label}
-                  {field.required && <span className="text-red-500 ml-1">*</span>}
+                  {esRequerido(field) && <span className="text-red-500 ml-1">*</span>}
                 </label>
                 {renderField(field)}
                 {errors[field.name] && (

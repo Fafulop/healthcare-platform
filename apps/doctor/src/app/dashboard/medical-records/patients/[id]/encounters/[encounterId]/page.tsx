@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowLeft, Edit, Calendar, MapPin, FileText, Loader2, ClipboardList, Stethoscope, Trash2, Download, Paperclip, Image, Video, FileAudio, File, ExternalLink, Settings } from 'lucide-react';
+import { sinValor, tieneValores } from '@/lib/campo-archivo';
 import { PdfSettingsDialog } from '@/components/medical-records/PdfSettingsDialog';
 import Link from 'next/link';
 import { formatDateLong, formatDateTime } from '@/lib/practice-utils';
@@ -176,7 +177,7 @@ export default function EncounterDetailPage() {
         )}
 
         {/* Custom Template Data */}
-        {encounter.customData && Object.keys(encounter.customData).length > 0 && (
+        {tieneValores(encounter.customData) && (
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
               <ClipboardList className="w-4 h-4 text-blue-600" />
@@ -186,7 +187,7 @@ export default function EncounterDetailPage() {
               {customTemplate?.customFields
                 ? (customTemplate.customFields as any[]).map((field: any) => {
                     const value = encounter.customData![field.name];
-                    if (value === undefined || value === null || value === '') return null;
+                    if (sinValor(value)) return null;
                     return (
                       <div key={field.name}>
                         <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
@@ -198,8 +199,8 @@ export default function EncounterDetailPage() {
                       </div>
                     );
                   })
-                : Object.entries(encounter.customData).map(([key, value]) => {
-                    if (value === undefined || value === null || value === '') return null;
+                : Object.entries(encounter.customData!).map(([key, value]) => {
+                    if (sinValor(value)) return null;
                     return (
                       <div key={key}>
                         <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">

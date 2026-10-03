@@ -670,8 +670,11 @@ El constructor tiene: el **nombre** de la plantilla, «Vista previa», **«IA»*
 o cambia campos; está en todos los planes, **sólo el titular**, con **tope mensual de IA**) y
 «Guardar».
 
-**9 tipos de campo:** Texto · Texto largo · Número · Fecha · Hora · Desplegable · Selección ·
-Casilla · Archivo.
+**8 tipos de campo:** Texto · Texto largo · Número · Fecha · Hora · Desplegable · Selección ·
+Casilla.
+
+**Archivos (estudios, fotos, PDF):** no van dentro de la plantilla; súbelos en **«Fotos y documentos»**
+de la visita («Subir»). Si una plantilla tuya ya tenía un campo «Archivo», ahí sólo verás ese aviso.
 
 **Para qué sirve cada plantilla** (casillas debajo del nombre):
 
