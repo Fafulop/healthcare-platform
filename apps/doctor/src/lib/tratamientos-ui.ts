@@ -80,21 +80,9 @@ export interface CuentaDelTratamiento {
   ventas: { cuantas: number; total: number; pagado: number };
 }
 
-/** T6 — el dinero del tratamiento (CALCULADO de Flujo de Dinero). Sólo viaja con permiso `flujo`. */
-export interface DineroDelTratamiento {
-  precioPaquete: number;
-  pagado: number;
-  saldo: number;
-  /** Cargos extra cobrados en sesiones del paquete. */
-  extras: number;
-  pagos: { id: number; monto: number; fecha: string; formaDePago: string | null }[];
-}
-
 export interface TratamientoDetalle extends TratamientoResumen {
   sesiones: SesionDeTratamiento[];
-  /** Ausente = sin permiso de `flujo` · null = sin precio de paquete (se cobra por sesión). */
-  dinero?: DineroDelTratamiento | null;
-  /** V1 — sin paquete y con `flujo`: la cuenta (suma de sesiones). Ausente si no aplica. */
+  /** V1/V2 — con `flujo`: la cuenta (suma de sesiones). Ausente = sin permiso de `flujo`. */
   cuenta?: CuentaDelTratamiento;
 }
 

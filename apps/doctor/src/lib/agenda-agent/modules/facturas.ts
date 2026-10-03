@@ -1471,7 +1471,7 @@ async function resolveEmisionContext(ctx: ProposalContext, ledgerEntryIdRaw: unk
     return { error: `Ese ingreso es de origen "${entry.origin ?? 'manual'}" — por ahora solo propongo facturas de ingresos nacidos de citas o de links de pago (los demás se facturan desde la pestaña Nueva Factura).` };
   }
   if (Number(entry.amount) <= 0) {
-    return { error: 'Ese ingreso es de $0 (una sesión cubierta por el paquete de un tratamiento) — no hay qué facturar en él; lo que se factura es el PAGO del paquete, desde la pestaña Nueva Factura.' };
+    return { error: 'Ese ingreso es de $0 — no hay qué facturar en él (p. ej. una sesión que quedó «cubierta por el paquete» antes de que se quitaran los paquetes de tratamiento).' };
   }
   if (entry.hasFactura) {
     return { error: 'Ese ingreso YA está facturado (hasFactura) — no se emite dos veces. Si el doctor cree que no (p. ej. una factura cancelada), el detalle está en get_billing_status y la re-emisión se hace desde la página de Facturación.' };

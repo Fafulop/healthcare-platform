@@ -179,49 +179,6 @@ export async function pasarSesionAlReagendar(
   return { movida: true, sesion };
 }
 
-/**
- * T6 — ¿Esta cita es una sesión CUBIERTA por el paquete de su tratamiento? Una regla, un lugar: la
- * usan concluir la cita (el cobro es $0 «cubierta por el paquete» o el extra), los links de pago
- * (bloqueados) y el GET de la agenda (para que el modal de completar no pida precio).
- * Cubierta = sesión de ESE paciente (la cita no se re-ligó), NO cancelada, de un tratamiento con
- * precio de paquete, y SIN un link de pago activo o pagado. Sin precio de paquete el doctor cobra por
- * sesión como siempre → null.
- *
- * ⚠️ El link: si la cita ya tenía un link de pago (creado antes de poner el precio, o antes de ligarla
- * a la sesión), tratarla como cubierta escribiría un $0 que OCUPA el único movimiento de la cita
- * (`bookingId` es único) — y el pago del link, al llegar, se perdería. Con link, la cita conserva su
- * cobro normal (lo pagado por el link). Desde que hay paquete, los links nuevos se bloquean.
- */
-export function linkDePagoVivo(b: {
-  paymentLink?: { isActive: boolean; status: string } | null;
-  mpPaymentPreference?: { isActive: boolean; status: string } | null;
-} | null | undefined): boolean {
-  const vivo = (l?: { isActive: boolean; status: string } | null) => !!l && (l.isActive || l.status === 'PAID');
-  return vivo(b?.paymentLink) || vivo(b?.mpPaymentPreference);
-}
-
-export async function paqueteDeCita(
-  db: Db, bookingId: string,
-): Promise<{ tratamientoId: string; nombre: string } | null> {
-  const s = await db.tratamientoSesion.findFirst({
-    where: { bookingId },
-    select: {
-      patientId: true, cancelada: true,
-      booking: {
-        select: {
-          patientId: true,
-          paymentLink: { select: { isActive: true, status: true } },
-          mpPaymentPreference: { select: { isActive: true, status: true } },
-        },
-      },
-      tratamiento: { select: { id: true, nombre: true, precioPaquete: true } },
-    },
-  });
-  if (!s || s.cancelada || s.booking?.patientId !== s.patientId || s.tratamiento.precioPaquete === null) return null;
-  if (linkDePagoVivo(s.booking)) return null;
-  return { tratamientoId: s.tratamiento.id, nombre: s.tratamiento.nombre };
-}
-
 export type ResultadoLigarNueva =
   | { ligada: true }
   | { ligada: false; motivo: 'sin_sesion' | 'tratamiento_no_activo' | 'sesion_cancelada' | 'sesion_con_visita' | 'sesion_con_cita' | 'cita_invalida' | 'cambio' };

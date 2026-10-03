@@ -6,7 +6,7 @@ import { leerBody } from '@/lib/visitas';
 import {
   INTERVALO_MAX, SESIONES_MAX, TRATAMIENTO_SELECT, conteosPorTratamiento, parseEnteroOpcional, parseNombre,
   parsePrecioSesion, parseServicioSesion,
-  parseNotas, parsePlantilla, parsePrecioPaquete,
+  parseNotas, parsePlantilla, rechazarPrecioPaquete,
 } from '@/lib/tratamientos';
 
 // VISITAS fase 2 T2 — docs/DESDE JUNIO/VISITAS/03-PLAN-fase-2.md §3. Permiso: `expedientes` (heredado).
@@ -58,7 +58,8 @@ export async function POST(
     const ctx = await requireDoctorAuth(request);
     const { id: patientId } = await params;
     const body = await leerBody(request);
-    const precioPaquete = parsePrecioPaquete(ctx, body.precioPaquete) ?? null;
+    // V2 (2026-10-02): ya no hay paquetes — el total es la suma de las sesiones.
+    rechazarPrecioPaquete(body.precioPaquete);
 
     const patient = await prisma.patient.findFirst({
       where: { id: patientId, doctorId: ctx.doctorId },
@@ -96,7 +97,7 @@ export async function POST(
     // Escritura anidada = una sola transacción: o nacen el tratamiento y sus N sesiones, o nada.
     const tratamiento = await prisma.tratamiento.create({
       data: {
-        patientId, doctorId: ctx.doctorId, nombre, sesionesPlaneadas, intervaloDias, plantillaSugeridaId, notas, precioPaquete,
+        patientId, doctorId: ctx.doctorId, nombre, sesionesPlaneadas, intervaloDias, plantillaSugeridaId, notas,
         ...(sesionesPlaneadas
           ? {
               sesiones: {
@@ -117,7 +118,6 @@ export async function POST(
       action: 'create_tratamiento', resourceType: 'tratamiento', resourceId: tratamiento.id,
       changes: {
         nombre, sesionesPlaneadas, intervaloDias, plantillaSugeridaId, conNotas: !!notas,
-        ...(precioPaquete !== null ? { precioPaquete } : {}),
         ...(porSesion.length ? { sesiones: porSesion.map((p, i) => ({ numero: i + 1, servicio: p.servicioNombre, precio: p.precio })) } : {}),
       },
       request,

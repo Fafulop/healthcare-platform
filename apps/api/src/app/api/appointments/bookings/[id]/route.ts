@@ -3,7 +3,7 @@
 // DELETE /api/appointments/bookings/[id] - Delete booking record
 
 import { NextResponse } from 'next/server';
-import { prisma, paqueteDeCita, syncVisitaForBooking } from '@healthcare/database';
+import { prisma, syncVisitaForBooking } from '@healthcare/database';
 import { sendPatientSMS, isSMSEnabled } from '@/lib/sms';
 import { validateAuthToken, AuthError } from '@/lib/auth';
 import {
@@ -641,31 +641,17 @@ export async function PATCH(
       let ledgerEntryId: number | undefined;
       let ledgerAlreadyExisted = false;
       let ledgerWarning = false;
-      // TRATAMIENTOS T6 (DISEÑO §5) — una sesión CUBIERTA por el paquete de su tratamiento no se
-      // cobra otra vez: lo decide el SERVIDOR (regla 0), así que agenda, asistente y chat de citas
-      // no se lo pueden saltar. Su movimiento es $0 «cubierta por el paquete» — o el EXTRA, pero
-      // SÓLO si el cliente lo marca como extra (`income.extraPaquete`): el asistente y el chat
-      // mandan el precio de lista al completar, y eso no es un extra. Un solo movimiento por cita
-      // (`bookingId` es único). Falla abierto como siempre: completar nunca depende del cobro.
-      let paquete: { tratamientoId: string; nombre: string } | null = null;
-      if (newStatus === 'COMPLETED') {
-        try {
-          paquete = await paqueteDeCita(prisma, currentBooking.id);
-        } catch (err) {
-          console.error('[ledger] no se pudo revisar el paquete de la cita (se cobra como siempre):', err);
-        }
-      }
-      const extra = paquete && income?.extraPaquete === true && typeof income.price === 'number' && income.price > 0
-        ? income.price : 0;
-      const montoNormal = !paquete && income && typeof income.price === 'number' && income.price > 0 ? income.price : 0;
-      if (newStatus === 'COMPLETED' && (paquete || montoNormal > 0)) {
+      // TRATAMIENTOS v2 · V2 (2026-10-02): ya no hay paquetes — la cita de una sesión se cobra como
+      // cualquier otra (su precio lo pre-llena la sesión, V1). El $0 «cubierta por el paquete» de T6
+      // queda sólo en los movimientos viejos. Un solo movimiento por cita (`bookingId` es único).
+      const montoNormal = income && typeof income.price === 'number' && income.price > 0 ? income.price : 0;
+      if (newStatus === 'COMPLETED' && montoNormal > 0) {
         try {
           const result = await createCitaLedgerEntry({
             doctorId: currentBooking.doctorId,
             bookingId: currentBooking.id,
-            amount: paquete ? extra : montoNormal,
+            amount: montoNormal,
             formaDePago: typeof income?.formaDePago === 'string' ? income.formaDePago : 'efectivo',
-            ...(paquete ? { paquete } : {}),
           });
           ledgerEntryId = result.id;
           ledgerAlreadyExisted = result.alreadyExisted;
@@ -712,10 +698,10 @@ export async function PATCH(
         ...(ledgerEntryId !== undefined ? { ledgerEntryId } : {}),
         ...(ledgerAlreadyExisted ? { ledgerAlreadyExisted: true } : {}),
         ...(ledgerWarning ? { ledgerWarning: true } : {}),
-        // T6: lo que de verdad se registró (para que la agenda y el asistente no afirmen otro monto).
-        // `paquete` = sesión cubierta: `monto` es 0 o el extra. Ausente = no se registró cobro nuevo.
+        // Lo que de verdad se registró (para que la agenda y el asistente no afirmen otro monto).
+        // Ausente = no se registró cobro nuevo.
         ...(newStatus === 'COMPLETED' && ledgerEntryId !== undefined && !ledgerAlreadyExisted
-          ? { cobroRegistrado: paquete ? { monto: extra, paquete: paquete.nombre } : { monto: montoNormal } }
+          ? { cobroRegistrado: { monto: montoNormal } }
           : {}),
         ...(visitaId !== undefined ? { visitaId } : {}),
         ...(visitaWarning ? { visitaWarning: true } : {}),

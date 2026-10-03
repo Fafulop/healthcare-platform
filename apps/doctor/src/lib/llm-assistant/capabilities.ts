@@ -266,13 +266,13 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             blockedIf: 'Alguna sesión tiene cita o visita, o hay pagos del tratamiento: se usa "Cancelar tratamiento".',
           },
 
-          'cobrar por paquete': {
+          'cobrar un tratamiento': {
             allowedIf:
-              'Con permiso de Flujo de Dinero: "Editar" → "Precio del paquete"; "Registrar pago del paquete" anota ' +
-              'cada pago (ingreso en Flujo de Dinero). Precio · Pagado · Saldo se calculan.',
+              'Ya no hay precio de paquete: cada sesión tiene su servicio y su precio ("Servicio y precio"), y se ' +
+              'cobra al concluir su cita, como cualquier cita (también con link de pago).',
             notes:
-              'Al completar una sesión del paquete se registra en $0 "cubierta por el paquete" (o sólo el cargo extra). ' +
-              'Esas sesiones no aceptan link de pago y no se facturan: se factura el pago del paquete.',
+              'Con permiso de Flujo de Dinero, la "Cuenta del tratamiento" suma las sesiones: Total · Pagado · Pendiente. ' +
+              'Las ventas de las visitas de las sesiones van en un renglón aparte.',
           },
         },
       },

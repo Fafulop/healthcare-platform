@@ -5,7 +5,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { leerBody, puedeVer } from '@/lib/visitas';
 import {
   INTERVALO_MAX, SESIONES_MAX, TRATAMIENTO_SELECT, cargarTratamiento, parseEnteroOpcional, parseEstadoTratamiento,
-  cuentaDelTratamiento, dineroDelTratamiento, ocupadasDelPaciente, parseNombre, parseNotas, parsePlantilla, parsePrecioPaquete,
+  cuentaDelTratamiento, ocupadasDelPaciente, parseNombre, parseNotas, parsePlantilla, rechazarPrecioPaquete,
   sesionesParaRespuesta,
 } from '@/lib/tratamientos';
 
@@ -23,35 +23,25 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (!tratamiento) {
       return NextResponse.json({ error: 'Tratamiento not found' }, { status: 404 });
     }
-    const [sesiones, ocupadas, conPrecio] = await Promise.all([
+    const [sesiones, ocupadas, cuenta] = await Promise.all([
       sesionesParaRespuesta(ctx, patientId, { tratamientoId }),
       // T3: citas y visitas que ya son de alguna sesión del paciente (para los selectores).
       ocupadasDelPaciente(ctx.doctorId, patientId),
-      // T6: el precio del paquete viaja SÓLO con `flujo` (G5).
-      puedeVer(ctx, 'flujo')
-        ? prisma.tratamiento.findUnique({ where: { id: tratamientoId }, select: { precioPaquete: true } })
-        : Promise.resolve(null),
+      // V1/V2: la CUENTA = suma de sus sesiones (06-PLAN §4), sólo con `flujo`. Ya no hay paquetes
+      // (V2): también los 2 viejos con precio de paquete se muestran así.
+      puedeVer(ctx, 'flujo') ? cuentaDelTratamiento(ctx.doctorId, patientId, tratamientoId) : Promise.resolve(undefined),
     ]);
-    // Con paquete (sólo los viejos, hasta V2): `dinero`. Sin paquete (TRATAMIENTOS v2 · V1): la CUENTA
-    // = suma de sus sesiones (06-PLAN §4). Sólo con `flujo`; las dos en paralelo.
-    const [dinero, cuenta] = conPrecio
-      ? await Promise.all([
-          dineroDelTratamiento(ctx.doctorId, tratamientoId, conPrecio.precioPaquete),
-          conPrecio.precioPaquete === null ? cuentaDelTratamiento(ctx.doctorId, patientId, tratamientoId) : Promise.resolve(undefined),
-        ])
-      : [undefined, undefined];
 
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
       action: 'view_tratamiento', resourceType: 'tratamiento', resourceId: tratamientoId, request,
     });
 
-    // `dinero`: ausente = sin permiso de `flujo`; null = sin precio de paquete.
+    // `cuenta`: ausente = sin permiso de `flujo`.
     return NextResponse.json({
       success: true,
       data: {
         ...tratamiento, sesiones,
-        ...(dinero !== undefined ? { dinero } : {}),
         ...(cuenta !== undefined ? { cuenta } : {}),
       },
       ocupadas,
@@ -84,24 +74,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (sesionesPlaneadas !== undefined) data.sesionesPlaneadas = sesionesPlaneadas;
     const intervaloDias = parseEnteroOpcional(body.intervaloDias, 'intervaloDias', INTERVALO_MAX);
     if (intervaloDias !== undefined) data.intervaloDias = intervaloDias;
-    // T6: el precio del paquete (sólo con `flujo`). Cambiarlo NO reescribe los $0 ya registrados.
-    const precioPaquete = parsePrecioPaquete(ctx, body.precioPaquete);
-    if (precioPaquete !== undefined) data.precioPaquete = precioPaquete;
-    // TRATAMIENTOS v2 · V1: quitarle el precio a un paquete que YA tiene pagos lo pasaría a la cuenta
-    // por sesiones, que no ve esos pagos (no son de ninguna cita): el paciente aparecería debiendo lo
-    // que ya pagó. Se rechaza (los paquetes desaparecen en V2; los viejos quedan como están).
-    if (precioPaquete === null) {
-      const pagoDelPaquete = await prisma.ledgerEntry.findFirst({
-        where: { doctorId: ctx.doctorId, tratamientoId, bookingId: null },
-        select: { id: true },
-      });
-      if (pagoDelPaquete) {
-        return NextResponse.json(
-          { error: 'Este paquete ya tiene pagos registrados: no se le puede quitar el precio' },
-          { status: 409 },
-        );
-      }
-    }
+    // V2: ya no hay paquetes (un precio que llegue = 400; `null` de un formulario viejo se ignora).
+    rechazarPrecioPaquete(body.precioPaquete);
     // Re-enviar la MISMA plantilla (un formulario que manda todo) no la re-valida: pudo desactivarse.
     if (body.plantillaSugeridaId !== undefined && body.plantillaSugeridaId !== antes.plantillaSugeridaId) {
       data.plantillaSugeridaId = await parsePlantilla(ctx.doctorId, body.plantillaSugeridaId);
@@ -110,12 +84,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
     }
-
-    // T6: el precio no está en TRATAMIENTO_SELECT (viaja sólo con `flujo`), así que el «antes» se lee
-    // aparte, y sólo si viene — es dinero y su cambio queda en la bitácora.
-    const precioAntes = precioPaquete !== undefined
-      ? (await prisma.tratamiento.findUnique({ where: { id: tratamientoId }, select: { precioPaquete: true } }))?.precioPaquete ?? null
-      : undefined;
 
     const updated = await prisma.tratamiento.update({
       where: { id: tratamientoId }, data, select: TRATAMIENTO_SELECT,
@@ -127,10 +95,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
     // «Editar» manda las notas siempre: sólo se anota si de verdad cambiaron (el texto no se copia).
     if (data.notas !== undefined && (antes.notas ?? null) !== (updated.notas ?? null)) changes.notas = 'editado';
-    if (precioPaquete !== undefined) {
-      const from = precioAntes === null || precioAntes === undefined ? null : Number(precioAntes);
-      if (from !== precioPaquete) changes.precioPaquete = { from, to: precioPaquete };
-    }
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
       action: 'update_tratamiento', resourceType: 'tratamiento', resourceId: tratamientoId,

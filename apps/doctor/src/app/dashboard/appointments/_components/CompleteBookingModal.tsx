@@ -61,16 +61,11 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
         ? { proveedor: "Mercado Pago", paidAt: booking.mpPaymentPreference.paidAt }
         : null;
 
-  // TRATAMIENTOS T6: sesión CUBIERTA por el paquete de su tratamiento (lo calcula el servidor). No
-  // se pide precio: se registra $0 «cubierta por el paquete», o sólo el cargo EXTRA que se capture.
-  const cubierta = !ingreso && booking.cubiertaPorPaquete === true;
-  const paqueteNombre = booking.tratamientoSesion?.tratamiento.nombre ?? '';
-  const [price, setPrice] = useState(cubierta ? "0" : String(Number(booking.finalPrice)));
+  const [price, setPrice] = useState(String(Number(booking.finalPrice)));
   const [formaDePago, setFormaDePago] = useState("efectivo");
   const [submitting, setSubmitting] = useState(false);
 
-  // En una sesión cubierta el campo es el EXTRA: vacío = sin extra (0), no un monto inválido.
-  const amount = cubierta && price.trim() === "" ? 0 : parseFloat(price);
+  const amount = parseFloat(price);
 
   // Lo que de verdad se manda y se factura. Con el ingreso ya registrado NO se usa lo que
   // haya en el formulario (que ni siquiera se muestra): se reenvían los valores guardados.
@@ -80,9 +75,7 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
   const montoEfectivo = ingreso ? ingreso.amount : amount;
   const formaEfectiva = ingreso ? (ingreso.formaDePago ?? "efectivo") : formaDePago;
   // `NaN > 0` ya es false, así que un `!isNaN` aquí no aportaba nada.
-  // Cubierta: el extra puede ser 0 (lo normal). Si no, el monto tiene que ser > 0.
-  const isValid = cubierta ? !isNaN(amount) && amount >= 0 : montoEfectivo > 0;
-  const hayExtra = cubierta && amount > 0;
+  const isValid = montoEfectivo > 0;
 
   // El monto cobrado no siempre es el precio de lista de la cita (un link creado por otra
   // cantidad, o editado antes de pagarse). Cuando difieren se DICE, en vez de enseñar
@@ -179,18 +172,10 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
             </div>
           ) : (
           <>
-          {cubierta && (
-            <div className="rounded-lg border-2 border-teal-200 bg-teal-50 p-3 text-sm text-teal-900">
-              <p className="font-medium">Cubierta por el paquete «{paqueteNombre}»</p>
-              <p className="text-xs text-teal-800 mt-0.5">
-                No se le cobra otra vez: se registra en $0. Si hubo algo fuera del paquete, captura el cargo extra.
-              </p>
-            </div>
-          )}
           {/* Price */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              {cubierta ? "Cargo extra (opcional, MXN)" : "Monto cobrado (MXN)"}
+              Monto cobrado (MXN)
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">
@@ -209,8 +194,7 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
             </div>
           </div>
 
-          {/* Forma de pago — en una sesión cubierta, sólo si hay cargo extra. */}
-          {(!cubierta || hayExtra) && (
+          {/* Forma de pago */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1.5">
               Forma de pago
@@ -237,7 +221,6 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
               })}
             </div>
           </div>
-          )}
           </>
           )}
 
@@ -253,11 +236,7 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
               Lo dice el bloque verde de arriba, así que aquí no se repite. */}
           {!yaCobrado && (
             <p className="text-xs text-gray-400">
-              {cubierta
-                ? hayExtra
-                  ? "Se registrará el cargo extra en Flujo de Dinero, marcado «paquete + extra»."
-                  : "Se registrará en Flujo de Dinero como «cubierta por el paquete» ($0)."
-                : "Se registrará un ingreso en Flujo de Dinero automáticamente."}
+              Se registrará un ingreso en Flujo de Dinero automáticamente.
             </p>
           )}
 

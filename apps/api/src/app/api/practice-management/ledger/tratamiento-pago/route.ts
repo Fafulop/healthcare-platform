@@ -1,57 +1,16 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@healthcare/database';
-import { AuthError, getAuthenticatedDoctor } from '@/lib/auth';
-import { createTratamientoPagoEntry } from '@/lib/practice-utils';
 
 /**
- * POST /api/practice-management/ledger/tratamiento-pago — { tratamientoId, amount, formaDePago?, fecha? }
+ * POST /api/practice-management/ledger/tratamiento-pago — APAGADA (410).
  *
- * TRATAMIENTOS T6 — «Registrar pago del paquete»: un ingreso de Flujo de Dinero ligado al
- * tratamiento (adelanto o abono, de cualquier monto, en cualquier momento). Cuelga de
- * `practice-management/ledger` ⇒ para un ayudante exige `flujo` (el mapa de rutas lo revisa en
- * `validateAuthToken`), igual que cualquier movimiento. Sólo tratamientos de este doctor CON precio
- * de paquete: sin paquete, el doctor cobra por sesión y no hay «pago del paquete».
+ * TRATAMIENTOS v2 · V2 (2026-10-02, decisión del usuario): ya no hay paquetes. El total de un
+ * tratamiento es la suma de sus sesiones y cada sesión se cobra al concluir su cita, así que ya no
+ * existe «Registrar pago del paquete». Los movimientos que esta ruta creó (T6) se quedan en Flujo de
+ * Dinero tal como están. Plan: docs/DESDE JUNIO/VISITAS/06-PLAN-tratamientos-v2.md §5.
  */
-export async function POST(request: Request) {
-  try {
-    const { doctor } = await getAuthenticatedDoctor(request);
-    const body = await request.json().catch(() => null);
-    const tratamientoId = body?.tratamientoId;
-    const amount = body?.amount;
-    if (typeof tratamientoId !== 'string' || !tratamientoId) {
-      return NextResponse.json({ error: 'tratamientoId inválido' }, { status: 400 });
-    }
-    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount > 10_000_000) {
-      return NextResponse.json({ error: 'El monto debe ser mayor a 0' }, { status: 400 });
-    }
-
-    const tratamiento = await prisma.tratamiento.findFirst({
-      where: { id: tratamientoId, doctorId: doctor.id },
-      select: { id: true, nombre: true, patientId: true, precioPaquete: true },
-    });
-    if (!tratamiento) {
-      return NextResponse.json({ error: 'Tratamiento no encontrado' }, { status: 404 });
-    }
-    if (tratamiento.precioPaquete === null) {
-      return NextResponse.json(
-        { error: 'El tratamiento no tiene precio de paquete: sus sesiones se cobran una por una al completarlas.' },
-        { status: 409 },
-      );
-    }
-
-    const entry = await createTratamientoPagoEntry({
-      doctorId: doctor.id,
-      tratamiento,
-      amount: Math.round(amount * 100) / 100,
-      formaDePago: typeof body?.formaDePago === 'string' ? body.formaDePago : 'efectivo',
-      fecha: typeof body?.fecha === 'string' ? body.fecha : null,
-    });
-    return NextResponse.json({ success: true, data: entry }, { status: 201 });
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-    console.error('[tratamientos] pago del paquete falló:', error);
-    return NextResponse.json({ error: 'No se pudo registrar el pago' }, { status: 500 });
-  }
+export async function POST() {
+  return NextResponse.json(
+    { error: 'Ya no hay paquetes: cada sesión se cobra al concluir su cita.' },
+    { status: 410 },
+  );
 }

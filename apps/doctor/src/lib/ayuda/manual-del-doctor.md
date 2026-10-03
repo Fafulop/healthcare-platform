@@ -529,15 +529,9 @@ aún no se cobra. Si una sesión no tiene precio, se avisa y no entra al total. 
 visitas de sus sesiones sale en un renglón aparte. Cada sesión dice su servicio, su precio y, ya
 cobrada, **«cobrado $X (folio)»**.
 
-**Precio del paquete** (si cobras el tratamiento completo, no por sesión): en **«Editar»** pon el
-**Precio del paquete**. Entonces la pantalla muestra **Precio · Pagado · Saldo**, y con
-**«Registrar pago del paquete»** anotas cada pago (adelanto o abono: monto, forma de pago y fecha);
-cada pago entra a Flujo de Dinero como ingreso. Al **completar** una sesión del paquete no se pide
-precio: queda en $0 «cubierta por el paquete» (si hubo algo aparte, capturas el **cargo extra**). A
-esas sesiones no se les puede generar link de pago, y lo que se factura es el pago del paquete, no la
-sesión: en el perfil y en la visita esas sesiones dicen **«Cubierta por el paquete»** en vez de
-«Pagado», y en la agenda su precio dice **«Paquete»** (o «Paquete + $N extra»). Sin precio de paquete, cada sesión se cobra al completarla como siempre. Lo del paquete sólo
-lo ve quien tiene permiso de Flujo de Dinero.
+**No hay precio de paquete:** el total de un tratamiento es la suma de sus sesiones, y cada sesión se
+cobra al concluir su cita, como cualquier cita (también con link de pago). Las sesiones que antes
+quedaron «cubiertas por el paquete» ($0) se siguen viendo así en el perfil y en la visita.
 
 Del tratamiento completo: **«Editar»** (nombre, sesiones planeadas, notas), **«Terminar»**,
 **«Cancelar tratamiento»** y **«Reactivar»**. **«Borrar»** sólo funciona mientras ninguna sesión

@@ -208,18 +208,6 @@ export function useTratamientoDetalle() {
     estado, tratamiento, patientName, bookings, permisos, visitas, ocupadas, trabajando,
     patchTratamiento, patchSesion, abrirVisita, borrarTratamiento, borrarSesion, cancelarSesion,
     ligarCita, ligarVisita,
-    /**
-     * T6 — «Registrar pago del paquete»: un ingreso de Flujo de Dinero ligado al tratamiento (apps/api,
-     * bajo `practice-management/ledger` ⇒ exige `flujo`). El saldo se recalcula al recargar.
-     */
-    registrarPago: (monto: number, formaDePago: string, fecha: string) =>
-      escribir(async () => {
-        const res = await authFetch(`${API_URL}/api/practice-management/ledger/tratamiento-pago`, {
-          method: 'POST', body: JSON.stringify({ tratamientoId, amount: monto, formaDePago, fecha }),
-        });
-        const d = await res.json().catch(() => null);
-        if (!res.ok || !d?.success) throw new Error(d?.error || 'No se pudo registrar el pago');
-      }, 'Pago del paquete registrado'),
     /** Re-lee el tratamiento y lo de alrededor (T5: después de «Agendar sesiones»). */
     recargar: () => Promise.all([cargarDetalle(), cargarAlrededor()]),
   };

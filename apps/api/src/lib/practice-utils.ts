@@ -192,12 +192,6 @@ interface CitaLedgerInput {
   bookingId: string;
   amount: number;
   formaDePago: string;
-  /**
-   * TRATAMIENTOS T6 — la cita es una sesión CUBIERTA por el paquete de su tratamiento
-   * (`paqueteDeCita`). Entonces `amount` es 0 («cubierta por el paquete») o el EXTRA, y el
-   * movimiento se liga también al tratamiento. Sin esto, se comporta como siempre.
-   */
-  paquete?: { tratamientoId: string; nombre: string };
 }
 
 /**
@@ -243,11 +237,7 @@ export async function createCitaLedgerEntry(
 
   const patientName = booking?.patientName ?? '';
   const serviceName = booking?.serviceName ?? null;
-  const base = serviceName ? `${serviceName} - ${patientName}` : `Consulta - ${patientName}`;
-  // T6: que se lea en Flujo de Dinero por qué esta cita cobra $0 (o sólo un extra).
-  const concept = input.paquete
-    ? `${base} (${amount > 0 ? 'paquete + extra' : 'cubierta por el paquete'} «${input.paquete.nombre}»)`
-    : base;
+  const concept = serviceName ? `${serviceName} - ${patientName}` : `Consulta - ${patientName}`;
 
   // transactionDate = appointment day (slot date, else freeform booking date, else today),
   // stored at T12:00:00 like every other ledger entry.
@@ -281,7 +271,6 @@ export async function createCitaLedgerEntry(
         ...(booking?.serviceId ? { serviceId: booking.serviceId } : {}),
         ...(serviceName ? { serviceName } : {}),
         ...(booking?.patientId ? { patientId: booking.patientId } : {}),
-        ...(input.paquete ? { tratamientoId: input.paquete.tratamientoId } : {}),
         ...(counterpartyRfc ? { counterpartyRfc } : {}),
         ...(counterpartyName ? { counterpartyName } : {}),
       },
@@ -299,60 +288,6 @@ export async function createCitaLedgerEntry(
     }
     throw error;
   }
-}
-
-/**
- * TRATAMIENTOS T6 (DISEÑO §5) — un PAGO DEL PAQUETE de un tratamiento (adelanto, abono): un ingreso
- * normal de Flujo de Dinero (se factura, se concilia, entra a reportes y a la exportación), ligado
- * al TRATAMIENTO y al paciente, SIN cita. Mismos campos que el cobro de una cita, para que se vea
- * igual en Movimientos. El saldo del paquete se CALCULA de estos movimientos, nunca se guarda.
- */
-export async function createTratamientoPagoEntry(input: {
-  doctorId: string;
-  tratamiento: { id: string; nombre: string; patientId: string };
-  amount: number;
-  formaDePago: string;
-  /** 'YYYY-MM-DD' (hoy si no viene). */
-  fecha?: string | null;
-}): Promise<{ id: number; internalId: string }> {
-  const { doctorId, tratamiento, amount } = input;
-  const formaDePago = VALID_FORMAS_DE_PAGO.includes(input.formaDePago) ? input.formaDePago : 'efectivo';
-  const patient = await prisma.patient.findFirst({
-    where: { id: tratamiento.patientId, doctorId },
-    select: { firstName: true, lastName: true, rfc: true, razonSocial: true },
-  });
-  const patientName = patient ? `${patient.firstName} ${patient.lastName}`.trim() : '';
-  const dateKey = input.fecha && /^\d{4}-\d{2}-\d{2}$/.test(input.fecha)
-    ? input.fecha
-    // HOY en México (no en UTC: de las 18:00 en adelante UTC ya es mañana).
-    : new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
-  const internalId = await generateLedgerInternalId(doctorId, 'ingreso');
-  const counterpartyRfc = patient?.rfc?.trim().toUpperCase().slice(0, 13) || null;
-  const counterpartyName = patient?.razonSocial || patientName || null;
-
-  return prisma.ledgerEntry.create({
-    data: {
-      doctorId,
-      amount,
-      concept: `Pago del paquete «${tratamiento.nombre}» - ${patientName}`.slice(0, 500),
-      entryType: 'ingreso',
-      transactionDate: new Date(dateKey + 'T12:00:00'),
-      internalId,
-      formaDePago,
-      area: AREA_INGRESOS_CONSULTA,
-      // Igual que los ingresos de citas: la subárea es del catálogo del doctor, no el nombre del tratamiento.
-      subarea: '',
-      origin: 'manual',
-      transactionType: 'N/A',
-      amountPaid: amount,
-      paymentStatus: 'PAID',
-      patientId: tratamiento.patientId,
-      tratamientoId: tratamiento.id,
-      ...(counterpartyRfc ? { counterpartyRfc } : {}),
-      ...(counterpartyName ? { counterpartyName } : {}),
-    },
-    select: { id: true, internalId: true },
-  });
 }
 
 // ─── Default Area Resolution ────────────────────────────────────────────────

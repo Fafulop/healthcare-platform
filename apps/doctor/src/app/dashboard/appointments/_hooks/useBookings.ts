@@ -77,8 +77,6 @@ export interface Booking {
   location?: { id: string; name: string } | null;
   /** TRATAMIENTOS T4: la sesión de tratamiento de esta cita, si es una (`SesionDeLaCita`). */
   tratamientoSesion?: SesionEnCita | null;
-  /** TRATAMIENTOS T6: sesión cubierta por el paquete de su tratamiento (lo decide el servidor). */
-  cubiertaPorPaquete?: boolean;
   isFirstTime?: boolean | null;
   appointmentMode?: string | null;
   slot: { date: string; startTime: string; endTime: string; duration: number } | null;
@@ -336,19 +334,13 @@ export function useBookings(doctorId: string | undefined) {
       // flujo-gated POST — so it also works for secondary users without `flujo`
       // (00-REQUISITOS §3.6). The server rebuilds concept/area/patient identity from the
       // booking; the client only supplies the price + forma de pago the user entered.
-      // T6: misma regla que el modal (`!ingreso && cubiertaPorPaquete`). Es lo que se cargó con la agenda;
-      // el SERVIDOR re-decide al completar, y el toast de abajo dice lo que DE VERDAD registró.
-      const b = bookings.find((x) => x.id === bookingId);
-      const cubierta = !b?.ingreso && b?.cubiertaPorPaquete === true;
       const res = await authFetch(
         `${API_URL}/api/appointments/bookings/${bookingId}`,
         {
           method: "PATCH",
           body: JSON.stringify({
             status: "COMPLETED",
-            // T6: en una sesión cubierta por el paquete, `price` es el EXTRA (lo dice el modal) y así se
-            // le avisa al servidor; sin la marca, el servidor registra $0 (el precio de lista no es un extra).
-            income: { price, formaDePago, ...(cubierta ? { extraPaquete: true } : {}) },
+            income: { price, formaDePago },
           }),
         }
       );
@@ -362,15 +354,10 @@ export function useBookings(doctorId: string | undefined) {
       } else if (data.ledgerAlreadyExisted) {
         // H2: a paid payment link already created this cita's income via webhook.
         toast.success("Cita completada · el ingreso ya estaba registrado (pagado con link de pago)");
-      } else if (data.cobroRegistrado?.paquete) {
-        const m = Number(data.cobroRegistrado.monto) || 0;
-        toast.success(m > 0
-          ? `Cita completada · cubierta por el paquete «${data.cobroRegistrado.paquete}» + cargo extra de $${m.toLocaleString()}`
-          : `Cita completada · cubierta por el paquete «${data.cobroRegistrado.paquete}» (se registró en $0)`);
       } else if (data.cobroRegistrado) {
         toast.success("Cita completada · ingreso registrado en Flujo de Dinero");
       } else {
-        // El servidor no registró cobro (p. ej. el paquete se quitó entre la carga y el completar).
+        // El servidor no registró cobro (monto 0).
         toast.success("Cita completada · no se registró ningún ingreso");
       }
       return { ledgerEntryId: data.ledgerEntryId };
@@ -486,8 +473,8 @@ export function useBookings(doctorId: string | undefined) {
         // ingreso. Ver el comentario del `include` en api/appointments/bookings/route.ts.
         if (!booking.facturaSolicitada) return false;
         if (booking.facturada) return false;
-        // T6: una sesión cubierta por el paquete quedó en $0 — no hay qué facturar en ella (se
-        // factura el PAGO del paquete); si no se excluye, se quedaría aquí para siempre.
+        // Un ingreso de $0 (las sesiones «cubiertas por el paquete» de antes de V2) no tiene qué
+        // facturar; si no se excluye, se quedaría aquí para siempre.
         if (booking.ingreso?.amount === 0) return false;
       } else if (bookingFilterStatus && booking.status !== bookingFilterStatus) {
         return false;
