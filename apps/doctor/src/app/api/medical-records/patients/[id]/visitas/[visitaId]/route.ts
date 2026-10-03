@@ -4,7 +4,7 @@ import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { AppError, handleApiError } from '@/lib/api-error-handler';
 import {
   bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, totalHijos,
-  exigirMismoDiaSiTienePlantillas, unicaPorCita, validarCitaParaVisita,
+  unicaPorCita, validarCitaParaVisita,
 } from '@/lib/visitas';
 import {
   aplicarEnSesion, auditarCambioDeSesion, exigirSinSesionAlDesligar, sesionAlLigarCitaAVisita, sesionDeVisita,
@@ -116,8 +116,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         bookingFinal = null;
       } else {
         const { fechaCita } = await validarCitaParaVisita(ctx, patientId, body.bookingId, visitaId);
-        // Con plantillas, la visita ya tiene día: sólo una cita de ESE día (antes sólo lo cuidaba la UI).
-        await exigirMismoDiaSiTienePlantillas(ctx.doctorId, patientId, visitaId, visita.fecha, fechaCita);
+        // Las plantillas tienen su propia fecha (2026-10-02): una cita de cualquier día se puede ligar.
         bookingFinal = body.bookingId as string;
         if (fechaCita) data.fecha = fechaCita;
       }
@@ -135,17 +134,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           throw new AppError('La visita tiene cita: su fecha es la de la cita', 409);
         }
       } else {
-        // «La fecha de una plantilla ES la de su visita», del lado de la VISITA: con plantillas, la
-        // visita ya tiene día y no se cambia (antes sólo lo cuidaba la pantalla, `disabled`).
-        // Re-enviar el mismo día no es cambiarlo.
-        if (diaISO(fecha) !== diaISO(visita.fecha)) {
-          const consultas = await prisma.clinicalEncounter.count({
-            where: { visitaId, patientId, doctorId: ctx.doctorId },
-          });
-          if (consultas > 0) {
-            throw new AppError('La visita ya tiene plantillas: su fecha es la de sus plantillas y no se cambia', 409);
-          }
-        }
+        // Sin cita, la fecha de la visita se corrige libremente: sus plantillas tienen la suya (2026-10-02).
         data.fecha = fecha;
       }
     }

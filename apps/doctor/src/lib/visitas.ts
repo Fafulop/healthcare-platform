@@ -213,66 +213,6 @@ export async function validarCitaParaVisita(
 }
 
 /**
- * El día ('YYYY-MM-DD') que MUESTRA una visita: con cita, el de la cita (primero el slot, luego la
- * fecha propia de la cita); sin cita, su `fecha`. Mismo criterio que `diasDeCitas` y la pantalla.
- * null = la visita no es de este paciente/doctor.
- */
-export async function diaDeVisita(
-  doctorId: string, patientId: string, visitaId: string,
-  db: Prisma.TransactionClient | PrismaClient = prisma,
-): Promise<string | null> {
-  const v = await db.visita.findFirst({
-    where: { id: visitaId, patientId, doctorId },
-    select: { fecha: true, booking: { select: { date: true, slot: { select: { date: true } } } } },
-  });
-  if (!v) return null;
-  return diaISO(v.booking?.slot?.date ?? v.booking?.date ?? v.fecha);
-}
-
-/**
- * «La fecha de una plantilla ES la de su visita» (DISEÑO §3, confirmado por el usuario 2026-09-29)
- * — en el SERVIDOR, no sólo en las pantallas: una consulta dentro de una visita es del MISMO día
- * que la visita. Se exige al crearla en una visita, al cambiarle la fecha y al moverla de visita
- * («Mover a…» / «Traer aquí»). Fotos, notas y recetas NO: ésas no van atadas al día.
- * `diaConsulta` en 'YYYY-MM-DD' (día UTC, como se guarda `encounterDate`).
- */
-export async function exigirConsultaDelDiaDeLaVisita(
-  doctorId: string, patientId: string, visitaId: string, diaConsulta: string,
-  db: Prisma.TransactionClient | PrismaClient = prisma,
-) {
-  const dia = await diaDeVisita(doctorId, patientId, visitaId, db);
-  if (dia && dia !== diaConsulta) {
-    // «30 sep 2026», como lo dicen las pantallas (no el ISO interno). El día va en UTC: así se guarda.
-    const legible = (d: string) =>
-      new Date(`${d}T12:00:00Z`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-    throw new AppError(
-      `La consulta es del ${legible(diaConsulta)} y la visita del ${legible(dia)}: una plantilla sólo puede estar en una visita de su mismo día`,
-      409,
-    );
-  }
-}
-
-/**
- * «Una sola verdad» de la fecha (DISEÑO §3): una visita CON plantillas ya tiene día (el de sus
- * plantillas), así que sólo se le liga una cita de ESE día. Vivía sólo en la pantalla de la visita
- * (`ligables`); ahora la cumplen en el servidor los dos caminos que ligan una cita a una visita que
- * ya existe: el PATCH de la visita y el de una sesión de tratamiento (G2).
- */
-export async function exigirMismoDiaSiTienePlantillas(
-  doctorId: string, patientId: string, visitaId: string, fechaVisita: Date, fechaCita: Date | null,
-  db: Prisma.TransactionClient | PrismaClient = prisma,
-) {
-  const consultas = await db.clinicalEncounter.count({ where: { visitaId, patientId, doctorId } });
-  if (consultas === 0) return;
-  if (!fechaCita) {
-    throw new AppError('La visita ya tiene plantillas y la cita no tiene fecha: no se pueden ligar', 409);
-  }
-  if (diaISO(fechaCita) !== diaISO(fechaVisita)) {
-    throw new AppError('La visita ya tiene plantillas de otro día: sólo se le puede ligar una cita de ese mismo día', 409);
-  }
-}
-
-/**
  * VISITAS D3 — la visita de un HIJO (foto, receta, informe, nota, consulta). UNA regla, un lugar
  * (DISEÑO §3 "una sola liga al padre"): **la visita de un hijo es la de su consulta.**
  *   · Con consulta (`encounterId`): el servidor la DERIVA de la consulta; un `visitaId` que no

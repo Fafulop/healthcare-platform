@@ -116,8 +116,13 @@ plantilla. Regla:
   sus citas** (`Booking.slot` con `onDelete: Cascade`, más la ruta de purga): la visita sobrevive
   (`SET NULL`) y conserva su día.
 - Sin cita, `visitas.fecha` es la fecha y punto.
-- Cada plantilla nueva dentro de la visita toma su `encounterDate` **de la visita** al crearse (el
-  código existente lo necesita); no se edita por separado.
+- ~~Cada plantilla nueva dentro de la visita toma su `encounterDate` de la visita y no se edita por
+  separado.~~ **Cambiado por el usuario el 2026-10-02:** la fecha de una plantilla es **SUYA**. Al
+  agregarla desde una visita **empieza** con la fecha de la visita, pero se edita, y no tiene que
+  coincidir. Ya no se exige «mismo día» al crearla, editarla, moverla de visita, traerla, ligar una
+  cita a una visita con plantillas ni corregir la fecha de una visita con plantillas. Por qué: una
+  visita (sobre todo una sesión de tratamiento) se reagenda, y la cita sólo decide la fecha de la
+  VISITA; lo que hay dentro (plantillas, notas, fotos, recetas, ventas) conserva su fecha.
 
 ### Reglas de integridad *(huecos #4, #5, #13, #14)*
 

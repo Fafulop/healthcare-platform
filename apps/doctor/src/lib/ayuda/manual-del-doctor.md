@@ -424,17 +424,18 @@ documentos, notas, recetas e informes, la cita y un comentario.
   nota») · **Recetas** («Nueva receta») · **Comentario** («Guardar comentario»). Lo que agregas
   desde aquí queda en esta visita. Los **Informes médicos** se hacen desde su plantilla y aparecen
   aquí cuando existen.
-- **«Mover a…»** en una plantilla la pasa a otra visita **del mismo día** (o a «Sin visita»), y
-  se lleva sus fotos, recetas e informes. **«Traerla aquí…»** trae una consulta sin visita del
-  mismo día. La fecha de una plantilla es la de su visita y no cambia (tampoco al editarla): por eso
-  sólo se mueve entre visitas de su día, y una visita con plantillas ya no cambia de fecha.
+- **«Mover a…»** en una plantilla la pasa a otra visita (o a «Sin visita»), y se lleva sus fotos,
+  recetas e informes. **«Traerla aquí…»** trae una consulta sin visita.
+- **La fecha de cada plantilla es suya:** al agregarla desde una visita empieza con la fecha de la
+  visita, pero la puedes cambiar (al crearla o al editarla). Si no es la de la visita, la lista de
+  plantillas la muestra. Mover una plantilla o cambiar la fecha de la visita no le cambia la suya.
 - **«Borrar visita»** sólo aparece mientras está vacía.
 - Si la visita es una sesión de un tratamiento, debajo del nombre del paciente dice **«Sesión 3 de
   6 — (nombre del tratamiento)»**; clic para abrir el tratamiento.
 
 **Consultas sin visita** — las registradas fuera de una visita (por ejemplo, las de antes de que
-existieran las visitas). Se ven en su propia tarjeta; desde una visita del mismo día puedes
-traerlas.
+existieran las visitas). Se ven en su propia tarjeta; desde cualquier visita puedes traerlas
+(«Traerla aquí…»).
 
 ### Tratamientos
 
@@ -553,7 +554,8 @@ Una consulta (la **plantilla** llenada) se agrega **desde una visita**: «Agrega
 1. **«Plantilla:»** arriba de todo. Si marcaste una como predeterminada, ya viene puesta. Sin
    plantilla, el formulario es el estándar (SOAP y signos vitales).
 2. **Tipo de Consulta** (Consulta · Seguimiento · Emergencia · Telemedicina), **Motivo de
-   Consulta** (obligatorio), y los campos de la plantilla o SOAP. La fecha es la de la visita.
+   Consulta** (obligatorio), y los campos de la plantilla o SOAP. La **Fecha de Consulta** empieza
+   con la de la visita y la puedes cambiar.
 3. **Seguimiento** (opcional): fecha y notas de seguimiento.
 4. **«Guardar en la visita».**
 

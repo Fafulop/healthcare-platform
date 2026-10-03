@@ -3,7 +3,7 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { logEncounterUpdated, logEncounterDeleted } from '@/lib/activity-logger';
 import { handleApiError, validateEncounterDate } from '@/lib/api-error-handler';
-import { exigirConsultaDelDiaDeLaVisita, moverConsultaDeVisita, resolverVisitaDeHijo } from '@/lib/visitas';
+import { moverConsultaDeVisita, resolverVisitaDeHijo } from '@/lib/visitas';
 
 // GET /api/medical-records/patients/:id/encounters/:encounterId
 export async function GET(
@@ -139,17 +139,10 @@ export async function PUT(
     });
     const cambiaVisita = nuevaVisita !== undefined && nuevaVisita !== existingEncounter.visitaId;
 
-    // «La fecha de una plantilla ES la de su visita», en el SERVIDOR: si esta escritura cambia la
-    // FECHA o la VISITA y la consulta queda dentro de una visita, tiene que ser del mismo día (409
-    // si no). Re-enviar la misma fecha no es cambiarla; editar sólo el contenido no se revisa (una
-    // consulta vieja que ya no cuadra no se vuelve ineditable). Mover a «Sin visita» siempre se puede.
-    const visitaFinal = cambiaVisita ? nuevaVisita ?? null : existingEncounter.visitaId;
-    // Validada ANTES de la regla (una fecha inválida es 400, no un 500 al sacarle el día).
-    const fechaFinal = body.encounterDate ? validateEncounterDate(body.encounterDate) : existingEncounter.encounterDate;
-    const cambiaFecha = !!body.encounterDate && diaUtc(fechaFinal) !== diaUtc(existingEncounter.encounterDate);
-    if (visitaFinal && (cambiaVisita || cambiaFecha) && diaUtc(fechaFinal)) {
-      await exigirConsultaDelDiaDeLaVisita(doctorId, patientId, visitaFinal, diaUtc(fechaFinal)!);
-    }
+    // La fecha de una plantilla es SUYA (decisión del usuario 2026-10-02, DISEÑO §3): cambiarle la
+    // fecha o moverla de visita ya no exige el mismo día que la visita. Una fecha inválida sigue
+    // siendo 400 aquí, antes de escribir nada.
+    if (body.encounterDate) validateEncounterDate(body.encounterDate);
 
     // VISITAS D3: a PUT that ONLY carries `visitaId` (the «¿A qué visita pertenece?» control) just
     // moves the consultation. It must not run the full update below: that one clears

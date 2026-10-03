@@ -45,7 +45,8 @@ export function useNewEncounterPage() {
   const searchParams = useSearchParams();
   const patientId = params.id as string;
   // VISITAS D4 — «Agregar plantilla» desde una visita llega con `?visitaId=`: la consulta nace
-  // DENTRO de esa visita, con la fecha de la visita (DISEÑO §3), y al guardar se vuelve a ella.
+  // DENTRO de esa visita, EMPEZANDO con la fecha de la visita (editable, DISEÑO §3), y al guardar
+  // se vuelve a ella.
   const visitaId = searchParams.get('visitaId');
   // Sin visita (por URL o un enlace viejo) ya no se crea una consulta suelta con fecha editable:
   // toda consulta nace en una visita. Se manda al perfil con el modal «Nueva Visita» abierto
@@ -295,14 +296,15 @@ export function useNewEncounterPage() {
   };
 
   const handleSubmit = async (formData: EncounterFormData) => {
-    // Sin la fecha de la visita no se guarda: saldría con otra fecha, o fuera de la visita.
+    // Sin la visita cargada no se guarda: podría no existir (y la fecha no traería la suya).
     if (visitaId && !fechaVisita) {
       throw new Error('No se pudo cargar la visita. Recarga la página para intentar de nuevo.');
     }
     const res = await fetch(`/api/medical-records/patients/${patientId}/encounters`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(visitaId ? { ...formData, encounterDate: fechaVisita, visitaId } : formData),
+      // La fecha es la del formulario: empieza con la de la visita y el doctor la puede cambiar.
+      body: JSON.stringify(visitaId ? { ...formData, visitaId } : formData),
     });
 
     if (!res.ok) {

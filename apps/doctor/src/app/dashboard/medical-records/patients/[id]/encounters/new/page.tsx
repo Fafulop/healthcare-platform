@@ -144,7 +144,7 @@ export default function NewEncounterPage() {
         onSubmit={handleSubmit}
         submitLabel={visitaId ? 'Guardar en la visita' : 'Crear Consulta'}
         cancelHref={visitaId ? volverHref : undefined}
-        fechaFija={fechaVisita ?? undefined}
+        fechaInicial={fechaVisita ?? undefined}
         templateConfig={templateConfig}
         selectedTemplate={selectedTemplate}
         onFormDataChange={setCurrentFormData}

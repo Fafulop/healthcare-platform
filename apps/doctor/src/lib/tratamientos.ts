@@ -14,7 +14,7 @@ import type { NextRequest } from 'next/server';
 import { logAudit, type MedicalAuthContext } from '@/lib/medical-auth';
 import { AppError } from '@/lib/api-error-handler';
 import {
-  bloquesDeCita, cargarCitaLigable, diaISO, diasDeCitas, exigirMismoDiaSiTienePlantillas, puedeVer, unicaPorCita,
+  bloquesDeCita, cargarCitaLigable, diaISO, diasDeCitas, puedeVer, unicaPorCita,
 } from '@/lib/visitas';
 
 type Db = Prisma.TransactionClient | PrismaClient;
@@ -779,8 +779,8 @@ export interface PlanLigarCita {
  * NO_SHOW) más las de la sesión:
  *   · no es de otra sesión de este paciente (si es de la de OTRO paciente, quedó vieja: G1);
  *   · G2: si la sesión ya tiene visita y la cita también, y son distintas → 409; si sólo la
- *     sesión tiene visita, esa visita pasa a ser la de la cita (si no es ya de OTRA cita y, si
- *     tiene plantillas, la cita es del MISMO día);
+ *     sesión tiene visita, esa visita pasa a ser la de la cita (si no es ya de OTRA cita; sus
+ *     plantillas conservan su fecha, 2026-10-02);
  *   · si sólo la cita tiene visita, que no sea ya de otra sesión.
  */
 export async function planLigarCitaASesion(
@@ -814,7 +814,7 @@ export async function planLigarCitaASesion(
       throw new AppError('La visita de esta sesión es de otra cita: una visita no puede ser de dos citas', 409);
     }
     if (v && !v.bookingId) {
-      await exigirMismoDiaSiTienePlantillas(ctx.doctorId, sesion.patientId, visitaActual, v.fecha, c.fechaCita);
+      // Sus plantillas tienen su propia fecha (2026-10-02): la visita toma el día de la cita sin más.
       moverVisita = { id: visitaActual, fecha: c.fechaCita };
     }
   }

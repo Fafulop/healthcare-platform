@@ -337,6 +337,11 @@ review (la sesión siempre guarda su visita). **Siguiente: T2 (la API).** Fase 3
 
 ## 4. Decisiones del usuario (no re-litigar)
 
+- **⚠️ 2026-10-02 — SE REVIERTE «la fecha de una plantilla ES la de su visita»:** la fecha de cada
+  plantilla es SUYA (empieza con la de la visita, editable). Ya no hay regla de «mismo día» para
+  plantillas en ningún lado (crear, editar, mover, traer, ligar cita, corregir la fecha de la visita).
+  Las menciones de esa regla más abajo y en 02/03-PLAN quedan como historia. Ver DISEÑO §3.
+
 - **Backfill DESCARTADO (2026-09-29):** "no me importan los que ya se crearon" — pocos doctores. Lo
   creado antes de las visitas se queda «Sin visita» (las plantillas viejas aparecen en «Consultas sin
   visita» y se pueden traer a una visita del MISMO día). Con eso cae la razón de la lista de dr-prueba

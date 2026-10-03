@@ -138,22 +138,17 @@ export default function VisitaPage() {
 
   // Citas que se pueden ligar: del paciente, ni canceladas ni no-show, y sin visita. Sólo si ya
   // cargaron las otras visitas — sin ellas no se sabe cuáles ya tienen la suya.
-  // Con plantillas, la visita ya tiene día (el de sus plantillas, DISEÑO §3): sólo se ligan citas
-  // de ESE día y la fecha no se edita — si no, la visita diría un día y sus plantillas otro.
-  const conPlantillas = visita.consultas.length > 0;
+  // Las plantillas tienen SU fecha (decisión del usuario 2026-10-02, DISEÑO §3): una cita de cualquier
+  // día se liga, la fecha de la visita se corrige, y mover / traer una plantilla no mira el día (ni
+  // reescribe su `encounterDate`).
   const conVisitaYa = new Set((v.otrasVisitas ?? []).flatMap((o) => (o.cita ? [o.cita.id] : [])));
   const ligables = v.otrasVisitas && v.bookings
-    ? v.bookings.filter((b) =>
-        b.status !== 'CANCELLED' && b.status !== 'NO_SHOW' && !conVisitaYa.has(b.id)
-        && (!conPlantillas || b.date === visita.fecha))
+    ? v.bookings.filter((b) => b.status !== 'CANCELLED' && b.status !== 'NO_SHOW' && !conVisitaYa.has(b.id))
     : [];
 
-  // «Una sola verdad» de la fecha (DISEÑO §3): la fecha de una plantilla ES la de su visita. Mover
-  // o traer NO reescribe `encounterDate` (sería editar el registro clínico por la espalda), así que
-  // sólo se ofrecen visitas / consultas del MISMO día. Otro día = otra visita.
   const diaDe = (c: ConsultaDeVisita) => c.encounterDate.slice(0, 10);
-  const destinosPara = (c: ConsultaDeVisita) => (v.otrasVisitas ?? []).filter((o) => o.fecha === diaDe(c));
-  const traibles = (v.sueltas ?? []).filter((s) => diaDe(s) === visita.fecha);
+  const destinosPara = (_c: ConsultaDeVisita) => v.otrasVisitas ?? [];
+  const traibles = v.sueltas ?? [];
   const destinos = v.otrasVisitas ?? [];
   const moverA = (c: ConsultaDeVisita, valor: string) => {
     if (!valor) return;
@@ -279,12 +274,8 @@ export default function VisitaPage() {
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              disabled={conPlantillas}
-              className="px-2 py-1.5 border border-gray-300 rounded-md text-sm disabled:bg-gray-50 disabled:text-gray-500"
+              className="px-2 py-1.5 border border-gray-300 rounded-md text-sm"
             />
-            {conPlantillas && (
-              <span className="text-xs text-gray-500">Es la fecha de sus plantillas; no se cambia.</span>
-            )}
             {fecha && fecha !== visita.fecha && (
               <button
                 onClick={() => v.guardarFecha(fecha)}
@@ -312,7 +303,11 @@ export default function VisitaPage() {
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {c.chiefComplaint || (c.templateId ? 'Plantilla personalizada' : 'Plantilla SOAP')}
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">{ENCOUNTER_TYPE_LABELS[c.encounterType] ?? c.encounterType}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {ENCOUNTER_TYPE_LABELS[c.encounterType] ?? c.encounterType}
+                    {/* Su fecha es suya: se dice cuando no es la de la visita. */}
+                    {diaDe(c) !== visita.fecha && ` · ${formatoFechaVisita(diaDe(c))}`}
+                  </p>
                 </Link>
                 <span className={`text-xs px-2 py-0.5 rounded shrink-0 ${STATUS_COLORS[c.status] ?? 'bg-gray-100 text-gray-800'}`}>
                   {STATUS_LABELS[c.status] ?? c.status}
@@ -344,7 +339,7 @@ export default function VisitaPage() {
         {/* Traer una consulta registrada fuera de una visita (las «Consultas sin visita» del paciente). */}
         {traibles.length > 0 && (
           <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-gray-500">Hay consultas sin visita de este mismo día.</span>
+            <span className="text-xs text-gray-500">Este paciente tiene consultas sin visita.</span>
             <select
               value=""
               disabled={v.trabajando}

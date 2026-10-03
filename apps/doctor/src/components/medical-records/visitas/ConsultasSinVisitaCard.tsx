@@ -34,7 +34,7 @@ export function ConsultasSinVisitaCard({ patientId, estado, sueltas }: Props) {
       ) : (
         <>
           <p className="text-xs text-gray-500 mb-4">
-            Registradas fuera de una visita. Si hay una visita del mismo día, desde ella puedes traerlas.
+            Registradas fuera de una visita. Desde cualquier visita puedes traerlas («Traerla aquí…»).
           </p>
           <ListaColapsable className="space-y-3">
             {sueltas.map((e) => <EncounterCard key={e.id} encounter={e} patientId={patientId} />)}

@@ -57,9 +57,10 @@ interface EncounterFormProps {
   chatFieldUpdates?: { version: number; updates: Partial<EncounterFormData> } | null;
   /** Incremental custom field updates from AI chat panel */
   chatCustomFieldUpdates?: { version: number; updates: Record<string, any> } | null;
-  /** VISITAS D4 — inside a visit the date IS the visit's ('YYYY-MM-DD'). DISPLAY only: the date
-   *  input shows it locked. The caller's onSubmit is what sends it (useNewEncounterPage). */
-  fechaFija?: string;
+  /** VISITAS — a plantilla added inside a visit STARTS with the visit's date ('YYYY-MM-DD'), but the
+   *  date stays editable: a plantilla's date is its own (user decision 2026-10-02, DISEÑO §3). It may
+   *  arrive after the first render (the visit loads async); it fills the date until the user edits it. */
+  fechaInicial?: string;
 }
 
 export function EncounterForm({
@@ -75,7 +76,7 @@ export function EncounterForm({
   onCustomFieldValuesChange,
   chatFieldUpdates,
   chatCustomFieldUpdates,
-  fechaFija,
+  fechaInicial,
 }: EncounterFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -125,6 +126,9 @@ export function EncounterForm({
     status: initialData.status || 'completed',
   });
 
+  // Set when the doctor edits the date by hand (see `fechaInicial`).
+  const fechaTocada = useRef(false);
+
   // Sync form state when initialData changes (e.g., from voice assistant)
   useEffect(() => {
     // Only update if initialData has meaningful content
@@ -134,7 +138,10 @@ export function EncounterForm({
 
     if (hasContent) {
       setFormData(prev => ({
-        encounterDate: initialData.encounterDate ? initialData.encounterDate.split('T')[0] : prev.encounterDate,
+        // The voice data's date (today by default) replaces neither the visit's date nor one the
+        // doctor typed by hand.
+        encounterDate: fechaInicial || fechaTocada.current ? prev.encounterDate
+          : initialData.encounterDate ? initialData.encounterDate.split('T')[0] : prev.encounterDate,
         encounterType: initialData.encounterType || prev.encounterType,
         chiefComplaint: initialData.chiefComplaint || prev.chiefComplaint,
         location: initialData.location ?? prev.location,
@@ -190,7 +197,13 @@ export function EncounterForm({
     }
   }, [chatCustomFieldUpdates]);
 
+  // The visit's date fills the date field until the doctor edits it by hand.
+  useEffect(() => {
+    if (fechaInicial && !fechaTocada.current) setFormData((prev) => ({ ...prev, encounterDate: fechaInicial }));
+  }, [fechaInicial]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    if (e.target.name === 'encounterDate') fechaTocada.current = true;
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -279,10 +292,8 @@ export function EncounterForm({
                   <input
                     type="date"
                     name="encounterDate"
-                    value={fechaFija ?? formData.encounterDate}
+                    value={formData.encounterDate}
                     onChange={handleChange}
-                    disabled={!!fechaFija}
-                    title={fechaFija ? 'Es la fecha de la visita' : undefined}
                     required
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                   />

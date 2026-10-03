@@ -200,10 +200,10 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           },
 
           'mover una plantilla': {
-            allowedIf: 'Sólo a otra visita del MISMO día (o a "Sin visita"), con "Mover a…" en la pantalla de la visita.',
+            allowedIf: 'A cualquier otra visita del paciente (o a "Sin visita"), con "Mover a…" en la pantalla de la visita.',
             notes:
-              'Se lleva sus fotos, recetas e informes. La fecha de la plantilla nunca cambia. ' +
-              '"Traerla aquí…" trae una consulta sin visita del mismo día.',
+              'Se lleva sus fotos, recetas e informes. Moverla no le cambia la fecha: cada plantilla tiene la suya ' +
+              '(empieza con la de la visita y se edita al crearla o al editarla). "Traerla aquí…" trae una consulta sin visita.',
           },
 
           'cambiar de visita una foto, nota o receta': {
@@ -285,7 +285,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             allowedIf: 'Desde una visita: "Nueva Visita" en el perfil del paciente (o abrir una existente) → "Agregar plantilla" → "Guardar en la visita".',
             notes:
               'Tipos disponibles: Consulta, Seguimiento, Emergencia, Telemedicina. ' +
-              'La fecha de la consulta es la de su visita. ' +
+              'La fecha de la consulta empieza con la de su visita y se puede cambiar. ' +
               'Plantilla estándar requiere: tipo y motivo de consulta. ' +
               'Plantilla personalizada solo requiere: tipo (no requiere motivo de consulta). ' +
               'La fecha de última visita del paciente se recalcula como la de su consulta más reciente.',

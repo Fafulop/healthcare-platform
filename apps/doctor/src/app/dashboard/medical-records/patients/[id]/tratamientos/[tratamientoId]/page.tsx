@@ -467,7 +467,6 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
   // ocupado: sin eso no se sabe qué rechazaría el servidor. Se quitan las que darían 409:
   //   · de otra sesión;
   //   · con su PROPIA visita, si la sesión ya guarda otra (una sesión no tiene dos visitas, G2);
-  //   · de otro día, si la visita de la sesión ya tiene plantillas (regla del mismo día).
   const citaSustituible = !cita || s.motivo === 'cita_cancelada' || s.motivo === 'cita_no_asistio';
   const visitaPropia = s.visita && t.visitas ? t.visitas.find((v) => v.id === s.visita!.id) : undefined;
   const visitaPorCita = new Map((t.visitas ?? []).flatMap((v) => (v.cita ? [[v.cita.id, v.id] as const] : [])));
@@ -476,7 +475,6 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
         .filter((b) => b.status !== 'CANCELLED' && b.status !== 'NO_SHOW' && b.id !== cita?.id
           && !t.ocupadas!.citas.includes(b.id)
           && !(s.visita && visitaPorCita.has(b.id) && visitaPorCita.get(b.id) !== s.visita.id)
-          && !(visitaPropia && !visitaPropia.cita && (visitaPropia.conteo?.consultas ?? 0) > 0 && b.date !== visitaPropia.fecha)
           // Si la visita guardada ya es de una cita, sólo ESA cita (una visita no es de dos citas).
           && !(visitaPropia?.cita && b.id !== visitaPropia.cita.id))
         .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))

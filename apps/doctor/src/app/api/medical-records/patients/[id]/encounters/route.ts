@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { logEncounterCreated } from '@/lib/activity-logger';
-import { diaISO, exigirConsultaDelDiaDeLaVisita, resolverVisitaDeHijo } from '@/lib/visitas';
+import { resolverVisitaDeHijo } from '@/lib/visitas';
 import {
   handleApiError,
   validateRequired,
@@ -98,9 +98,8 @@ export async function POST(
     const visitaId = await resolverVisitaDeHijo(doctorId, patientId, {
       visitaId: body.visitaId, encounterId: null, encounterCambio: false,
     });
-    // «La fecha de una plantilla ES la de su visita», también en el SERVIDOR: creada dentro de una
-    // visita, la consulta es de ese día (409 si no).
-    if (visitaId) await exigirConsultaDelDiaDeLaVisita(doctorId, patientId, visitaId, diaISO(encounterDate));
+    // La fecha de una plantilla es SUYA (decisión del usuario 2026-10-02, DISEÑO §3): dentro de una
+    // visita empieza con la de la visita, pero puede ser otra.
 
     const encounter = await prisma.clinicalEncounter.create({
       data: {
