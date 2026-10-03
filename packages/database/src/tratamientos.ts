@@ -15,14 +15,73 @@ export interface QuienAudita { userId: string; userRole: string }
 export type MotivoNoSeMueve = 'sesion_cancelada' | 'sesion_con_visita';
 
 /**
- * Reagendar: ¿la sesión pasa SOLA a la cita nueva? Sólo en el caso limpio. Una regla, un lugar: la
- * usan las rutas que crean la cita nueva y la tarjeta del asistente (que le dice al doctor lo que va
- * a pasar ANTES de confirmar). null = sí se mueve.
+ * Reagendar / agendar de nuevo: ¿la sesión pasa SOLA a la cita nueva? Una regla, un lugar: la usan
+ * las rutas que crean la cita nueva y la tarjeta del asistente (que le dice al doctor lo que va a
+ * pasar ANTES de confirmar). null = sí se mueve.
+ *
+ * TRATAMIENTOS v2 · V4 paso 2 (decisión del usuario 2026-10-02): una visita que es la de la cita
+ * VIEJA de la sesión **viaja con ella** (toma la cita nueva y su fecha; lo que tiene dentro conserva
+ * su propia fecha). Sólo una visita que NO es de esa cita (una manual, u otra) la detiene. La visita
+ * que cuenta es la EFECTIVA, como en `estadoDeSesion`: la guardada en la sesión o, si no guardó, la
+ * de su cita (`booking.visita`). Sin `visita` en el argumento no se sabe de qué cita es la guardada:
+ * se asume que no viaja (conservador).
  */
-export function motivoNoSeMueve(s: { cancelada: boolean; visitaId: string | null }): MotivoNoSeMueve | null {
+type SesionParaMover = {
+  cancelada: boolean; visitaId: string | null; patientId?: string;
+  bookingId?: string | null; visita?: { bookingId: string | null } | null;
+  booking?: { patientId?: string | null; visita?: { id: string } | null } | null;
+};
+/** La visita de su cita, sólo si la cita sigue siendo de ESTE paciente (G1: una re-ligada no cuenta). */
+const visitaDeSuCita = (s: SesionParaMover) =>
+  s.patientId && s.booking?.patientId === s.patientId ? s.booking?.visita ?? null : null;
+export function motivoNoSeMueve(s: SesionParaMover): MotivoNoSeMueve | null {
   if (s.cancelada) return 'sesion_cancelada';
-  if (s.visitaId) return 'sesion_con_visita';
+  if (visitaEfectiva(s) && !visitaViajaConLaCita(s)) return 'sesion_con_visita';
   return null;
+}
+
+/** La visita de la sesión: la guardada o, si no guardó, la de su cita. */
+export function visitaEfectiva(s: SesionParaMover): string | null {
+  return s.visitaId ?? visitaDeSuCita(s)?.id ?? null;
+}
+
+/** ¿Su visita (efectiva) es la de su cita, la que se va a reemplazar? */
+export function visitaViajaConLaCita(s: SesionParaMover): boolean {
+  if (!s.bookingId) return false;
+  if (!s.visitaId) return !!visitaDeSuCita(s);
+  return !!s.visita && s.visita.bookingId === s.bookingId;
+}
+
+/**
+ * V4 paso 2 — la visita de la sesión pasa de la cita vieja a la NUEVA, con la fecha de la nueva (la
+ * de su slot o la propia). Condicionada: sólo si la visita SIGUE en la cita vieja; si no, lanza para
+ * que la transacción del llamador deshaga también el cambio de la sesión. Lo de adentro de la visita
+ * (plantillas, notas, fotos, recetas, ventas) no se toca: cada cosa tiene su propia fecha.
+ */
+async function moverVisitaALaCitaNueva(
+  db: Db, args: { visitaId: string; deBookingId: string; aBookingId: string; patientId: string; doctorId: string } & QuienAudita,
+) {
+  const nueva = await db.booking.findFirst({
+    where: { id: args.aBookingId, doctorId: args.doctorId },
+    select: { date: true, slot: { select: { date: true } } },
+  });
+  const fecha = nueva?.slot?.date ?? nueva?.date ?? null;
+  const { count } = await db.visita.updateMany({
+    where: { id: args.visitaId, bookingId: args.deBookingId, patientId: args.patientId, doctorId: args.doctorId },
+    data: { bookingId: args.aBookingId, ...(fecha ? { fecha } : {}) },
+  });
+  if (count === 0) throw new Error('La visita de la sesión cambió mientras se movía su cita');
+  await db.patientAuditLog.create({
+    data: {
+      patientId: args.patientId, doctorId: args.doctorId, userId: args.userId, userRole: args.userRole,
+      action: 'update_visita', resourceType: 'visita', resourceId: args.visitaId,
+      changes: {
+        bookingId: { from: args.deBookingId, to: args.aBookingId },
+        ...(fecha ? { fecha: fecha.toISOString().slice(0, 10) } : {}),
+        motivo: 'su sesión pasó a la cita nueva',
+      },
+    },
+  });
 }
 
 export type ResultadoReagendar =
@@ -30,7 +89,7 @@ export type ResultadoReagendar =
   | { movida: false; motivo: 'sin_sesion' }
   | {
       movida: boolean;
-      motivo?: MotivoNoSeMueve | 'cita_nueva_invalida' | 'cambio';
+      motivo?: MotivoNoSeMueve | 'cita_no_activa' | 'cita_nueva_invalida' | 'cambio';
       sesion: { tratamientoId: string; nombre: string; numero: number; sesionesPlaneadas: number | null };
     };
 
@@ -40,9 +99,10 @@ export type ResultadoReagendar =
  * pegado al reagendado, no a un segundo request del navegador.
  *
  * Sólo el caso limpio: la nueva es del MISMO doctor y paciente que la sesión, nació como reagendado
- * (`isRescheduled`) y está activa; la sesión no está cancelada ni guarda visita (si la tiene, decidir
- * qué pasa con ella es del doctor, en el tratamiento). Se escribe sólo si la sesión SIGUE en la cita
- * vieja. Audita en el expediente del paciente.
+ * (`isRescheduled`) y está activa; la vieja sigue siendo plan (pendiente / confirmada); la sesión no
+ * está cancelada, y su visita —si tiene— es la de la cita vieja: entonces VIAJA con ella (V4 paso 2,
+ * `moverVisitaALaCitaNueva`). Una visita que no es de esa cita la detiene. Se escribe sólo si la
+ * sesión SIGUE en la cita vieja. Audita en el expediente del paciente.
  *
  * ⚠️ NO exige que la vieja esté CANCELADA (la ruta vieja del navegador sí lo exigía): la agenda
  * crea la nueva ANTES de cancelar la vieja, así que en este momento la vieja sigue viva. Si luego
@@ -60,9 +120,10 @@ export async function pasarSesionAlReagendar(
   const s = await db.tratamientoSesion.findFirst({
     where: { doctorId, bookingId: deBookingId },
     select: {
-      id: true, patientId: true, numero: true, cancelada: true, visitaId: true, tratamientoId: true,
+      id: true, patientId: true, numero: true, cancelada: true, visitaId: true, tratamientoId: true, bookingId: true,
       tratamiento: { select: { nombre: true, sesionesPlaneadas: true } },
-      booking: { select: { patientId: true } },
+      booking: { select: { patientId: true, status: true, visita: { select: { id: true } } } },
+      visita: { select: { bookingId: true } },
     },
   });
   if (!s || s.booking?.patientId !== s.patientId) return { movida: false, motivo: 'sin_sesion' };
@@ -73,6 +134,11 @@ export async function pasarSesionAlReagendar(
   };
   const motivo = motivoNoSeMueve(s);
   if (motivo) return { movida: false, motivo, sesion };
+  // Sólo se reagenda lo que aún es plan: una cita concluida (con su visita automática y su contenido
+  // clínico) no se mueve, aunque alguien mande `reagendaDe` a mano.
+  if (s.booking?.status !== 'PENDING' && s.booking?.status !== 'CONFIRMED') {
+    return { movida: false, motivo: 'cita_no_activa', sesion };
+  }
 
   const nueva = await db.booking.findFirst({
     where: { id: aBookingId, doctorId },
@@ -86,10 +152,18 @@ export async function pasarSesionAlReagendar(
   }
 
   const { count } = await db.tratamientoSesion.updateMany({
-    where: { id: s.id, bookingId: deBookingId, cancelada: false, visitaId: null },
+    where: { id: s.id, bookingId: deBookingId, cancelada: false, visitaId: s.visitaId },
     data: { bookingId: aBookingId },
   });
   if (count === 0) return { movida: false, motivo: 'cambio', sesion };
+  // V4 paso 2: su visita (la de la cita vieja) viaja con ella.
+  const visitaQueViaja = visitaEfectiva(s);
+  if (visitaQueViaja) {
+    await moverVisitaALaCitaNueva(db, {
+      visitaId: visitaQueViaja, deBookingId, aBookingId, patientId: s.patientId, doctorId,
+      userId: args.userId, userRole: args.userRole,
+    });
+  }
 
   await db.patientAuditLog.create({
     data: {
@@ -98,6 +172,7 @@ export async function pasarSesionAlReagendar(
       changes: {
         tratamientoId: s.tratamientoId, numero: s.numero,
         bookingId: { from: deBookingId, to: aBookingId }, motivo: 'cita reagendada',
+        ...(visitaQueViaja ? { visitaMovida: visitaQueViaja } : {}),
       },
     },
   });
@@ -205,8 +280,9 @@ export async function repreciarCitaDeSesion(
  * T5 — «Agendar sesiones»: la cita RECIÉN creada (por la misma ruta que la agenda) se liga a SU
  * sesión en la misma petición (`paraSesion`), para que nunca quede una cita agendada sin su sesión.
  * Mismas reglas que «Ligar una cita…» para el caso que aquí importa: misma doctor y paciente, cita
- * activa y de ninguna otra sesión; la sesión no cancelada, SIN visita propia, y sin una cita que
- * siga contando (una cancelada / no-show / de otro paciente sí se reemplaza). Escritura condicionada.
+ * activa y de ninguna otra sesión; la sesión no cancelada, sin una visita AJENA a su cita (la de su
+ * cita caída viaja a la nueva, V4 paso 2), y sin una cita que siga contando (una cancelada / no-show /
+ * de otro paciente sí se reemplaza). Escritura condicionada.
  * Audita en el expediente. NO lanza por reglas: devuelve `{ ligada: false, motivo }`. (Su precio lo
  * puso ya la ruta al crearla: `precioParaCitaDeSesion`.)
  */
@@ -219,8 +295,9 @@ export async function ligarSesionACitaNueva(
     where: { id: sesionId, doctorId },
     select: {
       id: true, patientId: true, numero: true, cancelada: true, visitaId: true, bookingId: true, tratamientoId: true,
-      booking: { select: { patientId: true, status: true } },
+      booking: { select: { patientId: true, status: true, visita: { select: { id: true } } } },
       tratamiento: { select: { estado: true } },
+      visita: { select: { bookingId: true } },
     },
   });
   if (!s) return { ligada: false, motivo: 'sin_sesion' };
@@ -242,10 +319,19 @@ export async function ligarSesionACitaNueva(
   }
 
   const { count } = await db.tratamientoSesion.updateMany({
-    where: { id: s.id, bookingId: s.bookingId, cancelada: false, visitaId: null },
+    where: { id: s.id, bookingId: s.bookingId, cancelada: false, visitaId: s.visitaId },
     data: { bookingId },
   });
   if (count === 0) return { ligada: false, motivo: 'cambio' };
+  // V4 paso 2: su cita se cayó (cancelada / no asistió) con la visita ya abierta — la visita viaja a
+  // la cita nueva (`motivoNoSeMueve` ya dejó pasar sólo una visita que ES de esa cita vieja).
+  const visitaQueViaja = visitaEfectiva(s);
+  if (visitaQueViaja && s.bookingId) {
+    await moverVisitaALaCitaNueva(db, {
+      visitaId: visitaQueViaja, deBookingId: s.bookingId, aBookingId: bookingId, patientId: s.patientId, doctorId,
+      userId: args.userId, userRole: args.userRole,
+    });
+  }
 
   await db.patientAuditLog.create({
     data: {
@@ -254,6 +340,7 @@ export async function ligarSesionACitaNueva(
       changes: {
         tratamientoId: s.tratamientoId, numero: s.numero,
         bookingId: { from: s.bookingId, to: bookingId }, motivo: 'agendada desde el tratamiento',
+        ...(visitaQueViaja ? { visitaMovida: visitaQueViaja } : {}),
       },
     },
   });

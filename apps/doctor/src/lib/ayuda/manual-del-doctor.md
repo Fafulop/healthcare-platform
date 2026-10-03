@@ -470,7 +470,7 @@ sesión dice en qué va:
   abierto la visita.
 - **Hecha** — ya tiene su visita (sin cita pendiente), o su cita se completó. Si abriste la visita
   antes y luego su cita se canceló (o el paciente no asistió), vuelve a **Por agendar**: pica
-  **«Desligar cita»** para soltarla (la visita se queda en el expediente) y agéndala de nuevo.
+  **«Agendar»** y su visita pasa a la cita nueva.
 - **Cancelada** — la cancelaste tú.
 
 Cada sesión se ve como una tarjeta de visita: su cita (fecha, hora y estado), su servicio y precio,
@@ -483,7 +483,9 @@ facturó. A la derecha, lo principal:
   el servicio y el precio de la sesión, o los de su cita si la sesión no tiene propios): se crea la
   cita nueva, la sesión pasa a ella y se cancela la anterior, como en la agenda. Al paciente le llega
   el correo de la nueva y el de la cancelación (si tiene correo y tu cuenta de Google está conectada). Si la sesión no pudo pasar a la nueva, la anterior NO
-  se cancela y la ventana te dice qué revisar. No aparece si la sesión ya tiene su visita abierta.
+  se cancela y la ventana te dice qué revisar. Si ya abriste su visita, **la visita se va con la
+  cita**: toma la fecha nueva, y lo que tiene dentro (plantillas, notas, fotos, recetas, ventas)
+  conserva su propia fecha.
 - **«Abrir visita»** — si ya tiene visita, la abre. Si aún no tiene, la crea: con la fecha de su cita
   si tiene una vigente, o con la de **hoy** si no tiene (o su cita se canceló o el paciente no
   asistió): dice **«Abrir visita hoy»** y te pregunta antes, porque la sesión cuenta como hecha; esto
@@ -492,8 +494,9 @@ facturó. A la derecha, lo principal:
 
 Abajo, lo demás:
 
-- **«Ligar una cita…»** — elige una cita del paciente; **«Desligar cita»** la suelta (la cita sigue
-  en la agenda). Si la cita de la sesión se canceló, puedes ligar otra.
+- **«Ligar una cita…»** — elige una cita del paciente (por ejemplo, una que agendaste desde la agenda
+  para esta sesión). No hay «Desligar»: una sesión que no va a pasar se **cancela**, y una que cambia
+  de día se **reagenda**.
 - **«Ligar una visita…»** — sólo si la sesión no tiene cita.
 - **«Cancelar sesión»** — si tiene una cita activa, pregunta qué hacer con ella: **«Cancelar la
   sesión y la cita»** (se cancela como desde la agenda, con los mismos avisos al paciente),
@@ -544,8 +547,8 @@ En la **agenda**, una cita que es sesión de un tratamiento dice **«Sesión 3 d
 tratamiento)»**; clic para abrir el tratamiento.
 
 **Si reagendas la cita de una sesión** (desde la agenda o con el asistente), la sesión pasa sola a
-la cita nueva y te avisa. Si la sesión ya tiene su visita o está cancelada, no se mueve: te avisa y
-la ligas tú desde el tratamiento.
+la cita nueva —con su visita, si ya la abriste— y te avisa. Si la sesión está cancelada, o su visita
+no es la de esa cita, no se mueve: te avisa y la revisas en el tratamiento.
 
 ### Consultas
 

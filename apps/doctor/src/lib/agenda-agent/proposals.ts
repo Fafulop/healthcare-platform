@@ -1448,7 +1448,9 @@ async function proposeRescheduleBooking(
     where: { doctorId: ctx.doctorId, bookingId: b.id },
     select: {
       numero: true, cancelada: true, visitaId: true, patientId: true, bookingId: true,
-      booking: { select: { patientId: true } }, tratamiento: { select: { sesionesPlaneadas: true } },
+      booking: { select: { patientId: true, visita: { select: { id: true } } } }, tratamiento: { select: { sesionesPlaneadas: true } },
+      // V4 paso 2: su visita viaja con la cita si ES la de esta cita (motivoNoSeMueve lo decide).
+      visita: { select: { bookingId: true } },
     },
   });
   const sesionPropia = sesion && citaEfectiva(sesion) ? sesion : null;
@@ -1458,8 +1460,10 @@ async function proposeRescheduleBooking(
     : '';
   const notaSesion = !sesionPropia ? null
     : noSeMueve
-      ? `Esta cita es ${cualSesion}; la sesión NO pasará sola a la nueva cita (${noSeMueve === 'sesion_cancelada' ? 'está cancelada' : 'ya tiene su visita'}) — revísala en el tratamiento.`
-      : `Esta cita es ${cualSesion}: la sesión pasa a la nueva cita.`;
+      ? `Esta cita es ${cualSesion}; la sesión NO pasará sola a la nueva cita (${noSeMueve === 'sesion_cancelada' ? 'está cancelada' : 'su visita no es la de esta cita'}) — revísala en el tratamiento.`
+      : sesionPropia.visitaId || sesionPropia.booking?.visita
+        ? `Esta cita es ${cualSesion}: la sesión y su visita pasan a la nueva cita (la visita toma la fecha nueva; lo que tiene dentro conserva la suya).`
+        : `Esta cita es ${cualSesion}: la sesión pasa a la nueva cita.`;
 
   const advertencias = [
     '📱 Notifica DOS veces: email de cancelación de la cita original + SMS/email/Calendar de la nueva. Los avisos no se pueden deshacer.',

@@ -52,6 +52,8 @@ export interface SesionDeTratamiento {
   motivo?: 'sin_cita' | 'cita_cancelada' | 'cita_no_asistio' | 'cita_de_otro_paciente' | 'cita_sin_expediente';
   aviso?: 'visita_no_abierta';
   visita: { id: string; fecha?: string } | null;
+  /** V4 paso 2 — su visita es la de su cita: viaja con ella al reagendar o agendar de nuevo (servidor). */
+  visitaViaja?: boolean;
   /** Sin permiso de `citas` sólo llega `{ id }`. */
   cita: CitaDeVisita | null;
   /** TRATAMIENTOS v2 · V1 — su servicio (siempre viaja). */
@@ -158,7 +160,7 @@ export type RespuestaSesionReagendada =
   | { movida: false; motivo: 'sin_sesion' }
   | {
       movida: boolean;
-      motivo?: 'sesion_cancelada' | 'sesion_con_visita' | 'cita_nueva_invalida' | 'cambio';
+      motivo?: 'sesion_cancelada' | 'sesion_con_visita' | 'cita_no_activa' | 'cita_nueva_invalida' | 'cambio';
       sesion: { tratamientoId: string; nombre: string; numero: number; sesionesPlaneadas: number | null };
     };
 
@@ -175,8 +177,9 @@ export function textoDeSesionReagendada(r: RespuestaSesionReagendada | undefined
   const cual = `La ${etiquetaSesion(r.sesion.numero, r.sesion.sesionesPlaneadas).toLowerCase()} de «${r.sesion.nombre}»`;
   if (r.movida) return { ok: true, texto: `${cual} pasó a la nueva cita.` };
   const porque: Record<string, string> = {
-    sesion_con_visita: 'ya tiene su visita',
+    sesion_con_visita: 'su visita no es la de esta cita',
     sesion_cancelada: 'está cancelada',
+    cita_no_activa: 'su cita ya no está pendiente ni confirmada',
     cita_nueva_invalida: 'la cita nueva no es válida para la sesión',
     cambio: 'la sesión cambió mientras tanto',
   };

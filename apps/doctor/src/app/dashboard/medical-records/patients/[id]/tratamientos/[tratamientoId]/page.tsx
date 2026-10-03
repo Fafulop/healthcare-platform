@@ -61,7 +61,9 @@ export default function TratamientoPage() {
   // V4: agendar (y agregar con fecha) exige `citas` y un tratamiento activo — el servidor no liga citas
   // nuevas a uno terminado o cancelado.
   const puedeAgendar = (t.permisos?.citas ?? false) && tratamiento.estado === 'activo';
-  const porAgendar = tratamiento.sesiones.filter((s) => s.estado === 'por_agendar' && !s.cancelada && !s.visita).length;
+  const porAgendar = tratamiento.sesiones.filter(
+    (s) => s.estado === 'por_agendar' && !s.cancelada && (!s.visita || s.visitaViaja),
+  ).length;
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
@@ -495,9 +497,11 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
   // `status`) podría estar activa: no se adivina.
   const puedeCrearVisita = !s.visita && !s.cancelada && (!cita || !!cita.status)
     && (citaVigente || t.tratamiento?.estado === 'activo');
-  const agendable = puedeAgendar && !s.cancelada && !s.visita && s.estado === 'por_agendar';
-  // Con visita abierta la sesión ya no se mueve de cita (el servidor la deja en la suya).
-  const reagendable = puedeAgendar && !s.cancelada && !s.visita && citaActiva;
+  // V4 paso 2: con su visita abierta también — la visita (la de su cita) viaja a la cita nueva. Sólo
+  // una visita que NO es de su cita (`visitaViaja` = false, veredicto del servidor) lo impide.
+  const visitaNoEstorba = !s.visita || s.visitaViaja === true;
+  const agendable = puedeAgendar && !s.cancelada && visitaNoEstorba && s.estado === 'por_agendar';
+  const reagendable = puedeAgendar && !s.cancelada && visitaNoEstorba && citaActiva;
 
   const abrirVisitaNueva = async () => {
     if (!citaVigente) {
@@ -519,12 +523,6 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
             <span className={`text-xs px-2 py-0.5 rounded-full font-normal ${chip.clase}`}>{chip.texto}</span>
           </p>
           {detalle && <p className="text-xs text-gray-500">{detalle}</p>}
-          {/* Visita abierta antes y su cita se cayó: la salida es «Desligar cita» (suelta las dos). */}
-          {s.visita && cita && verCitas && !s.cancelada && (s.motivo === 'cita_cancelada' || s.motivo === 'cita_no_asistio') && (
-            <p className="text-xs text-amber-800">
-              Para agendarla de nuevo, pica «Desligar cita»: la sesión queda libre y su visita se queda en el expediente.
-            </p>
-          )}
           {cita && (
             cita.status ? (
               <p className="text-sm text-gray-700 flex items-center gap-2 flex-wrap">
@@ -598,7 +596,8 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
         </div>
       </div>
 
-      {/* Lo demás (ligar a mano, servicio y precio, notas, cancelar, borrar). */}
+      {/* Lo demás (ligar a mano, servicio y precio, notas, cancelar, borrar). Sin «Desligar»: una sesión
+          que no va a pasar se CANCELA, y la que cambia de día se REAGENDA (decisión 2026-10-02). */}
       <div className="flex items-center gap-1 flex-wrap mt-3 pt-2 border-t border-gray-100">
         {!s.cancelada && citasLigables.length > 0 && (
           // Controlado en "": si ligar falla, vuelve al placeholder y se puede reintentar.
@@ -611,9 +610,6 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
             ))}
           </select>
         )}
-        {cita && verCitas && (
-          <button onClick={() => t.desligarCita(s)} disabled={t.trabajando} className={botonGris}>Desligar cita</button>
-        )}
         {!s.cancelada && visitasLigables.length > 0 && (
           <select value="" onChange={(e) => e.target.value && t.ligarVisita(s, e.target.value)} disabled={t.trabajando} className={inputClass}>
             <option value="">Ligar una visita…</option>
@@ -621,9 +617,6 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
               <option key={v.id} value={v.id}>Visita del {formatoFechaVisita(v.fecha)}</option>
             ))}
           </select>
-        )}
-        {!cita && s.visita && (
-          <button onClick={() => t.ligarVisita(s, null)} disabled={t.trabajando} className={botonGris}>Desligar visita</button>
         )}
         <button onClick={() => setEditandoServicio((v) => !v)} disabled={t.trabajando} className={botonGris}>
           Servicio y precio

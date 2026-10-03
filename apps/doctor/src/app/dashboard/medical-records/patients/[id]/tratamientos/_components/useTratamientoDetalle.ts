@@ -197,15 +197,6 @@ export function useTratamientoDetalle() {
   const ligarCita = (s: SesionDeTratamiento, bookingId: string) =>
     escribir(() => enviar(`${urlT}/sesiones/${s.id}`, 'PATCH', { bookingId }), 'Cita ligada', true);
 
-  const desligarCita = async (s: SesionDeTratamiento) => {
-    const ok = await practiceConfirm(
-      'La cita sigue en la agenda; sólo deja de ser de esta sesión. Si su visita es la de esa cita, también se desliga.',
-      '¿Desligar la cita?',
-    );
-    if (!ok) return;
-    await escribir(() => enviar(`${urlT}/sesiones/${s.id}`, 'PATCH', { bookingId: null }), 'Cita desligada', true);
-  };
-
   const ligarVisita = (s: SesionDeTratamiento, visitaId: string | null) =>
     escribir(
       () => enviar(`${urlT}/sesiones/${s.id}`, 'PATCH', { visitaId }),
@@ -216,7 +207,7 @@ export function useTratamientoDetalle() {
     patientId, tratamientoId, doctorId: session?.user?.doctorId ?? null, sessionStatus,
     estado, tratamiento, patientName, bookings, permisos, visitas, ocupadas, trabajando,
     patchTratamiento, patchSesion, abrirVisita, borrarTratamiento, borrarSesion, cancelarSesion,
-    ligarCita, desligarCita, ligarVisita,
+    ligarCita, ligarVisita,
     /**
      * T6 — «Registrar pago del paquete»: un ingreso de Flujo de Dinero ligado al tratamiento (apps/api,
      * bajo `practice-management/ledger` ⇒ exige `flujo`). El saldo se recalcula al recargar.

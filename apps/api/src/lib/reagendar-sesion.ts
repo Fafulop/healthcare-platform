@@ -11,6 +11,9 @@ import {
  * Sólo un DOCTOR autenticado reagendando una cita suya, o un ADMIN (`isRescheduled`): una reserva
  * pública nunca mueve sesiones. FALLA ABIERTO: crear la cita nunca depende de esto.
  *
+ * V4 paso 2 (2026-10-02): la visita de la sesión, si es la de la cita vieja, viaja con ella en la
+ * MISMA transacción (si no se puede mover, se deshace todo y la respuesta lo dice: `{ error: true }`).
+ *
  * Devuelve lo que va en la respuesta como `sesionReagendada` (undefined = no aplica).
  */
 export async function sesionAlReagendar(args: {

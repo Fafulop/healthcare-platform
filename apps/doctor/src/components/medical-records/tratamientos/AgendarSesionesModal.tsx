@@ -46,7 +46,8 @@ export function AgendarSesionesModal({ patientId, tratamiento, onClose, onListo,
   const sesiones = useMemo(() => {
     if (modo.tipo === 'nueva') return [];
     if (modo.tipo === 'pendientes') {
-      return tratamiento.sesiones.filter((s) => s.estado === 'por_agendar' && !s.cancelada && !s.visita);
+      // V4 paso 2: también las que tienen su visita abierta, si es la de su cita (viaja a la nueva).
+      return tratamiento.sesiones.filter((s) => s.estado === 'por_agendar' && !s.cancelada && (!s.visita || s.visitaViaja));
     }
     return tratamiento.sesiones.filter((s) => s.id === modo.sesionId);
   }, [tratamiento.sesiones, modo]);

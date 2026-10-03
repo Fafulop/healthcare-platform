@@ -150,6 +150,10 @@ y una sesión agregada luego (o de un tratamiento creado con 0) no tenía dónde
 - **«Agendar sesiones…»** sale como aviso arriba de la lista («N sesiones están Por agendar»).
 - Límite: una sesión con su visita ya abierta no se reagenda desde el tratamiento (el servidor no mueve
   sesiones con visita); su cita se reagenda en la agenda y la sesión se queda en la vieja.
+  **→ Resuelto en V4 paso 2 (2026-10-02, decisión del usuario):** la visita de la cita VIAJA con ella
+  (`pasarSesionAlReagendar` / `ligarSesionACitaNueva` en packages/database: la visita toma la cita nueva
+  y su fecha; lo de adentro conserva la suya — paso 1). Se quitaron «Desligar cita» y «Desligar visita»
+  (y el aviso de la «opción A»): lo que no va a pasar se cancela, lo que cambia de día se reagenda.
 - **Code review (2 pasadas, 2026-10-02) — decisión del usuario «opción A»:** si la visita se abrió antes
   y su cita se CAE (cancelada / no asistió, o reagendada desde la agenda), la sesión vuelve a «por
   agendar» (con motivo) en vez de quedar «hecha» atorada; «Desligar cita» suelta cita + visita (la visita
@@ -173,6 +177,8 @@ y una sesión agregada luego (o de un tratamiento creado con 0) no tenía dónde
 | V1 | EN PROD 2026-10-02; SQL aplicada antes del push; 2 code reviews (10 + 10 hallazgos, todos atendidos salvo los límites anotados en §4) | `23bd4aab` |
 | V6 | EN PROD 2026-10-02 (visitas de tratamiento fuera de la tarjeta «Visitas») | `c0e964fd` |
 | V3 | EN PROD 2026-10-02 (crear con filas: servicio, precio, fecha/hora, después, disponibilidad; «Agendar sesiones» con las mismas filas). Falta prueba a mano | `0234dd1a` |
-| V4 | Listo para push (ver §7.1) | — |
+| V4 | EN PROD 2026-10-02 (ver §7.1) | `f89824f8` |
+| V4 paso 1 | EN PROD 2026-10-02: la fecha de una plantilla es SUYA (empieza con la de la visita, editable; sin regla de «mismo día») | `e1cdc37f` |
+| V4 paso 2 | Listo para push: la visita VIAJA con su cita al reagendar / agendar de nuevo (tratamiento, agenda y asistente); fuera «Desligar cita/visita» | — |
 | V2 | — | — |
 | V5 | — | — |

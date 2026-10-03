@@ -172,8 +172,8 @@ export function estadoDeSesion(
   // siendo plan no hace «hecha» la sesión: sigue agendada hasta que llegue (o se concluya) la cita.
   const citaEnPlan = citaPropia && (cita!.status === 'PENDING' || cita!.status === 'CONFIRMED');
   // Y si esa cita se CAYÓ (cancelada / no asistió) y la visita es la SUYA (abierta antes), la sesión no
-  // se atendió: vuelve a «por agendar» (con su motivo). «Desligar cita» suelta las dos y deja agendarla.
-  // Una visita propia de la sesión (otra, manual) sí la deja hecha, como siempre.
+  // se atendió: vuelve a «por agendar» (con su motivo); al agendarla, su visita viaja a la cita nueva
+  // (V4 paso 2). Una visita propia de la sesión (otra, manual) sí la deja hecha, como siempre.
   const citaCaida = citaPropia && (cita!.status === 'CANCELLED' || cita!.status === 'NO_SHOW');
   const visitaDeSuCita = citaPropia && !!visitaId && cita!.visita?.id === visitaId;
   if (visitaId && !citaEnPlan && !(citaCaida && visitaDeSuCita)) return { estado: 'hecha', ...base };
@@ -417,6 +417,9 @@ export async function sesionesParaRespuesta(
       ...(d.motivo ? { motivo: d.motivo } : {}),
       ...(d.aviso ? { aviso: d.aviso } : {}),
       visita: d.visitaId ? visitaPor.get(d.visitaId) ?? { id: d.visitaId } : null,
+      // V4 paso 2 — su visita ES la de su cita: al reagendar (o agendar de nuevo una cita caída)
+      // viaja con ella. Mismo veredicto que `motivoNoSeMueve` en packages/database (regla 0).
+      visitaViaja: !!d.visitaId && d.citaPropia && s.booking?.visita?.id === d.visitaId,
       cita: d.citaPropia ? bloques.get(s.bookingId!) ?? { id: s.bookingId } : null,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,

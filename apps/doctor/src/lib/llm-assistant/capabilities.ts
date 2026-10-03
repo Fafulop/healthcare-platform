@@ -246,7 +246,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           'ligar una cita o una visita a una sesión': {
             allowedIf:
               'En la pantalla del tratamiento: "Ligar una cita…" (citas del paciente que no son de otra sesión) o, ' +
-              'sin cita, "Ligar una visita…". "Desligar cita" / "Desligar visita" las sueltan.',
+              'sin cita, "Ligar una visita…". No hay "Desligar": una sesión que no va a pasar se cancela ("Cancelar sesión") ' +
+              'y una que cambia de día se reagenda ("Reagendar"; su visita, si ya se abrió, se va con la cita).',
             notes: 'Ligar una cita requiere permiso de citas.',
           },
 
