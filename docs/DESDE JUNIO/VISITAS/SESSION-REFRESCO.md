@@ -5,6 +5,17 @@
 > paso en `02-PLAN-fase-1.md` (§4 backfill, §5.1 D1, §5.2 D2, §5.3 D3, §5.4 D4). Este doc NO repite eso:
 > lo señala.
 
+## 🆕 2026-10-02 (noche) — TRATAMIENTOS v2 COMPLETO EN PROD
+
+Todo el plan `06-PLAN-tratamientos-v2.md` está en prod (tabla §8): V1 `23bd4aab` · V6 `c0e964fd` · V3 `0234dd1a` ·
+V4 `f89824f8` · V4 paso 1 (fecha de plantilla propia) `e1cdc37f` · V4 paso 2 (la visita viaja con su cita; sin
+«Desligar») `a894e308` · V2 (sin paquetes) `a82c888b` · V5 («Resumen PDF») `7e50516f`. Probado a mano por el usuario:
+V3, V4 y el reagendar con visita (verificado en BD). **Sin probar a mano:** V2 (completar la cita de una sesión
+cobra normal; link de pago en sesiones) y V5 (el PDF en la app).
+
+**Lo siguiente NO vive aquí:** la pasada de pruebas y guías (`../PRUEBAS Y GUIAS/SESSION-REFRESCO.md`) es la
+prioridad #1 del usuario; espera a que Chrome se conecte con la cuenta quebradita.a.
+
 ## ⏭️ PRÓXIMA SESIÓN — EMPIEZA AQUÍ (escrito 2026-10-02, al cerrar la corrida de Chrome)
 
 En este orden:
