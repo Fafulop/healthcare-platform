@@ -2,6 +2,43 @@
 
 > **Tipo: ESTADO.** Se lee primero y se escribe al final de cada sesión. Cabecera primero.
 
+## ⏭️ 2026-10-03 — P2 HECHA CASI ENTERA (Citas + Expediente). Empieza aquí
+
+**Qué pasó:** Chrome conectado (cuenta quebradita.a). Se corrieron ~60 permutaciones de Citas y
+Expediente, cada una con pantalla + BD (+ logs cuando aplicó). Estado por permutación en
+**`04-MATRIZ-permutaciones.md`**; hallazgos **H-012…H-054** en `03-HALLAZGOS.md`.
+
+**Lo más grave (para decidir/arreglar primero):**
+1. **H-027** 🔴 el PDF de la receta imprime el DÍA ANTERIOR (`lib/receta-pdf.ts:54`, medianoche UTC).
+2. **H-025** 🔴 campo «Archivo» de plantilla personalizada: el archivo se pierde (`{}`).
+3. **H-010 / H-054** 💰 completar o reagendar deja el link de pago ACTIVO en la cita vieja.
+4. **H-024** la visita «seguimiento» crea tratamiento y absorbe la visita de la cita.
+5. **H-041** no hay forma de desarchivar · **H-029** no se puede completar en $0 · **H-038** la
+   reserva pública dice «Confirmada» y nace PENDING.
+6. Mucho copy en inglés (H-018, H-030, H-051) y vocabulario cruzado plantilla/consulta (H-021, H-046).
+
+**Hecho después (misma fecha):** C15 ✅, bloque **T completo** (T1 T6 T7 T8 T9 + reactivar/ligar), comparación con el manual (notas «**Manual:**» en 03-HALLAZGOS), **27 guías borrador en `GUIAS/`** (pasos con etiquetas exactas + bloque QA interno con ⚠️). R ⏭️ saltado (requiere entrar como el ayudante real).
+
+**Siguiente:** plan del arreglo **H-027** (fecha del PDF de receta) → OK del usuario → código → review → OK de commit.
+
+**Pendiente:**
+- Limpieza de datos QA (ver abajo) — preguntar al usuario si se quedan para las guías.
+- Guías paso a paso (`GUIAS/`) desde lo ✅ de la matriz.
+- **Nada está commiteado**: `scripts/qa/verificar-citas.cjs`, `scripts/qa/verificar-plantillas.cjs`,
+  `04-MATRIZ-permutaciones.md` y las ediciones de `03-HALLAZGOS.md`. Pedir OK antes.
+
+**Datos QA vivos en dr-prueba:** pacientes «QA E1 Recurrente» (activo), «QA C4 Calendario»
+(ARCHIVADO); citas «QA …» (A2 borrada, C4, C11 borrada, C12 cancelada, C15, C26→reagendada como
+QA E1 14-oct); plantillas «QA Plantilla 1/2»; rango 13-oct Satélite; links sin pagar MP
+`cmusqlk6n000lmh0tywrr8ly2` y Stripe `cmussw4ld0029mh0tov7ntnrj` (NO pagarlos); ingresos
+#1822–#1826; venta VTA-2026-010; receta cancelada. «Campos de Cita» y bloqueos quedaron como estaban.
+
+**Verificadores (sólo lectura):** `railway run --service pgvector node scripts/qa/verificar-citas.cjs "<nombre>" [min]`
+(ve citas sin expediente) · `verificar-flujo.cjs` (por expediente) · `verificar-plantillas.cjs "<nombre>"`.
+Clics: en esta app los clics por `ref` a veces no llegan — usar coordenadas y verificar en BD.
+
+---
+
 ## En una frase
 
 **2026-10-02 — P0 HECHA, P1 empezada, P2 BLOQUEADA por el navegador.** Carpeta, plan, catálogo (A1–A17,

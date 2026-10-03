@@ -67,19 +67,19 @@ ligada (`booking_id` / `sale_id`).
 
 | Id | Flujo | Manual | Debe quedar (BD / Flujo) | Estado |
 |---|---|---|---|---|
-| T1 | Crear un tratamiento con N sesiones (servicio, precio, fecha, hora; disponibilidad) | Expediente > Tratamientos | tratamiento + N sesiones; cita por cada fila no «después», nace con el precio de la sesión; 1 correo resumen (presencial) | ⬜ |
+| T1 | Crear un tratamiento con N sesiones (servicio, precio, fecha, hora; disponibilidad) | Expediente > Tratamientos | tratamiento + N sesiones; cita por cada fila no «después», nace con el precio de la sesión; 1 correo resumen (presencial) | ✅ (2026-10-03, QA E1 «QA T Rehabilitacion»: 3 sesiones, 2 citas con su precio —incluido uno editado $600—, 1 «después», «UN correo con las 2 citas») |
 | T2 | «Agendar después» y luego «Agendar» desde la tarjeta / «Agendar sesiones…» | idem | la sesión pasa a tener cita (`paraSesion`) | ✅ (usuario, V4) |
 | T3 | «Reagendar» una sesión (con y sin visita abierta) | idem | cita nueva + vieja CANCELLED; la visita VIAJA con su cita | ✅ (usuario + BD, `a894e308`) |
 | T4 | «Abrir visita» (con cita → fecha de la cita; sin cita → «Abrir visita hoy») | idem | visita ligada a la sesión; con cita activa la sesión sigue «Agendada» | ✅ (usuario, V4) |
 | T5 | «Agregar sesión» (con fecha / después) | idem | sesión nueva con servicio y precio | ✅ (usuario, V4) |
-| T6 | **Completar la cita de una sesión** (precio pre-llenado, sin paquete) | idem + Agenda > Completar | 1 ingreso normal (regla F); la sesión «Hecha»; la cuenta del tratamiento lo suma como cobrado | ⬜ |
-| T7 | Cancelar sesión (con cita activa: las 3 salidas) | idem | `cancelada`; con «y la cita» ⇒ cita CANCELLED | ⬜ |
-| T8 | La cuenta del tratamiento (total · pagado · pendiente; ventas aparte) | idem | coincide con la suma de los ingresos de sus citas + las ventas de sus visitas | ⬜ |
-| T9 | Venta en la visita de una sesión | idem + E9 | sale en el renglón «ventas» de la cuenta, no en el total | ⬜ |
+| T6 | **Completar la cita de una sesión** (precio pre-llenado, sin paquete) | idem + Agenda > Completar | 1 ingreso normal (regla F); la sesión «Hecha»; la cuenta del tratamiento lo suma como cobrado | ✅ (precio pre-llenado $900, cobrado $800 depósito → #1827, visita ligada a la sesión, «Hecha · cobrado $800») |
+| T7 | Cancelar sesión (con cita activa: las 3 salidas) | idem | `cancelada`; con «y la cita» ⇒ cita CANCELLED | ✅ «sesión y la cita» → sesión cancelada + cita CANCELLED; «Reactivar» la vuelve «Por agendar» |
+| T8 | La cuenta del tratamiento (total · pagado · pendiente; ventas aparte) | idem | coincide con la suma de los ingresos de sus citas + las ventas de sus visitas | ✅ $2,400 → $2,300 (cobrado 800+600+900) → $1,700 al cancelar la sesión 2 → $2,300 al reactivar |
+| T9 | Venta en la visita de una sesión | idem + E9 | sale en el renglón «ventas» de la cuenta, no en el total | ✅ VTA-2026-011 $232 en la visita de la sesión 1 → «Ventas en las visitas de las sesiones (1): $232», fuera del total |
 
 ## R — Roles
 
 | Id | Flujo | Debe quedar | Estado |
 |---|---|---|---|
-| R1 | Ayudante SIN permiso de Flujo completa una cita | el ingreso SÍ se registra (efecto del servidor, 00-REQUISITOS §3.6); el ayudante no ve montos de Flujo | ⬜ |
-| R2 | Ayudante sin permiso de citas: lo que ve en expediente / tratamiento | no ve datos de citas; no puede agendar | ⬜ |
+| R1 | Ayudante SIN permiso de Flujo completa una cita | el ingreso SÍ se registra (efecto del servidor, 00-REQUISITOS §3.6); el ayudante no ve montos de Flujo | ⏭️ saltado 2026-10-03 (requiere entrar como el ayudante real de dr-prueba; decisión del usuario) |
+| R2 | Ayudante sin permiso de citas: lo que ve en expediente / tratamiento | no ve datos de citas; no puede agendar | ⏭️ saltado 2026-10-03 (requiere entrar como el ayudante real de dr-prueba; decisión del usuario) |
