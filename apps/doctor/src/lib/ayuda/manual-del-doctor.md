@@ -529,6 +529,12 @@ aún no se cobra. Si una sesión no tiene precio, se avisa y no entra al total. 
 visitas de sus sesiones sale en un renglón aparte. Cada sesión dice su servicio, su precio y, ya
 cobrada, **«cobrado $X (folio)»**.
 
+**«Resumen PDF»** (en la Cuenta del tratamiento) — un PDF con el mismo diseño que tus recetas: el
+paciente, cada sesión (fecha, servicio, estado, importe, pagado y folio de su nota; las canceladas en
+gris), el total, lo pagado y lo pendiente, y las ventas de sus visitas aparte. Lo ves antes y lo
+descargas con **«Descargar»**. Es informativo: no es una factura ni un recibo, y no registra nada en
+Flujo de Dinero.
+
 **No hay precio de paquete:** el total de un tratamiento es la suma de sus sesiones, y cada sesión se
 cobra al concluir su cita, como cualquier cita (también con link de pago). Las sesiones que antes
 quedaron «cubiertas por el paquete» ($0) se siguen viendo así en el perfil y en la visita.

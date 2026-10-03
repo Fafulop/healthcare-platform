@@ -2,16 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CalendarDays, ChevronRight, ListChecks, Loader2, Pencil, Plus, StickyNote, Trash2, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronRight, FileText, ListChecks, Loader2, Pencil, Plus, StickyNote, Trash2, X } from 'lucide-react';
 import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical-records/CitaBadges';
 import { tieneNotas } from '@/components/citas/NotasCita';
 import { describirConteo, formatoFechaVisita, totalHijos, visitaHref } from '@/lib/visitas-ui';
 import {
   ESTADO_SESION, ESTADO_TRATAMIENTO, describirAvance, detalleDeSesion, etiquetaSesion, pesos, tratamientosUiActiva,
-  type CuentaDelTratamiento, type SesionDeTratamiento,
+  type CuentaDelTratamiento, type SesionDeTratamiento, type TratamientoDetalle,
 } from '@/lib/tratamientos-ui';
 import { practiceConfirm } from '@/lib/practice-confirm';
 import { useTratamientoDetalle } from '../_components/useTratamientoDetalle';
+import { DocumentoPdfModal } from '@/components/pdf/DocumentoPdfModal';
+import { dibujarResumenTratamiento, nombreArchivoResumen, type ResumenTratamientoDatos } from '@/lib/resumen-tratamiento-pdf';
+import { getClinicDateString } from '@/lib/dates';
 import { AgendarSesionesModal, type ModoAgendar } from '@/components/medical-records/tratamientos/AgendarSesionesModal';
 
 const inputClass = 'px-2 py-1.5 border border-gray-300 rounded-md text-sm';
@@ -30,6 +33,8 @@ export default function TratamientoPage() {
   const [editando, setEditando] = useState(false);
   const [cancelando, setCancelando] = useState<SesionDeTratamiento | null>(null);
   const [agendando, setAgendando] = useState<ModoAgendar | null>(null);
+  // V5 — el «Resumen de tratamiento» en PDF (sólo con `flujo`: sale de la cuenta, que sólo viaja con él).
+  const [resumen, setResumen] = useState(false);
 
   if (t.sessionStatus === 'loading' || t.estado === 'cargando') {
     return (
@@ -122,7 +127,7 @@ export default function TratamientoPage() {
 
       {/* Dinero, sólo con permiso de `flujo` (si no, no viaja nada): la CUENTA = suma de las sesiones
           (V1). Ya no hay paquetes (V2, 2026-10-02). */}
-      {tratamiento.cuenta && <CuentaTratamiento c={tratamiento.cuenta} />}
+      {tratamiento.cuenta && <CuentaTratamiento c={tratamiento.cuenta} onResumen={() => setResumen(true)} />}
 
       {/* Sesiones */}
       <div className="bg-white rounded-lg shadow p-5">
@@ -174,6 +179,19 @@ export default function TratamientoPage() {
           puedeAgendar={puedeAgendar}
           onClose={() => setAgendando(null)}
           onListo={() => { t.recargar(); }}
+        />
+      )}
+
+      {resumen && tratamiento.cuenta && (
+        <DocumentoPdfModal
+          titulo={`Resumen del tratamiento · ${tratamiento.nombre}`}
+          nombreArchivo={nombreArchivoResumen({ tratamiento, paciente: t.patientName })}
+          queEs="el resumen del tratamiento"
+          redibujarCon={t.patientName}
+          dibujar={(jsPDF, autoTable, emisor, diseno, rx) => dibujarResumenTratamiento(
+            jsPDF, autoTable, datosDelResumen(tratamiento, tratamiento.cuenta!, t.patientName), emisor, diseno, rx,
+          )}
+          onClose={() => setResumen(false)}
         />
       )}
 
@@ -314,10 +332,15 @@ function EditarDatos({ t, onListo }: { t: Detalle; onListo: () => void }) {
  * las que ya se cobraron, el precio planeado en las demás), lo pagado es lo que de eso ya entró, y las
  * ventas de sus visitas van en renglón aparte. Todo lo calcula el servidor.
  */
-function CuentaTratamiento({ c }: { c: CuentaDelTratamiento }) {
+function CuentaTratamiento({ c, onResumen }: { c: CuentaDelTratamiento; onResumen: () => void }) {
   return (
     <div className="bg-white rounded-lg shadow p-5 space-y-3">
-      <h2 className="text-base font-semibold text-gray-900">Cuenta del tratamiento</h2>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h2 className="text-base font-semibold text-gray-900">Cuenta del tratamiento</h2>
+        <button onClick={onResumen} className={`${botonTexto} flex items-center gap-1`}>
+          <FileText className="w-4 h-4" />Resumen PDF
+        </button>
+      </div>
       <div className="grid grid-cols-3 gap-3 text-sm">
         <div><p className="text-gray-500">Total</p><p className="font-semibold text-gray-900">{pesos(c.total)}</p></div>
         <div><p className="text-gray-500">Pagado</p><p className="font-semibold text-gray-900">{pesos(c.pagado)}</p></div>
@@ -349,6 +372,45 @@ function CuentaTratamiento({ c }: { c: CuentaDelTratamiento }) {
       )}
     </div>
   );
+}
+
+/**
+ * V5 — lo que dibuja el «Resumen de tratamiento»: las sesiones de la pantalla y la CUENTA del servidor
+ * (importe, pagado y folio por sesión; totales; ventas). Aquí no se suma nada (regla 0).
+ */
+function datosDelResumen(tr: TratamientoDetalle, c: CuentaDelTratamiento, paciente: string): ResumenTratamientoDatos {
+  const porId = new Map(c.sesiones.map((x) => [x.id, x]));
+  return {
+    tratamiento: { nombre: tr.nombre, estado: tr.estado, sesionesPlaneadas: tr.sesionesPlaneadas },
+    paciente: paciente || 'Paciente',
+    fecha: getClinicDateString(),
+    sesiones: tr.sesiones.map((s) => {
+      const x = porId.get(s.id);
+      // Una cita que se cayó (cancelada / no asistió) no es la fecha de la sesión: «Por agendar» con su
+      // fecha muerta se leería como agendada. Se dice por qué está por agendar, sin fecha.
+      const citaCaida = s.estado === 'por_agendar' && (s.motivo === 'cita_cancelada' || s.motivo === 'cita_no_asistio');
+      const porQue = s.motivo === 'cita_cancelada' ? ' (su cita se canceló)'
+        : s.motivo === 'cita_no_asistio' ? ' (no asistió a su cita)' : '';
+      return {
+        etiqueta: etiquetaSesion(s.numero, tr.sesionesPlaneadas),
+        fecha: citaCaida ? null : s.cita?.fecha ?? s.visita?.fecha ?? null,
+        hora: citaCaida ? null : s.cita?.horaInicio ?? null,
+        servicio: s.servicioNombre ?? s.cita?.servicio ?? null,
+        estado: `${ESTADO_SESION[s.estado].texto}${s.estado === 'por_agendar' ? porQue : ''}`,
+        cancelada: s.cancelada,
+        importe: x?.importe ?? null,
+        cobrada: x?.fuente === 'cobro',
+        pagado: x?.pagado ?? 0,
+        folio: x?.folio ?? null,
+      };
+    }),
+    cuenta: {
+      total: c.total, pagado: c.pagado, pendiente: c.pendiente, cobradoDeMas: c.cobradoDeMas,
+      cobradoEnCanceladas: c.cobradoEnCanceladas, sinPrecio: c.sinPrecio,
+    },
+    ventas: c.ventas.detalle ?? [],
+    ventasTotal: { total: c.ventas.total, pagado: c.ventas.pagado },
+  };
 }
 
 /**

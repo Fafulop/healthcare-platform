@@ -10,9 +10,11 @@
  * NO es un CFDI: el pie lo dice, porque «factura» en esta app es la del SAT (Facturación).
  */
 import type { jsPDF as JsPDF } from 'jspdf';
-import { RX_PAGE_FORMATS } from '@/types/pdf-settings';
-import { COLOR_MAP, type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
+import { type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
 import { formatCurrency, formatDateLong } from '@/lib/practice-utils';
+import { abrirHoja, cerrarHoja, type EmisorNota } from '@/lib/pdf-documento';
+
+export type { EmisorNota } from '@/lib/pdf-documento';
 
 /** Lo que el dibujo lee de una venta (montos como llegan de la API: strings decimales). */
 export interface NotaVentaDatos {
@@ -52,16 +54,6 @@ export interface NotaVentaDatos {
   }[];
 }
 
-/** Quién firma y dónde: del diseño de la receta + el consultorio PRINCIPAL del perfil. */
-export interface EmisorNota {
-  doctorFullName: string;
-  /** `[{ titulo, cedula }]` de «Receta PDF»; vacío → cae a `cedulaProfesional`. */
-  credentials: { titulo: string; cedula: string }[];
-  cedulaProfesional: string | null;
-  clinicAddress: string | null;
-  clinicPhone: string | null;
-}
-
 const PAGO: Record<string, string> = { PENDING: 'Pendiente', PARTIAL: 'Parcial', PAID: 'Pagada' };
 
 /** `0.16` → `16%`; `0` → `0%` (la descarga vieja ponía «16%» a todo lo que fuera 0). */
@@ -85,111 +77,15 @@ export function dibujarNotaVenta(
   diseno: DisenoReceta,
   rx: AjustesRx,
 ): JsPDF {
-  const { colorScheme, logoB64, sigB64 } = diseno;
-  const noColor = colorScheme === 'none';
-  const [cr, cg, cb] = noColor ? [0, 0, 0] : (COLOR_MAP[colorScheme] ?? COLOR_MAP.blue);
-
-  const doc = new jsPDF({ unit: 'mm', format: RX_PAGE_FORMATS[rx.pageSize] ?? 'a4', orientation: rx.orientation });
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 14;
-  const colW = pageW - margin * 2;
-  const narrow = pageW < 180;
-  const footerH = rx.showFooter ? 22 : 0;
-
-  // Mismo guardia que la receta: márgenes de membrete grandes en hoja chica no deben dejar el área
-  // de contenido en cero (addPage sin fin).
-  const bandTop = rx.showHeader ? 40 : 14;
-  let topMarginMm = rx.topMarginMm;
-  let bottomMarginMm = rx.bottomMarginMm;
-  const availForMargins = pageH - bandTop - footerH - 30 - 6;
-  if (topMarginMm + bottomMarginMm > availForMargins) {
-    const scale = Math.max(0, availForMargins) / (topMarginMm + bottomMarginMm || 1);
-    topMarginMm = Math.floor(topMarginMm * scale);
-    bottomMarginMm = Math.floor(bottomMarginMm * scale);
-  }
-  const footerY = pageH - footerH - bottomMarginMm;
-  const maxContentY = footerY - 6;
-  const topReset = topMarginMm + 14;
-  let y = 0;
+  // Encabezado + consultorio: la hoja compartida con el resumen de tratamiento (`pdf-documento.ts`).
+  const h = abrirHoja(jsPDF, emisor, diseno, rx, { grande: 'NOTA DE VENTA', subtitulo: `Folio ${venta.saleNumber}` });
+  const { doc, pageW, margin, colW, narrow, noColor, maxContentY, topReset } = h;
+  const [cr, cg, cb] = h.color;
+  const pageH = h.pageH;
+  let y = h.y;
   const checkPage = (needed: number) => {
     if (y + needed > maxContentY) { doc.addPage(); y = topReset; }
   };
-
-  const credLines = (emisor.credentials.length
-    ? emisor.credentials.map((c) => `${c.titulo} — Céd. ${c.cedula}`)
-    : emisor.cedulaProfesional ? [`Cédula Profesional: ${emisor.cedulaProfesional}`] : []
-  ).slice(0, 4);
-
-  // ── ENCABEZADO (sólo la primera hoja, como la receta) ───────────────────
-  if (rx.showHeader) {
-    if (noColor) {
-      doc.setDrawColor(180, 180, 180);
-      doc.line(0, 35, pageW, 35);
-    } else {
-      doc.setFillColor(cr, cg, cb);
-      doc.rect(0, 0, pageW, 35, 'F');
-    }
-    if (logoB64) {
-      try {
-        const fmt = logoB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-        const logoSize = narrow ? 18 : 25;
-        doc.addImage(logoB64, fmt, margin, narrow ? 8 : 5, logoSize, logoSize);
-      } catch {}
-    }
-    const t = noColor ? 30 : 255;
-    doc.setTextColor(t, t, t);
-    doc.setFont('helvetica', 'bold');
-    // Narrow pages (media carta / A5): a centered title runs into the doctor's name on the right
-    // (seen in the half-letter render), so it goes left, after the logo.
-    const tituloX = narrow ? margin + (logoB64 ? 22 : 0) : pageW / 2;
-    const tituloAlign = narrow ? 'left' : 'center';
-    doc.setFontSize(narrow ? 13 : 18);
-    doc.text('NOTA DE VENTA', tituloX, 15, { align: tituloAlign });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(narrow ? 8 : 9);
-    doc.text(`Folio ${venta.saleNumber}`, tituloX, 21, { align: tituloAlign });
-
-    // The right block may only use what the title leaves free; a long name or credential shrinks
-    // (down to 6 pt) instead of running into the title on narrow pages.
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(narrow ? 13 : 18);
-    // Only narrow pages: on wide ones the centered title sits ABOVE the name/credentials (no overlap).
-    const libre = narrow ? pageW - margin - (tituloX + doc.getTextWidth('NOTA DE VENTA')) - 4 : Infinity;
-    const ajustado = (text: string, size: number) => {
-      doc.setFontSize(size);
-      let s = size;
-      while (s > 6 && doc.getTextWidth(text) > libre) doc.setFontSize((s -= 0.5));
-    };
-    doc.setFont('helvetica', 'bold');
-    ajustado(emisor.doctorFullName, 9);
-    doc.text(emisor.doctorFullName, pageW - margin, 18, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
-    credLines.forEach((line, i) => {
-      ajustado(line, 7);
-      doc.text(line, pageW - margin, 22.5 + i * 3.2, { align: 'right' });
-    });
-    y = 40 + topMarginMm;
-  } else {
-    y = topReset;
-    doc.setTextColor(cr, cg, cb);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text(`NOTA DE VENTA · Folio ${venta.saleNumber}`, margin, y);
-    y += 8;
-  }
-
-  // ── CONSULTORIO (el principal del perfil) ───────────────────────────────
-  const consultorio = [emisor.clinicAddress?.trim(), emisor.clinicPhone?.trim() && `Tel. ${emisor.clinicPhone.trim()}`]
-    .filter(Boolean).join('  ·  ');
-  if (consultorio) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(90, 90, 90);
-    const lines = doc.splitTextToSize(consultorio, colW);
-    doc.text(lines, margin, y);
-    y += lines.length * 3.6 + 3;
-  }
 
   // ── CAJA: cliente · fecha · pago ────────────────────────────────────────
   // The box grows with what it holds: the name WRAPS (never cut), then whatever contact data the
@@ -325,46 +221,6 @@ export function dibujarNotaVenta(
   if (venta.notes?.trim()) bloque('Notas', venta.notes.trim());
   if (venta.termsAndConditions?.trim()) bloque('Términos y condiciones', venta.termsAndConditions.trim());
 
-  // ── NO ES CFDI ──────────────────────────────────────────────────────────
-  checkPage(6);
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(7);
-  doc.setTextColor(120, 120, 120);
-  doc.text('Este documento no es un comprobante fiscal (CFDI).', margin, y);
-
-  // ── PIE (todas las hojas, como la receta) ───────────────────────────────
-  if (rx.showFooter) {
-    const totalPages = (doc as any).getNumberOfPages();
-    for (let p = 1; p <= totalPages; p++) {
-      doc.setPage(p);
-      if (noColor) {
-        doc.setDrawColor(180, 180, 180);
-        doc.line(0, footerY, pageW, footerY);
-      } else {
-        doc.setFillColor(cr, cg, cb);
-        doc.rect(0, footerY, pageW, footerH, 'F');
-      }
-      if (sigB64) {
-        try {
-          const fmt = sigB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-          doc.addImage(sigB64, fmt, pageW - margin - 42, footerY + 2, 40, 18);
-        } catch {}
-      }
-      const t = noColor ? 30 : 255;
-      doc.setTextColor(t, t, t);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text(emisor.doctorFullName, margin, footerY + 7);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.5);
-      credLines.forEach((line, i) => doc.text(line, margin, footerY + 10.5 + i * 2.9));
-      if (sigB64) {
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'italic');
-        doc.text('Firma del médico', pageW - margin, footerY + 20.5, { align: 'right' });
-      }
-    }
-  }
-
-  return doc;
+  // ── NO ES CFDI + PIE ────────────────────────────────────────────────────
+  return cerrarHoja(h, y, 'Este documento no es un comprobante fiscal (CFDI).', emisor, diseno, rx);
 }

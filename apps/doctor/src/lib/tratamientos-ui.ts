@@ -77,7 +77,11 @@ export interface CuentaDelTratamiento {
   /** Por sesión: su IMPORTE (lo cobrado si ya se cobró — fuente `cobro` —, si no su precio planeado) y lo que de eso ya entró. */
   sesiones: { id: string; importe: number | null; fuente: 'sesion' | 'cita' | 'cobro' | null; pagado: number; folio: string | null }[];
   /** Ventas de las visitas de las sesiones: renglón APARTE (decisión 5). */
-  ventas: { cuantas: number; total: number; pagado: number };
+  ventas: {
+    cuantas: number; total: number; pagado: number;
+    /** V5 — cada venta (para el «Resumen de tratamiento»), por fecha. */
+    detalle: { folio: string; fecha: string; total: number; pagado: number }[];
+  };
 }
 
 export interface TratamientoDetalle extends TratamientoResumen {

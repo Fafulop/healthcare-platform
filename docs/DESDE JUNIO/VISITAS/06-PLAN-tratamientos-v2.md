@@ -180,5 +180,5 @@ y una sesión agregada luego (o de un tratamiento creado con 0) no tenía dónde
 | V4 | EN PROD 2026-10-02 (ver §7.1) | `f89824f8` |
 | V4 paso 1 | EN PROD 2026-10-02: la fecha de una plantilla es SUYA (empieza con la de la visita, editable; sin regla de «mismo día») | `e1cdc37f` |
 | V4 paso 2 | EN PROD 2026-10-02 y probado por el usuario (Sesión 3: 16→21 oct, la visita viajó; verificado en BD): la visita VIAJA con su cita; fuera «Desligar cita/visita» | `a894e308` |
-| V2 | Listo para push: sin paquetes (alta/edición rechazan precio; `ledger/tratamiento-pago` → 410; fuera `paqueteDeCita`: la sesión se cobra como cualquier cita, con link de pago). Historia intacta: los $0 «cubierta» y los 2 tratamientos viejos (cancelados, de prueba) se quedan como están y se ven con la cuenta por sesiones | — |
-| V5 | — | — |
+| V2 | EN PROD 2026-10-02 (`a82c888b`, api + doctor SUCCESS): sin paquetes (alta/edición rechazan precio; `ledger/tratamiento-pago` → 410; fuera `paqueteDeCita`: la sesión se cobra como cualquier cita, con link de pago). Historia intacta: los $0 «cubierta» y los 2 tratamientos viejos (cancelados, de prueba) se quedan como están y se ven con la cuenta por sesiones | `a82c888b` |
+| V5 | Listo para push: «Resumen PDF» en la Cuenta del tratamiento (sesiones con fecha/servicio/estado/importe/pagado/folio, canceladas en gris, totales de la cuenta, ventas renglón por renglón); hoja compartida con la nota de venta (`pdf-documento.ts`, nota byte-idéntica en 4 variantes) | — |

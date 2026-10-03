@@ -257,7 +257,9 @@ export async function cuentaDelTratamiento(doctorId: string, patientId: string, 
     visitas.length
       ? prisma.sale.findMany({
           where: { doctorId, patientId, visitaId: { in: visitas }, status: { not: 'CANCELLED' } },
-          select: { total: true, amountPaid: true },
+          // V5: folio y fecha para el «Resumen de tratamiento» (las ventas van renglón por renglón).
+          select: { total: true, amountPaid: true, saleNumber: true, saleDate: true },
+          orderBy: { saleDate: 'asc' },
         })
       : Promise.resolve([]),
   ]);
@@ -295,7 +297,12 @@ export async function cuentaDelTratamiento(doctorId: string, patientId: string, 
     cobradoEnCanceladas: r2(cobradoEnCanceladas),
     sinPrecio,
     sesiones: porSesion,
-    ventas: { cuantas: ventas.length, total: r2(ventasTotal), pagado: r2(ventasPagado) },
+    ventas: {
+      cuantas: ventas.length, total: r2(ventasTotal), pagado: r2(ventasPagado),
+      detalle: ventas.map((v) => ({
+        folio: v.saleNumber, fecha: diaISO(v.saleDate), total: r2(Number(v.total)), pagado: r2(Number(v.amountPaid ?? 0)),
+      })),
+    },
   };
 }
 
