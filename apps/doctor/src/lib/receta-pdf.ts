@@ -50,8 +50,14 @@ export const COLOR_MAP: Record<string, [number, number, number]> = {
   gray:   [55, 65, 81],
 };
 
+/**
+ * `prescriptionDate`/`expiresAt` are calendar days stored as UTC midnight
+ * (`2026-10-03T00:00:00.000Z` — all 74 prod rows, 2026-10-03). Parsing that as an instant
+ * rendered it in local time — the evening BEFORE in Mexico — so every PDF printed the previous
+ * day (H-027). Only the date part matters; noon keeps any local timezone on the same day.
+ */
 export const formatDate = (iso: string) =>
-  new Date(iso.includes('T') ? iso : `${iso}T12:00:00`)
+  new Date(`${iso.slice(0, 10)}T12:00:00`)
     .toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 /** Una imagen (logo, firma) como data URL base64 para jsPDF; null si no se pudo bajar. */
