@@ -1,5 +1,6 @@
 'use client';
 
+import { CATEGORIAS_MEDIA, etiquetaCategoriaMedia, etiquetaTipoMedia } from '@/lib/media-etiquetas';
 import { useState, useEffect } from 'react';
 import { X, Edit2, Save, Trash2, Download, Link2 } from 'lucide-react';
 import { practiceConfirm } from '@/lib/practice-confirm';
@@ -103,7 +104,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
         body: JSON.stringify({
           description: editedDescription,
           doctorNotes: editedDoctorNotes,
-          category: editedCategory,
+          category: editedCategory || null, // «Sin categoría» = null, like an upload
           bodyArea: editedBodyArea,
           encounterId: editedEncounterId || null,
           // Sólo si las visitas cargaron: sin ellas no se sabe qué visita elegir y el servidor
@@ -113,7 +114,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update media');
+        throw new Error('No se pudo guardar');
       }
 
       setIsEditing(false);
@@ -122,7 +123,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
       }
     } catch (error) {
       console.error('Error updating media:', error);
-      alert('Failed to update media');
+      alert('No se pudieron guardar los cambios. Intenta de nuevo.');
     } finally {
       setIsSaving(false);
     }
@@ -146,7 +147,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete media');
+        throw new Error('No se pudo borrar');
       }
 
       if (onDelete) {
@@ -173,7 +174,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
             <button
               onClick={handleDownload}
               className="p-2 hover:bg-gray-100 rounded-full"
-              title="Download"
+              title="Descargar"
             >
               <Download className="w-5 h-5" />
             </button>
@@ -181,7 +182,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
               <button
                 onClick={() => setIsEditing(true)}
                 className="p-2 hover:bg-gray-100 rounded-full"
-                title="Edit"
+                title="Editar"
               >
                 <Edit2 className="w-5 h-5" />
               </button>
@@ -190,7 +191,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
                 onClick={handleSave}
                 disabled={isSaving}
                 className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-50"
-                title="Save"
+                title="Guardar"
               >
                 <Save className="w-5 h-5" />
               </button>
@@ -198,14 +199,14 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
             <button
               onClick={handleDelete}
               className="p-2 hover:bg-red-100 text-red-600 rounded-full"
-              title="Delete"
+              title="Borrar"
             >
               <Trash2 className="w-5 h-5" />
             </button>
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full"
-              title="Close"
+              title="Cerrar"
             >
               <X className="w-5 h-5" />
             </button>
@@ -261,14 +262,14 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
             {/* Metadata - Takes 1 column */}
             <div className="space-y-4">
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Details</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Detalles</h3>
                 <div className="space-y-2 text-sm">
                   <div>
-                    <span className="text-gray-600">Type:</span>{' '}
-                    <span className="font-medium">{media.mediaType}</span>
+                    <span className="text-gray-600">Tipo:</span>{' '}
+                    <span className="font-medium">{etiquetaTipoMedia(media.mediaType)}</span>
                   </div>
                   <div>
-                    <span className="text-gray-600">Captured:</span>{' '}
+                    <span className="text-gray-600">Fecha:</span>{' '}
                     <span className="font-medium">{formattedDate}</span>
                   </div>
                 </div>
@@ -277,24 +278,31 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
               {/* Editable Fields */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category
+                  Categoría
                 </label>
                 {isEditing ? (
-                  <input
-                    type="text"
+                  // Same list as the uploader (H-051): free text created a SECOND «Rayos X» next to `x-ray`.
+                  <select
                     value={editedCategory}
                     onChange={(e) => setEditedCategory(e.target.value)}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    placeholder="e.g., wound, x-ray..."
-                  />
+                  >
+                    <option value="">Sin categoría</option>
+                    {CATEGORIAS_MEDIA.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                    {editedCategory && !CATEGORIAS_MEDIA.some((c) => c.value === editedCategory) && (
+                      <option value={editedCategory}>{editedCategory} (anterior)</option>
+                    )}
+                  </select>
                 ) : (
-                  <p className="text-sm text-gray-900">{media.category || 'Not specified'}</p>
+                  <p className="text-sm text-gray-900">{media.category ? etiquetaCategoriaMedia(media.category) : 'Sin categoría'}</p>
                 )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Body Area
+                  Área del cuerpo
                 </label>
                 {isEditing ? (
                   <input
@@ -302,10 +310,10 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
                     value={editedBodyArea}
                     onChange={(e) => setEditedBodyArea(e.target.value)}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    placeholder="e.g., Right Arm..."
+                    placeholder="p. ej., Brazo derecho..."
                   />
                 ) : (
-                  <p className="text-sm text-gray-900">{media.bodyArea || 'Not specified'}</p>
+                  <p className="text-sm text-gray-900">{media.bodyArea || 'Sin especificar'}</p>
                 )}
               </div>
 
@@ -371,7 +379,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
+                  Descripción
                 </label>
                 {isEditing ? (
                   <textarea
@@ -379,16 +387,16 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
                     onChange={(e) => setEditedDescription(e.target.value)}
                     rows={3}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    placeholder="Brief description..."
+                    placeholder="Breve descripción..."
                   />
                 ) : (
-                  <p className="text-sm text-gray-900">{media.description || 'No description'}</p>
+                  <p className="text-sm text-gray-900">{media.description || 'Sin descripción'}</p>
                 )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Doctor Notes (Private)
+                  Notas del doctor (privadas)
                 </label>
                 {isEditing ? (
                   <textarea
@@ -396,10 +404,10 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
                     onChange={(e) => setEditedDoctorNotes(e.target.value)}
                     rows={4}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    placeholder="Clinical observations..."
+                    placeholder="Observaciones clínicas..."
                   />
                 ) : (
-                  <p className="text-sm text-gray-900">{media.doctorNotes || 'No notes'}</p>
+                  <p className="text-sm text-gray-900">{media.doctorNotes || 'Sin notas'}</p>
                 )}
               </div>
             </div>

@@ -36,12 +36,12 @@ export default function EditCustomTemplatePage() {
       const data = await res.json();
 
       if (!data.success) {
-        throw new Error(data.error || 'Error loading template');
+        throw new Error(data.error || 'Error al cargar la plantilla');
       }
 
       setTemplate(data.data);
     } catch (err: any) {
-      setError(err.message || 'Error loading template');
+      setError(err.message || 'Error al cargar la plantilla');
     } finally {
       setLoading(false);
     }
@@ -65,7 +65,7 @@ export default function EditCustomTemplatePage() {
     const result = await res.json();
 
     if (!result.success) {
-      throw new Error(result.error || 'Error updating template');
+      throw new Error(result.error || 'Error al guardar la plantilla');
     }
 
     router.push('/dashboard/medical-records/custom-templates');

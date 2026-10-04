@@ -684,8 +684,8 @@ antes) sin tocar el texto.
 
 ### Plantillas
 
-«Plantillas» en la lista de pacientes. (La página todavía está en inglés: «Custom Encounter
-Templates» y el botón «Create Template».)
+«Plantillas» en la lista de pacientes abre **«Plantillas personalizadas»**; el botón **«Crear
+plantilla»** abre el constructor. La lista muestra cada plantilla con su número de campos.
 
 El constructor tiene: el **nombre** de la plantilla, «Vista previa», **«IA»** (un chat que agrega
 o cambia campos; está en todos los planes, **sólo el titular**, con **tope mensual de IA**) y

@@ -10,7 +10,9 @@ concluir/cancelar/no asistió/eliminar se apaga el link en Stripe/MP; verificado
 desactivado (MP no dejó pagar el $10 de prueba — reintentar con `cmuu52bmh…`, cita QA E1 20-oct COMPLETADA).
 **Nuevos hallazgos:** H-058 (folio se atora en 1000), H-059 (devoluciones no tocan Flujo), H-060, H-061,
 **H-062** (reagendar una cita ya pagada ⇒ la nueva no se puede concluir sin 2º ingreso — decidir).
-**Siguiente sugerido** (prioridades de la sesión anterior): H-029 ($0) · H-038 · H-024 · copy en español.
+**También en prod (`923b1014`, verificado):** H-029 (completar en $0 = cortesía) y H-038 («¡Solicitud enviada!»). Nuevo H-063.
+**EN CURSO (sin commit, 2026-10-04):** lote de copy en español — H-030 (toasts de estado, `bookings/[id]/route.ts`), H-026 (`textoDeValor` en `lib/campo-archivo.ts`: Sí/No en vista de visita, Línea de Tiempo y PDF; «Marcar esta opción»), H-033 (`apps/public/src/lib/nombre-doctor.ts`, formularios cita/fiscal), H-018 (lista de plantillas traducida + acentos del constructor; «Selecciona una opción…»), H-051 (galería/tarjeta en español; `lib/media-etiquetas.ts` compartido con el subidor); manual + guía E4a actualizados. **Falta:** type-check de api/doctor/public, code review completo, OK de commit, deploy (api+doctor+public) y verificación en prod.
+**Siguiente sugerido:** H-024 (seguimiento crea tratamiento sin avisar) · copy en español (H-018, H-026, H-030, H-033, H-051) · decidir H-062/H-063.
 **Datos QA nuevos:** citas QA E1 20-oct y 21-oct (COMPLETADAS, $10 c/u: ING-2026-398/399), 22-oct
 (CANCELADA por reagendar) → 23-oct (CONFIRMADA, factura Sí); links MP $10 `cmuu52bmh…` (PENDING, vivo) y
 `cmuu6drk1…` (CANCELLED); el link QA `cmusqlk6n…` se expiró en MP pero en BD sigue PENDING.

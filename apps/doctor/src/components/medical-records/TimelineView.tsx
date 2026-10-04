@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { sinValor, tieneValores } from '@/lib/campo-archivo';
+import { sinValor, tieneValores, textoDeValor } from '@/lib/campo-archivo';
 import { FileText, Activity, Image as ImageIcon, Video, Mic, Pill, ChevronDown, ChevronUp, ExternalLink, Loader2, NotebookPen, ClipboardList, Paperclip, FileAudio, File } from 'lucide-react';
 import Link from 'next/link';
 
@@ -426,7 +426,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                                         {field.labelEs || field.label || field.name}
                                       </dt>
                                       <dd className="text-sm text-gray-900 whitespace-pre-wrap">
-                                        {Array.isArray(value) ? value.join(', ') : String(value)}
+                                        {textoDeValor(value)}
                                       </dd>
                                     </div>
                                   );
@@ -437,7 +437,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                                     <div key={key}>
                                       <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">{key}</dt>
                                       <dd className="text-sm text-gray-900 whitespace-pre-wrap">
-                                        {Array.isArray(value) ? value.join(', ') : String(value)}
+                                        {textoDeValor(value)}
                                       </dd>
                                     </div>
                                   );

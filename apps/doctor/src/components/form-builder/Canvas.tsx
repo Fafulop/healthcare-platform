@@ -39,11 +39,11 @@ export function Canvas() {
         <div className="flex flex-col items-center justify-center h-full text-center py-16">
           <LayoutGrid className="w-12 h-12 text-gray-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-500 mb-1">
-            Sin campos aun
+            Sin campos aún
           </h3>
           <p className="text-sm text-gray-400 mb-4 max-w-xs">
             Arrastra campos desde la paleta a la izquierda, o haz clic en el
-            boton de abajo para agregar tu primer campo.
+            botón de abajo para agregar tu primer campo.
           </p>
           <button
             type="button"

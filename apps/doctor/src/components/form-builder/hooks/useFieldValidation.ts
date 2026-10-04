@@ -25,7 +25,7 @@ function validateField(
     (f) => f.id !== field.id && f.name === field.name
   );
   if (duplicates.length > 0) {
-    errors.push('El nombre del campo debe ser unico');
+    errors.push('El nombre del campo debe ser único');
   }
 
   if (!field.label.trim()) {
@@ -33,14 +33,14 @@ function validateField(
   }
 
   if (!field.labelEs.trim()) {
-    errors.push('La etiqueta en espanol es requerida');
+    errors.push('La etiqueta en español es requerida');
   }
 
   if (
     (field.type === 'dropdown' || field.type === 'radio') &&
     (!field.options || field.options.length === 0)
   ) {
-    errors.push('Se requiere al menos una opcion para campos desplegables');
+    errors.push('Se requiere al menos una opción para campos desplegables');
   }
 
   if (
@@ -49,7 +49,7 @@ function validateField(
     field.max !== undefined &&
     field.min >= field.max
   ) {
-    errors.push('El valor minimo debe ser menor que el maximo');
+    errors.push('El valor mínimo debe ser menor que el máximo');
   }
 
   return errors;

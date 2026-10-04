@@ -138,7 +138,7 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
         <View style={styles.header}>
           <Text style={styles.clinicName}>{clinicInfo.name}</Text>
           <Text style={styles.doctorInfo}>
-            Dr. {prescription.doctorFullName}
+            {conTituloDoctor(prescription.doctorFullName)}
           </Text>
           {credentialLines.map((line, i) => (
             <Text key={i} style={styles.doctorInfo}>{line}</Text>
@@ -250,7 +250,7 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
               <View style={styles.signatureLine} />
             )}
             <Text style={{ fontSize: 10, marginTop: 5 }}>
-              Dr. {prescription.doctorFullName}
+              {conTituloDoctor(prescription.doctorFullName)}
             </Text>
             {credentialLines.map((line, i) => (
               <Text key={i} style={{ fontSize: 8, color: '#666' }}>{line}</Text>
@@ -275,4 +275,10 @@ function formatDate(dateString: string): string {
     month: 'long',
     day: 'numeric'
   });
+}
+
+/** «Dr. <name>» without repeating the title when the stored name already has it (H-033). */
+function conTituloDoctor(nombre: string): string {
+  const n = nombre.trim();
+  return /^(dra?|doctora?)\b\.?/i.test(n) ? n : `Dr. ${n}`;
 }

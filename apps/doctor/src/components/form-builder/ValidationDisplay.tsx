@@ -18,7 +18,7 @@ export function ValidationDisplay({ errors }: ValidationDisplayProps) {
       <div className="flex items-center gap-2 mb-1">
         <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
         <span className="text-sm font-medium text-red-800">
-          {allErrors.length} {allErrors.length === 1 ? 'problema de validacion' : 'problemas de validacion'}
+          {allErrors.length} {allErrors.length === 1 ? 'problema de validación' : 'problemas de validación'}
         </span>
       </div>
       {topErrors.length > 0 && (

@@ -1,5 +1,6 @@
 'use client';
 
+import { etiquetaCategoriaMedia, etiquetaTipoMedia } from '@/lib/media-etiquetas';
 import { Image, Video, Mic, FileText } from 'lucide-react';
 import Link from 'next/link';
 
@@ -77,7 +78,7 @@ export function MediaCard({ media, patientId, onClick }: MediaCardProps) {
         {media.mediaType === 'audio' && (
           <div className="flex flex-col items-center">
             <Mic className="w-16 h-16 text-blue-500 mb-2" />
-            <p className="text-sm text-gray-600">Audio Recording</p>
+            <p className="text-sm text-gray-600">Grabación de audio</p>
           </div>
         )}
 
@@ -91,13 +92,13 @@ export function MediaCard({ media, patientId, onClick }: MediaCardProps) {
         {/* Media Type Badge */}
         <div className="absolute top-2 left-2 bg-gray-900 bg-opacity-75 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
           <MediaIcon className="w-3 h-3" />
-          {media.mediaType}
+          {etiquetaTipoMedia(media.mediaType)}
         </div>
 
         {/* Category Badge */}
         {media.category && (
           <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
-            {media.category}
+            {etiquetaCategoriaMedia(media.category)}
           </div>
         )}
       </div>

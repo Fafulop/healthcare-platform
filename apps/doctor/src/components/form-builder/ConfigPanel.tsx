@@ -33,7 +33,7 @@ export function ConfigPanel() {
   };
 
   const handleAddOption = () => {
-    const options = [...(field.options || []), `Opcion ${(field.options?.length || 0) + 1}`];
+    const options = [...(field.options || []), `Opción ${(field.options?.length || 0) + 1}`];
     handleUpdate({ options });
   };
 
@@ -103,7 +103,7 @@ export function ConfigPanel() {
         {/* Label ES */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
-            Etiqueta (Espanol)
+            Etiqueta (Español)
           </label>
           <input
             type="text"
@@ -273,7 +273,7 @@ export function ConfigPanel() {
                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 mt-1"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Agregar Opcion
+                Agregar Opción
               </button>
             </div>
           </div>

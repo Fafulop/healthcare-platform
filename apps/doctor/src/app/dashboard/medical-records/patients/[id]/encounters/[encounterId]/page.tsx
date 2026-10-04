@@ -1,7 +1,8 @@
 'use client';
 
+import { etiquetaCategoriaMedia } from '@/lib/media-etiquetas';
 import { ArrowLeft, Edit, Calendar, MapPin, FileText, Loader2, ClipboardList, Stethoscope, Trash2, Download, Paperclip, Image, Video, FileAudio, File, ExternalLink, Settings } from 'lucide-react';
-import { sinValor, tieneValores } from '@/lib/campo-archivo';
+import { sinValor, tieneValores, textoDeValor } from '@/lib/campo-archivo';
 import { PdfSettingsDialog } from '@/components/medical-records/PdfSettingsDialog';
 import Link from 'next/link';
 import { formatDateLong, formatDateTime } from '@/lib/practice-utils';
@@ -194,7 +195,7 @@ export default function EncounterDetailPage() {
                           {field.labelEs || field.label || field.name}
                         </dt>
                         <dd className="text-sm text-gray-900 whitespace-pre-wrap">
-                          {Array.isArray(value) ? value.join(', ') : String(value)}
+                          {textoDeValor(value)}
                         </dd>
                       </div>
                     );
@@ -207,7 +208,7 @@ export default function EncounterDetailPage() {
                           {key}
                         </dt>
                         <dd className="text-sm text-gray-900 whitespace-pre-wrap">
-                          {Array.isArray(value) ? value.join(', ') : String(value)}
+                          {textoDeValor(value)}
                         </dd>
                       </div>
                     );
@@ -230,11 +231,6 @@ export default function EncounterDetailPage() {
                 const isVideo = file.mediaType === 'video';
                 const isAudio = file.mediaType === 'audio';
                 const MediaIcon = isImage ? Image : isVideo ? Video : isAudio ? FileAudio : File;
-                const categoryLabels: Record<string, string> = {
-                  wound: 'Herida', 'x-ray': 'Rayos X', dermatology: 'Dermatología',
-                  'lab-result': 'Laboratorio', procedure: 'Procedimiento',
-                  consultation: 'Consulta', other: 'Otro',
-                };
                 const sizeKB = file.fileSize ? Math.round(file.fileSize / 1024) : null;
                 const sizeLabel = sizeKB && sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : sizeKB ? `${sizeKB} KB` : null;
 
@@ -263,7 +259,7 @@ export default function EncounterDetailPage() {
                       </p>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                         {file.category && (
-                          <span className="text-xs text-gray-500">{categoryLabels[file.category] || file.category}</span>
+                          <span className="text-xs text-gray-500">{etiquetaCategoriaMedia(file.category)}</span>
                         )}
                         {sizeLabel && <span className="text-xs text-gray-400">{sizeLabel}</span>}
                       </div>

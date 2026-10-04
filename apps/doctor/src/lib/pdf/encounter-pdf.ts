@@ -1,7 +1,7 @@
 // jsPDF is dynamically imported — safe for client-only use, no SSR issues
 import { DEFAULT_PDF_SETTINGS, type PdfSettings } from '@/types/pdf-settings';
 import { calcularEdad as calcAge } from '@/lib/edad';
-import { sinValor } from '@/lib/campo-archivo';
+import { sinValor, textoDeValor } from '@/lib/campo-archivo';
 
 function formatLocalDate(dateString: string): string {
   try {
@@ -233,7 +233,7 @@ export async function generateEncounterPDF(
       doc.setFontSize(9);
       doc.setTextColor(0, 0, 0);
       y += 5;
-      const displayVal = Array.isArray(value) ? value.join(', ') : String(value);
+      const displayVal = textoDeValor(value);
       y = addText(doc, displayVal, m, y, cw, 5) + 4;
     }
     y += 2;

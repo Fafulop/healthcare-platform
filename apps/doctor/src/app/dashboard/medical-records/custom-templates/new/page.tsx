@@ -33,7 +33,7 @@ export default function NewCustomTemplatePage() {
     const result = await res.json();
 
     if (!result.success) {
-      throw new Error(result.error || 'Error creating template');
+      throw new Error(result.error || 'Error al crear la plantilla');
     }
 
     router.push('/dashboard/medical-records/custom-templates');

@@ -47,9 +47,9 @@ function renderContent(text: string) {
 // -----------------------------------------------------------------------------
 
 const SUGGESTIONS = [
-  'Plantilla para dermatologia',
-  'Evaluacion nutricional',
-  'Consulta pediatrica basica',
+  'Plantilla para dermatología',
+  'Evaluación nutricional',
+  'Consulta pediátrica básica',
 ];
 
 // -----------------------------------------------------------------------------
@@ -211,7 +211,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
           <div className="text-center pt-8 space-y-4">
             <Bot className="w-10 h-10 text-indigo-200 mx-auto" />
             <p className="text-sm text-gray-500">
-              Dime qué campos necesitas y los creo automaticamente en el canvas.
+              Dime qué campos necesitas y los creo automáticamente en el lienzo.
             </p>
             <div className="flex flex-col items-center gap-2">
               {SUGGESTIONS.map((s) => (

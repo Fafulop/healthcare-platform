@@ -31,12 +31,12 @@ export function useCustomTemplatesPage() {
       const data = await res.json();
 
       if (!data.success) {
-        throw new Error(data.error || 'Error loading templates');
+        throw new Error(data.error || 'Error al cargar las plantillas');
       }
 
       setTemplates(data.data);
     } catch (err: any) {
-      setError(err.message || 'Error loading templates');
+      setError(err.message || 'Error al cargar las plantillas');
     } finally {
       setLoading(false);
     }
@@ -51,13 +51,13 @@ export function useCustomTemplatesPage() {
       const data = await res.json();
 
       if (!data.success) {
-        throw new Error(data.error || 'Error deleting template');
+        throw new Error(data.error || 'Error al eliminar la plantilla');
       }
 
       fetchTemplates();
       setDeleteConfirm(null);
     } catch (err: any) {
-      toast.error(err.message || 'Error deleting template');
+      toast.error(err.message || 'Error al eliminar la plantilla');
     }
   };
 
@@ -72,12 +72,12 @@ export function useCustomTemplatesPage() {
       const data = await res.json();
 
       if (!data.success) {
-        throw new Error(data.error || 'Error setting default');
+        throw new Error(data.error || 'Error al marcarla como predeterminada');
       }
 
       fetchTemplates();
     } catch (err: any) {
-      toast.error(err.message || 'Error setting default');
+      toast.error(err.message || 'Error al marcarla como predeterminada');
     }
   };
 

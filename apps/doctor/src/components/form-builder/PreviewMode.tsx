@@ -28,7 +28,7 @@ export function PreviewMode() {
         {/* Template header */}
         <div className="mb-6 pb-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">
-            {state.metadata.name || 'Plantilla sin titulo'}
+            {state.metadata.name || 'Plantilla sin título'}
           </h2>
           {state.metadata.description && (
             <p className="text-sm text-gray-500 mt-1">

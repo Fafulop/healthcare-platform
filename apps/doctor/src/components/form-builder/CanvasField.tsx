@@ -58,7 +58,7 @@ export function CanvasField({ field }: CanvasFieldProps) {
         <div className="flex items-center gap-2">
           <FieldTypeIcon type={field.type} className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <span className="text-sm font-medium text-gray-900 truncate">
-            {field.label || 'Campo sin titulo'}
+            {field.label || 'Campo sin título'}
           </span>
         </div>
         <div className="flex items-center gap-2 mt-0.5">

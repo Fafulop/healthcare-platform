@@ -41,3 +41,14 @@ export function sinValor(v: unknown): boolean {
 export function tieneValores(customData: Record<string, unknown> | null | undefined): boolean {
   return !!customData && Object.values(customData).some((v) => !sinValor(v));
 }
+
+/**
+ * How a filled custom-field value READS for the doctor (visita view, Línea de Tiempo, visita PDF):
+ * a «Casilla» is «Sí»/«No», not `true`/`false` (H-026); a multi-select is a comma list. (The Formularios
+ * page has its own `renderFieldValue` with the same Sí/No rule, by field type.)
+ */
+export function textoDeValor(v: unknown): string {
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+  if (Array.isArray(v)) return v.join(', ');
+  return String(v);
+}

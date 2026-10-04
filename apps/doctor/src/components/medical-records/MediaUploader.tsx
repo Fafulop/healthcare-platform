@@ -1,5 +1,6 @@
 'use client';
 
+import { CATEGORIAS_MEDIA } from '@/lib/media-etiquetas';
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Upload, X, Image as ImageIcon, Video, Mic, FileText, Loader2 } from 'lucide-react';
 import { useUploadThing } from '@/lib/uploadthing';
@@ -33,16 +34,6 @@ interface Encounter {
   visitaId?: string | null;
 }
 
-const CATEGORIES: { value: string; label: string }[] = [
-  { value: 'wound', label: 'Herida' },
-  { value: 'x-ray', label: 'Rayos X' },
-  { value: 'dermatology', label: 'Dermatología' },
-  { value: 'cardiology', label: 'Cardiología' },
-  { value: 'lab-result', label: 'Resultado de Laboratorio' },
-  { value: 'procedure', label: 'Procedimiento' },
-  { value: 'consultation', label: 'Consulta' },
-  { value: 'other', label: 'Otro' },
-];
 
 const BODY_AREAS = [
   'Cabeza',
@@ -336,7 +327,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, visitaI
               disabled={isUploading}
             >
               <option value="">Seleccionar categoría...</option>
-              {CATEGORIES.map(cat => (
+              {CATEGORIAS_MEDIA.map(cat => (
                 <option key={cat.value} value={cat.value}>
                   {cat.label}
                 </option>

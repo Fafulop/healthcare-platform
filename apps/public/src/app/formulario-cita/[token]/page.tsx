@@ -1,5 +1,6 @@
 'use client';
 
+import { conTituloDoctor } from '@/lib/nombre-doctor';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 
@@ -405,7 +406,7 @@ export default function FormularioCitaPage() {
           {/* Appointment context card */}
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-8 space-y-1">
             <p className="text-sm font-medium text-gray-900">
-              Dr. {formPayload!.doctorName}
+              {conTituloDoctor(formPayload!.doctorName)}
               {formPayload!.doctorSpecialty && (
                 <span className="font-normal text-gray-600"> — {formPayload!.doctorSpecialty}</span>
               )}

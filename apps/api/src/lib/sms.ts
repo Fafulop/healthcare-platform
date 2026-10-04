@@ -78,7 +78,7 @@ export async function sendPatientSMS(
     message = `¡Hola ${details.patientName}!
 
 Tu solicitud de cita ha sido recibida:
-Dr. ${details.doctorName}
+${conTituloDoctor(details.doctorName)}
 ${formattedDate}
 ${details.startTime} - ${details.endTime}
 
@@ -95,7 +95,7 @@ Código de referencia: ${details.confirmationCode}`;
     message = `¡Hola ${details.patientName}!
 
 Tu cita ha sido CONFIRMADA:
-Dr. ${details.doctorName}
+${conTituloDoctor(details.doctorName)}
 ${formattedDate}
 ${details.startTime} - ${details.endTime}
 Precio: $${details.finalPrice}
@@ -195,4 +195,11 @@ export async function isSMSEnabled(): Promise<boolean> {
     console.error('Error checking SMS setting, defaulting to disabled:', error);
     return false;
   }
+}
+
+/** «Dr. <name>» without repeating the title when the stored name already has it (H-033; same rule as
+ * apps/public/src/lib/nombre-doctor.ts — another app, can't be imported from there). */
+function conTituloDoctor(nombre: string): string {
+  const n = nombre.trim();
+  return /^(dra?|doctora?)\b\.?/i.test(n) ? n : `Dr. ${n}`;
 }

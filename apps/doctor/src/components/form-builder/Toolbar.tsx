@@ -35,7 +35,7 @@ export function Toolbar({ onSave, saving, onToggleAIChat, showAIChat }: ToolbarP
           type="text"
           value={metadata.description}
           onChange={(e) => setMetadata({ description: e.target.value })}
-          placeholder="Descripcion (opcional)"
+          placeholder="Descripción (opcional)"
           className="text-sm text-gray-600 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-1 py-0.5 min-w-[200px] flex-1"
         />
 

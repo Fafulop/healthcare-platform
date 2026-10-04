@@ -23,6 +23,13 @@ import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link
 import { desactivarLinks, desactivarLinksDeCita, hayQueDecirlo, linksVivosDeCita, type ResultadoDesactivar } from '@/lib/desactivar-link';
 
 // Booking state machine transitions
+// H-030: the agenda shows these messages to the doctor — states by their Spanish names.
+const ESTADO_ES: Record<string, string> = {
+  PENDING: 'pendiente', CONFIRMED: 'agendada', CANCELLED: 'cancelada', COMPLETED: 'completada', NO_SHOW: '«No asistió»',
+};
+// Own keys only: a status like 'constructor' must not pick up Object.prototype.
+const estadoEs = (s: string) => (Object.prototype.hasOwnProperty.call(ESTADO_ES, s) ? ESTADO_ES[s] : s);
+
 const VALID_TRANSITIONS: Record<string, string[]> = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['COMPLETED', 'NO_SHOW', 'CANCELLED'],
@@ -82,7 +89,7 @@ export async function GET(
         },
       });
       if (!booking) {
-        return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Cita no encontrada' }, { status: 404 });
       }
       return NextResponse.json({ success: true, data: booking });
     }
@@ -97,7 +104,7 @@ export async function GET(
     // Another doctor's booking answers exactly like a missing one (no existence oracle).
     if (!booking || (auth.role !== 'ADMIN' && booking.doctorId !== auth.doctorId)) {
       return NextResponse.json(
-        { success: false, error: 'Booking not found' },
+        { success: false, error: 'Cita no encontrada' },
         { status: 404 }
       );
     }
@@ -111,7 +118,7 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to fetch booking',
+        error: 'No se pudo cargar la cita',
       },
       { status: 500 }
     );
@@ -135,10 +142,10 @@ export async function PATCH(
 
       const booking = await prisma.booking.findUnique({ where: { id } });
       if (!booking) {
-        return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Cita no encontrada' }, { status: 404 });
       }
       if (callerRole === 'DOCTOR' && booking.doctorId !== callerDoctorId) {
-        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'No tienes permiso sobre esta cita' }, { status: 403 });
       }
 
       // If linking (not unlinking), verify patient belongs to this doctor
@@ -240,10 +247,10 @@ export async function PATCH(
         include: { slot: true },
       });
       if (!booking) {
-        return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Cita no encontrada' }, { status: 404 });
       }
       if (callerRole === 'DOCTOR' && booking.doctorId !== callerDoctorId) {
-        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'No tienes permiso sobre esta cita' }, { status: 403 });
       }
       if (booking.status !== 'CONFIRMED' && booking.status !== 'PENDING') {
         return NextResponse.json(
@@ -339,10 +346,10 @@ export async function PATCH(
 
       const booking = await prisma.booking.findUnique({ where: { id } });
       if (!booking) {
-        return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Cita no encontrada' }, { status: 404 });
       }
       if (callerRole === 'DOCTOR' && booking.doctorId !== callerDoctorId) {
-        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'No tienes permiso sobre esta cita' }, { status: 403 });
       }
 
       const newPrice = parseFloat(String(finalPrice));
@@ -376,10 +383,10 @@ export async function PATCH(
 
       const booking = await prisma.booking.findUnique({ where: { id } });
       if (!booking) {
-        return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Cita no encontrada' }, { status: 404 });
       }
       if (callerRole === 'DOCTOR' && booking.doctorId !== callerDoctorId) {
-        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'No tienes permiso sobre esta cita' }, { status: 403 });
       }
 
       if (typeof facturaSolicitada !== 'boolean') {
@@ -401,7 +408,7 @@ export async function PATCH(
 
     if (!newStatus) {
       return NextResponse.json(
-        { success: false, error: 'Status is required' },
+        { success: false, error: 'Falta el estado' },
         { status: 400 }
       );
     }
@@ -439,7 +446,7 @@ export async function PATCH(
 
     if (!currentBooking) {
       return NextResponse.json(
-        { success: false, error: 'Booking not found' },
+        { success: false, error: 'Cita no encontrada' },
         { status: 404 }
       );
     }
@@ -448,17 +455,17 @@ export async function PATCH(
     if (!callerRole) {
       // Unauthenticated — only patient self-cancellation allowed, requires confirmationCode
       if (newStatus !== 'CANCELLED') {
-        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
       }
       if (!bodyConfirmationCode || bodyConfirmationCode !== currentBooking.confirmationCode) {
-        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
       }
     } else if (callerRole === 'DOCTOR') {
       if (currentBooking.doctorId !== callerDoctorId) {
-        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'No tienes permiso sobre esta cita' }, { status: 403 });
       }
     } else if (callerRole !== 'ADMIN') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'No tienes permiso sobre esta cita' }, { status: 403 });
     }
 
     const currentStatus = currentBooking.status;
@@ -468,7 +475,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
-          error: `Transición no permitida: no se puede cambiar de ${currentStatus} a ${newStatus}`,
+          error: `Transición no permitida: una cita ${estadoEs(currentStatus)} no puede pasar a ${estadoEs(newStatus)}`,
         },
         { status: 400 }
       );
@@ -712,9 +719,10 @@ export async function PATCH(
       }
 
       const statusMessages = {
-        CANCELLED: 'Booking cancelled successfully',
-        COMPLETED: 'Booking marked as completed',
-        NO_SHOW: 'Booking marked as no-show',
+        // H-030: the agenda shows this message as its toast — in Spanish.
+        CANCELLED: 'Cita cancelada',
+        COMPLETED: 'Cita completada',
+        NO_SHOW: 'Cita marcada como «No asistió»',
       };
 
       return NextResponse.json({
@@ -822,7 +830,7 @@ export async function PATCH(
         );
       }
 
-      return NextResponse.json({ success: true, data: updatedBooking, message: 'Booking status updated' });
+      return NextResponse.json({ success: true, data: updatedBooking, message: newStatus === 'CONFIRMED' ? 'Cita confirmada' : 'Estado de la cita actualizado' });
     }
 
     // Send confirmation SMS when status changes to CONFIRMED
@@ -929,21 +937,21 @@ export async function PATCH(
     });
 
     const statusMessages: Record<string, string> = {
-      CONFIRMED: 'Booking confirmed successfully',
-      PENDING: 'Booking reverted to pending',
+      CONFIRMED: 'Cita confirmada',
+      PENDING: 'Cita regresada a pendiente',
     };
 
     return NextResponse.json({
       success: true,
       data: updatedBooking,
-      message: statusMessages[newStatus] || 'Booking status updated',
+      message: statusMessages[newStatus] || 'Estado de la cita actualizado',
     });
   } catch (error) {
     console.error('Error updating booking status:', error);
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to update booking status',
+        error: 'No se pudo actualizar la cita',
       },
       { status: 500 }
     );
@@ -966,7 +974,7 @@ export async function DELETE(
 
     if (!booking) {
       return NextResponse.json(
-        { success: false, error: 'Booking not found' },
+        { success: false, error: 'Cita no encontrada' },
         { status: 404 }
       );
     }
@@ -974,7 +982,7 @@ export async function DELETE(
     // Doctors can only delete their own bookings
     if (role === 'DOCTOR' && booking.doctorId !== authenticatedDoctorId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        { success: false, error: 'No autorizado' },
         { status: 403 }
       );
     }
@@ -1032,7 +1040,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error deleting booking:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to delete booking' },
+      { success: false, error: 'No se pudo eliminar la cita' },
       { status: 500 }
     );
   }

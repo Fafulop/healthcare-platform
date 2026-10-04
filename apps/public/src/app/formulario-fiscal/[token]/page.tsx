@@ -1,5 +1,6 @@
 'use client';
 
+import { conTituloDoctor } from '@/lib/nombre-doctor';
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 
@@ -272,7 +273,7 @@ export default function FormularioFiscalPage() {
           {/* Doctor context card */}
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-8 space-y-1">
             <p className="text-sm font-medium text-gray-900">
-              Dr. {payload!.doctorName}
+              {conTituloDoctor(payload!.doctorName)}
               {payload!.doctorSpecialty && (
                 <span className="font-normal text-gray-600"> — {payload!.doctorSpecialty}</span>
               )}

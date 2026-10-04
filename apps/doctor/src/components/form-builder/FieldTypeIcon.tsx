@@ -26,11 +26,11 @@ const FIELD_TYPE_ICONS: Record<FieldType, React.ComponentType<{ className?: stri
 const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   text: 'Texto',
   textarea: 'Texto largo',
-  number: 'Numero',
+  number: 'Número',
   date: 'Fecha',
   time: 'Hora',
   dropdown: 'Desplegable',
-  radio: 'Seleccion',
+  radio: 'Selección',
   checkbox: 'Casilla',
   file: 'Archivo',
 };

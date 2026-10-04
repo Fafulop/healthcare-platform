@@ -50,7 +50,11 @@ function generateFieldId(): string {
 }
 
 function toCamelCase(str: string): string {
+  // Accents out FIRST: the name is the key the form's data is saved under. Without this,
+  // «Campo Numérico» became `campoNumRico` (an accented letter was read as a word break).
   return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-zA-Z0-9]+(.)/g, (_, chr) => chr.toUpperCase());
 }
@@ -61,8 +65,8 @@ const FIELD_DEFAULTS: Record<FieldType, Partial<FieldDefinition>> = {
   number: { min: undefined, max: undefined, step: 1 },
   date: {},
   time: {},
-  dropdown: { options: ['Opcion 1', 'Opcion 2'] },
-  radio: { options: ['Opcion 1', 'Opcion 2'] },
+  dropdown: { options: ['Opción 1', 'Opción 2'] },
+  radio: { options: ['Opción 1', 'Opción 2'] },
   checkbox: {},
   file: {},
 };
@@ -72,11 +76,11 @@ function createField(fieldType: FieldType, order: number): FieldDefinition {
   const typeLabels: Record<FieldType, string> = {
     text: 'Campo de Texto',
     textarea: 'Texto Largo',
-    number: 'Campo Numerico',
+    number: 'Campo Numérico',
     date: 'Campo de Fecha',
     time: 'Campo de Hora',
     dropdown: 'Desplegable',
-    radio: 'Seleccion',
+    radio: 'Selección',
     checkbox: 'Casilla',
     file: 'Archivo',
   };

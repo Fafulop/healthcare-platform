@@ -118,7 +118,7 @@ export function DynamicFieldRenderer({
             required={field.required}
             className={baseInputClasses}
           >
-            <option value="">Select an option...</option>
+            <option value="">Selecciona una opción...</option>
             {field.options?.map((option) => (
               <option key={option} value={option}>
                 {option}
@@ -157,7 +157,7 @@ export function DynamicFieldRenderer({
               onChange={(e) => onChange(field.name, e.target.checked)}
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
-            <span className="text-gray-700">{field.placeholder || 'Check this option'}</span>
+            <span className="text-gray-700">{field.placeholder || 'Marcar esta opción'}</span>
           </label>
         );
 
