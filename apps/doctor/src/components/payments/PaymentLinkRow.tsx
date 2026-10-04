@@ -74,7 +74,9 @@ export function PaymentLinkRow({
           </p>
         </div>
 
-        {isActive && status === "PENDING" && (
+        {/* Vivo = activo y sin pagar ni cancelar. Stripe marca EXPIRED cuando vence UNA ficha de
+            OXXO, pero el link puede seguir cobrando: también se puede desactivar (H-010). */}
+        {isActive && (status === "PENDING" || status === "EXPIRED") && (
           <div className="flex items-center gap-1">
             <button
               onClick={() => onCopy(url, id)}

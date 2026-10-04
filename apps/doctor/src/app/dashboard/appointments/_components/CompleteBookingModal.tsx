@@ -61,6 +61,16 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
         ? { proveedor: "Mercado Pago", paidAt: booking.mpPaymentPreference.paidAt }
         : null;
 
+  // H-010: un link de pago VIVO (sin pagar) se apaga al completar — si el paciente lo pagara
+  // después, sería un doble cobro. Se avisa ANTES del clic, no sólo en el toast.
+  // (Stripe: EXPIRED = venció UNA ficha de OXXO; el link puede seguir cobrando — igual que el servidor.)
+  const linkVivo =
+    booking.paymentLink?.isActive && ["PENDING", "EXPIRED"].includes(booking.paymentLink.status)
+      ? { proveedor: "Stripe", monto: Number(booking.paymentLink.amount) }
+      : booking.mpPaymentPreference?.status === "PENDING" && booking.mpPaymentPreference.isActive
+        ? { proveedor: "Mercado Pago", monto: Number(booking.mpPaymentPreference.amount) }
+        : null;
+
   const [price, setPrice] = useState(String(Number(booking.finalPrice)));
   const [formaDePago, setFormaDePago] = useState("efectivo");
   const [submitting, setSubmitting] = useState(false);
@@ -237,6 +247,14 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
           {!yaCobrado && (
             <p className="text-xs text-gray-400">
               Se registrará un ingreso en Flujo de Dinero automáticamente.
+            </p>
+          )}
+
+          {linkVivo && (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+              Esta cita tiene un link de pago de {linkVivo.proveedor} por ${linkVivo.monto.toLocaleString()} que
+              el paciente todavía no paga. Al completarla se desactiva (ya no acepta pagos nuevos), para
+              que no te pague dos veces.
             </p>
           )}
 

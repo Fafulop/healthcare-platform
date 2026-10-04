@@ -13,9 +13,19 @@ MUEVE el link PENDING y «¿Necesita factura?» a la cita nueva (decisión del u
 **Estado parte 1:** código escrito (`practice-utils.ts` `createPaymentLedgerEntry`, webhooks MP y Stripe),
 **columna `ledger_entries.provider_payment_id` YA MIGRADA EN PROD** (`add-ledger-provider-payment-id.sql`,
 validada antes en transacción que revienta), type-check ✅, 3 code reviews atendidos (lo no arreglado →
-H-058/H-059/H-060). **Falta:** OK de commit → push → `commitHash` de `@healthcare/api` → prueba REAL:
-cita QA completada en efectivo + link MP de $1 que **paga el usuario** ⇒ debe aparecer en Flujo con
-«⚠️ Revisar posible doble cobro…». (El usuario autorizó pagar links con montos mínimos; sólo MP.)
+H-058/H-059/H-060). **EN PROD `d65c9614`** (api SUCCESS 2026-10-04). **Prueba REAL pendiente:** el
+caso está montado — cita QA E1 20-oct 11:00 `cmuu51cmc0001lb0tu8fyf9ff` COMPLETADA en efectivo $10
+(ING-2026-398) + link MP $10 `cmuu52bmh0005lb0t4xwfahit` PENDING activo — pero el usuario **no pudo
+pagarlo por un problema del lado de Mercado Pago** (no nuestro). Cuando se pueda pagar: debe salir un 2º
+ingreso de $10 «⚠️ Revisar posible doble cobro…» con `provider_payment_id = mp:<id>`, link PAID, logs
+`REVISAR: cita_ya_cobrada`. (Mínimo de la app: $10; el usuario autorizó pagar montos mínimos; sólo MP.)
+
+**Parte 2 escrita (sin commit, 2026-10-04):** `apps/api/src/lib/desactivar-link.ts` + PATCH/DELETE de la cita
++ «Desactivar» de «Pagos» (Stripe y MP) + aviso en «Completar cita» + toasts + manual + guías A8/A10. El
+«expirar» de MP se probó en el link QA `cmusqlk6n…` (MP ya lo rechaza; en NUESTRA BD sigue PENDING — se
+limpia con la parte 2 en prod). 3 code reviews; lo aceptado → H-061. Falta OK de commit → push → api +
+doctor (`commitHash` de los dos) → probar en prod: completar en efectivo una cita con link ⇒ link
+CANCELLED en BD y MP lo rechaza.
 
 **Sin commitear además:** trabajo BBVA de informe médico (otra sesión — NO va en estos commits).
 

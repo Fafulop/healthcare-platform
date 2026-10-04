@@ -1,10 +1,13 @@
 // DELETE /api/mercadopago/preferences/[id]
-// Deactivates a payment preference (marks as CANCELLED).
-// MP preferences can't be deactivated on MP's side — we just stop sharing the link.
+// Deactivates a payment preference: EXPIRES it on MP's side (a preference can't be deleted, but
+// once `expiration_date_to` is past MP's checkout answers «ya no se encuentra disponible» —
+// verified 2026-10-04) and marks it CANCELLED here. Before, only our row changed and the patient
+// could still pay the link (H-010).
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctorStripe, AuthError } from '@/lib/auth';
+import { expirarPreferenciaMp, STATUS_VIVOS } from '@/lib/desactivar-link';
 
 export async function DELETE(
   request: Request,
@@ -17,7 +20,7 @@ export async function DELETE(
     // Find and verify ownership
     const preference = await prisma.mpPaymentPreference.findUnique({
       where: { id },
-      select: { id: true, doctorId: true, status: true },
+      select: { id: true, doctorId: true, status: true, mpPreferenceId: true },
     });
 
     if (!preference) {
@@ -35,15 +38,40 @@ export async function DELETE(
       );
     }
 
-    await prisma.mpPaymentPreference.update({
-      where: { id },
+    // If MP fails, nothing changes here: the link may still take money, so it must keep showing
+    // as active — and the doctor can retry. (No MP account left = nothing to call: mark it.)
+    const r = await expirarPreferenciaMp(doctor.id, preference.mpPreferenceId);
+    if (r === 'error') {
+      return NextResponse.json(
+        { error: 'Mercado Pago no respondió; el link sigue activo. Intenta de nuevo.' },
+        { status: 502 }
+      );
+    }
+
+    // Conditional: a payment the webhook recorded meanwhile stays PAID.
+    const { count } = await prisma.mpPaymentPreference.updateMany({
+      where: { id, status: { in: [...STATUS_VIVOS] } },
       data: {
         status: 'CANCELLED',
         isActive: false,
       },
     });
 
-    return NextResponse.json({ success: true });
+    if (count === 0) {
+      return NextResponse.json(
+        { error: 'Este link ya no está pendiente (puede que el paciente lo acabe de pagar). Recarga la página.' },
+        { status: 409 }
+      );
+    }
+    // 'imposible': we can't switch it off from here (no account connected, or Mercado Pago refuses for
+    // good). The doctor asked to deactivate it, so it's marked here — but they must know the link
+    // may still take payments in Mercado Pago.
+    return NextResponse.json({
+      success: true,
+      ...(r === 'imposible'
+        ? { aviso: 'Se marcó como desactivado aquí, pero no pudimos desactivarlo en Mercado Pago: desactívalo también desde tu cuenta de Mercado Pago.' }
+        : {}),
+    });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

@@ -20,6 +20,7 @@ import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { sendAppointmentCancellationEmail } from '@/lib/gmail';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
+import { desactivarLinks, desactivarLinksDeCita, hayQueDecirlo, linksVivosDeCita, type ResultadoDesactivar } from '@/lib/desactivar-link';
 
 // Booking state machine transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -685,6 +686,25 @@ export async function PATCH(
         }
       }
 
+      // ── H-010 / H-054: a cita that ended takes its LIVE payment link down with it ──────────
+      // Cancelled or no-show: always. Completed: only if the doctor declared a cobro (even if
+      // writing it failed: they were paid) or the income already existed — a completion WITHOUT
+      // income (the citas chat and the assistant can complete with no `income`) may be waiting on
+      // precisely that link, and killing it would leave the cita with no way to be paid. Same point and semantics as the
+      // income: a server-side effect, so it covers every path that ends a cita (agenda,
+      // assistant, patient self-cancel). Never fails the status change. (Today a reschedule
+      // cancels the old cita, so its link dies here too.)
+      let links: ResultadoDesactivar | undefined;
+      const cobrada =
+        montoNormal > 0 ||
+        (newStatus === 'COMPLETED' &&
+          !!(await prisma.ledgerEntry
+            .findUnique({ where: { bookingId: currentBooking.id }, select: { id: true } })
+            .catch(() => null)));
+      if (newStatus !== 'COMPLETED' || cobrada) {
+        links = await desactivarLinksDeCita(currentBooking.id, currentBooking.doctorId);
+      }
+
       const statusMessages = {
         CANCELLED: 'Booking cancelled successfully',
         COMPLETED: 'Booking marked as completed',
@@ -705,6 +725,8 @@ export async function PATCH(
           : {}),
         ...(visitaId !== undefined ? { visitaId } : {}),
         ...(visitaWarning ? { visitaWarning: true } : {}),
+        // Links turned off with the cita; `fallidos` = the provider call failed, the link is still live.
+        ...(links && hayQueDecirlo(links) ? { linksDesactivados: links } : {}),
       });
     }
 
@@ -951,6 +973,14 @@ export async function DELETE(
       );
     }
 
+    // H-010 / H-054: a deleted cita's live link would stay payable with NO cita behind it (its
+    // booking_id goes NULL). Read them now (the delete nulls booking_id); turn them off only once
+    // the delete succeeded — a failed delete must not leave a live cita with a dead link.
+    const linksVivos = await linksVivosDeCita(booking.id, booking.doctorId).catch((err) => {
+      console.error('[desactivar-link] could not read the links of the cita being deleted:', err);
+      return null;
+    });
+
     const slot = booking.slot;
     // GCal event ID lives on the booking (freeform) or on the slot (slot-based)
     const gcalEventId = booking.googleEventId ?? slot?.googleEventId ?? null;
@@ -984,9 +1014,14 @@ export async function DELETE(
       ]);
     }
 
+    const links: ResultadoDesactivar = linksVivos
+      ? await desactivarLinks(booking.doctorId, linksVivos)
+      : { desactivados: [], fallidos: [], imposibles: [], errorLectura: true };
+
     return NextResponse.json({
       success: true,
       message: 'Cita eliminada exitosamente',
+      ...(hayQueDecirlo(links) ? { linksDesactivados: links } : {}),
     });
   } catch (error) {
     console.error('Error deleting booking:', error);

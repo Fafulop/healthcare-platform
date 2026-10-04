@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctorStripe, AuthError } from '@/lib/auth';
-import { stripe } from '@/lib/stripe';
+import { desactivarLinkStripe, STATUS_VIVOS } from '@/lib/desactivar-link';
 
 /**
  * DELETE /api/stripe/payment-links/[id]
@@ -23,6 +23,7 @@ export async function DELETE(
         doctorId: true,
         stripePaymentLinkId: true,
         isActive: true,
+        status: true,
       },
     });
 
@@ -40,42 +41,49 @@ export async function DELETE(
       );
     }
 
-    if (!paymentLink.isActive) {
+    // Live = active AND not PAID/CANCELLED (EXPIRED = one OXXO voucher died; still payable).
+    if (!paymentLink.isActive || !(STATUS_VIVOS as readonly string[]).includes(paymentLink.status)) {
       return NextResponse.json(
         { error: 'Este link ya está desactivado' },
         { status: 400 }
       );
     }
 
-    // Get doctor's Stripe account to deactivate on Stripe
-    const fullDoctor = await prisma.doctor.findUnique({
-      where: { id: doctor.id },
-      select: { stripeAccountId: true },
-    });
-
-    if (fullDoctor?.stripeAccountId) {
-      try {
-        await stripe.paymentLinks.update(
-          paymentLink.stripePaymentLinkId,
-          { active: false },
-          { stripeAccount: fullDoctor.stripeAccountId }
-        );
-      } catch (stripeErr) {
-        console.error('Error deactivating on Stripe:', stripeErr);
-        // Continue with local deactivation even if Stripe fails
-      }
+    // Deactivate on Stripe. If Stripe fails, nothing changes here (2026-10-04): before, the row was
+    // marked CANCELLED anyway and the link kept taking money while the app said it was off.
+    // (No Stripe account left = nothing to call: mark it.)
+    const r = await desactivarLinkStripe(doctor.id, paymentLink.stripePaymentLinkId);
+    if (r === 'error') {
+      return NextResponse.json(
+        { error: 'Stripe no respondió; el link sigue activo. Intenta de nuevo.' },
+        { status: 502 }
+      );
     }
 
-    // Deactivate locally
-    await prisma.paymentLink.update({
-      where: { id },
+    // Deactivate locally — conditional: a payment the webhook recorded meanwhile stays PAID.
+    const { count } = await prisma.paymentLink.updateMany({
+      where: { id, status: { in: [...STATUS_VIVOS] } },
       data: {
         isActive: false,
         status: 'CANCELLED',
       },
     });
 
-    return NextResponse.json({ success: true });
+    if (count === 0) {
+      return NextResponse.json(
+        { error: 'Este link ya no está pendiente (puede que el paciente lo acabe de pagar). Recarga la página.' },
+        { status: 409 }
+      );
+    }
+    // 'imposible': we can't switch it off from here (no account connected, or Stripe refuses for
+    // good). The doctor asked to deactivate it, so it's marked here — but they must know the link
+    // may still take payments in Stripe.
+    return NextResponse.json({
+      success: true,
+      ...(r === 'imposible'
+        ? { aviso: 'Se marcó como desactivado aquí, pero no pudimos desactivarlo en Stripe: desactívalo también desde tu cuenta de Stripe.' }
+        : {}),
+    });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

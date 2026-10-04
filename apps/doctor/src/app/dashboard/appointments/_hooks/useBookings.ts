@@ -7,6 +7,36 @@ import { getLocalDateString, getClinicDateString, parseLocalDate } from "@/lib/d
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
+const NOMBRE_PROVEEDOR: Record<string, string> = { stripe: "Stripe", mercadopago: "Mercado Pago" };
+
+/**
+ * H-010 / H-054: al concluir (con cobro), cancelar, marcar «No asistió» o eliminar, el servidor
+ * apaga el link de pago vivo de la cita (`linksDesactivados` en la respuesta). Se le dice al doctor.
+ * Si el proveedor no respondió, el link SIGUE activo: se dice dónde desactivarlo. (Y no se promete
+ * «ya no puede pagarlo»: una ficha de OXXO generada antes todavía se puede pagar.)
+ */
+function avisarLinksDesactivados(
+  links:
+    | { desactivados: string[]; fallidos: string[]; imposibles?: string[]; errorLectura?: boolean }
+    | undefined
+) {
+  if (!links) return;
+  const nombres = (ps: string[]) => ps.map((p) => NOMBRE_PROVEEDOR[p] ?? p).join(" y ");
+  if (links.fallidos.length > 0) {
+    toast.warning(`No se pudo desactivar el link de pago en ${nombres(links.fallidos)}: sigue activo. Desactívalo desde «Pagos».`);
+  }
+  if (links.imposibles && links.imposibles.length > 0) {
+    const q = nombres(links.imposibles);
+    toast.warning(`El link de pago de la cita sigue activo en ${q} y no podemos desactivarlo desde aquí: desactívalo desde tu cuenta de ${q}.`);
+  }
+  if (links.errorLectura) {
+    toast.warning("No pudimos revisar si la cita tenía un link de pago activo. Revísalo en «Pagos».");
+  }
+  if (links.desactivados.length > 0 && links.fallidos.length === 0 && !links.imposibles?.length) {
+    toast.success("Se desactivó el link de pago de la cita: ya no acepta pagos nuevos.");
+  }
+}
+
 export type SortColumn = "patient" | "date" | "status";
 export type SortDirection = "asc" | "desc";
 
@@ -222,6 +252,7 @@ export function useBookings(doctorId: string | undefined) {
 
       if (data.success) {
         toast.success(data.message || "Estado actualizado exitosamente");
+        avisarLinksDesactivados(data.linksDesactivados);
         fetchBookings();
       } else {
         toast.error(data.error || "Error al actualizar estado");
@@ -318,6 +349,7 @@ export function useBookings(doctorId: string | undefined) {
 
       if (data.success) {
         toast.success("Cita eliminada exitosamente");
+        avisarLinksDesactivados(data.linksDesactivados);
         fetchBookings();
       } else {
         toast.error(data.error || "Error al eliminar la cita");
@@ -360,6 +392,7 @@ export function useBookings(doctorId: string | undefined) {
         // El servidor no registró cobro (monto 0).
         toast.success("Cita completada · no se registró ningún ingreso");
       }
+      avisarLinksDesactivados(data.linksDesactivados);
       return { ledgerEntryId: data.ledgerEntryId };
     } catch {
       toast.error("Error al completar la cita");

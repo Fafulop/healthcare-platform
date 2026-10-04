@@ -192,6 +192,9 @@ esa cita.
 
 Al confirmar, la cita queda Completada y **el ingreso se registra en Flujo de Dinero**. Si el
 paciente ya había pagado con un link de pago, el ingreso ya estaba registrado y no se duplica.
+Si la cita tiene un link de pago que el paciente **todavía no paga**, la ventana lo avisa y, al
+completarla, **el link se desactiva** para que no te pague dos veces. (Si completas la cita sin
+registrar un cobro, el link se queda activo: es la forma en que todavía te pueden pagar.)
 Si la cita tiene expediente, en su perfil aparece su **visita** (ver [Visitas](#visitas)).
 
 ### Cancelar, No asistió y Eliminar
@@ -200,6 +203,10 @@ Si la cita tiene expediente, en su perfil aparece su **visita** (ver [Visitas](#
   (si tiene correo y tu cuenta de Google está conectada). El horario vuelve a quedar libre.
 - **«No asistió»** marca la cita así, sin avisar al paciente.
 - **«Eliminar»** sólo aparece en citas finales, pide confirmación y **no se puede deshacer**.
+
+En los tres casos, si la cita tenía un **link de pago sin pagar, se desactiva**: ya no acepta pagos
+nuevos. Si no se pudo desactivar en Stripe o Mercado Pago, la agenda te avisa que el link sigue
+activo: desactívalo desde **«Pagos»** o desde tu cuenta del proveedor.
 
 Una cita cancelada desaparece del calendario, pero sigue en la tabla con «Más estados…» →
 Cancelada.
@@ -214,6 +221,9 @@ Eliges la nueva fecha y hora y confirmas. Entonces:
 
 El paciente recibe **dos correos**: el aviso de que la cita anterior se canceló y la
 confirmación de la nueva.
+
+Si la cita anterior tenía un **link de pago sin pagar**, se desactiva al cancelarse: crea uno
+nuevo en la cita nueva. **«¿Necesita factura?»** tampoco pasa a la cita nueva: márcalo otra vez.
 
 ### Confirmar la cita con el paciente
 
@@ -245,6 +255,11 @@ Después puedes copiar el link o mandarlo por WhatsApp, y cuando el paciente pag
 - Necesitas tener conectado Stripe o Mercado Pago en **Pagos**.
 - La cita necesita **expediente vinculado**; si no, el botón dice «Requiere expediente» (ver
   [Vincular la cita a un expediente](#vincular-la-cita-a-un-expediente)).
+- Al **completar (con cobro), cancelar, marcar «No asistió» o eliminar** la cita, su link sin
+  pagar se desactiva solo: ya no acepta pagos nuevos.
+- Si aun así el paciente paga un link que ya no debía (por ejemplo, una ficha de OXXO que generó
+  antes, o después de pagarte en efectivo), el pago **sí entra a Flujo de Dinero**, con un concepto que empieza «⚠️ Revisar…» (y
+  un aviso por Telegram si lo tienes conectado): revisa si tienes que devolverle el dinero.
 
 ### Facturar una cita
 

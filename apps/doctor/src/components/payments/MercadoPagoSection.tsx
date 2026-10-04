@@ -158,11 +158,13 @@ export function MercadoPagoSection({ onError, returnConnected }: MercadoPagoSect
       const res = await authFetch(`${API_URL}/api/mercadopago/preferences/${id}`, {
         method: "DELETE",
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || "Error al desactivar");
       }
       fetchPreferences();
+      // El link no se pudo apagar en el proveedor (cuenta desconectada o rechazo definitivo).
+      if (data.aviso) onError(data.aviso);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Error desconocido");
     }

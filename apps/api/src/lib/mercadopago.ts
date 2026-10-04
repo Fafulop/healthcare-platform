@@ -53,9 +53,11 @@ export async function mpFetch(
     method?: string;
     body?: Record<string, unknown>;
     accessToken?: string;
+    /** e.g. AbortSignal.timeout(ms) — a provider call must not hang a doctor's click. */
+    signal?: AbortSignal;
   } = {}
 ): Promise<Response> {
-  const { method = 'GET', body, accessToken } = options;
+  const { method = 'GET', body, accessToken, signal } = options;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -69,6 +71,7 @@ export async function mpFetch(
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   });
 }
 
