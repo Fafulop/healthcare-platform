@@ -19,9 +19,9 @@
 | C7 | Bloquear horario → intentar agendar encima | bloqueado | ✅ (bloqueo 12–13 oculta 12:00/12:30 en agenda Y en el perfil público; 12:15 escrita = «no está libre») |
 | C8 | Completar SIN expediente · efectivo · precio de lista | COMPLETED, 1 ingreso `origin` cita PAID efectivo, SIN visita, GCal actualizado | ✅ (QA A2 #1822, Flujo lo lista 1 vez) |
 | C9 | Completar CON expediente · transferencia · monto editado | 1 ingreso con el monto editado; visita creada (origen cita) | ✅ (QA E1 #1823 + visita) |
-| C10 | Completar con monto 0 | COMPLETED, NINGÚN ingreso; visita sí (con expediente) | 🐞 H-029 (imposible desde la UI) |
-| C11 | No asistió | NO_SHOW, sin ingreso, sin visita | ✅ · 🤔 H-031 · 🐞 H-030 |
-| C12 | Cancelar | CANCELLED + `cancelled_at`, correo de cancelación, evento GCal borrado | ✅ · 🐞 H-030 |
+| C10 | Completar con monto 0 | COMPLETED, NINGÚN ingreso; visita sí (con expediente) | 🐞 H-029 → **arreglado `923b1014`** ✅ prod (QA E1 23-oct: sin ingreso, visita sí) |
+| C11 | No asistió | NO_SHOW, sin ingreso, sin visita | ✅ · 🤔 H-031 · 🐞 H-030 → arreglado `4c6dce72` (toast en español; sin ver en prod) |
+| C12 | Cancelar | CANCELLED + `cancelled_at`, correo de cancelación, evento GCal borrado | ✅ · 🐞 H-030 → arreglado `4c6dce72` (sin ver en prod) · desde `b7eea955` cancelar también APAGA el link vivo |
 | C13 | Eliminar (cita terminal) | fila borrada | ✅ · 🕳️ H-032 · H-011 CONFIRMADO |
 | C14 | Reagendar (con expediente) | nueva cita `is_rescheduled`, misma info; la vieja CANCELLED | ✅ (QA E1) · 🐞 H-012 · 🤔 H-015 |
 | C15 | Reagendar una VENCIDA | permitido (canReschedule) | ✅ (QA C15 vencida → 16-oct 9:00; vieja CANCELLED, nueva reagendada + correo) |
@@ -32,10 +32,10 @@
 | C20 | «¿Necesita factura?» on/off | `factura_solicitada`; aparece grupo Factura | ✅ (on) |
 | C21 | Bloqueo extendido «Editar» | `extended_block_minutes` | ✅ (45 min) |
 | C22 | Reenviar confirmación | `confirmation_email_sent_at` se mueve | ✅ |
-| C23 | Link de pago (crear, NO pagar) → completar en efectivo | link activo… ¿se apaga al completar? (H-010) | 🐞 H-010 CONFIRMADO |
-| C24 | Formulario pre-consulta crear / borrar | form link | ✅ (crear + el paciente lo envía → SUBMITTED) · 🐞 H-033 |
+| C23 | Link de pago (crear, NO pagar) → completar en efectivo | link activo… ¿se apaga al completar? (H-010) | 🐞 H-010 → **arreglado `b7eea955`** ✅ prod (aviso en «Completar cita»; link CANCELLED y MP lo rechaza) |
+| C24 | Formulario pre-consulta crear / borrar | form link | ✅ (crear + el paciente lo envía → SUBMITTED) · 🐞 H-033 → arreglado `4c6dce72` ✅ prod |
 | C25 | Nota de la cita (PDF) tras cobro | descarga | ✅ · 🤔 H-035 |
-| C26 | Confirmar una PENDIENTE (reserva desde el perfil público) | CONFIRMED + `confirmed_at` + correo | ✅ (reserva pública → PENDING → «Confirmar» → CONFIRMED + correo) · 🐞 H-038 · 🤔 H-039 |
+| C26 | Confirmar una PENDIENTE (reserva desde el perfil público) | CONFIRMED + `confirmed_at` + correo | ✅ (reserva pública → PENDING → «Confirmar» → CONFIRMED + correo) · 🐞 H-038 → arreglado `923b1014` ✅ prod · 🤔 H-039 |
 
 ## E — Expediente (lo ligado a citas)
 
@@ -45,8 +45,8 @@
 | E2 | Editar perfil / contacto | ✅ · 🐞 H-043 · 🤔 H-044 |
 | E3 | Visita que nace al completar la cita (C9) — se ve en el expediente | ✅ |
 | E4 | Visita SIN cita | ✅ · 🤔 H-024 |
-| E5 | Plantilla #1 creada DE CERO | ✅ · 🐞 H-017 H-018 · 🤔 H-019 H-020 |
-| E6 | Plantilla #2 creada DE CERO (otros tipos de campo) | ✅ · 🐞🔴 H-025 (Archivo se pierde) · H-026 |
+| E5 | Plantilla #1 creada DE CERO | ✅ · 🐞 H-017 · H-018 → arreglado `4c6dce72` ✅ prod · 🤔 H-019 H-020 |
+| E6 | Plantilla #2 creada DE CERO (otros tipos de campo) | ✅ · 🐞🔴 H-025 → arreglado `a4248843` · H-026 → arreglado `4c6dce72` ✅ prod |
 | E7 | Usar plantilla #1 en una visita, llenar y guardar; reabrir y ver lo guardado | ✅ (y editar) · 🐞 H-021 |
 | E8 | Usar plantilla #2; editar fecha propia de la plantilla | 🐞 H-022 |
 | E9 | Receta en la visita (+ PDF) | ✅ pantalla · 🐞🔴 H-027 PDF · H-028 |
@@ -72,7 +72,7 @@
 | X11 | Completar cita de paciente ARCHIVADO (cheque) | ✅ · 🤔 H-042 |
 | X12 | Contacto: el expediente manda sobre la copia de la cita (tel 0000000001) | ✅ |
 | X13 | Visita «seguimiento» de otra → crea tratamiento | ✅ · 🤔 H-024 |
-| X14 | Formulario pre-cita: el paciente lo llena en la página pública → SUBMITTED; desvincular expediente queda bloqueado | ✅ · 🐞 H-033 |
+| X14 | Formulario pre-cita: el paciente lo llena en la página pública → SUBMITTED; desvincular expediente queda bloqueado | ✅ · 🐞 H-033 → arreglado `4c6dce72` ✅ prod |
 | X15 | Recordatorio automático dentro de la ventana | ✅ (por diseño, H-047) |
 | X16 | «Campos de Cita» → Teléfono requerido (Nuevo horario) → el alta sin teléfono se bloquea; revertido | ✅ |
 | X17 | «Formulario libre» (sin cita) → el paciente lo envía → SUBMITTED y sale en «Formularios» del expediente | ✅ |
@@ -84,6 +84,6 @@
 | X23 | Eliminar plantilla llena (audit `delete_encounter`) | ✅ |
 | X24 | Editar plantilla ya usada (renombrar + agregar campo + pre-cita) | ✅ · 🤔 H-049 |
 | X25 | PDF de plantilla | ✅ · 🐞 H-048 |
-| X26 | Línea de Tiempo / Docs y Galería | 🐞 H-050 H-051 |
+| X26 | Línea de Tiempo / Docs y Galería | 🐞 H-050 · H-051 → arreglado `4c6dce72` ✅ prod |
 | X27 | Link de pago **Stripe** (además de MP) → PENDING activo | ✅ |
-| X28 | Reagendar cita con link activo + factura marcada; usar la hora SUGERIDA | ✅ el reagendado · 🐞 H-054 |
+| X28 | Reagendar cita con link activo + factura marcada; usar la hora SUGERIDA | ✅ el reagendado · 🐞 H-054 → link: se apaga al cancelar (`b7eea955`); factura: pasa a la nueva (`7323a896`) ✅ prod |

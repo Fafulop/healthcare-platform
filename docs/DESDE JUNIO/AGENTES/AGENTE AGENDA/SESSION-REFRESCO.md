@@ -1,5 +1,19 @@
 # 🔄 Refresco de sesión — AGENTE AGENDA — LÉEME PRIMERO
 
+> **2026-10-04 — efectos en el agente de los arreglos de PRUEBAS Y GUIAS** (detalle:
+> `docs/DESDE JUNIO/PRUEBAS Y GUIAS/SESSION-REFRESCO.md` y `03-HALLAZGOS.md`). **No se tocó el código
+> del agente**; cambió lo que hace el SERVIDOR cuando el agente actúa:
+> - `complete_booking` (el agente siempre manda cobro > 0 o encuentra el ingreso) ⇒ el servidor
+>   **apaga el link de pago vivo** de la cita (`b7eea955`). La card NO lo avisa y el executor no lee
+>   `linksDesactivados` → **H-061**.
+> - `reschedule_booking` cancela ANTES de crear ⇒ el link de la cita vieja se apaga al cancelar; «¿Necesita
+>   factura?» sí pasa a la nueva (`7323a896`, `facturaAlReagendar` acepta la vieja ya CANCELLED).
+> - El agente sigue rechazando completar en **$0** (`proposals.ts`: «el ingreso requiere un monto > 0»)
+>   aunque la agenda ya permite la cortesía (`923b1014`) → **H-063** (decidir).
+> - Los mensajes de estado del PATCH de la cita ahora están en español (`4c6dce72`); el executor no los
+>   compara, sólo usa `success`.
+
+
 > # 🔬 2026-09-14 — SE LEYÓ `agent_tool_calls` POR PRIMERA VEZ (bitácora #37)
 >
 > ## En una frase

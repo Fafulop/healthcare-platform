@@ -2,24 +2,49 @@
 
 > **Tipo: ESTADO.** Se lee primero y se escribe al final de cada sesión. Cabecera primero.
 
-## ⏭️ 2026-10-04 (cierre) — H-010/H-054 HECHOS: 3 commits en prod y verificados. Empieza aquí
+## ⏭️ 2026-10-04 (cierre) — 5 commits en prod, todos verificados. Empieza aquí
 
-**En prod:** `d65c9614` (webhooks nunca tiran un pago; columna `provider_payment_id`) · `b7eea955` (al
-concluir/cancelar/no asistió/eliminar se apaga el link en Stripe/MP; verificado con link MP $10) ·
-`7323a896` (reagendar mueve «¿Necesita factura?»; verificado). **Sin verificar:** un PAGO real a un link
-desactivado (MP no dejó pagar el $10 de prueba — reintentar con `cmuu52bmh…`, cita QA E1 20-oct COMPLETADA).
-**Nuevos hallazgos:** H-058 (folio se atora en 1000), H-059 (devoluciones no tocan Flujo), H-060, H-061,
-**H-062** (reagendar una cita ya pagada ⇒ la nueva no se puede concluir sin 2º ingreso — decidir).
-**También en prod (`923b1014`, verificado):** H-029 (completar en $0 = cortesía) y H-038 («¡Solicitud enviada!»). Nuevo H-063.
-**EN CURSO (sin commit, 2026-10-04):** lote de copy en español — H-030 (toasts de estado, `bookings/[id]/route.ts`), H-026 (`textoDeValor` en `lib/campo-archivo.ts`: Sí/No en vista de visita, Línea de Tiempo y PDF; «Marcar esta opción»), H-033 (`apps/public/src/lib/nombre-doctor.ts`, formularios cita/fiscal), H-018 (lista de plantillas traducida + acentos del constructor; «Selecciona una opción…»), H-051 (galería/tarjeta en español; `lib/media-etiquetas.ts` compartido con el subidor); manual + guía E4a actualizados. **Falta:** type-check de api/doctor/public, code review completo, OK de commit, deploy (api+doctor+public) y verificación en prod.
-**Siguiente sugerido:** H-024 (seguimiento crea tratamiento sin avisar) · copy en español (H-018, H-026, H-030, H-033, H-051) · decidir H-062/H-063.
-**Datos QA nuevos:** citas QA E1 20-oct y 21-oct (COMPLETADAS, $10 c/u: ING-2026-398/399), 22-oct
-(CANCELADA por reagendar) → 23-oct (CONFIRMADA, factura Sí); links MP $10 `cmuu52bmh…` (PENDING, vivo) y
-`cmuu6drk1…` (CANCELLED); el link QA `cmusqlk6n…` se expiró en MP pero en BD sigue PENDING.
+**Qué se arregló hoy (todo en prod y probado en prod con datos QA; detalle por día en `02-BITACORA.md`):**
+
+| Commit | Hallazgos | Qué hace |
+|---|---|---|
+| `d65c9614` | H-010 parte 1 | Los webhooks de MP/Stripe NUNCA tiran un pago: si la cita ya tenía ingreso, el link estaba apagado o es un 2º pago del link ⇒ ingreso aparte con concepto «⚠️ Revisar…» + Telegram. Idempotencia por `ledger_entries.provider_payment_id` (columna nueva, migrada en prod con `add-ledger-provider-payment-id.sql`). |
+| `b7eea955` | H-010 parte 2 | Completar (con cobro, o $0), cancelar, «No asistió» o eliminar APAGA el link vivo en Stripe (`active:false`) y en MP (se «expira» la preferencia — verificado que el checkout de MP la rechaza). «Completar cita» avisa antes. `lib/desactivar-link.ts`. |
+| `7323a896` | H-054 | Reagendar MUEVE «¿Necesita factura?» a la cita nueva (mismo expediente, sin ingreso en la vieja). El link NO se mueve (se apaga al cancelar la vieja): el asistente cancela ANTES de crear. |
+| `923b1014` | H-029, H-038 | Completar en **$0 = cortesía** (sin ingreso, link apagado; cita sin precio arranca vacía). Reserva pública dice «¡Solicitud enviada!» (nace PENDING). |
+| `4c6dce72` | H-018, H-026, H-030, H-033, H-051 | Copy en español: toasts/errores de la cita, «Plantillas personalizadas» (+ acentos del constructor, sin cambiar las CLAVES de campo), galería y visor, casilla «Sí/No», sin «Dr. Dr.» (formularios públicos, SMS, PDF de receta). |
+
+**Sin verificar en prod:** (1) un PAGO real a un link ya apagado / de una cita ya cobrada (MP no dejó
+pagar el $10 de prueba — reintentar con el link `cmuu52bmh…`, cita QA E1 20-oct COMPLETADA: debe salir un
+2º ingreso «⚠️ Revisar posible doble cobro…»); (2) el toast de cancelar en español (H-030; no había cita QA
+cancelable sin tocar un tratamiento).
+
+**Hallazgos nuevos de hoy (abiertos):** H-058 (el folio ING/EGR se atora en 1000 — orden de texto) ·
+H-059 (una devolución/contracargo no toca Flujo) · H-060 (dos pagos simultáneos sin cita no se marcan) ·
+H-061 (asistente/chat/reagendar no muestran el toast de «link apagado»; regla «link vivo» repetida) ·
+**H-062** (reagendar una cita YA PAGADA ⇒ la nueva no se puede concluir sin 2º ingreso — **decidir**) ·
+**H-063** (el asistente no completa en $0; la cortesía no queda marcada — **decidir**).
+
+**Siguiente sugerido:** H-024 (seguimiento crea tratamiento sin avisar y no valida el orden de sesiones) ·
+decisiones H-062/H-063 · resto de abiertos en `03-HALLAZGOS.md`.
+
+**Reglas de esta pasada que cambiaron hoy:** los links de pago SÍ se pueden pagar con montos mínimos
+(mínimo de la app $10; `00-PLAN` §4). Cada arreglo: plan → OK → código → type-check → code review (y otra
+pasada sobre los arreglos del review) → OK de commit → push → `commitHash` por servicio → prueba en prod.
+
+**Datos QA de hoy (dr-prueba, paciente QA E1 Recurrente):** citas 20-oct y 21-oct COMPLETADAS ($10 c/u:
+ING-2026-398/399) · 22-oct CANCELADA (reagendada) → 23-oct COMPLETADA en $0 (cortesía, factura Sí) ·
+14-oct sigue CONFIRMADA (sesión 2 de «QA T Rehabilitacion») con un enlace pre-cita PENDING `8412b930…` ·
+links MP $10 `cmuu52bmh…` (PENDING, vivo — para la prueba de pago) y `cmuu6drk1…` (CANCELLED) · el link QA
+`cmusqlk6n…` ($900) está expirado en MP pero en NUESTRA BD sigue PENDING · reserva pública «QA H038
+Publico» 13-oct CANCELADA.
+
+**Chrome:** la sesión de dr-prueba está en el Chrome conectado; los clics por `ref` a veces no llegan —
+usar coordenadas tras esperar a que cargue la página.
 
 ---
 
-## 2026-10-04 — H-010/H-054 (historial de la sesión)
+## 2026-10-04 — H-010/H-054 (historial de la sesión, ya resumido arriba)
 
 **Plan aprobado (3 commits, en orden):** **1** red de seguridad en los webhooks (un pago NUNCA se tira:
 si la cita ya tenía ingreso / el link estaba desactivado / es 2º pago del link ⇒ se registra aparte con

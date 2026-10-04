@@ -31,7 +31,7 @@ Plantilla (ver `../00-PLAN.md` §6):
 | Guía | Flujo | Estado |
 |---|---|---|
 | [A1-A2-agendar-una-cita](A1-A2-agendar-una-cita.md) | A1 | borrador — listo para revisar |
-| [A10-reagendar-una-cita](A10-reagendar-una-cita.md) | A10 | borrador — listo para revisar |
+| [A10-reagendar-una-cita](A10-reagendar-una-cita.md) | A10 | borrador — actualizada 2026-10-04 (H-054) |
 | [A11-bloquear-horarios](A11-bloquear-horarios.md) | A11 | borrador — listo para revisar |
 | [A12-publicar-tu-horario](A12-publicar-tu-horario.md) | A12 | borrador — listo para revisar |
 | [A13-ligar-la-cita-al-expediente](A13-ligar-la-cita-al-expediente.md) | A13 | borrador — listo para revisar |
@@ -40,15 +40,15 @@ Plantilla (ver `../00-PLAN.md` §6):
 | [A16-pedir-datos-fiscales](A16-pedir-datos-fiscales.md) | A16 | borrador — listo para revisar |
 | [A17-recordatorios-y-campos-de-cita](A17-recordatorios-y-campos-de-cita.md) | A17 | borrador — listo para revisar |
 | [A3-agendar-desde-el-calendario](A3-agendar-desde-el-calendario.md) | A3 | borrador — listo para revisar |
-| [A4-confirmar-una-cita-del-perfil-publico](A4-confirmar-una-cita-del-perfil-publico.md) | A4 | borrador — listo para revisar |
+| [A4-confirmar-una-cita-del-perfil-publico](A4-confirmar-una-cita-del-perfil-publico.md) | A4 | borrador — actualizada 2026-10-04 (H-038) |
 | [A5-confirmacion-y-bloqueo-extendido](A5-confirmacion-y-bloqueo-extendido.md) | A5 | borrador — listo para revisar |
-| [A6-A7-completar-una-cita](A6-A7-completar-una-cita.md) | A6 | borrador — listo para revisar |
-| [A8-cobrar-con-link-de-pago](A8-cobrar-con-link-de-pago.md) | A8 | borrador — listo para revisar |
+| [A6-A7-completar-una-cita](A6-A7-completar-una-cita.md) | A6 | borrador — actualizada 2026-10-04 (cortesía $0, link se apaga) |
+| [A8-cobrar-con-link-de-pago](A8-cobrar-con-link-de-pago.md) | A8 | borrador — actualizada 2026-10-04 (H-010: link se apaga; pago real sin probar) |
 | [A9-cancelar-no-asistio-eliminar](A9-cancelar-no-asistio-eliminar.md) | A9 | borrador — listo para revisar |
 | [E1-crear-un-paciente](E1-crear-un-paciente.md) | E1 | borrador — listo para revisar |
 | [E11-archivar-un-paciente](E11-archivar-un-paciente.md) | E11 | borrador — listo para revisar |
 | [E3-abrir-una-visita](E3-abrir-una-visita.md) | E3 | borrador — listo para revisar |
-| [E4a-crear-tu-propia-plantilla](E4a-crear-tu-propia-plantilla.md) | E4a | borrador — re-verificar tras el arreglo de H-025 |
+| [E4a-crear-tu-propia-plantilla](E4a-crear-tu-propia-plantilla.md) | E4a | borrador — actualizada 2026-10-04 (H-018 en español; re-verificar tras H-025) |
 | [E4b-llenar-una-plantilla](E4b-llenar-una-plantilla.md) | E4b | borrador — re-verificar tras el arreglo de H-025 |
 | [E5-hacer-una-receta](E5-hacer-una-receta.md) | E5 | borrador — listo para revisar (H-027 arreglado) |
 | [E6-subir-foto-o-documento](E6-subir-foto-o-documento.md) | E6 | borrador — listo para revisar |
