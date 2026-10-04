@@ -688,16 +688,21 @@ export async function PATCH(
 
       // ── H-010 / H-054: a cita that ended takes its LIVE payment link down with it ──────────
       // Cancelled or no-show: always. Completed: only if the doctor declared a cobro (even if
-      // writing it failed: they were paid) or the income already existed — a completion WITHOUT
-      // income (the citas chat and the assistant can complete with no `income`) may be waiting on
+      // writing it failed: they were paid; or $0 = cortesía) or the income already existed — a completion WITHOUT
+      // income (only the legacy citas chat, /dashboard/appointments/v1, completes with no `income`) may be waiting on
       // precisely that link, and killing it would leave the cita with no way to be paid. Same point and semantics as the
       // income: a server-side effect, so it covers every path that ends a cita (agenda,
       // assistant, patient self-cancel). Never fails the status change. (A reschedule cancels the
       // old cita, so its pending link dies here too — it is NOT moved to the new one, see
       // `facturaAlReagendar` in lib/reagendar-sesion.ts for why.)
       let links: ResultadoDesactivar | undefined;
+      // `income` present = the doctor decided the cobro in «Completar cita» — including $0, a
+      // CORTESÍA (H-029): nothing more to charge, so the link dies too. Absent = only the legacy
+      // citas chat (/dashboard/appointments/v1) completes without income; there the link may be how
+      // the patient still pays. (The assistant always sends a cobro > 0 or finds the income.)
       const cobrada =
         montoNormal > 0 ||
+        (newStatus === 'COMPLETED' && !!income && typeof income.price === 'number' && income.price === 0) ||
         (newStatus === 'COMPLETED' &&
           !!(await prisma.ledgerEntry
             .findUnique({ where: { bookingId: currentBooking.id }, select: { id: true } })

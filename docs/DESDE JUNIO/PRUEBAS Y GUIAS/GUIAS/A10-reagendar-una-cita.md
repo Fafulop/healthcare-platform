@@ -18,4 +18,4 @@
 
 ---
 
-**QA (interno — se quita al publicar):** 2026-10-03 — C14/C15/X28 ✅ (QA E1 7→8-oct; QA C15 vencida→16-oct; QA C26→14-oct con hora sugerida). ⚠️ H-012 (no pre-selecciona el servicio), H-015 (dos correos, documentado), H-054 (link/factura/consultorio).
+**QA (interno — se quita al publicar):** 2026-10-03 — C14/C15/X28 ✅ (QA E1 7→8-oct; QA C15 vencida→16-oct; QA C26→14-oct con hora sugerida). ⚠️ H-012 (no pre-selecciona el servicio), H-015 (dos correos, documentado), H-054 (link/factura/consultorio). **2026-10-04:** link (se apaga) y factura (pasa a la nueva) arreglados y verificados en prod; consultorio sigue (H-014).

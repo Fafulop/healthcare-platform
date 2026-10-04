@@ -2,7 +2,22 @@
 
 > **Tipo: ESTADO.** Se lee primero y se escribe al final de cada sesión. Cabecera primero.
 
-## ⏭️ 2026-10-04 — H-010/H-054 en curso (dinero). Empieza aquí
+## ⏭️ 2026-10-04 (cierre) — H-010/H-054 HECHOS: 3 commits en prod y verificados. Empieza aquí
+
+**En prod:** `d65c9614` (webhooks nunca tiran un pago; columna `provider_payment_id`) · `b7eea955` (al
+concluir/cancelar/no asistió/eliminar se apaga el link en Stripe/MP; verificado con link MP $10) ·
+`7323a896` (reagendar mueve «¿Necesita factura?»; verificado). **Sin verificar:** un PAGO real a un link
+desactivado (MP no dejó pagar el $10 de prueba — reintentar con `cmuu52bmh…`, cita QA E1 20-oct COMPLETADA).
+**Nuevos hallazgos:** H-058 (folio se atora en 1000), H-059 (devoluciones no tocan Flujo), H-060, H-061,
+**H-062** (reagendar una cita ya pagada ⇒ la nueva no se puede concluir sin 2º ingreso — decidir).
+**Siguiente sugerido** (prioridades de la sesión anterior): H-029 ($0) · H-038 · H-024 · copy en español.
+**Datos QA nuevos:** citas QA E1 20-oct y 21-oct (COMPLETADAS, $10 c/u: ING-2026-398/399), 22-oct
+(CANCELADA por reagendar) → 23-oct (CONFIRMADA, factura Sí); links MP $10 `cmuu52bmh…` (PENDING, vivo) y
+`cmuu6drk1…` (CANCELLED); el link QA `cmusqlk6n…` se expiró en MP pero en BD sigue PENDING.
+
+---
+
+## 2026-10-04 — H-010/H-054 (historial de la sesión)
 
 **Plan aprobado (3 commits, en orden):** **1** red de seguridad en los webhooks (un pago NUNCA se tira:
 si la cita ya tenía ingreso / el link estaba desactivado / es 2º pago del link ⇒ se registra aparte con

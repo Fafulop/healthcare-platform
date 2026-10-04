@@ -364,8 +364,10 @@ export default function RangeBookingWidget({
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
             <CheckCircle className="w-10 h-10 text-green-600" />
           </div>
-          <h3 className="text-2xl font-bold text-[var(--color-secondary)] mb-2">¡Reserva Confirmada!</h3>
-          <p className="text-gray-600 mb-4">Tu cita ha sido agendada exitosamente.</p>
+          <h3 className="text-2xl font-bold text-[var(--color-secondary)] mb-2">¡Solicitud enviada!</h3>
+          {/* H-038 (2026-10-04): decía «¡Reserva Confirmada!» y la cita nace PENDIENTE — el doctor la
+              confirma después (una reserva desde el sitio público nunca se auto-confirma). */}
+          <p className="text-gray-600 mb-4">Tu cita quedó apartada; el consultorio te confirmará.</p>
 
           {selectedTime && selectedDate && (
             <div className="bg-blue-50 rounded-xl p-4 mb-6 text-left border-2 border-blue-200">
@@ -401,10 +403,6 @@ export default function RangeBookingWidget({
               </div>
             </div>
           )}
-
-          <p className="text-xs text-gray-500 mb-4">
-            Tu solicitud ha sido enviada. Recibirás la confirmación del doctor por SMS y correo electrónico.
-          </p>
 
           <button
             onClick={resetBooking}

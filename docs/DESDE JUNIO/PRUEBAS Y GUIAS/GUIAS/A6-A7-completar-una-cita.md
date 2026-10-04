@@ -6,7 +6,7 @@
 1. Abre la cita (clic en su fila o en el calendario).
 2. Grupo **ESTADO → «Completar»**.
 3. En **«Completar cita»**:
-   - **Monto cobrado (MXN):** viene el precio del servicio; cámbialo si cobraste otra cosa.
+   - **Monto cobrado (MXN):** viene el precio del servicio (si no tiene precio: el monto de su link de pago, o vacío); cámbialo si cobraste otra cosa.
    - **Forma de pago:** «Efectivo» · «Transferencia» · «Tarjeta» · «Cheque» · «Depósito».
 4. **«Completar»**.
 
@@ -16,11 +16,12 @@
 
 **Si algo sale mal:**
 - Si el paciente ya pagó con un **link de pago**, el ingreso ya existe y no se duplica.
-- Hoy no se puede completar con **$0** (el botón se apaga).
+- Si la cita tiene un **link de pago sin pagar**, la ventana te avisa y al completarla el link se desactiva (también en $0).
+- **Cortesía:** pon el monto en **$0** — la cita se completa (y abre su visita) sin registrar ningún ingreso; la forma de pago desaparece.
 
 **Video:** (pendiente)
 
 
 ---
 
-**QA (interno — se quita al publicar):** 2026-10-03 — C8/C9/T6 ✅: efectivo $700 (#1822), transferencia $850 con expediente → visita (#1823), tarjeta $550 (#1825), cheque $900 (#1826), depósito $800 en sesión (#1827); Flujo lo lista una vez. ⚠️ H-029 ($0 imposible), H-016 (ingreso con fecha de la cita, no de hoy), H-010 (si había link activo, sigue activo).
+**QA (interno — se quita al publicar):** 2026-10-03 — C8/C9/T6 ✅: efectivo $700 (#1822), transferencia $850 con expediente → visita (#1823), tarjeta $550 (#1825), cheque $900 (#1826), depósito $800 en sesión (#1827); Flujo lo lista una vez. H-029 ($0) arreglado 2026-10-04, H-016 (ingreso con fecha de la cita, no de hoy), H-010 (arreglado 2026-10-04: al completar, el link activo se apaga).

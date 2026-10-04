@@ -71,7 +71,14 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
         ? { proveedor: "Mercado Pago", monto: Number(booking.mpPaymentPreference.amount) }
         : null;
 
-  const [price, setPrice] = useState(String(Number(booking.finalPrice)));
+  // Una cita sin precio de lista (servicio sin precio) arranca con el monto de su link de pago
+  // vivo (lo único que se sabe que se debe) o VACÍA — nunca en "0": un Enter la completaba como
+  // cortesía sin que el doctor lo decidiera. La cortesía se teclea.
+  const [price, setPrice] = useState(
+    Number(booking.finalPrice) > 0
+      ? String(Number(booking.finalPrice))
+      : linkVivo && linkVivo.monto > 0 ? String(linkVivo.monto) : ""
+  );
   const [formaDePago, setFormaDePago] = useState("efectivo");
   const [submitting, setSubmitting] = useState(false);
 
@@ -84,8 +91,11 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
   // "efectivo / precio de lista".
   const montoEfectivo = ingreso ? ingreso.amount : amount;
   const formaEfectiva = ingreso ? (ingreso.formaDePago ?? "efectivo") : formaDePago;
-  // `NaN > 0` ya es false, así que un `!isNaN` aquí no aportaba nada.
-  const isValid = montoEfectivo > 0;
+  // H-029 (2026-10-04): $0 es válido — una cita de CORTESÍA. El servidor ya lo aceptaba (concluye la
+  // cita y crea su visita, sin ingreso); sólo este modal lo bloqueaba con `> 0`, y el doctor tenía que
+  // inventar un cobro o dejar la cita vencida. (`NaN >= 0` es false: vacío sigue sin poder.)
+  const isValid = montoEfectivo >= 0;
+  const cortesia = !ingreso && amount === 0;
 
   // El monto cobrado no siempre es el precio de lista de la cita (un link creado por otra
   // cantidad, o editado antes de pagarse). Cuando difieren se DICE, en vez de enseñar
@@ -204,7 +214,8 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
             </div>
           </div>
 
-          {/* Forma de pago */}
+          {/* Forma de pago — no aplica a una cortesía ($0): no entra dinero. */}
+          {!cortesia && (
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1.5">
               Forma de pago
@@ -231,6 +242,7 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
               })}
             </div>
           </div>
+          )}
           </>
           )}
 
@@ -246,15 +258,17 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
               Lo dice el bloque verde de arriba, así que aquí no se repite. */}
           {!yaCobrado && (
             <p className="text-xs text-gray-400">
-              Se registrará un ingreso en Flujo de Dinero automáticamente.
+              {cortesia
+                ? "Cortesía: no se registra ningún ingreso en Flujo de Dinero."
+                : "Se registrará un ingreso en Flujo de Dinero automáticamente."}
             </p>
           )}
 
           {linkVivo && (
             <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
               Esta cita tiene un link de pago de {linkVivo.proveedor} por ${linkVivo.monto.toLocaleString()} que
-              el paciente todavía no paga. Al completarla se desactiva (ya no acepta pagos nuevos), para
-              que no te pague dos veces.
+              el paciente todavía no paga. Al completarla se desactiva (ya no acepta pagos nuevos),
+              {cortesia ? " porque es cortesía." : " para que no te pague dos veces."}
             </p>
           )}
 

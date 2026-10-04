@@ -21,4 +21,4 @@
 
 ---
 
-**QA (interno — se quita al publicar):** 2026-10-03 — C26 ✅ (QA C26 desde tusalud.pro/doctores/dr-prueba → PENDING → «Confirmar» → CONFIRMED + `confirmed_at` + correo + `BOOKING_CONFIRMED`). ⚠️ H-038 (al paciente la página le dice «¡Reserva Confirmada!» aunque queda pendiente), H-039 (la tarjeta «Pendientes» no lleva a ellas; toast en inglés), H-040 (nombre sin partir).
+**QA (interno — se quita al publicar):** 2026-10-03 — C26 ✅ (QA C26 desde tusalud.pro/doctores/dr-prueba → PENDING → «Confirmar» → CONFIRMED + `confirmed_at` + correo + `BOOKING_CONFIRMED`). H-038 arreglado 2026-10-04 (ahora dice «¡Solicitud enviada!» · «Tu cita quedó apartada; el consultorio te confirmará.»), H-039 (la tarjeta «Pendientes» no lleva a ellas; toast en inglés), H-040 (nombre sin partir).

@@ -813,9 +813,10 @@ const [confirmationCode, setConfirmationCode] = useState("");
 │                                         │
 │            ✓                            │
 │                                         │
-│     ¡Reserva Confirmada!                │
+│     ¡Solicitud enviada!                 │
 │                                         │
-│  Tu cita ha sido agendada exitosamente  │
+│ Tu cita quedó apartada; el consultorio  │
+│ te confirmará.                          │
 │                                         │
 │  ┌─────────────────────────────────┐    │
 │  │ Código de Confirmación          │    │

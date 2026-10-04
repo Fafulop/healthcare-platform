@@ -187,14 +187,16 @@ esa cita.
 
 «Completar» abre la ventana **«Completar cita»**, que pide:
 
-- **Precio** de la consulta.
+- **«Monto cobrado (MXN)»** — empieza con el precio de la cita (si no tiene precio: con el monto de su
+  link de pago, o vacío).
 - **Forma de pago:** Efectivo · Transferencia · Tarjeta · Cheque · Depósito.
 
-Al confirmar, la cita queda Completada y **el ingreso se registra en Flujo de Dinero**. Si el
+Al confirmar, la cita queda Completada y **el ingreso se registra en Flujo de Dinero**. Para una
+**cortesía**, pon el monto en **$0**: la cita se completa sin registrar ningún ingreso (y la forma
+de pago no se pide). Si el
 paciente ya había pagado con un link de pago, el ingreso ya estaba registrado y no se duplica.
 Si la cita tiene un link de pago que el paciente **todavía no paga**, la ventana lo avisa y, al
-completarla, **el link se desactiva** para que no te pague dos veces. (Si completas la cita sin
-registrar un cobro, el link se queda activo: es la forma en que todavía te pueden pagar.)
+completarla, **el link se desactiva** para que no te pague dos veces (también en una cortesía).
 Si la cita tiene expediente, en su perfil aparece su **visita** (ver [Visitas](#visitas)).
 
 ### Cancelar, No asistió y Eliminar
@@ -259,7 +261,7 @@ Después puedes copiar el link o mandarlo por WhatsApp, y cuando el paciente pag
 - Necesitas tener conectado Stripe o Mercado Pago en **Pagos**.
 - La cita necesita **expediente vinculado**; si no, el botón dice «Requiere expediente» (ver
   [Vincular la cita a un expediente](#vincular-la-cita-a-un-expediente)).
-- Al **completar (con cobro), cancelar, marcar «No asistió» o eliminar** la cita, su link sin
+- Al **completar (también en $0), cancelar, marcar «No asistió» o eliminar** la cita, su link sin
   pagar se desactiva solo: ya no acepta pagos nuevos.
 - Si aun así el paciente paga un link que ya no debía (por ejemplo, una ficha de OXXO que generó
   antes, o después de pagarte en efectivo), el pago **sí entra a Flujo de Dinero**, con un concepto que empieza «⚠️ Revisar…» (y
