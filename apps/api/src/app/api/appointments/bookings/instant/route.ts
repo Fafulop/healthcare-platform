@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { prisma, doctorCongelado, precioParaCitaDeSesion } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
-import { sesionAlReagendar } from '@/lib/reagendar-sesion';
+import { sesionAlReagendar, facturaAlReagendar } from '@/lib/reagendar-sesion';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken, calcEndTime } from '@/lib/appointments-utils';
@@ -372,12 +372,18 @@ export async function POST(request: Request) {
       reagendaDe, isRescheduled, doctorId: booking.doctorId, callerDoctorId: authenticatedDoctorId,
       bookingId: booking.id, userId, role,
     });
+    // H-054: «¿Necesita factura?» pasa a la cita nueva (el link pendiente NO: se apaga al cancelar la vieja).
+    const facturaReagendada = await facturaAlReagendar({
+      reagendaDe, isRescheduled, doctorId: booking.doctorId, callerDoctorId: authenticatedDoctorId,
+      bookingId: booking.id, role,
+    });
 
     return NextResponse.json(
       {
         success: true,
         message: 'Cita creada y confirmada exitosamente',
         ...(sesionReagendada ? { sesionReagendada } : {}),
+        ...(facturaReagendada ? { facturaReagendada } : {}),
         data: {
           id: booking.id,
           confirmationCode,

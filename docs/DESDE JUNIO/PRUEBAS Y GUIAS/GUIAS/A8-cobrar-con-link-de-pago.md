@@ -21,4 +21,4 @@
 
 ---
 
-**QA (interno — se quita al publicar):** 2026-10-03 — C23 + X27 ✅ crear (MP `cmusqlk6n…`, Stripe `cmussw4ld…`), NO se pagó ninguno (regla). 🐞 H-010 CONFIRMADO (completar no apaga el link), H-054 (reagendar lo deja en la cita cancelada). Re-verificar esta guía al arreglarlos y quitar el ⚠️.
+**QA (interno — se quita al publicar):** 2026-10-03 — C23 + X27 ✅ crear (MP `cmusqlk6n…`, Stripe `cmussw4ld…`), NO se pagó ninguno (regla). 🐞 H-010 CONFIRMADO (completar no apaga el link), H-054 (reagendar lo deja en la cita cancelada). Re-verificar esta guía al arreglarlos y quitar el ⚠️. **2026-10-04:** H-010 partes 1+2 en prod; completar en efectivo con link vivo ✅ (aviso + link apagado en MP). Falta: pago real a un link desactivado (MP no dejó pagar) y reagendar (parte 3).

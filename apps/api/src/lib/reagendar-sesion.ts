@@ -73,3 +73,71 @@ export async function ligarSesionAlAgendar(args: {
     return { error: true };
   }
 }
+
+/**
+ * H-054 (2026-10-04) — reagendar = cancelar la vieja + crear la nueva, y «¿Necesita factura?» se
+ * quedaba en la vieja. Aquí, al crear la nueva, se MUEVE (no se copia: la vieja cancelada con la
+ * casilla en Sí seguía saliendo en «Por facturar» — dos pendientes para una sola consulta). Se mueve
+ * la respuesta tal cual (Sí o No: el asistente distingue «no» de «sin contestar»).
+ *
+ * NO se mueve si la vieja YA TIENE INGRESO (pagada por link; y sólo con ingreso puede estar
+ * facturada): la factura va con el dinero, que se queda en la vieja — moverla invitaría a emitir un
+ * segundo CFDI por el mismo pago. Sólo con el MISMO expediente (no nulo: al reagendar se puede
+ * cambiar de paciente) y si la nueva no trae su propio valor.
+ *
+ * Sirve en cualquier orden del cliente (la agenda crea y luego cancela; el asistente cancela y luego
+ * crea), por eso la vieja puede estar ya CANCELLED.
+ *
+ * El LINK DE PAGO pendiente NO se mueve (decisión del usuario 2026-10-04, tras el code review): con el
+ * reagendar repartido en dos peticiones de cliente en órdenes distintos, moverlo podía dejarlo en
+ * otro paciente, en una cita sin expediente, o ya apagado (el asistente cancela primero). Al
+ * cancelarse la vieja su link se APAGA (desactivar-link.ts) y el doctor crea uno en la nueva.
+ *
+ * Mismas reglas que `sesionAlReagendar`: sólo un DOCTOR autenticado reagendando una cita suya (o un
+ * ADMIN). FALLA ABIERTO. Devuelve el valor movido (va en la respuesta como `facturaReagendada`).
+ */
+export async function facturaAlReagendar(args: {
+  reagendaDe: unknown;
+  isRescheduled: unknown;
+  doctorId: string;
+  callerDoctorId: string | null | undefined;
+  bookingId: string;
+  role: string | null | undefined;
+}): Promise<{ facturaSolicitada: boolean } | undefined> {
+  const { reagendaDe, isRescheduled, doctorId, callerDoctorId, bookingId } = args;
+  if (typeof reagendaDe !== 'string' || !reagendaDe || isRescheduled !== true || reagendaDe === bookingId) return undefined;
+  if (args.role !== 'ADMIN' && (!callerDoctorId || callerDoctorId !== doctorId)) return undefined;
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const [vieja, nueva] = await Promise.all([
+        tx.booking.findFirst({
+          where: { id: reagendaDe, doctorId, status: { in: ['PENDING', 'CONFIRMED', 'CANCELLED'] } },
+          select: { facturaSolicitada: true, patientId: true, ledgerEntry: { select: { id: true } } },
+        }),
+        tx.booking.findFirst({ where: { id: bookingId, doctorId }, select: { patientId: true, facturaSolicitada: true } }),
+      ]);
+      if (
+        !vieja || !nueva ||
+        vieja.facturaSolicitada === null ||
+        vieja.ledgerEntry ||
+        !vieja.patientId || vieja.patientId !== nueva.patientId ||
+        nueva.facturaSolicitada !== null
+      ) return undefined;
+      const valor = vieja.facturaSolicitada;
+      // Conditional on both ends still as read: a concurrent edit wins, nothing half-moved.
+      const { count } = await tx.booking.updateMany({
+        where: { id: bookingId, facturaSolicitada: null },
+        data: { facturaSolicitada: valor },
+      });
+      if (count === 0) return undefined;
+      await tx.booking.updateMany({
+        where: { id: reagendaDe, facturaSolicitada: valor },
+        data: { facturaSolicitada: null },
+      });
+      return { facturaSolicitada: valor };
+    });
+  } catch (err) {
+    console.error('[reagendar] mover «¿Necesita factura?» a la cita nueva falló (la cita sí se creó):', err);
+    return undefined;
+  }
+}

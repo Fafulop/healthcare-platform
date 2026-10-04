@@ -692,8 +692,9 @@ export async function PATCH(
       // income (the citas chat and the assistant can complete with no `income`) may be waiting on
       // precisely that link, and killing it would leave the cita with no way to be paid. Same point and semantics as the
       // income: a server-side effect, so it covers every path that ends a cita (agenda,
-      // assistant, patient self-cancel). Never fails the status change. (Today a reschedule
-      // cancels the old cita, so its link dies here too.)
+      // assistant, patient self-cancel). Never fails the status change. (A reschedule cancels the
+      // old cita, so its pending link dies here too — it is NOT moved to the new one, see
+      // `facturaAlReagendar` in lib/reagendar-sesion.ts for why.)
       let links: ResultadoDesactivar | undefined;
       const cobrada =
         montoNormal > 0 ||

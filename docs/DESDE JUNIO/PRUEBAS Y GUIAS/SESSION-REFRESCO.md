@@ -20,7 +20,15 @@ pagarlo por un problema del lado de Mercado Pago** (no nuestro). Cuando se pueda
 ingreso de $10 «⚠️ Revisar posible doble cobro…» con `provider_payment_id = mp:<id>`, link PAID, logs
 `REVISAR: cita_ya_cobrada`. (Mínimo de la app: $10; el usuario autorizó pagar montos mínimos; sólo MP.)
 
-**Parte 2 escrita (sin commit, 2026-10-04):** `apps/api/src/lib/desactivar-link.ts` + PATCH/DELETE de la cita
+**Parte 3 ACOTADA (decisión del usuario tras el review, 2026-10-04):** reagendar sólo MUEVE «¿Necesita
+factura?» (mismo expediente, la vieja sin ingreso; `facturaAlReagendar` en `lib/reagendar-sesion.ts`); el
+link pendiente NO se mueve (el asistente cancela ANTES de crear; moverlo podía dejarlo en otro paciente) —
+se apaga al cancelar la vieja. Un «reagendar» de servidor en una sola petición queda como tarea aparte
+si se quiere. Nuevo hallazgo H-062 (reagendar una cita ya pagada ⇒ la nueva no se puede concluir sin 2º
+ingreso). Prueba pendiente tras el deploy: cita QA con «¿Necesita factura?» = Sí → Reagendar → la nueva
+trae Sí y la vieja queda vacía.
+
+**Parte 2 EN PROD `b7eea955` y verificada (ver H-010). Antes era:** **Parte 2 escrita (sin commit, 2026-10-04):** `apps/api/src/lib/desactivar-link.ts` + PATCH/DELETE de la cita
 + «Desactivar» de «Pagos» (Stripe y MP) + aviso en «Completar cita» + toasts + manual + guías A8/A10. El
 «expirar» de MP se probó en el link QA `cmusqlk6n…` (MP ya lo rechaza; en NUESTRA BD sigue PENDING — se
 limpia con la parte 2 en prod). 3 code reviews; lo aceptado → H-061. Falta OK de commit → push → api +

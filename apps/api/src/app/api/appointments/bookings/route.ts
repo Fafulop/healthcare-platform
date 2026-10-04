@@ -10,7 +10,7 @@ import {
 } from '@/lib/sms';
 import { sendNewBookingTelegram, isTelegramConfigured } from '@/lib/telegram';
 import { validateAuthToken } from '@/lib/auth';
-import { sesionAlReagendar } from '@/lib/reagendar-sesion';
+import { sesionAlReagendar, facturaAlReagendar } from '@/lib/reagendar-sesion';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent, updateSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
@@ -490,6 +490,11 @@ export async function POST(request: Request) {
       reagendaDe, isRescheduled, doctorId: slot.doctorId, callerDoctorId,
       bookingId: booking.id, userId: callerUserId, role: callerRole,
     });
+    // H-054: «¿Necesita factura?» pasa a la cita nueva (el link pendiente NO: se apaga al cancelar la vieja).
+    const facturaReagendada = await facturaAlReagendar({
+      reagendaDe, isRescheduled, doctorId: slot.doctorId, callerDoctorId,
+      bookingId: booking.id, role: callerRole,
+    });
 
     return NextResponse.json(
       {
@@ -497,6 +502,7 @@ export async function POST(request: Request) {
         data: bookingWithSlot,
         message: 'Booking created successfully',
         ...(sesionReagendada ? { sesionReagendada } : {}),
+        ...(facturaReagendada ? { facturaReagendada } : {}),
       },
       { status: 201 }
     );
