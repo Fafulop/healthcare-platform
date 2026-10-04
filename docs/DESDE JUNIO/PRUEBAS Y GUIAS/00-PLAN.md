@@ -58,7 +58,8 @@ contra «se ve bien».
   paciente real ni los 8 de cardiología sembrados para los clips (`scripts/demo-seed/`).
 - **NO TOCAR:** el tratamiento «f» de pepit perez; citas reales de otros pacientes.
 - **Dinero:** se completan citas con montos chicos y redondos ($100, $250) y forma de pago
-  «Efectivo» o «Transferencia». **Nunca se paga un link de pago** (sólo se crea y se ve). **Nunca se
+  «Efectivo» o «Transferencia». **Links de pago: SÍ se pueden pagar, con montos mínimos** (decisión del
+usuario 2026-10-04: «$1 peso»; el mínimo real lo pone el proveedor). Antes la regla era no pagarlos. **Nunca se
   emite un CFDI** (se llega hasta la pantalla de facturar y se verifica que el ingreso sea facturable).
 - **Correos:** los que salgan van al correo del usuario. El recordatorio automático (1 h antes) está
   encendido en dr-prueba: citas de prueba a ≥ 2 h o en días futuros.

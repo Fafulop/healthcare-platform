@@ -2,7 +2,26 @@
 
 > **Tipo: ESTADO.** Se lee primero y se escribe al final de cada sesión. Cabecera primero.
 
-## ⏭️ 2026-10-03 — P2 HECHA CASI ENTERA (Citas + Expediente). Empieza aquí
+## ⏭️ 2026-10-04 — H-010/H-054 en curso (dinero). Empieza aquí
+
+**Plan aprobado (3 commits, en orden):** **1** red de seguridad en los webhooks (un pago NUNCA se tira:
+si la cita ya tenía ingreso / el link estaba desactivado / es 2º pago del link ⇒ se registra aparte con
+«⚠️ Revisar…» + Telegram) · **2** apagar el link al completar/cancelar/no-asistió (Stripe API + MP
+expirar la preferencia; probar el expirar en el link QA MP `cmusqlk6n…`, autorizado) · **3** reagendar
+MUEVE el link PENDING y «¿Necesita factura?» a la cita nueva (decisión del usuario).
+
+**Estado parte 1:** código escrito (`practice-utils.ts` `createPaymentLedgerEntry`, webhooks MP y Stripe),
+**columna `ledger_entries.provider_payment_id` YA MIGRADA EN PROD** (`add-ledger-provider-payment-id.sql`,
+validada antes en transacción que revienta), type-check ✅, 3 code reviews atendidos (lo no arreglado →
+H-058/H-059/H-060). **Falta:** OK de commit → push → `commitHash` de `@healthcare/api` → prueba REAL:
+cita QA completada en efectivo + link MP de $1 que **paga el usuario** ⇒ debe aparecer en Flujo con
+«⚠️ Revisar posible doble cobro…». (El usuario autorizó pagar links con montos mínimos; sólo MP.)
+
+**Sin commitear además:** trabajo BBVA de informe médico (otra sesión — NO va en estos commits).
+
+---
+
+## 2026-10-03 — P2 HECHA CASI ENTERA (Citas + Expediente). Empieza aquí
 
 **Qué pasó:** Chrome conectado (cuenta quebradita.a). Se corrieron ~60 permutaciones de Citas y
 Expediente, cada una con pantalla + BD (+ logs cuando aplicó). Estado por permutación en
@@ -19,7 +38,11 @@ Expediente, cada una con pantalla + BD (+ logs cuando aplicó). Estado por permu
 
 **Hecho después (misma fecha):** C15 ✅, bloque **T completo** (T1 T6 T7 T8 T9 + reactivar/ligar), comparación con el manual (notas «**Manual:**» en 03-HALLAZGOS), **27 guías borrador en `GUIAS/`** (pasos con etiquetas exactas + bloque QA interno con ⚠️). R ⏭️ saltado (requiere entrar como el ayudante real).
 
-**Siguiente:** plan del arreglo **H-027** (fecha del PDF de receta) → OK del usuario → código → review → OK de commit.
+**Arreglos en prod (2026-10-03):** **H-027** `969f9ead` (fecha del PDF de receta) y **H-025** `a4248843` (campo «Archivo» retirado; `lib/campo-archivo.ts`) — ambos verificados en prod. H-025 dejó 1 archivo real perdido (dr-david-salazar-vela, 30-abr) — el usuario decide si avisarle.
+
+**Siguiente:** plan de **H-010 / H-054** (link de pago sigue activo al completar / reagendar; reagendar pierde «¿Necesita factura?») → OK del usuario → código → review → OK de commit. Es dinero: plan cuidadoso. Sin commitear: la actualización de H-025 en `03-HALLAZGOS.md` y este archivo (van en el siguiente commit).
+
+**Chrome:** la extensión conecta con la cuenta lopez.fafutis; si hay 2 navegadores, usar `switch_browser` y el usuario da «Connect» en el abierto («lopez asistente»).
 
 **Pendiente:**
 - Limpieza de datos QA (ver abajo) — preguntar al usuario si se quedan para las guías.
@@ -30,7 +53,7 @@ Expediente, cada una con pantalla + BD (+ logs cuando aplicó). Estado por permu
 **Datos QA vivos en dr-prueba:** pacientes «QA E1 Recurrente» (activo), «QA C4 Calendario»
 (ARCHIVADO); citas «QA …» (A2 borrada, C4, C11 borrada, C12 cancelada, C15, C26→reagendada como
 QA E1 14-oct); plantillas «QA Plantilla 1/2»; rango 13-oct Satélite; links sin pagar MP
-`cmusqlk6n000lmh0tywrr8ly2` y Stripe `cmussw4ld0029mh0tov7ntnrj` (NO pagarlos); ingresos
+`cmusqlk6n000lmh0tywrr8ly2` y Stripe `cmussw4ld0029mh0tov7ntnrj` (ya se pueden pagar con montos mínimos — decisión 2026-10-04, `00-PLAN` §4); ingresos
 #1822–#1826; venta VTA-2026-010; receta cancelada. «Campos de Cita» y bloqueos quedaron como estaban.
 
 **Verificadores (sólo lectura):** `railway run --service pgvector node scripts/qa/verificar-citas.cjs "<nombre>" [min]`

@@ -11,7 +11,7 @@
 
 **Tu dinero:** nada cambia.
 
-**Si algo sale mal:** el paciente recibe dos correos: el aviso de que la anterior se canceló y la confirmación de la nueva. ⚠️ Si la cita tenía **link de pago** o **«¿Necesita factura?»**, hoy no pasan a la cita nueva: vuelve a crearlos en la nueva.
+**Si algo sale mal:** el paciente recibe dos correos: el aviso de que la anterior se canceló y la confirmación de la nueva. ⚠️ Si la cita tenía **link de pago** o **«¿Necesita factura?»**, hoy no pasan a la cita nueva: vuelve a crearlos en la nueva **y desactiva el link viejo** en **«Pagos»** («Desactivar este link de pago?») — si no, el paciente tiene dos links que se pueden pagar.
 
 **Video:** (pendiente)
 

@@ -92,30 +92,101 @@ interface PaymentLedgerInput {
   bookingId?: string | null;
   formaDePago: string;
   paymentProvider: 'stripe' | 'mercadopago';
+  /**
+   * The provider's id of THIS payment (`mp:<payment id>` · `stripe:<checkout session id>`). It is
+   * the idempotency key: one ledger row per provider payment (unique column), whatever the link's
+   * state — so a re-delivered notification never records twice, and a failed attempt can be
+   * finished by the provider's retry.
+   */
+  providerPaymentId: string;
+  /**
+   * Status the link had when this payment arrived. Anything but PENDING means money arrived on a
+   * link the doctor no longer expected to be paid (H-010 / H-054).
+   */
+  linkStatusPrevio: 'PENDING' | 'PAID' | 'CANCELLED' | 'EXPIRED';
+  /** When the patient paid (provider's timestamp). The entry is dated with it, not with the moment
+   * the webhook got processed — a retry can arrive hours (Stripe: days) later. Default: now. */
+  fechaPago?: Date | null;
 }
 
-/**
- * Creates a LedgerEntry from a payment webhook (Stripe or MercadoPago).
- * Idempotent: skips if a LedgerEntry already exists for the bookingId.
- * Returns the created entry or null if skipped.
- */
-export async function createPaymentLedgerEntry(
-  input: PaymentLedgerInput
-): Promise<{ id: number; internalId: string } | null> {
-  const { doctorId, amount, concept, bookingId, formaDePago, paymentProvider } = input;
+/** Why a webhook payment needs the doctor's eyes. null = an ordinary payment. */
+export type MotivoRevisionPago = 'cita_ya_cobrada' | 'link_desactivado' | 'link_ya_pagado';
 
-  // Idempotency: if bookingId is set, check if a LedgerEntry already exists
+const PREFIJO_REVISION: Record<MotivoRevisionPago, string> = {
+  cita_ya_cobrada: '⚠️ Revisar posible doble cobro (la cita ya tenía su ingreso) — ',
+  link_desactivado: '⚠️ Revisar: pago con un link desactivado — ',
+  link_ya_pagado: '⚠️ Revisar posible doble cobro (segundo pago del mismo link) — ',
+};
+
+/** A P2002 on the given ledger_entries column (Prisma puts the column/index name in meta.target). */
+const esChoqueUnico = (err: unknown, columna: 'booking_id' | 'provider_payment_id' | 'internal_id') => {
+  if (typeof err !== 'object' || err === null) return false;
+  const { code, meta } = err as { code?: unknown; meta?: { target?: unknown } };
+  // Same test as createCitaLedgerEntry and POST /ledger.
+  return code === 'P2002' && String(meta?.target ?? '').includes(columna);
+};
+
+/** The calendar day of an instant in Mexico, 'YYYY-MM-DD'. `toISOString()` would give the UTC day
+ * and book anything after 18:00 Mexico time on the NEXT day. */
+const diaEnMexico = (instante: Date) =>
+  instante.toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' }); // sv-SE = YYYY-MM-DD, as elsewhere in apps/api
+
+export type PaymentLedgerResult =
+  | { yaRegistrado: true; internalId: string; motivoRevision: MotivoRevisionPago | null }
+  | { yaRegistrado: false; id: number; internalId: string; motivoRevision: MotivoRevisionPago | null };
+
+/**
+ * Creates the LedgerEntry of a payment webhook (Stripe or MercadoPago).
+ *
+ * A payment that reaches us is MONEY THE PATIENT ALREADY PAID: it is always recorded, never
+ * skipped (H-010). Before 2026-10-04 a cita that already had its income (completed in cash, then
+ * the patient paid the old link) returned null here and the payment vanished from Flujo. Now:
+ *   · the cita has no income yet → the entry anchors the cita (`bookingId`), as always;
+ *   · the cita already has its income → written WITHOUT `bookingId` (@unique: one income per
+ *     cita) but with the patient and service, and a «⚠️ Revisar posible doble cobro…» concept;
+ *   · the link was deactivated / already paid → a «⚠️ Revisar…» concept too.
+ * Idempotent on `providerPaymentId` (unique column): `{ yaRegistrado: true, … }` when that payment is
+ * already in Flujo. Throws on any other failure — the webhook must answer non-2xx so the provider
+ * retries; swallowing it would lose the payment for good.
+ */
+/** The entry already recorded for this provider payment, with the review reason read back from its
+ * concept — so a retry (whose first attempt died before notifying) can still send the alert. */
+async function yaRegistrado(providerPaymentId: string): Promise<PaymentLedgerResult | null> {
+  const e = await prisma.ledgerEntry.findUnique({
+    where: { providerPaymentId },
+    select: { internalId: true, concept: true },
+  });
+  if (!e) return null;
+  const motivo = (Object.keys(PREFIJO_REVISION) as MotivoRevisionPago[])
+    .find((m) => e.concept.startsWith(PREFIJO_REVISION[m])) ?? null;
+  return { yaRegistrado: true, internalId: e.internalId, motivoRevision: motivo };
+}
+
+export async function createPaymentLedgerEntry(input: PaymentLedgerInput): Promise<PaymentLedgerResult> {
+  const { doctorId, amount, concept, bookingId, formaDePago, paymentProvider, providerPaymentId, linkStatusPrevio } = input;
+  // T12:00 like every other entry (@db.Date).
+  const transactionDate = new Date(diaEnMexico(input.fechaPago ?? new Date()) + 'T12:00:00');
+
+  const previo = await yaRegistrado(providerPaymentId);
+  if (previo) return previo;
+
+  // Anchor the cita only if it has no income yet. «Already charged» wins over the link's state:
+  // it is the case where the patient may need a refund.
+  let anclarCita = !!bookingId;
+  let motivoRevision: MotivoRevisionPago | null =
+    linkStatusPrevio === 'PAID' ? 'link_ya_pagado'
+    : linkStatusPrevio === 'CANCELLED' || linkStatusPrevio === 'EXPIRED' ? 'link_desactivado'
+    : null;
   if (bookingId) {
-    const existing = await prisma.ledgerEntry.findUnique({
-      where: { bookingId },
-      select: { id: true, internalId: true },
-    });
-    if (existing) return null;
+    const existing = await prisma.ledgerEntry.findUnique({ where: { bookingId }, select: { id: true } });
+    if (existing) {
+      anclarCita = false;
+      motivoRevision = 'cita_ya_cobrada';
+    }
   }
 
-  const internalId = await generateLedgerInternalId(doctorId, 'ingreso');
-
-  // Resolve service + patient identity from linked booking if available.
+  // Resolve service + patient identity from linked booking if available — also when the entry
+  // does NOT anchor the cita, so the duplicate still shows up in the patient's history.
   // Patient fiscal identity is denormalized (same as completeBooking) so SAT matching can
   // link the eventual CFDI by RFC and patient-scoped income queries see this entry.
   let serviceId: string | null = null;
@@ -145,34 +216,87 @@ export async function createPaymentLedgerEntry(
 
   const defaultArea = await getDefaultArea(doctorId, 'INGRESO');
 
-  const entry = await prisma.ledgerEntry.create({
-    data: {
-      doctorId,
-      amount,
-      concept: concept.substring(0, 500),
-      entryType: 'ingreso',
-      transactionDate: new Date(),
-      internalId,
-      formaDePago,
-      area: defaultArea.area,
-      subarea: serviceName || defaultArea.subarea,
-      origin: 'webhook_pago',
-      transactionType: 'N/A',
-      amountPaid: amount,
-      paymentStatus: 'PAID',
-      hasComprobante: true,
-      ...(bookingId ? { bookingId } : {}),
-      ...(serviceId ? { serviceId } : {}),
-      ...(serviceName ? { serviceName } : {}),
-      ...(patientId ? { patientId } : {}),
-      ...(counterpartyRfc ? { counterpartyRfc } : {}),
-      ...(counterpartyName ? { counterpartyName } : {}),
-    },
-    select: { id: true, internalId: true },
-  });
+  const crear = async (conCita: boolean, motivo: MotivoRevisionPago | null) =>
+    prisma.ledgerEntry.create({
+      data: {
+        doctorId,
+        amount,
+        concept: ((motivo ? PREFIJO_REVISION[motivo] : '') + concept).substring(0, 500),
+        entryType: 'ingreso',
+        transactionDate,
+        internalId: await generateLedgerInternalId(doctorId, 'ingreso'),
+        formaDePago,
+        area: defaultArea.area,
+        subarea: serviceName || defaultArea.subarea,
+        origin: 'webhook_pago',
+        transactionType: 'N/A',
+        amountPaid: amount,
+        paymentStatus: 'PAID',
+        hasComprobante: true,
+        providerPaymentId,
+        ...(conCita && bookingId ? { bookingId } : {}),
+        ...(serviceId ? { serviceId } : {}),
+        ...(serviceName ? { serviceName } : {}),
+        ...(patientId ? { patientId } : {}),
+        ...(counterpartyRfc ? { counterpartyRfc } : {}),
+        ...(counterpartyName ? { counterpartyName } : {}),
+      },
+      select: { id: true, internalId: true },
+    });
 
-  console.log(`[${paymentProvider}] LedgerEntry ${entry.internalId} created for payment of $${amount}${bookingId ? ` (booking ${bookingId})` : ''}`);
-  return entry;
+  // generateLedgerInternalId isn't atomic: a manual ingreso or a completed cita can take the same
+  // ING-YYYY-NNN at the same moment. One retry with a fresh number (a 500 would also recover, via
+  // the provider's retry, but slower).
+  const crearConFolio = async (conCita: boolean, motivo: MotivoRevisionPago | null) => {
+    try {
+      return await crear(conCita, motivo);
+    } catch (err) {
+      if (!esChoqueUnico(err, 'internal_id')) throw err;
+      return crear(conCita, motivo);
+    }
+  };
+
+  let entry: { id: number; internalId: string };
+  try {
+    entry = await crearConFolio(anclarCita, motivoRevision);
+  } catch (err) {
+    // A concurrent delivery of the SAME payment won the race: it is recorded.
+    if (esChoqueUnico(err, 'provider_payment_id')) return (await yaRegistrado(providerPaymentId))!;
+    // The cita got its income between the check and the create (the doctor completed it, or the
+    // other provider's link was paid at the same moment): record it unanchored, flagged.
+    if (!anclarCita || !esChoqueUnico(err, 'booking_id')) throw err;
+    anclarCita = false;
+    motivoRevision = 'cita_ya_cobrada';
+    try {
+      entry = await crearConFolio(false, motivoRevision);
+    } catch (err2) {
+      if (esChoqueUnico(err2, 'provider_payment_id')) return (await yaRegistrado(providerPaymentId))!;
+      throw err2;
+    }
+  }
+
+  console.log(
+    `[${paymentProvider}] LedgerEntry ${entry.internalId} created for payment ${providerPaymentId} of $${amount}` +
+    `${bookingId ? ` (booking ${bookingId}${anclarCita ? '' : ', NOT anchored'})` : ''}` +
+    `${motivoRevision ? ` — REVISAR: ${motivoRevision}` : ''}`
+  );
+  return { yaRegistrado: false, ...entry, motivoRevision };
+}
+
+const TEXTO_REVISION: Record<MotivoRevisionPago, string> = {
+  cita_ya_cobrada: 'La cita ya tenía su cobro registrado, así que puede ser un DOBLE COBRO.',
+  link_desactivado: 'El link estaba desactivado (la cita se canceló, se completó o lo desactivaste).',
+  link_ya_pagado: 'Ese link YA se había pagado antes: es un SEGUNDO pago del mismo link.',
+};
+
+/** Telegram text for a payment that needs review (sent in addition to «Pago recibido»). */
+export function textoAvisoRevisionPago(motivo: MotivoRevisionPago, amount: number, internalId: string): string {
+  return (
+    `⚠️ <b>Revisa este pago</b>\n\n` +
+    `Monto: $${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN\n` +
+    `${TEXTO_REVISION[motivo]}\n` +
+    `Quedó registrado en Flujo de Dinero (${internalId}). Si el paciente pagó de más, devuélvele el dinero desde tu cuenta del proveedor.`
+  );
 }
 
 // ─── Appointment completion → LedgerEntry (server-side internal effect) ──────
@@ -215,7 +339,10 @@ export async function createCitaLedgerEntry(
   const { doctorId, bookingId, amount } = input;
   const formaDePago = VALID_FORMAS_DE_PAGO.includes(input.formaDePago) ? input.formaDePago : 'efectivo';
 
-  // Idempotency pre-check (mirrors the POST route + createPaymentLedgerEntry).
+  // Idempotency pre-check (mirrors the POST route). NOT symmetric with createPaymentLedgerEntry,
+  // which records a link payment even when the cita already has its income (H-010): here, if a
+  // paid link already anchored the cita, completing records nothing more — the «Completar cita»
+  // dialog shows «Pago ya registrado» in that case, so the doctor doesn't charge again.
   const existing = await prisma.ledgerEntry.findUnique({
     where: { bookingId },
     select: { id: true, internalId: true },
@@ -242,9 +369,10 @@ export async function createCitaLedgerEntry(
   // transactionDate = appointment day (slot date, else freeform booking date, else today),
   // stored at T12:00:00 like every other ledger entry.
   const apptDate = booking?.slot?.date ?? booking?.date ?? null;
+  // (`apptDate` is @db.Date → its UTC day IS the calendar day; "today" must be Mexico's.)
   const dateKey = apptDate
     ? apptDate.toISOString().split('T')[0]
-    : new Date().toISOString().split('T')[0];
+    : diaEnMexico(new Date());
 
   const internalId = await generateLedgerInternalId(doctorId, 'ingreso');
   // `||` (not `??`) on purpose: an empty-string razonSocial falls through to patientName.
@@ -279,7 +407,7 @@ export async function createCitaLedgerEntry(
     return { ...entry, alreadyExisted: false };
   } catch (error: any) {
     // Race: a payment webhook created the entry between our pre-check and this create.
-    if (error?.code === 'P2002' && String(error?.meta?.target ?? '').includes('booking_id')) {
+    if (esChoqueUnico(error, 'booking_id')) {
       const raced = await prisma.ledgerEntry.findUnique({
         where: { bookingId },
         select: { id: true, internalId: true },

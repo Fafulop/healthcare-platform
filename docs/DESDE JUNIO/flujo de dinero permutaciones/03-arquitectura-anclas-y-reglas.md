@@ -93,6 +93,12 @@ Estas reglas son lo que elimina el caos **por construcción**:
    (`practice-utils.ts:113`). Idempotencia (sin duplicado) ✓, pero **no marca PAID** una cita que se
    completó "por cobrar". *Cambio:* cuando exista el entry, **enriquecerlo** (`paymentStatus=PAID`,
    `amountPaid`, referencia del proveedor de pago) en vez de omitir.
+   → *Actualización 2026-10-04 (H-010, `PRUEBAS Y GUIAS/03-HALLAZGOS`):* el `return null` ya NO existe.
+   Un pago que llega SIEMPRE se registra: si la cita ya tiene su ingreso, se escribe un entry
+   **sin** `bookingId` (con paciente y servicio) y concepto «⚠️ Revisar posible doble cobro…», más
+   aviso por Telegram; igual si el link estaba desactivado o ya pagado. La idempotencia pasó al
+   webhook (compare-and-swap sobre el estado del link). Hoy completar SIEMPRE escribe el entry PAID
+   (127/127 en prod), así que el caso «por cobrar» que motivaba «enriquecer» no existe en los datos.
 3. **Una cita = un ingreso.** Completar/recompletar no puede bifurcar un segundo entry
    (ya garantizado por `bookingId @unique`).
 4. **Factura y link de pago viven DENTRO del flujo de la cita**, pre-llenados con la identidad fiscal
@@ -226,7 +232,7 @@ Resultado: **un solo `LedgerEntry`** con sus tres evidencias, y una vista pacien
 | # | Gap / supuesto | Hallazgo en código | Severidad | Acción |
 |---|---|---|---|---|
 | **1** | Emisión de CFDI vincula bien | `cfdi/route.ts:287` solo pone `hasFactura=true`, **NO** `satCfdiUuid`. El SAT round-trip de una factura propia puede **duplicarse** (Motor 2 la ve sin vincular). | **Alta** | Estampar `entry.satCfdiUuid = uuid` al emitir (§3.1 Cambio B). |
-| **2** | "El webhook adjunta al entry" | `practice-utils.ts:113`: si ya hay entry para el `bookingId`, **omite** (`return null`). No enriquece. Una cita "por cobrar" pagada por link **no** se marca PAID. | **Media-Alta** | Enriquecer el entry existente en vez de omitir (§3.2). |
+| **2** | "El webhook adjunta al entry" | `practice-utils.ts:113`: si ya hay entry para el `bookingId`, **omite** (`return null`). No enriquece. Una cita "por cobrar" pagada por link **no** se marca PAID. | **Media-Alta** | Enriquecer el entry existente en vez de omitir (§3.2). **2026-10-04:** ya no omite — registra aparte con «⚠️ Revisar…» (H-010); el caso «por cobrar» no existe hoy. |
 | **3** | "Ancla obligatoria para emitir" | Demasiado rígido: **REP** (tipo P) y **Nota de Crédito** (tipo E) no son ingresos. | **Media** | Regla por tipo: REP→factura PPD, NC→entry original (§3.1 excepción). |
 | **4** | Rollup expediente "posible hoy" vía `patientId` | `patientId` sí se setea en `cita` y **lo acepta el POST manual** (`ledger/route.ts:325`). Pero **webhook** (`createPaymentLedgerEntry` no lo pone), **`sat_emitido/recibido`** (usan `counterpartyRfc`) y **`banco`** **no** lo tienen. | **Media** | Fallback por RFC (`counterpartyRfc → patient.rfc`) **además** de `patientId` (§7). |
 | **5** | ~~Guardar PDF de Constancia requiere campo nuevo~~ | **RESUELTO — no es gap.** El modelo `Patient` **ya tiene** `constanciaFiscalUrl` + `constanciaFiscalName` (schema 1774-75) y todos los campos fiscales (`requiereFactura`, `rfc`, `razonSocial`, `regimenFiscal`, `usoCfdi`, `codigoPostalFiscal`). | **N/A** | §4 es solo **cableado de UX**, sin cambio de esquema. |
@@ -234,7 +240,7 @@ Resultado: **un solo `LedgerEntry`** con sus tres evidencias, y una vista pacien
 
 ### Supuestos que SÍ se confirmaron
 - ✅ Emisión standalone produce CFDI huérfano (`ledgerEntryId || null`, `cfdi/route.ts:264`).
-- ✅ Idempotencia del webhook por `bookingId` existe (no duplica) — `practice-utils.ts:108`.
+- ✅ Idempotencia del webhook — desde 2026-10-04 por compare-and-swap del estado del link (antes por `bookingId`, que tiraba el pago de una cita ya cobrada: H-010).
 - ✅ `bookingId @unique` garantiza una-cita-un-entry.
 - ✅ `LedgerEntry.patientId` existe y se denormaliza en `cita`; el POST manual también lo acepta.
 - ✅ El endpoint de emisión maneja tipo P (REP, `rep/route.ts:135`) y E (`egreso/route.ts:160`) por

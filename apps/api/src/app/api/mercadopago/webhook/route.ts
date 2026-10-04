@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { decrypt, mpFetch, verifyWebhookSignature } from '@/lib/mercadopago';
 import { sendTelegramMessage } from '@/lib/telegram';
-import { createPaymentLedgerEntry } from '@/lib/practice-utils';
+import { createPaymentLedgerEntry, textoAvisoRevisionPago } from '@/lib/practice-utils';
 
 export async function POST(request: Request) {
   try {
@@ -148,7 +148,7 @@ export async function POST(request: Request) {
     // Find our preference record
     const preference = await prisma.mpPaymentPreference.findFirst({
       where: { externalReference },
-      select: { id: true, status: true, description: true, amount: true, doctorId: true, bookingId: true },
+      select: { id: true, status: true, mpPaymentId: true, description: true, amount: true, doctorId: true, bookingId: true },
     });
 
     if (!preference) {
@@ -158,53 +158,92 @@ export async function POST(request: Request) {
 
     switch (payment.status) {
       case 'approved': {
-        // Only update if still PENDING (idempotent)
-        if (preference.status === 'PENDING') {
-          await prisma.mpPaymentPreference.update({
-            where: { id: preference.id },
-            data: {
-              status: 'PAID',
-              mpPaymentId: paymentId,
-              paymentMethod: payment.payment_method_id || payment.payment_type_id || null,
-              paidAt: new Date(),
-              isActive: false,
-            },
-          });
+        // Already processed by the code before 2026-10-04 (its ledger rows carry no provider id,
+        // so the dedupe below can't see them). Harmless afterwards: the dedupe catches it too.
+        if (preference.mpPaymentId === paymentId) break;
 
-          // Notify doctor via Telegram
-          if (doctor.telegramChatId) {
-            const amount = payment.transaction_amount || preference.amount;
-            const method = payment.payment_method_id || 'desconocido';
-            await sendTelegramMessage(
-              doctor.telegramChatId,
-              `💰 Pago recibido via Mercado Pago\n` +
-              `Monto: $${Number(amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN\n` +
-              `Metodo: ${method}\n` +
-              `${preference.description ? `Descripcion: ${preference.description}` : ''}`
-            ).catch(err => console.error('[MP Webhook] Telegram error:', err));
-          }
+        const amount = Number(payment.transaction_amount || preference.amount);
 
-          // Create LedgerEntry for the payment
-          const mpFormaDePago = mapMpPaymentMethod(payment.payment_method_id || payment.payment_type_id);
-          await createPaymentLedgerEntry({
+        // Record the money FIRST — idempotent on the payment id, whatever the preference's state
+        // (H-010 / H-054, 2026-10-04): an MP link can't be killed on MP's side, so a patient can
+        // still pay one we marked CANCELLED, or pay a PAID one a second time. That is real money:
+        // it reaches Flujo flagged «⚠️ Revisar…», never dropped. If recording fails, answer 500 so
+        // MP retries (the rest of this route answers 200 on purpose; this one must not).
+        let entry: Awaited<ReturnType<typeof createPaymentLedgerEntry>>;
+        try {
+          entry = await createPaymentLedgerEntry({
             doctorId: preference.doctorId,
-            amount: Number(payment.transaction_amount || preference.amount),
+            amount,
             concept: preference.description || 'Pago recibido via Mercado Pago',
             bookingId: preference.bookingId,
-            formaDePago: mpFormaDePago,
+            formaDePago: mapMpPaymentMethod(payment.payment_method_id || payment.payment_type_id),
             paymentProvider: 'mercadopago',
-          }).catch(err => console.error('[MP Webhook] Error creating LedgerEntry:', err));
+            providerPaymentId: `mp:${paymentId}`,
+            linkStatusPrevio: preference.status,
+            fechaPago: payment.date_approved ? new Date(payment.date_approved) : null,
+          });
+        } catch (err) {
+          console.error(`[MP Webhook] payment ${paymentId} ($${amount}) NOT recorded in Flujo — asking MP to retry:`, err);
+          return NextResponse.json({ error: 'ledger write failed' }, { status: 500 });
+        }
+
+        // Then the link — also when `yaRegistrado`: a retry after this update failed must still
+        // bring the link to PAID. mpPaymentId = the payment that made it PAID, set only by the
+        // update that flips it (conditional, so two payments processed at once can't overwrite each
+        // other); a second payment on an already-PAID link leaves it alone, so refunding the
+        // duplicate (what the review alert suggests) doesn't cancel a link that is still paid.
+        const fechaPago = payment.date_approved ? new Date(payment.date_approved) : new Date();
+        try {
+          const flipped = await prisma.mpPaymentPreference.updateMany({
+            where: { id: preference.id, status: { not: 'PAID' } },
+            data: {
+              status: 'PAID',
+              isActive: false,
+              mpPaymentId: paymentId,
+              paymentMethod: payment.payment_method_id || payment.payment_type_id || null,
+              paidAt: fechaPago,
+            },
+          });
+          if (flipped.count === 0) {
+            await prisma.mpPaymentPreference.update({ where: { id: preference.id }, data: { isActive: false } });
+          }
+        } catch (err) {
+          console.error(`[MP Webhook] payment ${paymentId} recorded but preference ${preference.id} not marked PAID — asking MP to retry:`, err);
+          return NextResponse.json({ error: 'preference update failed' }, { status: 500 });
+        }
+        // A retry of a recorded payment notifies only if the first attempt died before marking the
+        // link (so it never notified either); otherwise it was already told.
+        if (entry.yaRegistrado && preference.status === 'PAID') break;
+
+        if (doctor.telegramChatId) {
+          const method = payment.payment_method_id || 'desconocido';
+          await sendTelegramMessage(
+            doctor.telegramChatId,
+            `💰 Pago recibido via Mercado Pago\n` +
+            `Monto: $${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN\n` +
+            `Metodo: ${method}\n` +
+            `${preference.description ? `Descripcion: ${preference.description}` : ''}`
+          ).catch(err => console.error('[MP Webhook] Telegram error:', err));
+          if (entry.motivoRevision) {
+            await sendTelegramMessage(
+              doctor.telegramChatId,
+              textoAvisoRevisionPago(entry.motivoRevision, amount, entry.internalId)
+            ).catch(err => console.error('[MP Webhook] Telegram error:', err));
+          }
         }
         break;
       }
 
       case 'refunded':
-      case 'cancelled':
       case 'charged_back': {
-        await prisma.mpPaymentPreference.updateMany({
-          where: { id: preference.id },
-          data: { status: 'CANCELLED', isActive: false },
-        });
+        // Only the payment that paid this preference cancels it. A refund of some OTHER attempt
+        // (e.g. a second payment on the same link) leaves a still-paid link alone.
+        if (preference.mpPaymentId === paymentId) {
+          await prisma.mpPaymentPreference.updateMany({
+            where: { id: preference.id },
+            data: { status: 'CANCELLED', isActive: false },
+          });
+        }
 
         if (payment.status === 'charged_back' && doctor.telegramChatId) {
           await sendTelegramMessage(
@@ -218,6 +257,10 @@ export async function POST(request: Request) {
         break;
       }
 
+      // `cancelled` = ONE payment attempt died (e.g. an OXXO ticket never paid), not the link:
+      // the patient can still pay it another way. Marking the preference CANCELLED here made the
+      // next legitimate payment look like «pago con un link desactivado».
+      case 'cancelled':
       case 'rejected':
       case 'in_process':
       case 'pending': {

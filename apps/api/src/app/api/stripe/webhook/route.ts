@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { prisma } from '@healthcare/database';
 import { stripe } from '@/lib/stripe';
 import { sendTelegramMessage } from '@/lib/telegram';
-import { createPaymentLedgerEntry } from '@/lib/practice-utils';
+import { createPaymentLedgerEntry, textoAvisoRevisionPago } from '@/lib/practice-utils';
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -97,22 +97,7 @@ export async function POST(request: Request) {
         if (paymentLinkId && typeof paymentLinkId === 'string') {
           // For immediate payments (card), mark as PAID
           if (session.payment_status === 'paid') {
-            const updated = await prisma.paymentLink.updateMany({
-              where: {
-                stripePaymentLinkId: paymentLinkId,
-                status: 'PENDING',
-              },
-              data: {
-                status: 'PAID',
-                paidAt: new Date(),
-              },
-            });
-
-            // Notify doctor + create LedgerEntry
-            if (updated.count > 0) {
-              await notifyPaymentReceived(paymentLinkId);
-              await createLedgerFromStripePayment(paymentLinkId, 'tarjeta');
-            }
+            await recordStripePayment(paymentLinkId, session, new Date(event.created * 1000), 'tarjeta');
           }
           // For async methods (OXXO), payment_status will be 'unpaid'
           // and we wait for checkout.session.async_payment_succeeded
@@ -140,21 +125,7 @@ export async function POST(request: Request) {
         const paymentLinkId = session.payment_link;
 
         if (paymentLinkId && typeof paymentLinkId === 'string') {
-          const updated = await prisma.paymentLink.updateMany({
-            where: {
-              stripePaymentLinkId: paymentLinkId,
-              status: 'PENDING',
-            },
-            data: {
-              status: 'PAID',
-              paidAt: new Date(),
-            },
-          });
-
-          if (updated.count > 0) {
-            await notifyPaymentReceived(paymentLinkId);
-            await createLedgerFromStripePayment(paymentLinkId, 'efectivo');
-          }
+          await recordStripePayment(paymentLinkId, session, new Date(event.created * 1000), 'efectivo');
         }
         break;
       }
@@ -302,62 +273,78 @@ export async function POST(request: Request) {
 }
 
 /**
- * Helper: create a LedgerEntry when a Stripe payment is received
+ * Helper: record a paid checkout session of one of our payment links — income in Flujo, link
+ * marked PAID, Telegram to the doctor.
+ *
+ * Idempotent on the CHECKOUT SESSION id (`ledger_entries.provider_payment_id`), not on the link's
+ * status (H-010 / H-054, 2026-10-04): deactivating a link on Stripe doesn't stop a checkout already
+ * in flight (an OXXO voucher issued before, a second device), and that money is real — it reaches
+ * Flujo flagged «⚠️ Revisar…», never dropped. The income is written FIRST; if that throws, the
+ * error propagates and the route answers 500, so Stripe retries the event.
  */
-async function createLedgerFromStripePayment(stripePaymentLinkId: string, formaDePago: string) {
-  try {
-    const link = await prisma.paymentLink.findFirst({
-      where: { stripePaymentLinkId },
-      select: {
-        doctorId: true,
-        amount: true,
-        description: true,
-        bookingId: true,
-      },
-    });
+/** Deploy of the provider-payment-id dedupe (H-010). Links paid before it were recorded without one. */
+const CORTE_IDEMPOTENCIA_POR_PAGO = new Date('2026-10-04T00:00:00Z');
 
-    if (!link) return;
+async function recordStripePayment(
+  stripePaymentLinkId: string,
+  session: { id: string; amount_total: number | null },
+  fechaPago: Date,
+  formaDePago: string
+) {
+  const link = await prisma.paymentLink.findUnique({
+    where: { stripePaymentLinkId },
+    select: {
+      id: true,
+      status: true,
+      doctorId: true,
+      amount: true,
+      currency: true,
+      description: true,
+      bookingId: true,
+      paidAt: true,
+      doctor: { select: { telegramChatId: true } },
+    },
+  });
+  if (!link) return;
+  // Paid under the code before 2026-10-04: its ledger row has no provider id, so the dedupe can't
+  // see it — a re-delivered event (or a dashboard «Resend») would book it twice. The link takes
+  // ONE checkout (`completed_sessions: { limit: 1 }`), so a PAID-before-the-cut link is that one.
+  if (link.status === 'PAID' && link.paidAt && link.paidAt < CORTE_IDEMPOTENCIA_POR_PAGO) return;
 
-    await createPaymentLedgerEntry({
-      doctorId: link.doctorId,
-      amount: Number(link.amount),
-      concept: link.description || 'Pago recibido via Stripe',
-      bookingId: link.bookingId,
-      formaDePago,
-      paymentProvider: 'stripe',
-    });
-  } catch (err) {
-    console.error('[stripe-webhook] Error creating LedgerEntry:', err);
-  }
-}
+  // What was actually charged; the link's configured amount only as a fallback.
+  const amount = session.amount_total != null ? session.amount_total / 100 : Number(link.amount);
+  const entry = await createPaymentLedgerEntry({
+    doctorId: link.doctorId,
+    amount,
+    concept: link.description || 'Pago recibido via Stripe',
+    bookingId: link.bookingId,
+    formaDePago,
+    paymentProvider: 'stripe',
+    providerPaymentId: `stripe:${session.id}`,
+    linkStatusPrevio: link.status,
+    fechaPago,
+  });
 
-/**
- * Helper: notify doctor via Telegram when a payment is received
- */
-async function notifyPaymentReceived(stripePaymentLinkId: string) {
-  try {
-    const link = await prisma.paymentLink.findFirst({
-      where: { stripePaymentLinkId },
-      select: {
-        amount: true,
-        currency: true,
-        description: true,
-        doctor: {
-          select: { telegramChatId: true },
-        },
-      },
-    });
+  // Also when `yaRegistrado`: a retry after this update failed must still bring the link to PAID.
+  await prisma.paymentLink.update({
+    where: { id: link.id },
+    data: { status: 'PAID', isActive: false, ...(link.status === 'PAID' ? {} : { paidAt: fechaPago }) },
+  });
+  // A retry of a recorded payment notifies only if the first attempt died before marking the link
+  // (so it never notified either); otherwise it was already told.
+  if (entry.yaRegistrado && link.status === 'PAID') return;
 
-    if (link?.doctor?.telegramChatId) {
-      const amount = Number(link.amount);
-      await sendTelegramMessage(
-        link.doctor.telegramChatId,
-        `💰 <b>Pago recibido</b>\n\n` +
-        `Monto: $${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${link.currency}\n` +
-        (link.description ? `Concepto: ${link.description}` : '')
-      );
+  const chatId = link.doctor?.telegramChatId;
+  if (chatId) {
+    await sendTelegramMessage(
+      chatId,
+      `💰 <b>Pago recibido</b>\n\n` +
+      `Monto: $${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${link.currency}\n` +
+      (link.description ? `Concepto: ${link.description}` : '')
+    ).catch(err => console.error('[stripe-webhook] Telegram error:', err));
+    if (entry.motivoRevision) {
+      await sendTelegramMessage(chatId, textoAvisoRevisionPago(entry.motivoRevision, amount, entry.internalId))
+        .catch(err => console.error('[stripe-webhook] Telegram error:', err));
     }
-  } catch (err) {
-    console.error('Error sending payment notification:', err);
   }
 }

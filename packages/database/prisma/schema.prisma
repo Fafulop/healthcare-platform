@@ -1308,6 +1308,9 @@ model LedgerEntry {
   hasComprobante  Boolean            @default(false) @map("has_comprobante")
   hasFactura      Boolean            @default(false) @map("has_factura")
   satCfdiUuid     String?            @unique @map("sat_cfdi_uuid") @db.VarChar(100)
+  // origin "webhook_pago": the provider's id of THE payment (`mp:<payment id>` · `stripe:<checkout
+  // session id>`) — the webhook's idempotency key (H-010, add-ledger-provider-payment-id.sql).
+  providerPaymentId String?          @unique @map("provider_payment_id") @db.VarChar(255)
 
   // Auto-linking metadata (Phase 1: consolidated money model)
   autoLinkedConfidence Decimal?      @map("auto_linked_confidence") @db.Decimal(5, 4)
