@@ -1,10 +1,10 @@
 # Recordatorios y datos obligatorios del paciente
 
 **Pasos — Recordatorio**
-1. Tarjeta **«Recordatorio automático por correo»**: enciéndela y elige cuánto antes (15 min a 1 día).
+1. En **«Mis Citas»**, tarjeta **«Recordatorio automático por correo»**: enciéndela y elige cuánto antes (15 min a 1 día).
 
 **Pasos — Campos de Cita**
-1. **«Campos de Cita»**. Hay tres secciones: **«Reserva pública»**, **«Horarios disponibles»** y **«Nuevo horario»** (la que aplica cuando agendas con «Agendar Cita»).
+1. En **«Mis Citas»**, botón **«Campos de Cita»** (en el celular sólo se ve su ícono). Hay tres secciones: **«Reserva pública»**, **«Horarios disponibles»** y **«Nuevo horario»** (la que aplica cuando agendas con «Agendar Cita»).
 2. Enciende lo que quieras obligatorio (Correo, Teléfono, WhatsApp) → **«Guardar»**.
 
 **Qué vas a ver:** «Configuración guardada». Al agendar, el campo dice «Teléfono *» y no deja confirmar vacío.

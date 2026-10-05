@@ -6,7 +6,7 @@
 1. **«Expedientes Médicos» → «Plantillas» → «Crear plantilla»**.
 2. Escribe el **nombre** de la plantilla arriba.
 3. **Arrastra** un tipo de campo de la izquierda al lienzo (Texto, Texto largo, Número, Fecha, Hora, Desplegable, Selección, Casilla). El primero también con **«Agregar Primer Campo»**.
-4. Con el campo seleccionado, a la derecha: **Etiqueta** y **Etiqueta (Español)**, «Requerido», **Sección**, ancho; en Desplegable/Selección escribe las **Opciones** («+ Agregar Opción»).
+4. Con el campo seleccionado, a la derecha: **Etiqueta** y **Etiqueta (Español)**, «Requerido», **Sección**, ancho; en Desplegable/Selección escribe las **Opciones** («Agregar Opción»).
 5. Si es para pre-consulta, marca **«Usar como formulario pre-cita»**.
 6. **«Vista previa»** para revisarla → **«Guardar»**.
 

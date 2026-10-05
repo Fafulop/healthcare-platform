@@ -16,4 +16,4 @@
 
 ---
 
-**QA (interno — se quita al publicar):** 2026-10-03 — E13 ✅ archivar (QA C4, `PATIENT_ARCHIVED`). H-041 «Reactivar» construido 2026-10-05 — verificar tras el deploy; ⚠️ H-042 (cita futura sigue sin aviso).
+**QA (interno — se quita al publicar):** 2026-10-03 — E13 ✅ archivar (QA C4, `PATIENT_ARCHIVED`). H-041 «Reactivar» ✅ en prod 2026-10-05 (`e00727e4`, QA C4 reactivado y vuelto a archivar); ⚠️ H-042 (cita futura sigue sin aviso).

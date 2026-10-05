@@ -11,7 +11,7 @@
 
 **Cancelar una receta emitida:** **«Cancelar Prescripción»** → escribe el **Motivo de Cancelación** → confirma.
 
-**Qué vas a ver:** la receta «Emitida» con tu nombre y cédulas, el paciente y la visita a la que pertenece.
+**Qué vas a ver:** la receta «Emitida» con tu nombre y cédulas, el paciente y la visita a la que pertenece. El PDF siempre lleva tu nombre, tu(s) cédula(s) y la fecha de la receta; su diseño (tamaño de hoja, logo, firma, márgenes) se cambia en **«Receta PDF»**.
 
 **Video:** (pendiente)
 

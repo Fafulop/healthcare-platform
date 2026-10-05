@@ -3,11 +3,12 @@
 **Pasos**
 1. Abre la visita → **Plantillas → «Agregar plantilla»**.
 2. Arriba, **«Plantilla:»** elige la tuya.
-3. Llena los campos → **«Guardar en la visita»**.
+3. Revisa la **«Fecha de Consulta»** (trae la de la visita; la puedes cambiar), llena los campos → **«Guardar en la visita»**.
 
 **Después:**
 - **Abrirla:** clic en ella dentro de la visita. Tiene **«PDF»**, **«Informe»**, **«Editar»** y **«Eliminar»**.
-- **Moverla a otra visita:** en la visita, **«Mover a…»** → elige la visita → **«Confirmar»**.
+- **Su PDF:** **«PDF»** abre la vista previa → **«Descargar»**. Siempre lleva tu nombre, tu(s) cédula(s) y la fecha de la consulta. Con el engrane junto a «PDF» eliges encabezado, pie y márgenes (los márgenes son para hoja membretada: sólo cuentan con el encabezado o el pie ocultos).
+- **Moverla a otra visita:** en la visita, **«Mover a…»** → elige la visita → **«¿Mover la plantilla?»** → **«Confirmar»**.
 
 **Qué vas a ver:** la plantilla en la visita, «Completada». Al abrirla ves cada campo con su valor.
 
