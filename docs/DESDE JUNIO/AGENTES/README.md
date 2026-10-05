@@ -64,6 +64,12 @@ Conteos exactos (tools, evals, prefijo) y las fronteras completas:
 
 ## Qué sigue (2026-07-23 · actualizado 2026-07-27 · **2026-09-14**)
 
+- 💡 **2026-10-05 — IDEA (nada construido, nada decidido): un copiloto «tipo Jarvis» que guía y actúa
+  dentro de la app** — sabe *cómo se hace* cada cosa por las 27 guías de Ayuda («Flujos») y actúa con
+  **acciones de interfaz** que la app expone (navegar, abrir, resaltar, prellenar — nunca escriben),
+  más las tools de hoy con su card; voz encima, al final. Depende del contexto de pantalla (plan 12).
+  [`GENERAL AGENTES/13-IDEA-copiloto-que-guia-y-actua.md`](GENERAL%20AGENTES/13-IDEA-copiloto-que-guia-y-actua.md).
+
 - 🌱 **2026-09-14 — CONTEXTO DE PANTALLA: investigado, planeado, NADA construido (pausado por
   prioridad).** Que el panel sepa qué pantalla está viendo el doctor, copiando la arquitectura
   navegador↔LLM↔humano de *Gemini in Chrome* — con nuestro modelo y nuestras tools, **sin
