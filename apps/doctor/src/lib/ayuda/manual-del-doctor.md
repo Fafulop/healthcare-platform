@@ -632,7 +632,9 @@ guardar**. Es el mismo dibujo que la receta que descargas.
   (el logo y la firma se guardan al subirlos; lo demás, con «Guardar Plantilla»).
 - **Impresión:** tamaño de papel (para tu recetario), vertical u horizontal, mostrar u ocultar el
   encabezado, el logo, el pie y la firma, los **márgenes** para hoja membretada y qué secciones lleva
-  (datos del paciente, diagnóstico, notas clínicas) → «Guardar impresión».
+  (datos del paciente, diagnóstico, notas clínicas) → «Guardar impresión». El margen de arriba sólo
+  cuenta con el encabezado oculto, y el de abajo con el pie oculto (con ellos puestos la hoja es
+  blanca y el margen sólo dejaría espacio vacío); igual en la configuración del PDF de una consulta.
 - En el celular, la receta se ve abajo con «Ver receta»; si tu teléfono no la muestra, «Abrir en otra pestaña».
 
 **Siempre salen tu nombre, tu(s) cédula(s) profesional(es) y la fecha** en la receta y en el PDF de

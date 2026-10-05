@@ -78,6 +78,29 @@ export function tamanoQueCabe(doc: JsPDF, text: string, size: number, ancho: num
 }
 
 /**
+ * Where the content of a clinical sheet can go (receta and the shared sheet, `pdf-documento.ts` — ONE
+ * copy so the two cannot drift):
+ *  · letterhead margins only count while THEIR band is off (header → top, footer → bottom): with our
+ *    band on the paper is plain and the margin only left ~3 cm blank under it (H-067);
+ *  · guard: margins of up to 80 mm each on a small/landscape page must never leave a zero/negative
+ *    content area (addPage() forever would hang the tab), so both scale down until ~30 mm fit.
+ */
+export function geometriaDeHoja(rx: AjustesRx, pageH: number) {
+  const footerH = rx.showFooter ? 22 : 0;
+  const bandTop = rx.showHeader ? 40 : 14;
+  let topMarginMm = rx.showHeader ? 0 : rx.topMarginMm;
+  let bottomMarginMm = rx.showFooter ? 0 : rx.bottomMarginMm;
+  const availForMargins = pageH - bandTop - footerH - 30 - 6;
+  if (topMarginMm + bottomMarginMm > availForMargins) {
+    const scale = Math.max(0, availForMargins) / (topMarginMm + bottomMarginMm || 1);
+    topMarginMm = Math.floor(topMarginMm * scale);
+    bottomMarginMm = Math.floor(bottomMarginMm * scale);
+  }
+  const footerY = pageH - footerH - bottomMarginMm;
+  return { footerH, topMarginMm, footerY, maxContentY: footerY - 6, topReset: topMarginMm + 14 };
+}
+
+/**
  * El renglón de identidad cuando la hoja va SIN encabezado: «Dr. … · Céd. … · 22 oct 2026», en gris,
  * partido en renglones si no cabe. Devuelve dónde sigue el cuerpo. Lo usan la receta y la hoja compartida (`pdf-documento.ts`).
  */
@@ -133,25 +156,7 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 14;
   const colW = pageW - margin * 2;
-  const footerH = rx.showFooter ? 22 : 0;
-
-  // Guard: letterhead margins (up to 80mm each) on small/landscape pages
-  // must never leave a zero/negative content area — checkPage would call
-  // addPage() forever and hang the tab. Scale both down proportionally so
-  // at least ~30mm of content fits per page.
-  const bandTop = rx.showHeader ? 40 : 14;
-  let topMarginMm = rx.topMarginMm;
-  let bottomMarginMm = rx.bottomMarginMm;
-  const availForMargins = pageH - bandTop - footerH - 30 - 6;
-  if (topMarginMm + bottomMarginMm > availForMargins) {
-    const scale = Math.max(0, availForMargins) / (topMarginMm + bottomMarginMm || 1);
-    topMarginMm = Math.floor(topMarginMm * scale);
-    bottomMarginMm = Math.floor(bottomMarginMm * scale);
-  }
-
-  const footerY = pageH - footerH - bottomMarginMm;
-  const maxContentY = footerY - 6;
-  const topReset = topMarginMm + 14;
+  const { footerH, topMarginMm, footerY, maxContentY, topReset } = geometriaDeHoja(rx, pageH);
   let y = 0;
 
   // Credential lines, ONCE for header, footer and the no-band identity line. Without credentials nor a

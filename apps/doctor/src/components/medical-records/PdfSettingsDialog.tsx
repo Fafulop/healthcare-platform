@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Loader2, Eye } from 'lucide-react';
 import type { PdfSettings } from '@/types/pdf-settings';
-import { DEFAULT_PDF_SETTINGS } from '@/types/pdf-settings';
+import { DEFAULT_PDF_SETTINGS, notaMargenesSinUso } from '@/types/pdf-settings';
 
 interface PdfSettingsDialogProps {
   open: boolean;
@@ -21,9 +21,13 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
   const [saved, setSaved] = useState(false);
   // The close that follows a save; cancelled if the dialog is closed and reopened before it fires.
   const cierre = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Which opening of the dialog this is: a save answered AFTER a close + reopen must not touch (or
+  // close) the new opening.
+  const apertura = useRef(0);
 
   useEffect(() => {
     if (open) {
+      apertura.current += 1;
       if (cierre.current) clearTimeout(cierre.current);
       fetchSettings();
       setSaved(false);
@@ -48,6 +52,7 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
   };
 
   const handleSave = async () => {
+    const miApertura = apertura.current;
     setSaving(true);
     setError('');
     setSaved(false);
@@ -61,8 +66,10 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
       if (data.success) {
         onSettingsLoaded(data.data);
         // Show «Guardado» for a moment, then close: staying open looked like the save did nothing (H-066).
-        setSaved(true);
-        cierre.current = setTimeout(onClose, 700);
+        if (apertura.current === miApertura) {
+          setSaved(true);
+          cierre.current = setTimeout(onClose, 700);
+        }
       } else {
         setError(data.error || 'Error al guardar');
       }
@@ -143,7 +150,8 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
                       max={80}
                       value={settings.topMarginMm}
                       onChange={(e) => setMargin('topMarginMm', e.target.value)}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={settings.showHeader}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
                     />
                     <span className="text-xs text-gray-500">mm</span>
                   </div>
@@ -157,13 +165,17 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
                       max={80}
                       value={settings.bottomMarginMm}
                       onChange={(e) => setMargin('bottomMarginMm', e.target.value)}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={settings.showFooter}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
                     />
                     <span className="text-xs text-gray-500">mm</span>
                   </div>
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-1">Espacio en blanco para logo o datos preimpresos (0-80 mm)</p>
+              {notaMargenesSinUso(settings.showHeader, settings.showFooter) && (
+                <p className="text-xs text-amber-700 mt-1">{notaMargenesSinUso(settings.showHeader, settings.showFooter)}</p>
+              )}
             </div>
 
             {/* Sections */}

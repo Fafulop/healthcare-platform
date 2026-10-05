@@ -49,6 +49,15 @@ export const RX_PAGE_SIZES: { id: RxPageSize; label: string }[] = [
   { id: 'a5', label: 'A5 (148 × 210 mm)' },
 ];
 
+/** Why a letterhead margin is greyed out in the print settings (H-067): each margin only counts while
+ * ITS band (header → top, footer → bottom) is off. `null` = both margins are in use. */
+export function notaMargenesSinUso(conEncabezado: boolean, conPie: boolean): string | null {
+  if (conEncabezado && conPie) return 'Con encabezado y pie puestos no se usan: los márgenes son para hoja membretada.';
+  if (conEncabezado) return 'Con el encabezado puesto no se usa el margen superior: es para hoja membretada.';
+  if (conPie) return 'Con el pie puesto no se usa el margen inferior: es para hoja membretada.';
+  return null;
+}
+
 export const DEFAULT_PDF_SETTINGS: PdfSettings = {
   // Encounter
   showHeader: true,

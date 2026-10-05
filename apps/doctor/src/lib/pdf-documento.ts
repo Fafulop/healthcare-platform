@@ -15,7 +15,7 @@
  */
 import type { jsPDF as JsPDF } from 'jspdf';
 import { RX_PAGE_FORMATS } from '@/types/pdf-settings';
-import { COLOR_MAP, renglonIdentidad, tamanoQueCabe, type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
+import { COLOR_MAP, geometriaDeHoja, renglonIdentidad, tamanoQueCabe, type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
 
 /** Quién firma y dónde: del diseño de la receta + el consultorio PRINCIPAL del perfil. */
 export interface EmisorNota {
@@ -69,24 +69,11 @@ export function abrirHoja(
   const margin = 14;
   const colW = pageW - margin * 2;
   const narrow = pageW < 180;
-  const footerH = rx.showFooter ? 22 : 0;
   const grande = narrow && titulo.grandeAngosto ? titulo.grandeAngosto : titulo.grande;
   const subtitulo = narrow && titulo.subtituloAngosto !== undefined ? titulo.subtituloAngosto : titulo.subtitulo;
 
-  // Mismo guardia que la receta: márgenes de membrete grandes en hoja chica no deben dejar el área
-  // de contenido en cero (addPage sin fin).
-  const bandTop = rx.showHeader ? 40 : 14;
-  let topMarginMm = rx.topMarginMm;
-  let bottomMarginMm = rx.bottomMarginMm;
-  const availForMargins = pageH - bandTop - footerH - 30 - 6;
-  if (topMarginMm + bottomMarginMm > availForMargins) {
-    const scale = Math.max(0, availForMargins) / (topMarginMm + bottomMarginMm || 1);
-    topMarginMm = Math.floor(topMarginMm * scale);
-    bottomMarginMm = Math.floor(bottomMarginMm * scale);
-  }
-  const footerY = pageH - footerH - bottomMarginMm;
-  const maxContentY = footerY - 6;
-  const topReset = topMarginMm + 14;
+  // Márgenes de membrete (sólo con su banda apagada) y guardia de área mínima: los mismos que la receta.
+  const { footerH, topMarginMm, footerY, maxContentY, topReset } = geometriaDeHoja(rx, pageH);
   let y = 0;
 
   const credLines = (emisor.credentials.length

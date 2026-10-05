@@ -328,7 +328,7 @@ export function dibujarConsulta(
         doc.text(`Página ${i} de ${totalPages}`, W / 2, h.footerY + h.footerH - 3, { align: 'center' });
       } else {
         doc.setTextColor(160, 160, 160);
-        doc.text(`Página ${i} de ${totalPages}`, W - m, h.pageH - 6 - settings.bottomMarginMm, { align: 'right' });
+        doc.text(`Página ${i} de ${totalPages}`, W - m, h.footerY - 6, { align: 'right' });
       }
     }
   }

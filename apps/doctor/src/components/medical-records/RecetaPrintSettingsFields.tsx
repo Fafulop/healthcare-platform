@@ -9,7 +9,7 @@
  */
 
 import type { PdfSettings, RxPageSize } from '@/types/pdf-settings';
-import { RX_PAGE_SIZES } from '@/types/pdf-settings';
+import { RX_PAGE_SIZES, notaMargenesSinUso } from '@/types/pdf-settings';
 
 export function RecetaPrintSettingsFields({
   settings, onChange,
@@ -25,7 +25,7 @@ export function RecetaPrintSettingsFields({
     <div className="space-y-5">
       {/* Page size */}
       <div>
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Tamaño de Papel</p>
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Tamaño de papel</p>
         <select
           value={settings.rxPageSize}
           onChange={(e) => onChange({ ...settings, rxPageSize: e.target.value as RxPageSize })}
@@ -64,25 +64,26 @@ export function RecetaPrintSettingsFields({
 
       {/* Header & Footer */}
       <div>
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Encabezado y Pie de Pagina</p>
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Encabezado y pie de página</p>
         <div className="space-y-2">
-          <CheckboxRow id="rxShowHeader" label="Mostrar encabezado (barra con RECETA MEDICA)" checked={settings.rxShowHeader} onChange={() => toggle('rxShowHeader')} />
+          <CheckboxRow id="rxShowHeader" label="Mostrar encabezado (barra con RECETA MÉDICA)" checked={settings.rxShowHeader} onChange={() => toggle('rxShowHeader')} />
           <CheckboxRow id="rxShowLogo" label="Mostrar logo del consultorio (en el encabezado)" checked={settings.rxShowLogo} onChange={() => toggle('rxShowLogo')} />
-          <CheckboxRow id="rxShowFooter" label="Mostrar pie de pagina (datos del doctor + firma)" checked={settings.rxShowFooter} onChange={() => toggle('rxShowFooter')} />
-          <CheckboxRow id="rxShowSignature" label="Mostrar firma digital (en el pie de pagina)" checked={settings.rxShowSignature} onChange={() => toggle('rxShowSignature')} />
+          <CheckboxRow id="rxShowFooter" label="Mostrar pie de página (datos del doctor + firma)" checked={settings.rxShowFooter} onChange={() => toggle('rxShowFooter')} />
+          <CheckboxRow id="rxShowSignature" label="Mostrar firma digital (en el pie de página)" checked={settings.rxShowSignature} onChange={() => toggle('rxShowSignature')} />
         </div>
       </div>
 
       {/* Margins */}
       <div>
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Margenes para Papel Membretado</p>
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Márgenes para papel membretado</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm text-gray-700 mb-1">Margen superior</label>
             <div className="flex items-center gap-1.5">
               <input type="number" min={0} max={80} value={settings.rxTopMarginMm}
                 onChange={(e) => setMargin('rxTopMarginMm', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                disabled={settings.rxShowHeader}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400" />
               <span className="text-xs text-gray-500">mm</span>
             </div>
           </div>
@@ -91,17 +92,21 @@ export function RecetaPrintSettingsFields({
             <div className="flex items-center gap-1.5">
               <input type="number" min={0} max={80} value={settings.rxBottomMarginMm}
                 onChange={(e) => setMargin('rxBottomMarginMm', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                disabled={settings.rxShowFooter}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400" />
               <span className="text-xs text-gray-500">mm</span>
             </div>
           </div>
         </div>
-        <p className="text-xs text-gray-400 mt-1">Espacio en blanco para logo o datos pre-impresos (0-80 mm)</p>
+        <p className="text-xs text-gray-400 mt-1">Espacio en blanco para logo o datos preimpresos (0-80 mm)</p>
+        {notaMargenesSinUso(settings.rxShowHeader, settings.rxShowFooter) && (
+          <p className="text-xs text-amber-700 mt-1">{notaMargenesSinUso(settings.rxShowHeader, settings.rxShowFooter)}</p>
+        )}
       </div>
 
       {/* Sections */}
       <div>
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Secciones del Documento</p>
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Secciones del documento</p>
         <div className="space-y-2">
           <CheckboxRow id="rxShowPatientBox" label="Datos del paciente" checked={settings.rxShowPatientBox} onChange={() => toggle('rxShowPatientBox')} />
           <CheckboxRow id="rxShowDiagnosis" label="Diagnostico" checked={settings.rxShowDiagnosis} onChange={() => toggle('rxShowDiagnosis')} />
