@@ -6,6 +6,8 @@ import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { calculateAge, formatDateLong } from '@/lib/practice-utils';
 import { practiceConfirm } from '@/lib/practice-confirm';
+import { toast } from '@/lib/practice-toast';
+import { mensajeSinCupo } from '@/lib/mensaje-cupo';
 import type { Patient } from './patient-types';
 
 export function usePatientProfile() {
@@ -24,6 +26,9 @@ export function usePatientProfile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isReactivating, setIsReactivating] = useState(false);
+  // Why the last «Reactivar» failed — stays on screen (a 4.5 s toast is too short for the plan message).
+  const [avisoReactivar, setAvisoReactivar] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPatient();
@@ -74,6 +79,38 @@ export function usePatientProfile() {
     }
   };
 
+  // H-041: un expediente archivado (o inactivo) vuelve a «activo». El servidor cuenta ese REGRESO contra
+  // el cupo del plan (TIERS Q3, `assertPatientQuota` en el PUT); sin lugar, el mismo mensaje que
+  // «Nuevo paciente» — en un aviso que se queda en la pantalla, no en lugar del perfil.
+  const handleReactivate = async () => {
+    const confirmed = await practiceConfirm(
+      'Vuelve a tu lista de pacientes activos y cuenta para el cupo de tu plan.',
+      '¿Reactivar este paciente?'
+    );
+    if (!confirmed) return;
+
+    setIsReactivating(true);
+    setAvisoReactivar(null);
+    try {
+      const res = await fetch(`/api/medical-records/patients/${patientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAvisoReactivar(data.error === 'QUOTA_EXCEEDED' ? mensajeSinCupo(data) : (data.error || 'No se pudo reactivar al paciente.'));
+        return;
+      }
+      toast.success('Paciente reactivado');
+      await fetchPatient();
+    } catch {
+      setAvisoReactivar('No se pudo reactivar al paciente. Revisa tu conexión e inténtalo de nuevo.');
+    } finally {
+      setIsReactivating(false);
+    }
+  };
+
   return {
     // Route
     patientId,
@@ -85,11 +122,14 @@ export function usePatientProfile() {
     loading,
     error,
     isArchiving,
+    isReactivating,
+    avisoReactivar,
     // Helpers
     calculateAge,
     formatDate: formatDateLong,
     // Actions
     handleArchive,
+    handleReactivate,
     refreshPatient: fetchPatient,
   };
 }

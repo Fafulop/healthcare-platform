@@ -18,4 +18,4 @@
 
 ---
 
-**QA (interno — se quita al publicar):** 2026-10-03 — E4/E13/X5/X6/X7/X23/X25 ✅ (llenar, editar 72.5→71, requerido, mover, eliminar `delete_encounter`, PDF). H-022 y H-048 arreglados y verificados en prod (2026-10-05); H-021/H-046/H-023 arreglados 2026-10-05 (la plantilla se lista con su nombre, «¿Mover la plantilla?», fecha legible) — verificar tras el deploy; H-026 («true»), H-025 (un campo «Archivo» viejo ahora muestra el aviso «Sube el archivo en Fotos y documentos…»; verificar tras el deploy).
+**QA (interno — se quita al publicar):** 2026-10-03 — E4/E13/X5/X6/X7/X23/X25 ✅ (llenar, editar 72.5→71, requerido, mover, eliminar `delete_encounter`, PDF). H-022 y H-048 arreglados y verificados en prod (2026-10-05); H-021/H-046/H-023 arreglados y ✅ verificados en prod 2026-10-05 (`a58aaae8`: la plantilla se lista con su nombre, «¿Mover la plantilla?», fecha legible); H-026 («true»), H-025 (un campo «Archivo» viejo ahora muestra el aviso «Sube el archivo en Fotos y documentos…»; verificar tras el deploy).

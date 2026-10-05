@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { NotasCita } from "@/components/citas/NotasCita";
-import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, CalendarDays, ClipboardList, DollarSign, Receipt, AlertCircle, CheckCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp, ArchiveRestore } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { NuevaVisitaModal } from '@/components/medical-records/visitas/NuevaVisitaModal';
@@ -784,8 +784,11 @@ export default function PatientProfilePage() {
     loading,
     error,
     isArchiving,
+    isReactivating,
+    avisoReactivar,
     calculateAge,
     handleArchive,
+    handleReactivate,
     refreshPatient,
   } = usePatientProfile();
 
@@ -954,6 +957,17 @@ export default function PatientProfilePage() {
               <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
                 {patient.firstName} {patient.lastName}
               </h1>
+              {/* H-041: an archived record used to look exactly like an active one. */}
+              {patient.status !== 'active' && (
+                <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700 border border-gray-300">
+                  {patient.status === 'archived' ? 'Archivado' : 'Inactivo'} · no cuenta para tu cupo
+                </span>
+              )}
+              {avisoReactivar && (
+                <p className="mt-2 max-w-md text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  {avisoReactivar}
+                </p>
+              )}
               {patient.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {patient.tags.map(tag => (
@@ -1017,14 +1031,28 @@ export default function PatientProfilePage() {
             </Link>
 
             <div className="w-px h-6 bg-gray-200 hidden sm:block" />
-            <button
-              onClick={handleArchive}
-              disabled={isArchiving}
-              className="px-3 py-2 border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-1.5 text-sm transition-colors"
-            >
-              <Trash2 className="w-4 h-4 flex-shrink-0" />
-              <span>{isArchiving ? 'Archivando...' : 'Archivar'}</span>
-            </button>
+            {/* An archived record offers «Reactivar» instead; an «Inactivo» one (only the assistant sets
+                it) can still be archived, and reactivated too. */}
+            {patient.status !== 'archived' && (
+              <button
+                onClick={handleArchive}
+                disabled={isArchiving}
+                className="px-3 py-2 border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-1.5 text-sm transition-colors"
+              >
+                <Trash2 className="w-4 h-4 flex-shrink-0" />
+                <span>{isArchiving ? 'Archivando...' : 'Archivar'}</span>
+              </button>
+            )}
+            {patient.status !== 'active' && (
+              <button
+                onClick={handleReactivate}
+                disabled={isReactivating}
+                className="px-3 py-2 border border-green-300 text-green-700 rounded-md hover:bg-green-50 disabled:opacity-50 flex items-center gap-1.5 text-sm transition-colors"
+              >
+                <ArchiveRestore className="w-4 h-4 flex-shrink-0" />
+                <span>{isReactivating ? 'Reactivando...' : 'Reactivar'}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { mensajeSinCupo } from '@/lib/mensaje-cupo';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
@@ -238,14 +239,8 @@ export function useNewPatientPage() {
       // un error genérico: parece una falla del sistema y no un límite de su
       // plan, y no dice que archivar libera lugar.
       if (errorData.error === 'QUOTA_EXCEEDED') {
-        const { current, limit } = errorData as { current?: number; limit?: number };
         setSinCupo(true);
-        throw new Error(
-          current != null && limit != null
-            ? `Tu plan incluye ${limit} pacientes activos y ya tienes ${current}. ` +
-              `Archiva un expediente para liberar lugar (archivar no borra nada) o cambia de plan.`
-            : 'Tu plan no permite más pacientes activos. Archiva un expediente para liberar lugar o cambia de plan.'
-        );
+        throw new Error(mensajeSinCupo(errorData));
       }
       throw new Error(errorData.error || 'Error al crear paciente');
     }

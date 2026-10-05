@@ -762,7 +762,9 @@ pacientes tienen que existir antes: si no, impórtalos primero con «Pacientes (
 «Archivar» en el perfil, con confirmación. El expediente **no se borra**: queda en el filtro
 «Archivados» y deja de contar para el cupo de tu plan.
 
-> Hoy no hay un botón para **reactivar** un expediente archivado desde la pantalla.
+Un expediente archivado dice **«Archivado»** junto al nombre y, en lugar de «Archivar», tiene
+**«Reactivar»** (con confirmación): vuelve a tus activos y **cuenta otra vez para el cupo**. Si tu plan
+ya está lleno, te avisa cuántos lugares incluye y no lo reactiva.
 
 ### Facturar desde el expediente
 

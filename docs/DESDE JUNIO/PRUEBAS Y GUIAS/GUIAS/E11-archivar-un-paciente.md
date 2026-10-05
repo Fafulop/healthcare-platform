@@ -7,11 +7,13 @@
 
 **Qué vas a ver:** vuelves a la lista. El paciente aparece en el filtro **«Archivados»**; su expediente no se borra.
 
-**Si algo sale mal:** hoy no hay botón para reactivarlo. Sus citas futuras no se cancelan solas.
+**Para regresarlo:** abre su expediente (filtro «Archivados») → junto al nombre dice **«Archivado»** → **«Reactivar»** → **«Confirmar»**. Vuelve a tus activos y cuenta otra vez para el cupo de tu plan; si el plan ya está lleno, te avisa y no lo reactiva.
+
+**Si algo sale mal:** sus citas futuras no se cancelan solas al archivarlo.
 
 **Video:** (pendiente)
 
 
 ---
 
-**QA (interno — se quita al publicar):** 2026-10-03 — E13 ✅ archivar (QA C4, `PATIENT_ARCHIVED`). ⚠️ H-041 (no hay desarchivar, documentado), H-042 (cita futura sigue sin aviso).
+**QA (interno — se quita al publicar):** 2026-10-03 — E13 ✅ archivar (QA C4, `PATIENT_ARCHIVED`). H-041 «Reactivar» construido 2026-10-05 — verificar tras el deploy; ⚠️ H-042 (cita futura sigue sin aviso).
