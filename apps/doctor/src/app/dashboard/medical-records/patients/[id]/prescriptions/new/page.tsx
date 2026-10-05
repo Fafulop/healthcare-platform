@@ -12,6 +12,7 @@ import {
 import { PrescriptionChatPanel } from '@/components/medical-records/PrescriptionChatPanel';
 import { DynamicFieldRenderer } from '@/components/medical-records/DynamicFieldRenderer';
 import { formatLocalDate as formatDateString } from '@/lib/dates';
+import { tituloDePlantilla } from '@/lib/titulo-plantilla';
 import { useNewPrescriptionForm } from '../_components/useNewPrescriptionForm';
 import { visitaHref } from '@/lib/visitas-ui';
 import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
@@ -237,7 +238,7 @@ export default function NewPrescriptionPage() {
               <option value="">Ninguna consulta seleccionada</option>
               {encounters.map(encounter => (
                 <option key={encounter.id} value={encounter.id}>
-                  {formatDateString(encounter.encounterDate)} - {encounter.chiefComplaint}
+                  {formatDateString(encounter.encounterDate)} - {tituloDePlantilla(encounter)}
                 </option>
               ))}
             </select>

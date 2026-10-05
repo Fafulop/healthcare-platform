@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { sinValor, tieneValores, textoDeValor } from '@/lib/campo-archivo';
+import { CLINIC_TIMEZONE } from '@/lib/dates';
 import { FileText, Activity, Image as ImageIcon, Video, Mic, Pill, ChevronDown, ChevronUp, ExternalLink, Loader2, NotebookPen, ClipboardList, Paperclip, FileAudio, File } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,6 +28,7 @@ interface TimelineEncounter {
   followUpDate?: string;
   followUpNotes?: string;
   templateId?: string | null;
+  template?: { name: string } | null;
   customData?: Record<string, any> | null;
   media?: EncounterLinkedMedia[];
 }
@@ -46,6 +48,7 @@ interface CustomTemplateField {
   name: string;
   label: string;
   labelEs?: string;
+  type?: string;
 }
 
 interface TimelineMedia {
@@ -190,6 +193,14 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
     setExpandedItems(next);
   };
 
+  // `captureDate` is a TIMESTAMP («2026-10-03T18:54:36.984Z»), not a calendar day: split on '-' it
+  // printed raw (H-050). Read it in the clinic's time zone — the UTC day can be the NEXT day at night.
+  const fechaDeTimestamp = (iso: string): string => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', timeZone: CLINIC_TIMEZONE });
+  };
+
   const formatDate = (dateString: string): string => {
     try {
       const [year, month, day] = dateString.split('-').map(Number);
@@ -251,8 +262,13 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
           let cardPreview: string | null = null;
           if (isCustom && enc.customData) {
             const vals = Object.values(enc.customData).filter(v => typeof v === 'string' && (v as string).trim());
-            cardTitle = (vals[0] as string) || encounterTypeLabel(enc.encounterType);
-            cardPreview = vals[1] ? String(vals[1]).slice(0, 120) : null;
+            // Titled by the plantilla's NAME (H-050) — its first filled value («Regular») said nothing
+            // of what it is; that value moves to the preview line. Old rows without a name keep the
+            // first value as before.
+            const nombre = enc.template?.name?.trim();
+            cardTitle = nombre || (vals[0] as string) || encounterTypeLabel(enc.encounterType);
+            const resto = nombre ? vals : vals.slice(1);
+            cardPreview = resto[0] ? String(resto[0]).slice(0, 120) : null;
           } else {
             cardTitle = enc.chiefComplaint || enc.assessment || encounterTypeLabel(enc.encounterType);
             cardPreview = enc.assessment && enc.assessment !== cardTitle
@@ -426,7 +442,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                                         {field.labelEs || field.label || field.name}
                                       </dt>
                                       <dd className="text-sm text-gray-900 whitespace-pre-wrap">
-                                        {textoDeValor(value)}
+                                        {textoDeValor(value, field.type)}
                                       </dd>
                                     </div>
                                   );
@@ -747,7 +763,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                             </h3>
                           </div>
                           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-                            <span>{formatDate(media.captureDate)}</span>
+                            <span>{fechaDeTimestamp(media.captureDate)}</span>
                             <span>•</span>
                             <span>{{ image: 'Imagen', video: 'Video', audio: 'Audio', document: 'Documento' }[media.mediaType] ?? media.mediaType}</span>
                             {media.category && <><span>•</span><span className="capitalize">{media.category}</span></>}

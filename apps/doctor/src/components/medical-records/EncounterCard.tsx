@@ -9,6 +9,7 @@ export interface Encounter {
   chiefComplaint: string;
   assessment?: string | null;
   templateId?: string | null;
+  template?: { name: string } | null;
   customData?: Record<string, any> | null;
   status: string;
   createdAt: string;

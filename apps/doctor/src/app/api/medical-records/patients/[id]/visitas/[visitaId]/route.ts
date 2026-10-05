@@ -38,7 +38,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     const [consultas, fotos, recetas, notas, informes, citas, sesion] = await Promise.all([
       prisma.clinicalEncounter.findMany({
         where, orderBy: { encounterDate: 'asc' },
-        select: { id: true, encounterDate: true, encounterType: true, chiefComplaint: true, status: true, templateId: true },
+        select: { id: true, encounterDate: true, encounterType: true, chiefComplaint: true, status: true, templateId: true, template: { select: { name: true } } },
       }),
       prisma.patientMedia.findMany({
         where, orderBy: { captureDate: 'asc' },

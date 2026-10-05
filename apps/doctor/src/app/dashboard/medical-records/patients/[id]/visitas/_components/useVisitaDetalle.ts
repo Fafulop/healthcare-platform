@@ -15,7 +15,7 @@ import { useVisitasDelPaciente } from '@/components/medical-records/visitas/useV
 // La forma de `GET …/visitas/[visitaId]` (apps/doctor/src/app/api/…/visitas/[visitaId]/route.ts).
 export interface ConsultaDeVisita {
   id: string; encounterDate: string; encounterType: string; chiefComplaint: string | null;
-  status: string; templateId: string | null;
+  status: string; templateId: string | null; template?: { name: string } | null;
 }
 export interface FotoDeVisita {
   id: string; mediaType: string; fileName: string; fileUrl: string; thumbnailUrl: string | null;
@@ -71,6 +71,7 @@ export function useVisitaDetalle() {
     ? lista.sueltas.map((e) => ({
         id: e.id, encounterDate: e.encounterDate, encounterType: e.encounterType,
         chiefComplaint: e.chiefComplaint ?? null, status: e.status, templateId: e.templateId ?? null,
+        template: e.template ?? null,
       }))
     : null;
   const [bookings, setBookings] = useState<PatientBooking[] | null>(null);
@@ -148,14 +149,14 @@ export function useVisitaDetalle() {
   const moverConsulta = async (encounterId: string, destino: string | null, destinoTexto: string) => {
     const ok = await practiceConfirm(
       `Se moverá a ${destinoTexto}, junto con las fotos, recetas e informes que cuelgan de ella.`,
-      '¿Mover la consulta?',
+      '¿Mover la plantilla?',
     );
     if (!ok) return false;
     return escribir(
       () => fetch(`${base}/encounters/${encounterId}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visitaId: destino }),
       }).then(json),
-      'Consulta movida',
+      'Plantilla movida',
       true,
     );
   };

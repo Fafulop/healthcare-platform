@@ -12,6 +12,7 @@ import { ENCOUNTER_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from '@/component
 import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical-records/CitaBadges';
 import { NotasCita } from '@/components/citas/NotasCita';
 import { formatoFechaVisita, totalHijos } from '@/lib/visitas-ui';
+import { tituloDePlantilla } from '@/lib/titulo-plantilla';
 import { etiquetaSesion, tratamientoHref, tratamientosUiActiva } from '@/lib/tratamientos-ui';
 import { useVisitaDetalle, type ConsultaDeVisita } from '../_components/useVisitaDetalle';
 
@@ -301,7 +302,7 @@ export default function VisitaPage() {
               <div key={c.id} className="flex items-center justify-between gap-2 p-3 border border-gray-200 rounded-lg">
                 <Link href={`${pacienteHref}/encounters/${c.id}`} className="min-w-0 flex-1 hover:text-blue-700">
                   <p className="text-sm font-medium text-gray-900 truncate">
-                    {c.chiefComplaint || (c.templateId ? 'Plantilla personalizada' : 'Plantilla SOAP')}
+                    {tituloDePlantilla(c)}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {ENCOUNTER_TYPE_LABELS[c.encounterType] ?? c.encounterType}
@@ -349,7 +350,7 @@ export default function VisitaPage() {
               <option value="">Traerla aquí…</option>
               {traibles.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {formatoFechaVisita(s.encounterDate.slice(0, 10))} · {s.chiefComplaint || ENCOUNTER_TYPE_LABELS[s.encounterType] || 'Consulta'}
+                  {formatoFechaVisita(s.encounterDate.slice(0, 10))} · {tituloDePlantilla(s, ENCOUNTER_TYPE_LABELS[s.encounterType] || 'Consulta')}
                 </option>
               ))}
             </select>

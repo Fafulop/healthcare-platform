@@ -29,6 +29,8 @@ interface Media {
     encounterDate: string;
     encounterType: string;
     chiefComplaint: string;
+    templateId?: string | null;
+    template?: { name: string } | null;
   } | null;
 }
 

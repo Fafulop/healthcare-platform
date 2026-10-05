@@ -51,6 +51,7 @@ export async function GET(
           followUpDate: true,
           followUpNotes: true,
           templateId: true,
+          template: { select: { name: true } },
           customData: true,
           createdAt: true,
           updatedAt: true,

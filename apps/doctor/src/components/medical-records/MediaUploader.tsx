@@ -8,6 +8,7 @@ import { SUFIJO_CAMBIA_DE_PLAN } from '@healthcare/database';
 import { VerPlanesLink } from '@/components/layout/VerPlanesLink';
 
 import { formatLocalDate as formatDateString } from '@/lib/dates';
+import { tituloDePlantilla } from '@/lib/titulo-plantilla';
 
 interface MediaUploaderProps {
   patientId: string;
@@ -31,6 +32,8 @@ interface Encounter {
   encounterDate: string;
   encounterType: string;
   chiefComplaint: string;
+  templateId?: string | null;
+  template?: { name: string } | null;
   visitaId?: string | null;
 }
 
@@ -371,7 +374,7 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, visitaI
             <option value="">Ninguna consulta seleccionada</option>
             {consultasOfrecidas.map(encounter => (
               <option key={encounter.id} value={encounter.id}>
-                {formatDateString(encounter.encounterDate)} - {encounter.chiefComplaint}
+                {formatDateString(encounter.encounterDate)} - {tituloDePlantilla(encounter)}
               </option>
             ))}
           </select>

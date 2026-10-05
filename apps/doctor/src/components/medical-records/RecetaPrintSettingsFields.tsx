@@ -109,8 +109,8 @@ export function RecetaPrintSettingsFields({
         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Secciones del documento</p>
         <div className="space-y-2">
           <CheckboxRow id="rxShowPatientBox" label="Datos del paciente" checked={settings.rxShowPatientBox} onChange={() => toggle('rxShowPatientBox')} />
-          <CheckboxRow id="rxShowDiagnosis" label="Diagnostico" checked={settings.rxShowDiagnosis} onChange={() => toggle('rxShowDiagnosis')} />
-          <CheckboxRow id="rxShowClinicalNotes" label="Notas clinicas" checked={settings.rxShowClinicalNotes} onChange={() => toggle('rxShowClinicalNotes')} />
+          <CheckboxRow id="rxShowDiagnosis" label="Diagnóstico" checked={settings.rxShowDiagnosis} onChange={() => toggle('rxShowDiagnosis')} />
+          <CheckboxRow id="rxShowClinicalNotes" label="Notas clínicas" checked={settings.rxShowClinicalNotes} onChange={() => toggle('rxShowClinicalNotes')} />
         </div>
       </div>
     </div>

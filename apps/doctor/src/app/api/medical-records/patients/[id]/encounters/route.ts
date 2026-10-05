@@ -36,7 +36,9 @@ export async function GET(
         patientId,
         doctorId
       },
-      orderBy: { encounterDate: 'desc' }
+      orderBy: { encounterDate: 'desc' },
+      // The plantilla's name titles it in lists (tituloDePlantilla, H-021/H-037).
+      include: { template: { select: { name: true } } },
     });
 
     return NextResponse.json({ data: encounters });

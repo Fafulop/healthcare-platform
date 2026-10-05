@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { X, Edit2, Save, Trash2, Download, Link2 } from 'lucide-react';
 import { practiceConfirm } from '@/lib/practice-confirm';
 import { formatLocalDate } from '@/lib/dates';
+import { tituloDePlantilla } from '@/lib/titulo-plantilla';
 import type { VisitaResumen } from '@/lib/visitas-ui';
 import type { ConsultaConVisita, EstadoCarga } from '@/components/medical-records/visitas/useVisitasDelPaciente';
 import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
@@ -29,6 +30,8 @@ interface MediaViewerProps {
       encounterDate: string;
       encounterType: string;
       chiefComplaint: string;
+      templateId?: string | null;
+      template?: { name: string } | null;
     } | null;
   };
   patientId: string;
@@ -46,7 +49,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
   const [editedCategory, setEditedCategory] = useState(media.category || '');
   const [editedBodyArea, setEditedBodyArea] = useState(media.bodyArea || '');
   const [editedEncounterId, setEditedEncounterId] = useState(media.encounterId || '');
-  const [encounters, setEncounters] = useState<{ id: string; encounterDate: string; chiefComplaint: string; visitaId?: string | null }[]>([]);
+  const [encounters, setEncounters] = useState<{ id: string; encounterDate: string; chiefComplaint: string; templateId?: string | null; template?: { name: string } | null; visitaId?: string | null }[]>([]);
   const [editedVisitaId, setEditedVisitaId] = useState(media.visitaId || '');
 
   // VISITAS D5b — la visita de un archivo con plantilla ES la de su plantilla (D3; otra → 409). La
@@ -360,7 +363,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
                     <option value="">Sin vincular</option>
                     {consultasOfrecidas.map(enc => (
                       <option key={enc.id} value={enc.id}>
-                        {formatLocalDate(enc.encounterDate, { year: 'numeric', month: 'short', day: 'numeric' })} – {enc.chiefComplaint || 'Sin motivo'}
+                        {formatLocalDate(enc.encounterDate, { year: 'numeric', month: 'short', day: 'numeric' })} – {tituloDePlantilla(enc, 'Sin motivo')}
                       </option>
                     ))}
                   </select>
@@ -369,7 +372,7 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
                     {media.encounter
                       // `formatLocalDate`, no `new Date(...)`: la fecha de la consulta se guarda a
                       // medianoche UTC y leída como timestamp se pintaba un día ANTES en México.
-                      ? `${formatLocalDate(media.encounter.encounterDate, { year: 'numeric', month: 'short', day: 'numeric' })} – ${media.encounter.chiefComplaint || 'Sin motivo'}`
+                      ? `${formatLocalDate(media.encounter.encounterDate, { year: 'numeric', month: 'short', day: 'numeric' })} – ${tituloDePlantilla(media.encounter, 'Sin motivo')}`
                       : media.encounterId
                         ? 'Vinculado a consulta'
                         : 'Sin vincular'}

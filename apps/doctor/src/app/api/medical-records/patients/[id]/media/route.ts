@@ -72,6 +72,8 @@ export async function GET(
             encounterDate: true,
             encounterType: true,
             chiefComplaint: true,
+            templateId: true,
+            template: { select: { name: true } },
           }
         }
       }

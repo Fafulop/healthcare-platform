@@ -255,14 +255,14 @@ export function dibujarConsulta(
     y = sectionHeader(doc, templateName, y, W);
 
     const fields = customTemplate?.customFields as any[] | undefined;
-    const entries: [string, any][] = fields
+    const entries: [string, any, string?][] = fields
       ? fields
           .filter((f: any) => f.showInPdf !== false)
-          .map((f: any): [string, any] => [f.labelEs || f.label || f.name, encounter.customData![f.name]])
+          .map((f: any): [string, any, string?] => [f.labelEs || f.label || f.name, encounter.customData![f.name], f.type])
           .filter(([, v]) => !sinValor(v))
-      : Object.entries(encounter.customData).filter(([, v]) => !sinValor(v));
+      : Object.entries(encounter.customData).filter(([, v]) => !sinValor(v)).map(([k, v]): [string, any, string?] => [k, v]);
 
-    for (const [label, value] of entries) {
+    for (const [label, value, tipo] of entries) {
       y = pageBreakIfNeeded(doc, y, breakThreshold, topReset);
       doc.setFontSize(7.5);
       doc.setFont('helvetica', 'bold');
@@ -272,7 +272,7 @@ export function dibujarConsulta(
       doc.setFontSize(9);
       doc.setTextColor(0, 0, 0);
       y += 5;
-      const displayVal = textoDeValor(value);
+      const displayVal = textoDeValor(value, tipo);
       y = textoPaginado(doc, displayVal, m, y, cw, 5) + 4;
     }
     y += 2;

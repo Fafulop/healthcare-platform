@@ -26,7 +26,8 @@ export async function GET(
       include: {
         encounters: {
           orderBy: { encounterDate: 'desc' },
-          take: 5 // Get last 5 encounters
+          take: 5, // Get last 5 encounters
+          include: { template: { select: { name: true } } }, // its title in lists (tituloDePlantilla)
         },
         medicalHistory: {
           orderBy: { changedAt: 'desc' },

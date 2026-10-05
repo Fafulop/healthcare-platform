@@ -11,6 +11,8 @@
  * These helpers are the ONE place for those rules — the client forms, the renderer, the server
  * route and every surface that shows customData use them, so they cannot drift apart.
  */
+
+import { formatLocalDate } from '@/lib/dates';
 export const NOTA_CAMPO_ARCHIVO = 'Sube el archivo en «Fotos y documentos» de la visita.';
 
 interface CampoLike {
@@ -47,8 +49,13 @@ export function tieneValores(customData: Record<string, unknown> | null | undefi
  * a «Casilla» is «Sí»/«No», not `true`/`false` (H-026); a multi-select is a comma list. (The Formularios
  * page has its own `renderFieldValue` with the same Sí/No rule, by field type.)
  */
-export function textoDeValor(v: unknown): string {
+export function textoDeValor(v: unknown, tipo?: string): string {
   if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+  // A «Fecha» field stores the calendar day as 'YYYY-MM-DD' (no time zone): «8 nov 2026», not the raw
+  // string (H-023). Read as a local date — no UTC shift for a date-only value.
+  if (tipo === 'date' && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    return formatLocalDate(v, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
   if (Array.isArray(v)) return v.join(', ');
   return String(v);
 }

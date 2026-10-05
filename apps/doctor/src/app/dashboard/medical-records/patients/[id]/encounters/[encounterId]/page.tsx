@@ -198,7 +198,7 @@ export default function EncounterDetailPage() {
                           {field.labelEs || field.label || field.name}
                         </dt>
                         <dd className="text-sm text-gray-900 whitespace-pre-wrap">
-                          {textoDeValor(value)}
+                          {textoDeValor(value, field.type)}
                         </dd>
                       </div>
                     );
