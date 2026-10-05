@@ -129,12 +129,36 @@ export async function imagenABase64(url: string): Promise<string | null> {
     // jsPDF's addImage would throw on it inside a silent try/catch anyway (2026-10-02).
     if (!res.ok) return null;
     const blob = await res.blob();
-    return await new Promise<string>((resolve, reject) => {
+    return (await reducida(blob)) ?? await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+  } catch { return null; }
+}
+
+/** Longest side, in px, of a logo/signature inside a PDF: it prints at ~25–40 mm, so 600 px is plenty. */
+const LADO_MAXIMO_PX = 600;
+
+/**
+ * H-068: a logo uploaded at 1254 px (and a 1774 px signature) went into every receta at full size, and
+ * jsPDF stores PNG pixels RAW — 4.7 MB each, a 9.4 MB receta, and «Receta PDF» froze redrawing it.
+ * Shrinks it to `LADO_MAXIMO_PX` keeping its type (PNG keeps transparency; JPEG stays JPEG). `null` =
+ * not shrunk (already small, or no canvas here): the caller uses the original.
+ */
+async function reducida(blob: Blob): Promise<string | null> {
+  if (typeof document === 'undefined' || typeof createImageBitmap === 'undefined') return null;
+  try {
+    const bmp = await createImageBitmap(blob);
+    const k = LADO_MAXIMO_PX / Math.max(bmp.width, bmp.height);
+    if (k >= 1) { bmp.close(); return null; }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * k);
+    canvas.height = Math.round(bmp.height * k);
+    canvas.getContext('2d')?.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close();
+    return blob.type === 'image/jpeg' ? canvas.toDataURL('image/jpeg', 0.9) : canvas.toDataURL('image/png');
   } catch { return null; }
 }
 
@@ -210,7 +234,7 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
       try {
         const fmt = logoB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
         const logoSize = narrow ? 18 : 25;
-        doc.addImage(logoB64, fmt, margin, narrow ? 8 : 5, logoSize, logoSize);
+        doc.addImage(logoB64, fmt, margin, narrow ? 8 : 5, logoSize, logoSize, 'logo', 'FAST');
       } catch {}
     }
 
@@ -565,7 +589,7 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
       if (sigB64) {
         try {
           const fmt = sigB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-          doc.addImage(sigB64, fmt, pageW - margin - 42, footerY + 2, 40, 18);
+          doc.addImage(sigB64, fmt, pageW - margin - 42, footerY + 2, 40, 18, 'firma', 'FAST');
         } catch {}
       }
 

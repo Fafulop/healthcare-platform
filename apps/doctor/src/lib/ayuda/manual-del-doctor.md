@@ -133,9 +133,6 @@ conectado en Integraciones, te llega un aviso.
 Una cita Pendiente sólo se puede **«Confirmar»** o **«Cancelar»**. Al confirmarla pasa a
 Agendada y el paciente recibe su correo de confirmación.
 
-> ⚠️ En una Pendiente también se ven «Completar» y «No asistió», pero **no funcionan**: el
-> sistema responde que la transición no está permitida. Confírmala primero.
-
 ### La tabla de citas
 
 Cada fila muestra paciente y servicio, fecha y hora, expediente y contacto, precio, la casilla

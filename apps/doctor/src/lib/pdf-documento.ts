@@ -94,7 +94,7 @@ export function abrirHoja(
       try {
         const fmt = logoB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
         const logoSize = narrow ? 18 : 25;
-        doc.addImage(logoB64, fmt, margin, narrow ? 8 : 5, logoSize, logoSize);
+        doc.addImage(logoB64, fmt, margin, narrow ? 8 : 5, logoSize, logoSize, 'logo', 'FAST');
       } catch {}
     }
     const t = noColor ? 30 : 255;
@@ -193,7 +193,7 @@ export function cerrarHoja(
       if (sigB64) {
         try {
           const fmt = sigB64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-          doc.addImage(sigB64, fmt, pageW - margin - 42, footerY + 2, 40, 18);
+          doc.addImage(sigB64, fmt, pageW - margin - 42, footerY + 2, 40, 18, 'firma', 'FAST');
         } catch {}
       }
       const t = noColor ? 30 : 255;

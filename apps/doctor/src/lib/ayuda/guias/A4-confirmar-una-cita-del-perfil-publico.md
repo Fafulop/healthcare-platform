@@ -14,7 +14,7 @@
 
 **Tu dinero:** nada todavía; entra al completarla.
 
-**Si algo sale mal:** en una Pendiente también se ven «Completar» y «No asistió» pero no funcionan: confírmala primero. Al confirmar, el paciente recibe su correo de confirmación.
+**Si algo sale mal:** una Pendiente no se puede completar ni marcar «No asistió»: confírmala primero. Al confirmar, el paciente recibe su correo de confirmación.
 
 **Video:** (pendiente)
 

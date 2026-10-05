@@ -37,8 +37,8 @@
 ## 2. Arreglos sin decisión — sólo los chicos
 
 **Lote A — ya**
-- [ ] **H-068** — reducir el logo antes de meterlo al PDF (una función: dibujarlo a ~300 px en un canvas). Hoy la receta pesa 9.4 MB y «Receta PDF» se congela
-- [ ] **H-070** — esconder «Completar» / «No asistió» en una cita Pendiente y quitar el aviso de la guía A4
+- [x] **H-068** (sin commit) — reducir el logo antes de meterlo al PDF (una función: dibujarlo a ~300 px en un canvas). Hoy la receta pesa 9.4 MB y «Receta PDF» se congela
+- [x] **H-070** (sin commit) — esconder «Completar» / «No asistió» en una cita Pendiente y quitar el aviso de la guía A4
 
 **Lote B — una línea o casi**
 - [ ] H-031 «No asistió» con confirmación, como «Cancelar»

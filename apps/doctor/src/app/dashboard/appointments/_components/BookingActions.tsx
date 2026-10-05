@@ -491,18 +491,24 @@ export function StatusActions({
                 Confirmar
               </button>
             )}
-            <button
-              onClick={() => setCompleteModalOpen(true)}
-              className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 font-medium"
-            >
-              Completar
-            </button>
-            <button
-              onClick={() => onUpdateStatus(booking.id, "NO_SHOW")}
-              className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
-            >
-              No asistió
-            </button>
+            {/* H-070: a Pendiente can only be confirmed or cancelled (the server's VALID_TRANSITIONS); these
+                two used to show anyway and fail with «transición no permitida». */}
+            {booking.status === "CONFIRMED" && (
+              <>
+                <button
+                  onClick={() => setCompleteModalOpen(true)}
+                  className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 font-medium"
+                >
+                  Completar
+                </button>
+                <button
+                  onClick={() => onUpdateStatus(booking.id, "NO_SHOW")}
+                  className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
+                >
+                  No asistió
+                </button>
+              </>
+            )}
             <button
               onClick={() => onUpdateStatus(booking.id, "CANCELLED")}
               className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
