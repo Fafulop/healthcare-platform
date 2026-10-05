@@ -75,7 +75,7 @@ export function MedicationList({ medications, onChange, readOnly = false }: Medi
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Medicamento *
+                    Medicamento{!readOnly && ' *'}
                   </label>
                   {readOnly ? (
                     <p className="text-gray-900">{medication.drugName}</p>
@@ -113,7 +113,7 @@ export function MedicationList({ medications, onChange, readOnly = false }: Medi
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Dosis *
+                    Dosis{!readOnly && ' *'}
                   </label>
                   {readOnly ? (
                     <p className="text-gray-900">{medication.dosage}</p>
@@ -131,7 +131,7 @@ export function MedicationList({ medications, onChange, readOnly = false }: Medi
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Frecuencia *
+                    Frecuencia{!readOnly && ' *'}
                   </label>
                   {readOnly ? (
                     <p className="text-gray-900">{medication.frequency}</p>
@@ -188,7 +188,7 @@ export function MedicationList({ medications, onChange, readOnly = false }: Medi
               {/* Instructions */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Indicaciones *
+                  Indicaciones{!readOnly && ' *'}
                 </label>
                 {readOnly ? (
                   <p className="text-gray-900">{medication.instructions}</p>

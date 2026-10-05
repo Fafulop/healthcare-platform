@@ -14,7 +14,7 @@
 
 **Tu dinero:** el ingreso entra a Flujo de Dinero **cuando el paciente paga**, ligado a la cita. Si después completas la cita, no se duplica.
 
-**Si algo sale mal:** si cobras en persona (completas la cita en efectivo), al completarla **el link se desactiva solo** (ya no acepta pagos nuevos) — la ventana «Completar cita» te lo avisa. Lo mismo al cancelar, marcar «No asistió» o eliminar. Si no se pudo desactivar en Stripe o Mercado Pago, la agenda te avisa: desactívalo desde «Pagos» o desde tu cuenta del proveedor. Si aun así el paciente paga un link que ya no debía (p. ej. una ficha de OXXO que generó antes), el pago entra a Flujo de Dinero con un concepto «⚠️ Revisar…»: revisa si tienes que devolverle el dinero.
+**Si algo sale mal:** si cobras en persona (completas la cita en efectivo), al completarla **el link se desactiva solo** (ya no acepta pagos nuevos) — la ventana «Completar cita» te lo avisa. Lo mismo al cancelar, marcar «No asistió» o eliminar. Si no se pudo desactivar en Stripe o Mercado Pago, la agenda te avisa: desactívalo desde «Pagos» o desde tu cuenta del proveedor. Si aun así el paciente paga un link que ya no debía (p. ej. una ficha de OXXO que generó antes), el pago entra a Flujo de Dinero con un concepto «⚠️ Revisar…»: revisa si tienes que devolverle el dinero. **Si devuelves un pago** desde Stripe o Mercado Pago, Flujo de Dinero no se entera solo: registra un egreso por ese monto con el concepto *Devolución*.
 
 **Video:** (pendiente)
 

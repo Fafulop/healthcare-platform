@@ -94,8 +94,11 @@ export function useFieldValidation(
     }
 
     timerRef.current = setTimeout(() => {
-      const errors = validateTemplate(metadata, fields);
-      onValidationChangeRef.current(errors);
+      // H-020: a brand-new, still EMPTY plantilla opened with «El nombre … es requerido» / «Se requiere al
+      // menos un campo» in red before anyone typed. Live checks wait until there is something; saving
+      // still validates everything (`validateNow`).
+      const vacia = !metadata.name.trim() && fields.length === 0;
+      onValidationChangeRef.current(vacia ? {} : validateTemplate(metadata, fields));
     }, 300);
 
     return () => {

@@ -59,9 +59,13 @@ export function usePatientProfile() {
     }
   };
 
-  const handleArchive = async () => {
+  const handleArchive = async (citasProximas: number | null = null) => {
     const confirmed = await practiceConfirm(
-      '¿Está seguro de archivar este paciente? El expediente se conservará pero el paciente quedará inactivo.'
+      '¿Está seguro de archivar este paciente? El expediente se conservará pero el paciente quedará inactivo.' +
+        (citasProximas
+          ? ` Tiene ${citasProximas} cita${citasProximas === 1 ? '' : 's'} próxima${citasProximas === 1 ? '' : 's'}; ` +
+            `no se cancela${citasProximas === 1 ? '' : 'n'} sola${citasProximas === 1 ? '' : 's'}: cancélala${citasProximas === 1 ? '' : 's'} en «Mis Citas» si ya no va a venir.`
+          : '')
     );
     if (!confirmed) return;
 

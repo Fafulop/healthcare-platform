@@ -31,6 +31,8 @@ import { usePermissions } from '@/lib/permissions-client';
 // =============================================================================
 
 interface FormBuilderInnerProps {
+  /** H-049: editing a plantilla that already exists (its consultas show the labels it has NOW). */
+  esExistente?: boolean;
   onSave: (data: {
     name: string;
     description?: string;
@@ -42,8 +44,8 @@ interface FormBuilderInnerProps {
   }) => Promise<void>;
 }
 
-function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
-  const { state, addField, reorderField, validateNow } = useFormBuilder();
+function FormBuilderInner({ onSave, esExistente = false }: FormBuilderInnerProps) {
+  const { state, addField, reorderField, validateNow, setValidationErrors } = useFormBuilder();
   // form-builder-chat is OWNER_ONLY (00-REQUISITOS §5.3) — custom-templates
   // itself is member-accessible via the Expedientes toggle, only this AI
   // shortcut isn't. Found via bug hunt 2026-07-21 (§16 hallazgo 5 family).
@@ -99,7 +101,8 @@ function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
 
   const handleSave = async () => {
     const errors = validateNow();
-    if (Object.keys(errors).length > 0) return;
+    // Show them: the live check stays quiet on a still-empty plantilla (H-020), so «Guardar» must say why.
+    if (Object.keys(errors).length > 0) { setValidationErrors(errors); return; }
 
     setSaving(true);
     try {
@@ -134,6 +137,11 @@ function FormBuilderInner({ onSave }: FormBuilderInnerProps) {
             <ArrowLeft className="w-4 h-4" />
             Volver a Plantillas
           </Link>
+          {esExistente && (
+            <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              Si cambias las etiquetas, las consultas que ya usaron esta plantilla se verán con las nuevas.
+            </p>
+          )}
         </div>
 
         {/* Toolbar */}
@@ -232,7 +240,7 @@ export function FormBuilder({ initialTemplate, onSave }: FormBuilderProps) {
       }
       initialFields={initialTemplate?.customFields}
     >
-      <FormBuilderInner onSave={onSave} />
+      <FormBuilderInner onSave={onSave} esExistente={!!initialTemplate} />
     </FormBuilderProvider>
   );
 }

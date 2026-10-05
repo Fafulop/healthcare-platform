@@ -22,16 +22,16 @@
 |---|---|---|---|
 | [ ] | **H-009** | Una venta NO pagada cuenta como ingreso (verificado 2026-10-05: `ledger/balance` suma el `amount` completo de todo ingreso con `porRealizar: false`, y las ventas nacen así) | **Que las tarjetas de saldo sumen lo PAGADO (`amountPaid`) y el resto vaya a «Por cobrar»**, en un solo lugar (la ruta de saldo). Antes: una consulta de sólo lectura en prod que confirme que todos los ingresos traen `amountPaid` lleno. Es el único pendiente que sí vale un plan propio |
 | [ ] | **H-062** | Cita ya pagada que se reagenda: el pago se queda en la vieja | **Mover el pago a la cita nueva** en el mismo punto donde Reagendar ya pasa «¿Necesita factura?» (`7323a896`). Mientras, sigue el atajo documentado (completar la nueva en $0) |
-| [ ] | **H-059** | Devolución/contracargo no toca Flujo | **Documentarlo**: «si devuelves dinero, registra un egreso "Devolución" en Flujo». Las devoluciones las inicia el doctor en MP/Stripe y son raras; automatizar = más webhooks |
-| [ ] | **H-057** | Ligar una cita a una sesión cambia su precio en silencio | **No cambiar el precio de la cita** (quitar la sobrescritura) |
-| [ ] | **H-042** | Archivar con citas futuras no avisa | **Avisar en la confirmación**: «Tiene N citas futuras; no se cancelan» — las cancela el doctor si quiere |
+| [x] | **H-059** | Devolución/contracargo no toca Flujo | **Documentarlo**: «si devuelves dinero, registra un egreso "Devolución" en Flujo». Las devoluciones las inicia el doctor en MP/Stripe y son raras; automatizar = más webhooks |
+| [x] | **H-057** | Ligar una cita a una sesión cambia su precio en silencio | **No cambiar el precio de la cita** (quitar la sobrescritura) |
+| [x] | **H-042** | Archivar con citas futuras no avisa | **Avisar en la confirmación**: «Tiene N citas futuras; no se cancelan» — las cancela el doctor si quiere |
 | [x] | **H-011** | Eliminar una cita deja su cobro en Flujo | **Decirlo en el diálogo** («El cobro de $X se queda en Flujo de Dinero») |
 | [x] | **H-013** | Telemedicina pide «Consultorio *» | **No pedirlo ni guardarlo en Telemedicina** |
-| [ ] | **H-049** | Editar una plantilla ya usada cambia las consultas viejas | **Avisar al editar** una plantilla que ya tiene consultas |
-| [ ] | **H-035** | La nota de venta imprime la dirección del perfil, no la del consultorio | **Usar la del consultorio** de la cita *si el consultorio guarda dirección*; si no, dejarlo |
+| [x] | **H-049** | Editar una plantilla ya usada cambia las consultas viejas | **Avisar al editar** una plantilla que ya tiene consultas |
+| [x] | **H-035** | La nota de venta imprime la dirección del perfil, no la del consultorio | **Usar la del consultorio** de la cita *si el consultorio guarda dirección*; si no, dejarlo |
 | [ ] | **H-045** | No se puede agendar desde el expediente | **Dejarlo** — el manual no lo promete y Agenda funciona |
-| [ ] | **H-016** | El ingreso de una cita futura se fecha el día de la cita | **Dejarlo** — la guía A6 ya lo dice. Cerrar |
-| [ ] | **H-005** | Quitar el precio a una sesión cuya cita ya lo tomó | **No arreglar** (caso raro). Cerrar |
+| [x] | **H-016** | El ingreso de una cita futura se fecha el día de la cita | **Dejarlo** — la guía A6 ya lo dice. Cerrar |
+| [x] | **H-005** | Quitar el precio a una sesión cuya cita ya lo tomó | **No arreglar** (caso raro). Cerrar |
 | — | H-063 | El asistente no completa en $0 | **Estacionado** (decisión del usuario) |
 
 ## 2. Arreglos sin decisión — sólo los chicos
@@ -44,16 +44,16 @@
 - [x] (B1, sin commit) H-031 «No asistió» con confirmación, como «Cancelar»
 - [x] (B1, sin commit) H-032 eliminar una cita deja rastro en la bitácora
 - [x] (B1, sin commit) H-039 la tarjeta «Pendientes» filtra las pendientes al tocarla
-- [ ] H-044 tipo de sangre y condiciones crónicas visibles en el perfil
+- [x] (B2, sin commit) H-044 tipo de sangre y condiciones crónicas visibles en el perfil
 - [x] (B1, sin commit) H-012 Reagendar trae el servicio de la cita (el valor ya se calcula, no se pasa)
 - [x] (B1, sin commit) H-014 la pista del consultorio no dice «no hay de dónde deducir» cuando ya eligió uno
-- [ ] H-017 quitar «o haz clic para agregar» de la paleta (en escritorio no funciona)
-- [ ] H-020 los errores del editor de plantillas salen al guardar, no al abrir
-- [ ] H-028 sin asteriscos de formulario en la vista de la receta
+- [x] (B2, sin commit) H-017 quitar «o haz clic para agregar» de la paleta (en escritorio no funciona)
+- [x] (B2, sin commit) H-020 los errores del editor de plantillas salen al guardar, no al abrir
+- [x] (B2, sin commit) H-028 sin asteriscos de formulario en la vista de la receta
 - [x] (B1, sin commit) H-053 Escape cierra «Gestionar Bloqueos»
-- [ ] H-055 «Nuevo tratamiento» no propone una hora que ya pasó
+- [x] (B2, sin commit) H-055 «Nuevo tratamiento» no propone una hora que ya pasó
 - [x] (B1, sin commit) H-047 una línea en el manual (cita dentro de la ventana del recordatorio = sin recordatorio)
-- [ ] H-008 borrar el script muerto
+- [x] (B2, sin commit) H-008 borrar el script muerto
 
 **Dejar (no vale la complejidad hoy)**
 - H-052 ventas en «Citas e Ingresos» · H-056 «vacía» y fecha de la venta · H-061 más toasts de «link desactivado» · H-043 bitácora sólo con lo que cambió · H-019 jerga del editor · H-034 modalidad desde el servicio · H-040 partir el nombre de la reserva · H-060 doble pago simultáneo · H-003 tope de 200 · H-002 · H-004 · H-006

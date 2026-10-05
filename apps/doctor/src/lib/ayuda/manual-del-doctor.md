@@ -268,6 +268,8 @@ Después puedes copiar el link o mandarlo por WhatsApp, y cuando el paciente pag
 - Si aun así el paciente paga un link que ya no debía (por ejemplo, una ficha de OXXO que generó
   antes, o después de pagarte en efectivo), el pago **sí entra a Flujo de Dinero**, con un concepto que empieza «⚠️ Revisar…» (y
   un aviso por Telegram si lo tienes conectado): revisa si tienes que devolverle el dinero.
+- **Si devuelves un pago** (desde Stripe o Mercado Pago), Flujo de Dinero no se entera solo:
+  registra un **egreso** por ese monto con el concepto *Devolución*, para que tus números cuadren.
 
 ### Facturar una cita
 

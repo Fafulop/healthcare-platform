@@ -18,7 +18,7 @@ import { CheckCircle, Loader2, XCircle } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { useDoctorProfile } from '@/contexts/DoctorProfileContext';
 import { usePermissions } from '@/lib/permissions-client';
-import { getClinicDateString } from '@/lib/dates';
+import { getClinicDateString, getClinicMinutesOfDay } from '@/lib/dates';
 import { formatoFechaVisita } from '@/lib/visitas-ui';
 import { etiquetaSesion, pesos } from '@/lib/tratamientos-ui';
 
@@ -86,7 +86,13 @@ export function useAgendaDeSesiones(patientId: string, filasIniciales: Fila[], i
   const { can } = usePermissions();
   const conFlujo = can('flujo');
   const [filas, setFilas] = useState<Fila[]>(filasIniciales);
-  const [base, setBase] = useState({ fecha: getClinicDateString(), hora: '10:00', cada: String(intervaloInicial ?? 7) });
+  // H-055: la primera sesión se proponía HOY a las 10:00 aunque ya hubieran pasado — entonces, mañana.
+  const [base, setBase] = useState(() => {
+    const hoy = getClinicDateString();
+    const [y, m, d] = hoy.split('-').map(Number);
+    const fecha = getClinicMinutesOfDay() >= 10 * 60 ? new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10) : hoy;
+    return { fecha, hora: '10:00', cada: String(intervaloInicial ?? 7) };
+  });
   const [servicios, setServicios] = useState<Servicio[] | null>(null);
   const [consultorios, setConsultorios] = useState<Consultorio[] | null>(null);
   const [consultorioId, setConsultorioId] = useState('');

@@ -24,6 +24,7 @@ import { usePermissions } from '@/lib/permissions-client';
 // Sólo el TIPO (se borra al compilar): qué bloques de las citas puede ver quien mira.
 // Sin `citas` la lista llega VACÍA a propósito — NO quiere decir que no tenga citas.
 import type { BookingPermisos } from '@/lib/booking-permisos';
+import { getClinicDateString } from '@/lib/dates';
 import { BookingStatusPill, FacturaBadge, PagoBadge, type PatientBooking } from '@/components/medical-records/CitaBadges';
 
 interface RecentNote {
@@ -1035,7 +1036,15 @@ export default function PatientProfilePage() {
                 it) can still be archived, and reactivated too. */}
             {patient.status !== 'archived' && (
               <button
-                onClick={handleArchive}
+                onClick={() => {
+                  // H-042: archiving does not cancel its upcoming citas — say how many there are.
+                  // `null` = the citas didn't load (or no permission): no count, rather than a false «0».
+                  const hoy = getClinicDateString();
+                  const proximas = bookingsEstado === 'ok'
+                    ? patientBookings.filter((b) => (b.status === 'PENDING' || b.status === 'CONFIRMED') && !!b.date && b.date.slice(0, 10) >= hoy).length
+                    : null;
+                  handleArchive(proximas);
+                }}
                 disabled={isArchiving}
                 className="px-3 py-2 border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-1.5 text-sm transition-colors"
               >
@@ -1087,6 +1096,25 @@ export default function PatientProfilePage() {
               <span className="text-gray-300">•</span>
               <span className="text-gray-900 font-medium">{formatSex(patient.sex)}</span>
             </div>
+            {/* H-044: the clinical baseline was saved but shown nowhere on the profile. Only what's filled. */}
+            {(() => {
+              const clinicos = [
+                ['Tipo de sangre', patient.bloodType],
+                ['Alergias', patient.currentAllergies],
+                ['Condiciones crónicas', patient.currentChronicConditions],
+                ['Medicamentos actuales', patient.currentMedications],
+              ].filter(([, v]) => v && String(v).trim()) as [string, string][];
+              return clinicos.length > 0 ? (
+                <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4 pb-4 border-b border-gray-100">
+                  {clinicos.map(([k, v]) => (
+                    <div key={k}>
+                      <dt className="font-medium text-gray-500">{k}</dt>
+                      <dd className="text-gray-900 whitespace-pre-wrap">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null;
+            })()}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-500">Teléfono</label>

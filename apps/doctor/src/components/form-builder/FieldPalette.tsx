@@ -64,7 +64,7 @@ export function FieldPalette() {
         Tipos de Campo
       </h3>
       <p className="text-xs text-gray-400 mb-3">
-        Arrastra al lienzo o haz clic para agregar
+        Arrastra al lienzo (en el celular, tócalo para agregar)
       </p>
       <div className="space-y-1.5">
         {FIELD_TYPES.map((type) => (
