@@ -307,7 +307,7 @@ export function PatientFormStep({
           rango: cuando cae, el rango ya dice cuál es y el servidor lo hereda solo — preguntar
           algo cuya respuesta ya se conoce es ruido. Con un solo consultorio no hay pregunta.
           Va aquí, después de Modalidad, porque es la última cosa del "cómo/dónde" de la cita. */}
-      {pedirConsultorio && clinicLocations.length > 1 && !consultorioHeredado && (
+      {pedirConsultorio && appointmentMode !== "TELEMEDICINA" && clinicLocations.length > 1 && !consultorioHeredado && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Consultorio *</label>
           <div className="space-y-1.5">
@@ -330,8 +330,9 @@ export function PatientFormStep({
             ))}
           </div>
           <p className="mt-1.5 text-xs text-gray-500">
-            Esta hora no está dentro de ninguno de tus rangos, así que no hay de dónde deducir el
-            consultorio.
+            {/* H-014: ya viene uno elegido (el primero) — la pista decía que «no hay de dónde deducirlo». */}
+            Esta hora no cae en ninguno de tus rangos: revisa que el consultorio elegido sea el
+            correcto.
           </p>
         </div>
       )}

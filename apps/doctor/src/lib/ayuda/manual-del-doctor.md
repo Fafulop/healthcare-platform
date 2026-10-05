@@ -61,7 +61,8 @@ De arriba a abajo:
    «Ayuda».
 2. **Recordatorio automático por correo** — un interruptor (ver
    [Recordatorios](#recordatorios)).
-3. **Tres contadores:** Pendientes · Agendadas · Vencidas.
+3. **Tres contadores:** Pendientes · Agendadas · Vencidas. Tocar **«Pendientes»** filtra la tabla a
+   ellas (de todas las fechas).
 4. **«Todas las Citas»** — la tabla de citas, con filtros.
 5. **El calendario** — vistas Día, Semana, Mes y Año.
 
@@ -102,7 +103,8 @@ cuenta como Vencida, no en los otros dos.
    - **Tipo de visita:** «Primera vez» o «Recurrente». Con Recurrente puedes buscar al
      paciente en tus expedientes y se llenan sus datos.
    - **Modalidad:** Presencial o Telemedicina.
-   - **Consultorio** — sólo aparece si tienes más de uno.
+   - **Consultorio** — sólo aparece si tienes más de uno y la cita es Presencial (en
+     Telemedicina no se pide). Fuera de tus rangos viene elegido el primero: revisa que sea el correcto.
    - Nombre(s), apellidos, correo, teléfono, WhatsApp y **Notas** (opcional: «trae estudios
      previos», etc.). Cuáles de correo/teléfono/WhatsApp son obligatorios lo decides tú en
      [Campos de Cita](#campos-de-cita).
@@ -200,8 +202,10 @@ Si la cita tiene expediente, en su perfil aparece su **visita** (ver [Visitas](#
 
 - **«Cancelar»** pide confirmación. El paciente recibe un correo avisando que su cita se canceló
   (si tiene correo y tu cuenta de Google está conectada). El horario vuelve a quedar libre.
-- **«No asistió»** marca la cita así, sin avisar al paciente.
-- **«Eliminar»** sólo aparece en citas finales, pide confirmación y **no se puede deshacer**.
+- **«No asistió»** pide confirmación y marca la cita así, sin avisar al paciente. No se puede deshacer.
+- **«Eliminar»** sólo aparece en citas finales, pide confirmación y **no se puede deshacer**. Si la
+  cita tenía un cobro, el ingreso **se queda** en Flujo de Dinero; en tu actividad reciente queda
+  «Cita eliminada».
 
 En los tres casos, si la cita tenía un **link de pago sin pagar, se desactiva**: ya no acepta pagos
 nuevos. Si no se pudo desactivar en Stripe o Mercado Pago, la agenda te avisa que el link sigue
@@ -309,7 +313,8 @@ expedientes y una plantilla pre-cita, y generas el enlace.
 
 La tarjeta **«Recordatorio automático por correo»** tiene un interruptor. Encendido, el paciente
 recibe un correo antes de su cita. Tú eliges cuánto antes: 15 min, 30 min, 1 hora, 2 horas,
-4 horas o 1 día. Aplica a todas tus citas, no a una sola.
+4 horas o 1 día. Aplica a todas tus citas, no a una sola. Una cita que agendas ya dentro de esa
+ventana (p. ej. a 30 minutos, con «1 hora antes») no recibe recordatorio.
 
 ### Campos de Cita
 

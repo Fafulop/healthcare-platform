@@ -271,6 +271,16 @@ export function BlockTimeModal({ isOpen, onClose, blockTime, unblockTimes, docto
     }
   };
 
+  // H-053: Escape closes it, like the other windows of the agenda.
+  const cerrarRef = useRef(handleClose);
+  cerrarRef.current = handleClose;
+  useEffect(() => {
+    if (!isOpen) return;
+    const alTeclear = (e: KeyboardEvent) => { if (e.key === "Escape") cerrarRef.current(); };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (

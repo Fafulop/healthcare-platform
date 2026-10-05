@@ -379,7 +379,17 @@ export default function AppointmentsPage() {
 
       {/* Booking stats */}
       <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+        {/* H-039: the card takes you to the pendientes (table filtered to Pendiente, every date). */}
+        <button
+          type="button"
+          onClick={() => {
+            bookingsHook.setBookingFilterStatus("PENDING");
+            bookingsHook.setBookingFilterDate("");
+            bookingsHook.setBookingsCollapsed(false);
+          }}
+          title="Ver las citas pendientes"
+          className="bg-white rounded-lg shadow p-4 sm:p-6 text-left hover:ring-2 hover:ring-yellow-200 transition"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs sm:text-sm text-gray-600 mb-1">Pendientes</p>
@@ -387,7 +397,7 @@ export default function AppointmentsPage() {
             </div>
             <Clock className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-500 opacity-20" />
           </div>
-        </div>
+        </button>
         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div>

@@ -25,8 +25,8 @@
 | [ ] | **H-059** | Devolución/contracargo no toca Flujo | **Documentarlo**: «si devuelves dinero, registra un egreso "Devolución" en Flujo». Las devoluciones las inicia el doctor en MP/Stripe y son raras; automatizar = más webhooks |
 | [ ] | **H-057** | Ligar una cita a una sesión cambia su precio en silencio | **No cambiar el precio de la cita** (quitar la sobrescritura) |
 | [ ] | **H-042** | Archivar con citas futuras no avisa | **Avisar en la confirmación**: «Tiene N citas futuras; no se cancelan» — las cancela el doctor si quiere |
-| [ ] | **H-011** | Eliminar una cita deja su cobro en Flujo | **Decirlo en el diálogo** («El cobro de $X se queda en Flujo de Dinero») |
-| [ ] | **H-013** | Telemedicina pide «Consultorio *» | **No pedirlo ni guardarlo en Telemedicina** |
+| [x] | **H-011** | Eliminar una cita deja su cobro en Flujo | **Decirlo en el diálogo** («El cobro de $X se queda en Flujo de Dinero») |
+| [x] | **H-013** | Telemedicina pide «Consultorio *» | **No pedirlo ni guardarlo en Telemedicina** |
 | [ ] | **H-049** | Editar una plantilla ya usada cambia las consultas viejas | **Avisar al editar** una plantilla que ya tiene consultas |
 | [ ] | **H-035** | La nota de venta imprime la dirección del perfil, no la del consultorio | **Usar la del consultorio** de la cita *si el consultorio guarda dirección*; si no, dejarlo |
 | [ ] | **H-045** | No se puede agendar desde el expediente | **Dejarlo** — el manual no lo promete y Agenda funciona |
@@ -41,18 +41,18 @@
 - [x] **H-070** (`750310d4`, ✅ prod) — esconder «Completar» / «No asistió» en una cita Pendiente y quitar el aviso de la guía A4
 
 **Lote B — una línea o casi**
-- [ ] H-031 «No asistió» con confirmación, como «Cancelar»
-- [ ] H-032 eliminar una cita deja rastro en la bitácora
-- [ ] H-039 la tarjeta «Pendientes» filtra las pendientes al tocarla
+- [x] (B1, sin commit) H-031 «No asistió» con confirmación, como «Cancelar»
+- [x] (B1, sin commit) H-032 eliminar una cita deja rastro en la bitácora
+- [x] (B1, sin commit) H-039 la tarjeta «Pendientes» filtra las pendientes al tocarla
 - [ ] H-044 tipo de sangre y condiciones crónicas visibles en el perfil
-- [ ] H-012 Reagendar trae el servicio de la cita (el valor ya se calcula, no se pasa)
-- [ ] H-014 la pista del consultorio no dice «no hay de dónde deducir» cuando ya eligió uno
+- [x] (B1, sin commit) H-012 Reagendar trae el servicio de la cita (el valor ya se calcula, no se pasa)
+- [x] (B1, sin commit) H-014 la pista del consultorio no dice «no hay de dónde deducir» cuando ya eligió uno
 - [ ] H-017 quitar «o haz clic para agregar» de la paleta (en escritorio no funciona)
 - [ ] H-020 los errores del editor de plantillas salen al guardar, no al abrir
 - [ ] H-028 sin asteriscos de formulario en la vista de la receta
-- [ ] H-053 Escape cierra «Gestionar Bloqueos»
+- [x] (B1, sin commit) H-053 Escape cierra «Gestionar Bloqueos»
 - [ ] H-055 «Nuevo tratamiento» no propone una hora que ya pasó
-- [ ] H-047 una línea en el manual (cita dentro de la ventana del recordatorio = sin recordatorio)
+- [x] (B1, sin commit) H-047 una línea en el manual (cita dentro de la ventana del recordatorio = sin recordatorio)
 - [ ] H-008 borrar el script muerto
 
 **Dejar (no vale la complejidad hoy)**

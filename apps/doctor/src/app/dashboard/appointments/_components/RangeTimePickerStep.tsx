@@ -171,6 +171,11 @@ export function RangeTimePickerStep({
   const [services, setServices] = useState<Service[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(initialServiceId);
+  // H-012: on Reagendar the modal finds the cita's service only after its own fetch, i.e. after this
+  // step mounted with `null`. Take it when it arrives — unless the doctor already picked one.
+  useEffect(() => {
+    if (initialServiceId) setSelectedServiceId((actual) => actual ?? initialServiceId);
+  }, [initialServiceId]);
 
   // Calendar
   // ⚠️ El mes arranca en el del hueco clicado, no en el de hoy: si no, un clic en un día de

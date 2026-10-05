@@ -5,10 +5,9 @@
 **Antes de empezar:** tener **rangos** publicados (ver «Publicar tu horario»); sólo en ellos pueden pedir cita.
 
 **Pasos**
-1. En **«Mis Citas»**, el contador **«Pendientes»** te dice cuántas hay.
-2. En los filtros de la tabla: **«Más estados…» → «Pendiente»** y **«Todas las fechas»**.
-3. Haz clic en la fila de la cita para abrirla.
-4. Grupo **ESTADO → «Confirmar»**.
+1. En **«Mis Citas»**, toca el contador **«Pendientes»**: la tabla muestra sólo las pendientes, de todas las fechas.
+2. Haz clic en la fila de la cita para abrirla.
+3. Grupo **ESTADO → «Confirmar»**.
 
 **Qué vas a ver:** la cita pasa a **«AGENDADA»** y el contador de Pendientes baja.
 

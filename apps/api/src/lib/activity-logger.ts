@@ -20,6 +20,7 @@ export type ActivityActionType =
   | "BOOKING_CANCELLED"
   | "BOOKING_COMPLETED"
   | "BOOKING_NO_SHOW"
+  | "BOOKING_DELETED"
   | "SLOT_UPDATED"
   | "PATIENT_CREATED"
   | "PATIENT_UPDATED"
@@ -304,6 +305,31 @@ export async function logBookingCompleted(params: {
       date: params.date,
       time: params.time,
       confirmationCode: params.confirmationCode,
+    },
+  });
+}
+
+/** H-032: deleting a cita left no trace (the other status changes all log). */
+export async function logBookingDeleted(params: {
+  doctorId: string;
+  bookingId: string;
+  patientName: string;
+  date: string;
+  time: string;
+}) {
+  await logActivity({
+    doctorId: params.doctorId,
+    actionType: "BOOKING_DELETED",
+    entityType: "BOOKING",
+    entityId: params.bookingId,
+    displayMessage: `Cita eliminada: ${params.patientName} - ${params.date} ${params.time}`,
+    icon: "Trash2",
+    color: "gray",
+    metadata: {
+      bookingId: params.bookingId,
+      patientName: params.patientName,
+      date: params.date,
+      time: params.time,
     },
   });
 }

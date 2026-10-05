@@ -242,6 +242,12 @@ export function useBookings(doctorId: string | undefined) {
       !await practiceConfirm("¿Estás seguro de que quieres cancelar esta cita?")
     )
       return;
+    // H-031: «No asistió» is final too (no way back) — it used to be a single click with no confirmation.
+    if (
+      newStatus === "NO_SHOW" &&
+      !await practiceConfirm("¿Marcar que el paciente no asistió? No se puede deshacer.")
+    )
+      return;
 
     try {
       const response = await authFetch(
@@ -335,7 +341,9 @@ export function useBookings(doctorId: string | undefined) {
   const deleteBooking = async (bookingId: string, patientName: string) => {
     if (
       !await practiceConfirm(
-        `¿Eliminar el registro de la cita de ${patientName}? Esta acción no se puede deshacer.`
+        // H-011: say what stays — the money already received is real and is kept.
+        `¿Eliminar el registro de la cita de ${patientName}? Esta acción no se puede deshacer. ` +
+          `Si la cita tenía un cobro, el ingreso se queda en Flujo de Dinero.`
       )
     )
       return;

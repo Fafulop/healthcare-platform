@@ -4,7 +4,7 @@
 
 **Pasos**
 1. Abre la cita (Agendada o **Vencida**) → **ESTADO → «Reagendar»**.
-2. Se abre **«Reagendar Cita»** con el paciente ya puesto. Elige el **servicio**, la **fecha** y la **hora** (si no está libre, toca una de las sugeridas).
+2. Se abre **«Reagendar Cita»** con el paciente ya puesto. El **servicio** ya viene el de la cita (cámbialo si quieres); elige la **fecha** y la **hora** (si no está libre, toca una de las sugeridas).
 3. Revisa modalidad y consultorio → **«Confirmar cita»**.
 
 **Qué vas a ver:** «Cita Reagendada». La cita nueva queda **Agendada** y la anterior se **cancela sola**.

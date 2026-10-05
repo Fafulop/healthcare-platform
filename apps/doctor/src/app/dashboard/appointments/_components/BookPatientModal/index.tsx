@@ -430,7 +430,8 @@ export function BookPatientModal({
             // Con `> 1` las citas fuera de rango de un doctor de una sola sede quedaban en NULL
             // (= "no registrado") mientras las de dentro de rango sí lo tenían: el mismo doctor,
             // el mismo consultorio, y la mitad de su agenda sin poder decir dónde es.
-            ...(!consultorioHeredadoId && selectedLocationId
+            // H-013: una cita de Telemedicina no es en ningún consultorio — no se pregunta ni se manda.
+            ...(appointmentMode !== "TELEMEDICINA" && !consultorioHeredadoId && selectedLocationId
               ? { locationId: selectedLocationId }
               : {}),
           }),
@@ -601,7 +602,8 @@ export function BookPatientModal({
               <RangeTimePickerStep
                 doctorId={doctorId}
                 doctorSlug={doctorSlug}
-                selectedServiceId={null}
+                // H-012: el servicio de la cita (Reagendar) o el ya elegido (al volver con «Cambiar horario»).
+                selectedServiceId={selectedServiceId}
                 // Lo YA elegido gana sobre el hueco del calendario. Este árbol se desmonta al
                 // pasar al paso 2 y se vuelve a montar con "← Cambiar horario", así que sin
                 // esto el regreso reponía en silencio el 16:15 del clic original y tiraba las

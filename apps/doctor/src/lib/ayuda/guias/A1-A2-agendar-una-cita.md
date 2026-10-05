@@ -14,7 +14,7 @@
 5. **Datos del paciente:**
    - **Tipo de visita:** «Primera vez» o «Recurrente». Con **Recurrente** aparece **«Vincular expediente»**: escribe el nombre y elige al paciente; sus datos se llenan solos.
    - **Modalidad:** «Presencial» o «Telemedicina».
-   - **Consultorio** (si tienes más de uno): si la hora cae dentro de un rango, ya viene puesto («Se toma del rango que contiene esta hora»). Si no, **elige uno**.
+   - **Consultorio** (si tienes más de uno y la cita es **Presencial**; en Telemedicina no se pide): si la hora cae dentro de un rango, ya viene puesto («Se toma del rango que contiene esta hora»). Si no, viene elegido el primero: **revisa que sea el correcto**.
    - **Nombre(s)**, y si quieres Apellidos, Email, Teléfono, WhatsApp y **Notas**.
 6. **«Confirmar cita»**.
 

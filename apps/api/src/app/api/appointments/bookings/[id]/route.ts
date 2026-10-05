@@ -11,6 +11,7 @@ import {
   logBookingCancelled,
   logBookingCompleted,
   logBookingNoShow,
+  logBookingDeleted,
 } from '@/lib/activity-logger';
 import { createSlotEvent, updateSlotEvent, deleteEvent, resolveTokens } from '@/lib/google-calendar';
 import { getCalendarTokens } from '@/lib/appointments-utils';
@@ -1031,6 +1032,15 @@ export async function DELETE(
     const links: ResultadoDesactivar = linksVivos
       ? await desactivarLinks(booking.doctorId, linksVivos)
       : { desactivados: [], fallidos: [], imposibles: [], errorLectura: true };
+
+    // H-032: leave a trace, like every other status change (fire-and-forget, as those).
+    logBookingDeleted({
+      doctorId: booking.doctorId,
+      bookingId: booking.id,
+      patientName: booking.patientName,
+      date: slot ? slot.date.toISOString().split('T')[0] : booking.date?.toISOString().split('T')[0] ?? '',
+      time: slot?.startTime ?? booking.startTime ?? '',
+    });
 
     return NextResponse.json({
       success: true,
