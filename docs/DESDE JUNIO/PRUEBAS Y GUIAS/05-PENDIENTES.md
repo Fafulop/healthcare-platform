@@ -37,8 +37,8 @@
 ## 2. Arreglos sin decisión — sólo los chicos
 
 **Lote A — ya**
-- [x] **H-068** (sin commit) — reducir el logo antes de meterlo al PDF (una función: dibujarlo a ~300 px en un canvas). Hoy la receta pesa 9.4 MB y «Receta PDF» se congela
-- [x] **H-070** (sin commit) — esconder «Completar» / «No asistió» en una cita Pendiente y quitar el aviso de la guía A4
+- [x] **H-068** (`750310d4`, ✅ prod: 9.4 MB → 380 KB) — reducir el logo antes de meterlo al PDF (una función: dibujarlo a ~300 px en un canvas). Hoy la receta pesa 9.4 MB y «Receta PDF» se congela
+- [x] **H-070** (`750310d4`, ✅ prod) — esconder «Completar» / «No asistió» en una cita Pendiente y quitar el aviso de la guía A4
 
 **Lote B — una línea o casi**
 - [ ] H-031 «No asistió» con confirmación, como «Cancelar»
@@ -61,7 +61,7 @@
 
 ## 3. Construido pero nunca probado a mano
 
-- [ ] Aviso de H-030 al cancelar — lo pruebo en Chrome (2 min)
+- [x] Aviso de H-030 al cancelar — ✅ 2026-10-05: al cancelar la cita de prueba de H-070 salió «Cita cancelada» (en español)
 - [ ] Tratamientos V2 y V5 («Resumen PDF») — los pruebo en Chrome con QA E1
 - [ ] Pago real de Mercado Pago a un link desactivado — reintentar una vez con otra tarjeta; si MP sigue rechazando, queda documentado
 - «Reactivar» con el plan lleno — dejarlo (mismo chequeo del servidor que «Nuevo paciente»)
