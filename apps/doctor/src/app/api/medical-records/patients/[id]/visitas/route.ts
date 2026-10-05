@@ -150,7 +150,7 @@ export async function POST(
           }
         }
         const hecho = seguimiento
-          ? await unirComoSeguimiento(tx, ctx.doctorId, patientId, seguimiento, { id: v.id, bookingId })
+          ? await unirComoSeguimiento(tx, ctx.doctorId, patientId, seguimiento, { id: v.id, bookingId, fecha: v.fecha })
           : null;
         return { visita: v, enSesion: cambio, seguimientoHecho: hecho };
       })

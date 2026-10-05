@@ -46,7 +46,9 @@ export function NuevaVisitaModal({
   const activos = useMemo(() => tratamientos.filter((t) => t.estado === 'activo'), [tratamientos]);
   // Visitas que no son de NINGÚN tratamiento: si ya son de uno activo, se elige ese tratamiento; si
   // son de uno terminado/cancelado, el servidor lo rechaza (se reactiva primero). Las 20 más recientes.
-  const visitasSueltas = useMemo(() => visitas.filter((v) => !v.sesion).slice(0, 20), [visitas]);
+  // Sólo visitas del MISMO día o ANTERIORES (H-024): el servidor rechaza una posterior — la sesión 2
+  // quedaba antes que la 1. Se recalcula con la fecha/cita elegida (más abajo).
+  const visitasSueltasTodas = useMemo(() => visitas.filter((v) => !v.sesion), [visitas]);
 
   const visitaPorCita = useMemo(
     () => new Map(visitas.flatMap((v) => (v.cita ? [[v.cita.id, v.id] as const] : []))),
@@ -80,6 +82,22 @@ export function NuevaVisitaModal({
   }, [listo, verCitas, citas]);
 
   const elegida = listo ? citas.find((b) => b.id === bookingId) ?? null : null;
+  // Día de la visita NUEVA: el de la cita si hay una, si no el que se escribe.
+  const diaNueva = (elegida?.date ?? fecha ?? '').slice(0, 10);
+  const visitasSueltas = useMemo(
+    // Sin fecha todavía no se ofrece ninguna: no hay contra qué comparar.
+    () => (diaNueva ? visitasSueltasTodas.filter((v) => v.fecha.slice(0, 10) <= diaNueva).slice(0, 20) : []),
+    [visitasSueltasTodas, diaNueva],
+  );
+  // Si al cambiar la fecha/cita la visita elegida queda fuera (posterior), la elección vale «No» —
+  // derivado en el render (el select lo muestra en el acto), no limpiado después por un efecto.
+  const seguimientoEf =
+    seguimiento.startsWith('v:') && !visitasSueltas.some((v) => `v:${v.id}` === seguimiento) ? '' : seguimiento;
+  // Al cambiar el día se SUELTA una visita elegida (aunque vuelva a valer después): que no reaparezca
+  // sola una elección que el select ya había mostrado como «No».
+  useEffect(() => {
+    setSeguimiento((s) => (s.startsWith('v:') ? '' : s));
+  }, [diaNueva]);
   const visitaExistente = elegida ? visitaPorCita.get(elegida.id) : undefined;
   // La cita de una sesión ya lleva su visita al tratamiento: ahí no se pregunta (el servidor diría 409).
   const citaEsSesion = elegida?.esSesion === true;
@@ -111,8 +129,8 @@ export function NuevaVisitaModal({
         // Vacía NO se manda: el servidor rechaza una `fecha` mal formada aunque venga cita (400).
         body: JSON.stringify({
           ...(elegida ? { bookingId: elegida.id, ...(fecha && { fecha }) } : { fecha }),
-          ...(ofrecerSeguimiento && seguimiento
-            ? { seguimiento: seguimiento.startsWith('t:') ? { tratamientoId: seguimiento.slice(2) } : { visitaId: seguimiento.slice(2) } }
+          ...(ofrecerSeguimiento && seguimientoEf
+            ? { seguimiento: seguimientoEf.startsWith('t:') ? { tratamientoId: seguimientoEf.slice(2) } : { visitaId: seguimientoEf.slice(2) } }
             : {}),
         }),
       });
@@ -203,7 +221,7 @@ export function NuevaVisitaModal({
           {ofrecerSeguimiento && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">¿Es seguimiento?</label>
-              <select value={seguimiento} onChange={(e) => setSeguimiento(e.target.value)} className={inputClass}>
+              <select value={seguimientoEf} onChange={(e) => setSeguimiento(e.target.value)} className={inputClass}>
                 <option value="">No</option>
                 {activos.length > 0 && (
                   <optgroup label="Sesión siguiente de un tratamiento">
@@ -222,9 +240,10 @@ export function NuevaVisitaModal({
                   </optgroup>
                 )}
               </select>
-              {seguimiento.startsWith('v:') && (
+              {seguimientoEf.startsWith('v:') && (
                 <p className="text-xs text-gray-500 mt-1">
                   Se crea un tratamiento «Seguimiento del …» con esa visita y ésta (le cambias el nombre en «Editar»).
+                  Las dos visitas pasan al tratamiento y dejan de verse en «Visitas» (están dentro del tratamiento).
                 </p>
               )}
             </div>

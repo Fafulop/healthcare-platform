@@ -517,7 +517,7 @@ export interface SeguimientoHecho {
 /**
  * T7 — la visita RECIÉN creada (en la misma transacción) entra al tratamiento como sesión:
  *   · `{ tratamientoId }`: un tratamiento ACTIVO del paciente;
- *   · `{ visitaId }`: la visita anterior — si ya es de un tratamiento activo, a ése; si no es de
+ *   · `{ visitaId }`: la visita anterior (nunca de un día POSTERIOR a ésta: 409 — H-024) — si ya es de un tratamiento activo, a ése; si no es de
  *     ninguno, nace uno chico «Seguimiento del 12 sep» con sesión 1 = la anterior y 2 = la nueva; si
  *     es de uno terminado/cancelado, 409 (se reactiva primero — decisión del usuario 2026-10-01).
  * La visita llena la PRIMERA sesión libre (no cancelada, sin visita y sin una cita que siga
@@ -527,7 +527,8 @@ export interface SeguimientoHecho {
  */
 export async function unirComoSeguimiento(
   tx: Prisma.TransactionClient, doctorId: string, patientId: string, seg: Seguimiento,
-  nueva: { id: string; bookingId: string | null },
+  /** `fecha` = el día de la visita nueva (con cita, la ruta ya la puso en el día de la cita). */
+  nueva: { id: string; bookingId: string | null; fecha: Date },
 ): Promise<SeguimientoHecho> {
   try {
     let tratamientoId: string;
@@ -543,6 +544,22 @@ export async function unirComoSeguimiento(
         },
       });
       if (!prev) throw new AppError('La visita anterior no existe o no es de este paciente', 404);
+
+      // H-024 (2026-10-04): «seguimiento de una visita anterior» — la anterior no puede ser POSTERIOR a
+      // ésta (si no, la sesión 2 queda antes que la 1). Día de cada visita = el de su cita si la tiene
+      // (misma regla que el nombre «Seguimiento del …» y que la tarjeta de Visitas).
+      const diaCitaPrev = prev.bookingId ? (await diasDeCitas(doctorId, [prev.bookingId])).get(prev.bookingId) : undefined;
+      const diaPrev = diaISO(diaCitaPrev ?? prev.fecha);
+      const diaNueva = diaISO(nueva.fecha);
+      if (diaPrev > diaNueva) {
+        // Con el año si son de años distintos: «5 ene, posterior a 20 dic» se leería falso.
+        const otroAnio = diaPrev.slice(0, 4) !== diaNueva.slice(0, 4);
+        const f = (iso: string) => `${diaCorto(iso)}${otroAnio ? ` ${iso.slice(0, 4)}` : ''}`;
+        throw new AppError(
+          `La visita elegida es del ${f(diaPrev)}, posterior a ésta (${f(diaNueva)}): una visita sólo puede ser seguimiento de una anterior`,
+          409,
+        );
+      }
       if (prev.tratamientoSesion) {
         if (prev.tratamientoSesion.tratamiento.estado !== 'activo') {
           throw new AppError(
@@ -553,8 +570,7 @@ export async function unirComoSeguimiento(
         tratamientoId = prev.tratamientoSesion.tratamientoId;
       } else {
         // Con cita, el día de la visita es el de la cita (DISEÑO §3).
-        const dia = prev.bookingId ? (await diasDeCitas(doctorId, [prev.bookingId])).get(prev.bookingId) : undefined;
-        const nombre = `Seguimiento del ${diaCorto(diaISO(dia ?? prev.fecha))}`;
+        const nombre = `Seguimiento del ${diaCorto(diaPrev)}`;
         const t = await tx.tratamiento.create({ data: { patientId, doctorId, nombre }, select: { id: true } });
         const citaPrevLibre = prev.bookingId
           && !(await tx.tratamientoSesion.findFirst({ where: { bookingId: prev.bookingId }, select: { id: true } }))

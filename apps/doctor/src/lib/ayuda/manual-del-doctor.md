@@ -432,8 +432,10 @@ documentos, notas, recetas e informes, la cita y un comentario.
   «¿De qué cita?»: su visita se crea sin cita.
   Si el paciente tiene tratamientos activos o visitas anteriores, también pregunta **«¿Es
   seguimiento?»**: **«Sesión siguiente de «(tratamiento)»»** (la visita llena la siguiente sesión
-  libre o se agrega una al final) o **«Seguimiento de una visita anterior»** (se crea un tratamiento
-  **«Seguimiento del 12 sep»** con esa visita y la nueva; le cambias el nombre en «Editar»). Si la
+  libre o se agrega una al final; queda dentro del tratamiento y no en «Visitas») o **«Seguimiento de una visita anterior»** (se crea un tratamiento
+  **«Seguimiento del 12 sep»** con esa visita y la nueva; le cambias el nombre en «Editar»; las dos
+  visitas pasan al tratamiento y dejan de verse en «Visitas»). Sólo se ofrecen visitas del mismo día o
+  anteriores a la nueva: una visita no puede ser seguimiento de una posterior. Si la
   cita elegida ya es sesión de un tratamiento no pregunta: la visita entra sola. Un tratamiento
   terminado o cancelado no recibe seguimientos: reactívalo primero.
 
