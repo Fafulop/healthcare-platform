@@ -26,6 +26,7 @@ solo, el producto no funciona. Por eso aquí se hacen tres cosas, en este orden:
 | [`01-CATALOGO-flujos.md`](01-CATALOGO-flujos.md) | REFERENCIA (viva) | Cada flujo: pasos, lo que debe verse, lo que debe quedar en la BD, su efecto en Flujo de Dinero, y su estado |
 | [`02-BITACORA.md`](02-BITACORA.md) | BITÁCORA | Cada corrida: qué se hizo, evidencia (pantalla **y** BD), resultado |
 | [`03-HALLAZGOS.md`](03-HALLAZGOS.md) | REFERENCIA (viva) | Bugs, desvíos doc↔código y huecos de UX, con su estado y su arreglo |
+| [`05-PENDIENTES.md`](05-PENDIENTES.md) | ESTADO (vivo) | **Lo que queda**, una línea por pendiente con la recomendación (y opciones si hay que decidir) y el orden sugerido — la lista para tachar |
 | [`GUIAS/`](GUIAS/) | GUÍAS (para el doctor) | Una guía por flujo, en español, lista para la página «Flujos» y para el guion del video |
 
 ## Relación con lo que ya existe
