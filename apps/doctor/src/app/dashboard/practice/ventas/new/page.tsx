@@ -1,5 +1,6 @@
 'use client';
 
+import { FormaDePagoVenta } from '../_components/FormaDePagoVenta';
 import { useSession } from 'next-auth/react';
 import { redirect, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -258,6 +259,8 @@ export default function NewVentaPage() {
           patientId: selectedPatient.id, visitaId: desdeVisita ? visitaId : null, saleDate: form.saleDate,
           deliveryDate: form.deliveryDate || null, status: 'PENDING',
           paymentStatus: form.paymentStatus, amountPaid: form.amountPaid,
+          // Siempre: también una venta pendiente — «registrar monto» desde la lista no la pregunta.
+          formaDePago: form.formaDePago,
           items: form.items.map(it => ({
             productId: it.productId, itemType: it.itemType, description: it.description,
             sku: it.sku, quantity: it.quantity, unit: it.unit, unitPrice: it.unitPrice,
@@ -395,6 +398,9 @@ export default function NewVentaPage() {
                   {form.paymentStatus === 'PARTIAL' && `Ingrese el monto pagado (Total: $${total.toFixed(2)})`}
                 </p>
               </div>
+            </div>
+            <div className="mt-4 md:w-1/2">
+              <FormaDePagoVenta value={form.formaDePago} onChange={form.setFormaDePago} />
             </div>
           </div>
 

@@ -20,16 +20,17 @@ async function generateLedgerInternalId(
 ): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = entryType === 'ingreso' ? `ING-${year}-` : `EGR-${year}-`;
-  const last = await tx.ledgerEntry.findFirst({
-    where: { doctorId, internalId: { startsWith: prefix } },
-    orderBy: { internalId: 'desc' },
-    select: { internalId: true },
-  });
-  if (!last?.internalId) return `${prefix}001`;
-  const parts = last.internalId.split('-');
-  const lastNum = parseInt(parts[parts.length - 1], 10);
-  const next = isNaN(lastNum) ? 1 : lastNum + 1;
-  return `${prefix}${next.toString().padStart(3, '0')}`;
+  // H-058: NUMERIC maximum of the suffix — by text order «…-999» sorted above «…-1000» and the
+  // numbering jammed at 1000 (same fix as generateLedgerInternalId in apps/api practice-utils.ts).
+  const rows = await tx.$queryRawUnsafe<{ max: unknown }[]>(
+    'SELECT MAX(CAST(substring(internal_id FROM $1) AS NUMERIC)) AS max FROM practice_management.ledger_entries ' +
+      'WHERE internal_id LIKE $2 AND doctor_id = $3',
+    `^${prefix}([0-9]+)$`, // NUMERIC, no digit limit: a huge hand-typed suffix neither overflows nor is skipped
+    `${prefix}%`,
+    doctorId,
+  );
+  const ultimo = BigInt(String(rows[0]?.max ?? '0').split('.')[0]);
+  return `${prefix}${(ultimo + BigInt(1)).toString().padStart(3, '0')}`;
 }
 
 interface ImportEntry {

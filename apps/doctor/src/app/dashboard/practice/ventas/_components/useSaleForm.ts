@@ -27,6 +27,8 @@ export function useSaleForm() {
   const [termsAndConditions, setTermsAndConditions] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<'PENDING' | 'PARTIAL' | 'PAID'>('PENDING');
   const [amountPaid, setAmountPaid] = useState(0);
+  // H-001: cómo se cobró — va al ingreso de la venta en Flujo.
+  const [formaDePago, setFormaDePago] = useState('efectivo');
 
   // Items
   const [items, setItems] = useState<SaleItem[]>([]);
@@ -255,6 +257,7 @@ export function useSaleForm() {
     termsAndConditions, setTermsAndConditions,
     paymentStatus, setPaymentStatus,
     amountPaid, setAmountPaid,
+    formaDePago, setFormaDePago,
     // Items
     items, setItems,
     taxColumnLabel, setTaxColumnLabel,

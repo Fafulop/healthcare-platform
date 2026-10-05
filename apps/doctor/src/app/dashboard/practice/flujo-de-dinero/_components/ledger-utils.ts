@@ -17,9 +17,9 @@ export function formatDate(dateString: string): string {
 }
 
 export function cleanConcept(concept: string): string {
-  const ventaMatch = concept.match(/^Venta VTA-\d{4}-\d{3} - Cliente: (.+)$/);
+  const ventaMatch = concept.match(/^Venta VTA-\d{4}-\d+ - Cliente: (.+)$/);
   if (ventaMatch) return ventaMatch[1];
-  const compraMatch = concept.match(/^Compra CMP-\d{4}-\d{3} - Proveedor: (.+)$/);
+  const compraMatch = concept.match(/^Compra CMP-\d{4}-\d+ - Proveedor: (.+)$/);
   if (compraMatch) return compraMatch[1];
   return concept;
 }

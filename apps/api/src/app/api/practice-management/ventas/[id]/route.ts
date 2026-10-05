@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
-import { calculatePaymentStatus, computeItemTotals, withSalePatients, resolveSalePatient, salePatientName } from '@/lib/practice-utils';
+import { calculatePaymentStatus, computeItemTotals, withSalePatients, resolveSalePatient, salePatientName, VALID_FORMAS_DE_PAGO } from '@/lib/practice-utils';
 
 // PATCH /api/practice-management/ventas/:id
 // Lightweight partial update: { status } or { amountPaid }
@@ -118,7 +118,12 @@ export async function GET(
     }
 
     const [conPaciente] = await withSalePatients(doctor.id, [sale]);
-    return NextResponse.json({ data: conPaciente });
+    // H-001: la forma de pago vive en el INGRESO de la venta (Flujo), no en la venta.
+    const ingreso = await prisma.ledgerEntry.findFirst({
+      where: { saleId, doctorId: doctor.id },
+      select: { formaDePago: true },
+    });
+    return NextResponse.json({ data: { ...conPaciente, formaDePago: ingreso?.formaDePago ?? null } });
   } catch (error: any) {
     console.error('Error al obtener venta:', error);
     if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
@@ -159,6 +164,7 @@ export async function PUT(
       taxRate,
       status,
       amountPaid,
+      formaDePago,
     } = await request.json();
 
     // VENTAS PACIENTE paso 3: the patient can be CHANGED (re-checked) but never removed. Refused when:
@@ -270,6 +276,9 @@ export async function PUT(
               amount: total,
               paymentStatus: calculatePaymentStatus(finalAmountPaid, total),
               amountPaid: finalAmountPaid,
+              // H-001: cómo se cobró (sólo si viene una válida, y nunca sobre un ingreso YA facturado: el
+              // CFDI timbrado dice otra forma de pago).
+              ...(VALID_FORMAS_DE_PAGO.includes(formaDePago) && !linkedLedger.hasFactura ? { formaDePago } : {}),
               // The money follows the sale's patient.
               ...(nuevoPaciente
                 ? {

@@ -18,54 +18,59 @@ export function calculatePaymentStatus(
 // ─── Document Number Generation ─────────────────────────────────────────────
 
 /**
- * Computes the next sequential number string given the last known ID with the
- * same prefix. Format: {PREFIX}-{YYYY}-{NNN}
+ * H-058 (2026-10-05): the next number is the NUMERIC maximum of the suffix + 1. It used to take the
+ * last row by TEXT order (`orderBy … desc`), where «…-999» sorts above «…-1000»: from 1000 on it kept
+ * proposing 1000, every insert collided and that doctor's income/expenses (or everyone's sales)
+ * stopped being recorded. Table/column names are fixed constants; only values are parameters.
  */
-function nextSequence(lastId: string | null | undefined, prefix: string): string {
-  if (!lastId) return `${prefix}001`;
-  const parts = lastId.split('-');
-  const lastNum = parseInt(parts[parts.length - 1], 10);
-  const next = isNaN(lastNum) ? 1 : lastNum + 1;
-  return `${prefix}${next.toString().padStart(3, '0')}`;
+const NUMERADORES = {
+  ledger: { tabla: 'practice_management.ledger_entries', col: 'internal_id', porDoctor: true },
+  sale: { tabla: 'practice_management.sales', col: 'sale_number', porDoctor: false },
+  purchase: { tabla: 'practice_management.purchases', col: 'purchase_number', porDoctor: false },
+  quotation: { tabla: 'practice_management.quotations', col: 'quotation_number', porDoctor: false },
+} as const;
+
+async function siguienteNumero(
+  db: TxClient | PrismaClient,
+  tipo: keyof typeof NUMERADORES,
+  prefix: string,
+  doctorId?: string,
+): Promise<string> {
+  const { tabla, col, porDoctor } = NUMERADORES[tipo];
+  // `prefix` is «ING-2026-» etc.: letters, digits and dashes only — safe inside the regex.
+  const rows = await (db as PrismaClient).$queryRawUnsafe<{ max: unknown }[]>(
+    `SELECT MAX(CAST(substring(${col} FROM $1) AS NUMERIC)) AS max FROM ${tabla} WHERE ${col} LIKE $2` +
+      (porDoctor ? ' AND doctor_id = $3' : ''),
+    // NUMERIC (not INTEGER) and no digit limit: a hand-typed «ING-2026-1696500000000» must neither
+    // overflow nor be skipped (skipping it re-proposes the same next number forever).
+    `^${prefix}([0-9]+)$`,
+    `${prefix}%`,
+    ...(porDoctor ? [doctorId] : []),
+  );
+  // NUMERIC arrives as a Decimal: BigInt keeps every digit of a huge hand-typed suffix.
+  const ultimo = BigInt(String(rows[0]?.max ?? '0').split('.')[0]);
+  return `${prefix}${(ultimo + BigInt(1)).toString().padStart(3, '0')}`;
 }
 
 export async function generateSaleNumber(
   _doctorId: string,
   tx: TxClient | PrismaClient = prisma
 ): Promise<string> {
-  const prefix = `VTA-${new Date().getFullYear()}-`;
-  const last = await (tx as PrismaClient).sale.findFirst({
-    where: { saleNumber: { startsWith: prefix } },
-    orderBy: { saleNumber: 'desc' },
-    select: { saleNumber: true },
-  });
-  return nextSequence(last?.saleNumber, prefix);
+  return siguienteNumero(tx, 'sale', `VTA-${new Date().getFullYear()}-`);
 }
 
 export async function generatePurchaseNumber(
   _doctorId: string,
   tx: TxClient | PrismaClient = prisma
 ): Promise<string> {
-  const prefix = `CMP-${new Date().getFullYear()}-`;
-  const last = await (tx as PrismaClient).purchase.findFirst({
-    where: { purchaseNumber: { startsWith: prefix } },
-    orderBy: { purchaseNumber: 'desc' },
-    select: { purchaseNumber: true },
-  });
-  return nextSequence(last?.purchaseNumber, prefix);
+  return siguienteNumero(tx, 'purchase', `CMP-${new Date().getFullYear()}-`);
 }
 
 export async function generateQuotationNumber(
   _doctorId: string,
   tx: TxClient | PrismaClient = prisma
 ): Promise<string> {
-  const prefix = `COT-${new Date().getFullYear()}-`;
-  const last = await (tx as PrismaClient).quotation.findFirst({
-    where: { quotationNumber: { startsWith: prefix } },
-    orderBy: { quotationNumber: 'desc' },
-    select: { quotationNumber: true },
-  });
-  return nextSequence(last?.quotationNumber, prefix);
+  return siguienteNumero(tx, 'quotation', `COT-${new Date().getFullYear()}-`);
 }
 
 export async function generateLedgerInternalId(
@@ -75,12 +80,7 @@ export async function generateLedgerInternalId(
 ): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = entryType === 'ingreso' ? `ING-${year}-` : `EGR-${year}-`;
-  const last = await (tx as PrismaClient).ledgerEntry.findFirst({
-    where: { doctorId, internalId: { startsWith: prefix } },
-    orderBy: { internalId: 'desc' },
-    select: { internalId: true },
-  });
-  return nextSequence(last?.internalId, prefix);
+  return siguienteNumero(tx, 'ledger', prefix, doctorId);
 }
 
 // ─── Webhook Payment → LedgerEntry ──────────────────────────────────────────
@@ -309,7 +309,7 @@ export function textoAvisoRevisionPago(motivo: MotivoRevisionPago, amount: numbe
  */
 const AREA_INGRESOS_CONSULTA = 'Ingresos Consulta';
 
-const VALID_FORMAS_DE_PAGO = ['efectivo', 'transferencia', 'tarjeta', 'cheque', 'deposito'];
+export const VALID_FORMAS_DE_PAGO = ['efectivo', 'transferencia', 'tarjeta', 'cheque', 'deposito'];
 
 interface CitaLedgerInput {
   doctorId: string;

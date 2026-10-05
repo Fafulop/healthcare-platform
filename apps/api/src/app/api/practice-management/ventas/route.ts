@@ -11,8 +11,7 @@ import {
   getDefaultArea,
   withSalePatients,
   resolveSalePatient,
-  salePatientName,
-} from '@/lib/practice-utils';
+  salePatientName, VALID_FORMAS_DE_PAGO } from '@/lib/practice-utils';
 
 // GET /api/practice-management/ventas
 export async function GET(request: NextRequest) {
@@ -208,7 +207,8 @@ export async function POST(request: NextRequest) {
               counterpartyName: buyerName,
               paymentStatus: calculatePaymentStatus(paidAmount, total),
               amountPaid: paidAmount,
-              formaDePago: formaDePago || 'transferencia',
+              // H-001: la elige el formulario de la venta; sin una válida, «efectivo» (como la cita y la BD).
+              formaDePago: VALID_FORMAS_DE_PAGO.includes(formaDePago) ? formaDePago : 'efectivo',
               origin: 'venta',
             },
           });

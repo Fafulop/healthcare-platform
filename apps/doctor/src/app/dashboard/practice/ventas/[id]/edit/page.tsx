@@ -1,5 +1,6 @@
 'use client';
 
+import { FormaDePagoVenta } from '../../_components/FormaDePagoVenta';
 import { useSession } from 'next-auth/react';
 import { redirect, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -80,6 +81,8 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
       form.setTermsAndConditions(sale.termsAndConditions || '');
       form.setPaymentStatus(sale.paymentStatus);
       form.setAmountPaid(parseFloat(sale.amountPaid || '0'));
+      // Lo guardado, tal cual — vacío si no hay (el select lo dice «Sin registrar», no «Efectivo»).
+      form.setFormaDePago(sale.formaDePago ?? '');
       form.setItems(sale.items.map((item: any) => ({
         tempId: `temp-${item.id}`,
         productId: item.productId,
@@ -116,6 +119,7 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
           ...(patientId ? { patientId } : {}), saleDate: form.saleDate,
           deliveryDate: form.deliveryDate || null, status: 'PENDING',
           paymentStatus: form.paymentStatus, amountPaid: form.amountPaid,
+          formaDePago: form.formaDePago,
           items: form.items.map(it => ({
             productId: it.productId, itemType: it.itemType, description: it.description,
             sku: it.sku, quantity: it.quantity, unit: it.unit, unitPrice: it.unitPrice,
@@ -224,6 +228,9 @@ export default function EditVentaPage({ params }: { params: Promise<{ id: string
                   onChange={e => form.setAmountPaid(parseFloat(e.target.value) || 0)}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
               </div>
+            </div>
+            <div className="mt-4 md:w-1/2">
+              <FormaDePagoVenta value={form.formaDePago} onChange={form.setFormaDePago} />
             </div>
           </div>
 
