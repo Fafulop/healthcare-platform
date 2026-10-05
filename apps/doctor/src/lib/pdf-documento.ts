@@ -6,10 +6,16 @@
  *
  * Uso: `const h = abrirHoja(...)` (dibuja encabezado + consultorio y deja `h.y` donde sigue el
  * cuerpo) → el cuerpo → `cerrarHoja(h, y, leyenda, ...)` (la leyenda y el pie en todas las hojas).
+ *
+ * BLOQUE DE IDENTIDAD (2026-10-05, a pedido del usuario): todo documento clínico lleva SIEMPRE el
+ * nombre del médico, su(s) cédula(s) profesional(es) y la fecha del documento (`titulo.fecha`). Con
+ * encabezado van en el encabezado; SIN encabezado (hoja membretada) van en un renglón al inicio del
+ * cuerpo — antes se perdían con la banda (H-048). No se apaga desde los ajustes, y no se evita que
+ * una plantilla repita esos datos: si lo hace, salen dos veces y el médico la corrige.
  */
 import type { jsPDF as JsPDF } from 'jspdf';
 import { RX_PAGE_FORMATS } from '@/types/pdf-settings';
-import { COLOR_MAP, type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
+import { COLOR_MAP, renglonIdentidad, type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
 
 /** Quién firma y dónde: del diseño de la receta + el consultorio PRINCIPAL del perfil. */
 export interface EmisorNota {
@@ -49,6 +55,8 @@ export function abrirHoja(
     grande: string; subtitulo: string;
     /** Hoja angosta (media carta / A5): el título largo deja sin lugar al nombre del médico. */
     grandeAngosto?: string; subtituloAngosto?: string;
+    /** La fecha DEL DOCUMENTO, ya formateada (la de la visita, la de la receta…); parte del bloque de identidad. */
+    fecha?: string;
   },
 ): Hoja {
   const { colorScheme, logoB64 } = diseno;
@@ -114,6 +122,8 @@ export function abrirHoja(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(narrow ? 8 : 9);
     if (subtitulo) doc.text(subtitulo, tituloX, 21, { align: tituloAlign });
+    // Fecha abajo a la izquierda de la banda (debajo del logo): centrada chocaba con cédulas largas.
+    if (titulo.fecha) { doc.setFontSize(7.5); doc.text(titulo.fecha, margin, 32); }
 
     // The right block may only use what the title leaves free; a long name or credential shrinks
     // (down to 6 pt) instead of running into the title on narrow pages.
@@ -146,6 +156,8 @@ export function abrirHoja(
     const lineas = doc.splitTextToSize(linea, colW) as string[];
     doc.text(lineas.length > 1 ? lineas : linea, margin, y);
     y += 8 + (lineas.length - 1) * 6;
+    // Bloque de identidad sin banda: médico · cédula(s) · fecha (con el pie puesto, sólo la fecha).
+    y = renglonIdentidad(doc, emisor.doctorFullName, credLines, titulo.fecha, margin, colW, y, rx.showFooter);
   }
 
   // ── CONSULTORIO (el principal del perfil) ───────────────────────────────
@@ -174,11 +186,14 @@ export function cerrarHoja(
   const [cr, cg, cb] = h.color;
   const { sigB64 } = diseno;
 
-  if (y + 6 > h.maxContentY) { doc.addPage(); y = h.topReset; }
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(7);
-  doc.setTextColor(120, 120, 120);
-  doc.text(leyenda, margin, y);
+  // Sin leyenda no se escribe nada (y no se abre una hoja en blanco sólo para un texto vacío).
+  if (leyenda) {
+    if (y + 6 > h.maxContentY) { doc.addPage(); y = h.topReset; }
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7);
+    doc.setTextColor(120, 120, 120);
+    doc.text(leyenda, margin, y);
+  }
 
   // ── PIE (todas las hojas, como la receta) ───────────────────────────────
   if (rx.showFooter) {

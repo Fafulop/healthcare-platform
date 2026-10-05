@@ -3,6 +3,7 @@
  * para la VISTA PREVIA en vivo de «Receta PDF». Si cada uno dibujara la suya, la vista previa dejaría de
  * parecerse a lo que se imprime. El código de dibujo se movió TAL CUAL desde `usePrescriptionDetail.ts`
  * (2026-10-01); `scripts/receta/receta-pdf-probe.ts` compara el PDF de antes y el de ahora byte por byte.
+ * (Desde el bloque de identidad, 2026-10-05, la receta cambió a propósito: esa sonda ya no da iguales.)
  */
 import type { jsPDF as JsPDF } from 'jspdf';
 import { RX_PAGE_FORMATS, type PdfSettings, type RxPageSize } from '@/types/pdf-settings';
@@ -60,6 +61,27 @@ export const formatDate = (iso: string) =>
   new Date(`${iso.slice(0, 10)}T12:00:00`)
     .toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+/**
+ * El renglón de identidad cuando la hoja va SIN encabezado: «Dr. … · Céd. … · 22 oct 2026», en gris,
+ * partido en renglones si no cabe. Devuelve dónde sigue el cuerpo. Lo usan la receta y la hoja compartida (`pdf-documento.ts`).
+ */
+export function renglonIdentidad(
+  doc: JsPDF, doctorFullName: string, credLines: string[], fecha: string | undefined,
+  margin: number, colW: number, y: number,
+  /** With the footer band on, name and cédulas are already there on every page: only the date here. */
+  conPie = false,
+): number {
+  const partes = (conPie ? [fecha] : [doctorFullName?.trim(), ...credLines, fecha]).filter(Boolean) as string[];
+  if (partes.length === 0) return y;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(70, 70, 70);
+  const lineas = doc.splitTextToSize(partes.join('  ·  '), colW) as string[];
+  doc.text(lineas, margin, y);
+  doc.setTextColor(0, 0, 0);
+  return y + lineas.length * 3.8 + 3;
+}
+
 /** Una imagen (logo, firma) como data URL base64 para jsPDF; null si no se pudo bajar. */
 export async function imagenABase64(url: string): Promise<string | null> {
   try {
@@ -116,6 +138,13 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
   const topReset = topMarginMm + 14;
   let y = 0;
 
+  // Credential lines, ONCE for header, footer and the no-band identity line. Without credentials nor a
+  // license: nothing (it used to print «Cédula Profesional: undefined»).
+  const credLines = (prescription.doctorCredentials?.length
+    ? prescription.doctorCredentials.map((c) => `${c.titulo} — Céd. ${c.cedula}`)
+    : prescription.doctorLicense ? [`Cédula Profesional: ${prescription.doctorLicense}`] : []
+  ).slice(0, 4);
+
   const checkPage = (needed: number) => {
     if (y + needed > maxContentY) {
       doc.addPage();
@@ -168,22 +197,30 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(narrow ? 13 : 18);
     doc.text('RECETA MÉDICA', pageW / 2, 15, { align: 'center' });
+    // Bloque de identidad: la fecha también en la banda (si el doctor apaga la caja del paciente, era
+    // el único lugar con la fecha).
+    doc.setFont('helvetica', 'normal');
+    // Abajo a la izquierda de la banda (debajo del logo), donde no hay nada: centrada chocaba con el
+    // nombre y las cédulas de la derecha (en media carta siempre; en hoja ancha con cédulas largas).
+    doc.setFontSize(7.5);
+    doc.text(formatDate(prescription.prescriptionDate), margin, 32);
+    doc.setFont('helvetica', 'bold');
 
     doc.setFontSize(9);
     doc.text(prescription.doctorFullName, pageW - margin, 18, { align: 'right' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     // Credentials list (titulo + cédula each); fallback: legacy single cédula
-    const credLines = (prescription.doctorCredentials?.length
-      ? prescription.doctorCredentials.map((c) => `${c.titulo} — Céd. ${c.cedula}`)
-      : [`Cédula Profesional: ${prescription.doctorLicense}`]
-    ).slice(0, 4); // header band (35mm) fits 4 lines: last baseline 32.1
+    // header band (35mm) fits 4 lines: last baseline 32.1
     credLines.forEach((line, i) => {
       doc.text(line, pageW - margin, 22.5 + i * 3.2, { align: 'right' });
     });
     y = 40 + topMarginMm;
   } else {
     y = topReset;
+    // Bloque de identidad sin banda (hoja membretada): médico · cédula(s) · fecha, siempre — con
+    // encabezado, pie y caja del paciente apagados, la receta salía sin ninguno de los tres.
+    y = renglonIdentidad(doc, prescription.doctorFullName, credLines, formatDate(prescription.prescriptionDate), margin, colW, y, rx.showFooter);
   }
 
   // ── PATIENT BOX ────────────────────────────────────────────────────────
@@ -505,11 +542,8 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
       doc.text(prescription.doctorFullName, margin, footerY + 7);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.5);
-      const footCreds = (prescription.doctorCredentials?.length
-        ? prescription.doctorCredentials.map((c) => `${c.titulo} — Céd. ${c.cedula}`)
-        : [`Cédula Profesional: ${prescription.doctorLicense}`]
-      ).slice(0, 4); // footer band (22mm) fits 4 lines: last baseline 19.2
-      footCreds.forEach((line, i) => {
+      // footer band (22mm) fits 4 lines: last baseline 19.2
+      credLines.forEach((line, i) => {
         doc.text(line, margin, footerY + 10.5 + i * 2.9);
       });
 

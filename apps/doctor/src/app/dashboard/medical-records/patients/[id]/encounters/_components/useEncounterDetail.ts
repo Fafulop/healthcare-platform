@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { practiceConfirm } from '@/lib/practice-confirm';
-import { generateEncounterPDF } from '@/lib/pdf/encounter-pdf';
 import type { PdfSettings } from '@/types/pdf-settings';
 import type { Encounter } from './encounter-types';
 
@@ -78,32 +77,11 @@ export function useEncounterDetail() {
     }
   };
 
-  const fetchPdfSettings = async (): Promise<PdfSettings | null> => {
-    if (pdfSettings) return pdfSettings;
-    try {
-      const res = await fetch('/api/doctor/pdf-settings');
-      const data = await res.json();
-      if (data.success) {
-        setPdfSettings(data.data);
-        return data.data;
-      }
-    } catch {
-      console.error('Error fetching PDF settings');
-    }
-    return null;
-  };
-
-  const handleExportPDF = async () => {
+  // The PDF opens in the shared preview window (same sheet as the receta: identity block, logo,
+  // cédulas — 2026-10-05); it loads its own design and print settings.
+  const handleExportPDF = () => {
     if (!encounter) return;
     setExportingPDF(true);
-    try {
-      const settings = await fetchPdfSettings();
-      await generateEncounterPDF(encounter, customTemplate, settings);
-    } catch (err) {
-      console.error('Error generating PDF:', err);
-    } finally {
-      setExportingPDF(false);
-    }
   };
 
   const handleDelete = async () => {
@@ -142,6 +120,7 @@ export function useEncounterDetail() {
     error,
     isDeleting,
     exportingPDF,
+    setExportingPDF,
     // PDF settings
     pdfSettings,
     setPdfSettings,

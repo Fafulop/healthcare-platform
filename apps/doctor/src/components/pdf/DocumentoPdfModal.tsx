@@ -54,7 +54,7 @@ export type DibujarDocumento = (
   emisor: EmisorNota, diseno: DisenoReceta, rx: AjustesRx,
 ) => JsPDF;
 
-export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redibujarCon, onClose }: {
+export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redibujarCon, ajustesDe = ajustesRx, onClose }: {
   /** El encabezado de la ventana («Nota de venta · VTA-2026-001»). */
   titulo: string;
   nombreArchivo: string;
@@ -64,6 +64,9 @@ export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redib
   dibujar: DibujarDocumento;
   /** Un dato del llamador que puede llegar DESPUÉS de abrir (p. ej. el nombre del paciente): si cambia, se vuelve a dibujar. */
   redibujarCon?: string;
+  /** Which print settings this document uses: the receta's by default; the visita PDF has its own
+   * («PDF de consulta»: header, footer, margins, sections) — `ajustesConsulta`. */
+  ajustesDe?: (settings: PdfSettings) => AjustesRx;
   onClose: () => void;
 }) {
   const { doctorProfile } = useDoctorProfile();
@@ -85,7 +88,7 @@ export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redib
         const template = templateRes?.ok ? (await templateRes.json()).data ?? {} : null;
         const settingsJson = settingsRes?.ok ? await settingsRes.json() : null;
         const settings: PdfSettings = settingsJson?.success ? settingsJson.data : DEFAULT_PDF_SETTINGS;
-        const rx = ajustesRx(settings);
+        const rx = ajustesDe(settings);
         const logoUrl: string | null = template?.prescriptionLogoUrl || null;
         const sigUrl: string | null = template?.prescriptionSignatureUrl || null;
         const [logoB64, sigB64, { default: jsPDF }, { default: autoTable }] = await Promise.all([
@@ -163,8 +166,8 @@ export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redib
   const avisos: string[] = [];
   if (cargado && !cargado.template) {
     avisos.push(cargado.templateStatus === 403
-      ? 'Sin logo, firma ni dirección: el diseño de «Receta PDF» sólo lo carga el titular de la cuenta.'
-      : `No se pudo cargar el diseño de «Receta PDF» (logo, firma, dirección): ${queEs} sale sin él. Cierra esta ventana y vuelve a intentarlo.`);
+      ? 'Sin cédula, logo, firma ni dirección: el diseño de «Receta PDF» sólo lo carga el titular de la cuenta.'
+      : `No se pudo cargar el diseño de «Receta PDF» (cédula, logo, firma, dirección): ${queEs} sale sin él. Cierra esta ventana y vuelve a intentarlo.`);
   }
   if (cargado && !cargado.ajustesOk) {
     avisos.push(`No se cargaron los ajustes de impresión: ${queEs} usa los de fábrica (A4, sin márgenes de membrete; logo y firma visibles si los hay). Si imprimes en hoja membretada, pídele al titular que haga la descarga.`);

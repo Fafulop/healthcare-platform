@@ -590,7 +590,9 @@ Una consulta (la **plantilla** llenada) se agrega **desde una visita**: «Agrega
 micrófono, y llena los campos del formulario. Revisas y guardas tú. **Depende de tu plan.**
 
 **Una consulta guardada** tiene: «PDF» (con su configuración de impresión), «Editar»,
-«Informe» (llenar el formato de una aseguradora con esa consulta) y «Eliminar».
+«Informe» (llenar el formato de una aseguradora con esa consulta) y «Eliminar». El «PDF» se abre en
+una ventana con la vista previa y «Descargar»; sale con el mismo diseño que tus recetas (logo, color,
+firma) y la fecha de la consulta.
 
 ### Recetas
 
@@ -632,6 +634,13 @@ guardar**. Es el mismo dibujo que la receta que descargas.
   encabezado, el logo, el pie y la firma, los **márgenes** para hoja membretada y qué secciones lleva
   (datos del paciente, diagnóstico, notas clínicas) → «Guardar impresión».
 - En el celular, la receta se ve abajo con «Ver receta»; si tu teléfono no la muestra, «Abrir en otra pestaña».
+
+**Siempre salen tu nombre, tu(s) cédula(s) profesional(es) y la fecha** en la receta y en el PDF de
+una consulta: en el encabezado o, si lo ocultas (hoja membretada), la fecha en un renglón al inicio
+de la hoja y tu nombre y cédulas en el pie (si también ocultas el pie, van en ese renglón).
+No se pueden quitar. Si una plantilla tuya también los pide, salen dos veces: quítalos de la plantilla.
+(Un **ayudante** no carga tu diseño de «Receta PDF»: lo que él descarga sale sin tu cédula, y la
+ventana se lo avisa.)
 
 En una receta, el botón de configuración de impresión te lleva aquí. Un **ayudante** (que no entra a
 «Receta PDF») sigue cambiando la impresión desde ese botón, sin vista previa.

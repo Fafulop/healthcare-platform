@@ -273,6 +273,21 @@ export function EncounterForm({
                 <p className="text-sm text-gray-600">{selectedTemplate.description}</p>
               )}
             </div>
+            {/* H-022 (2026-10-05): a custom plantilla has its own date too (e1cdc37f) — it used to always
+                take the visita's date with no way to change it, while the manual said otherwise. */}
+            <div className="mb-6 max-w-xs">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fecha de Consulta <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                name="encounterDate"
+                value={formData.encounterDate}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
             <DynamicFieldRenderer
               fields={(selectedTemplate as CustomEncounterTemplate).customFields}
               values={customFieldValues}

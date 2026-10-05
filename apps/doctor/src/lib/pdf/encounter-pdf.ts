@@ -1,5 +1,8 @@
 // jsPDF is dynamically imported — safe for client-only use, no SSR issues
+import type { jsPDF as JsPDF } from 'jspdf';
 import { DEFAULT_PDF_SETTINGS, type PdfSettings } from '@/types/pdf-settings';
+import { ajustesRx, type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
+import { abrirHoja, cerrarHoja, type EmisorNota } from '@/lib/pdf-documento';
 import { calcularEdad as calcAge } from '@/lib/edad';
 import { sinValor, textoDeValor } from '@/lib/campo-archivo';
 
@@ -48,45 +51,86 @@ function pageBreakIfNeeded(doc: any, y: number, threshold = 255, topReset = 20):
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Single encounter PDF
+// Single encounter PDF — on the SHARED sheet (2026-10-05)
 // ─────────────────────────────────────────────────────────────────────────────
-export async function generateEncounterPDF(
+// It had its own design (blue band «CONSULTA MÉDICA», no doctor, no cédula) and, with the band off
+// for letterhead paper, it lost the date too (H-048). Now it is drawn on `abrirHoja`/`cerrarHoja`: the
+// receta's design (logo, color, cédulas, signature) + the identity block (doctor · cédula · date of
+// the consulta), with THIS document's own print settings (header, footer, margins, sections).
+
+/** The visita PDF's print settings on the shared sheet's shape (+ its own section toggles). */
+export function ajustesConsulta(settings: PdfSettings) {
+  const s = { ...DEFAULT_PDF_SETTINGS, ...settings };
+  return {
+    // From «Receta PDF» (same logo/signature switches as every clinic document).
+    ...ajustesRx(s),
+    // The visita PDF's OWN settings («PDF de consulta»).
+    showHeader: s.showHeader,
+    showFooter: s.showFooter,
+    showPatientBox: s.showPatientBox,
+    pageSize: 'a4' as const,
+    orientation: 'portrait' as const,
+    topMarginMm: Math.max(0, Math.min(80, s.topMarginMm)),
+    bottomMarginMm: Math.max(0, Math.min(80, s.bottomMarginMm)),
+    showEncounterMeta: s.showEncounterMeta,
+    showVitals: s.showVitals,
+    showFollowUp: s.showFollowUp,
+    showPageNumbers: s.showPageNumbers,
+  };
+}
+export type AjustesConsulta = ReturnType<typeof ajustesConsulta>;
+
+function sexoTexto(sex: string | null | undefined): string | null {
+  if (!sex) return null;
+  return ({ female: 'Femenino', male: 'Masculino', other: 'Otro' } as Record<string, string>)[sex.toLowerCase()] ?? sex;
+}
+
+/** `consulta-AAAA-MM-DD-nombre-apellido.pdf` */
+export function nombreArchivoConsulta(encounter: any): string {
+  const pat = encounter.patient;
+  const dateStr = String(encounter.encounterDate).split('T')[0];
+  const slug = `${pat.firstName}-${pat.lastName}`.toLowerCase().replace(/\s+/g, '-');
+  return `consulta-${dateStr}-${slug}.pdf`;
+}
+
+/** Draws the visita/plantilla PDF and returns the document (preview `.output`, download `.save`). */
+export function dibujarConsulta(
+  jsPDF: typeof JsPDF,
+  emisor: EmisorNota,
+  diseno: DisenoReceta,
+  rxBase: AjustesRx,
   encounter: any,
   customTemplate?: any | null,
-  pdfSettings?: PdfSettings | null,
-): Promise<void> {
-  const { default: jsPDF } = await import('jspdf');
-  const doc = new jsPDF();
-  const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
-  const m = 14;
-  const cw = W - m * 2;
-
-  // Merge settings with defaults and clamp margins
-  const settings = { ...DEFAULT_PDF_SETTINGS, ...(pdfSettings || {}) };
-  settings.topMarginMm = Math.max(0, Math.min(80, settings.topMarginMm));
-  settings.bottomMarginMm = Math.max(0, Math.min(80, settings.bottomMarginMm));
-  const breakThreshold = H - 14 - settings.bottomMarginMm;
-  const topReset = settings.topMarginMm + 14;
-
-  // Header
-  let y: number;
-  if (settings.showHeader) {
-    doc.setFillColor(37, 99, 235);
-    doc.rect(0, 0, W, 32, 'F');
-    doc.setFontSize(15);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text('CONSULTA MÉDICA', m, 14);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(formatLocalDate(encounter.encounterDate), m, 23);
-    doc.text(encStatusLabel(encounter.status), W - m, 23, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
-    y = 40 + settings.topMarginMm;
-  } else {
-    y = settings.topMarginMm + 14;
-  }
+): JsPDF {
+  // Missing section toggles (a caller that forgot `ajustesDe={ajustesConsulta}`) default to ON instead of
+  // silently dropping vitals / follow-up / meta / page numbers.
+  const settings = { showEncounterMeta: true, showVitals: true, showFollowUp: true, showPageNumbers: true, ...rxBase } as AjustesConsulta;
+  const h = abrirHoja(jsPDF, emisor, diseno, settings, {
+    grande: 'CONSULTA MÉDICA',
+    subtitulo: encStatusLabel(encounter.status),
+    fecha: formatLocalDate(encounter.encounterDate),
+  });
+  const { doc } = h;
+  const W = h.pageW;
+  const m = h.margin;
+  const cw = h.colW;
+  // Without a footer the page number goes at the bottom: keep the body 8 mm above it.
+  const breakThreshold = h.maxContentY - (settings.showPageNumbers && !settings.showFooter ? 8 : 0);
+  const topReset = h.topReset;
+  let y = h.y;
+  // Long texts (a SOAP note, a plantilla textarea) continue on the next page line by line: the footer
+  // band is opaque now, so text running past it would be HIDDEN, not just near the edge. Shadows the
+  // module-level `addText` (which does not paginate) — the body below uses this one.
+  const textoPaginado = (d: any, text: string, x: number, y0: number, maxW: number, lh: number): number => {
+    const lines: string[] = d.splitTextToSize(text, maxW);
+    let yy = y0;
+    for (const line of lines) {
+      if (yy > breakThreshold) { d.addPage(); yy = topReset; }
+      d.text(line, x, yy);
+      yy += lh;
+    }
+    return yy;
+  };
 
   // Patient box
   const pat = encounter.patient;
@@ -106,14 +150,13 @@ export async function generateEncounterPDF(
     doc.setTextColor(80, 80, 80);
     const metaParts = [
       pat.internalId ? `ID: ${pat.internalId}` : null,
-      pat.sex ? `Sexo: ${pat.sex}` : null,
+      sexoTexto(pat.sex) ? `Sexo: ${sexoTexto(pat.sex)}` : null,
       pat.dateOfBirth ? `Edad: ${calcAge(pat.dateOfBirth)} años` : null,
     ].filter(Boolean).join('   ');
     doc.text(metaParts, m + 4, y + 19);
     doc.setTextColor(0, 0, 0);
     y += 28;
   }
-
   // Encounter meta
   if (settings.showEncounterMeta) {
     doc.setFontSize(8.5);
@@ -134,7 +177,7 @@ export async function generateEncounterPDF(
     y = sectionHeader(doc, 'Motivo de Consulta', y, W);
     doc.setFontSize(9.5);
     doc.setFont('helvetica', 'normal');
-    y = addText(doc, encounter.chiefComplaint, m, y, cw, 5) + 6;
+    y = textoPaginado(doc, encounter.chiefComplaint, m, y, cw, 5) + 6;
   }
 
   // Vitals
@@ -148,7 +191,8 @@ export async function generateEncounterPDF(
   ].filter(Boolean) as string[];
 
   if (settings.showVitals && vitals.length > 0) {
-    y = pageBreakIfNeeded(doc, y, breakThreshold, topReset);
+    // Header (8) + box (up to 18): the whole box must fit above the footer band.
+    y = pageBreakIfNeeded(doc, y, breakThreshold - 26, topReset);
     y = sectionHeader(doc, 'Signos Vitales', y, W);
     const vitalsLine1 = vitals.slice(0, 3).join('   |   ');
     const vitalsLine2 = vitals.slice(3).join('   |   ');
@@ -165,7 +209,7 @@ export async function generateEncounterPDF(
     if (encounter.vitalsOther) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
-      y = addText(doc, `Otros: ${encounter.vitalsOther}`, m, y, cw, 5) + 4;
+      y = textoPaginado(doc, `Otros: ${encounter.vitalsOther}`, m, y, cw, 5) + 4;
     }
   }
 
@@ -196,7 +240,7 @@ export async function generateEncounterPDF(
       doc.text(item.label, m + 9, y + 3);
       y += 8;
       doc.setFont('helvetica', 'normal');
-      y = addText(doc, item.value, m + 9, y, cw - 9, 5) + 5;
+      y = textoPaginado(doc, item.value, m + 9, y, cw - 9, 5) + 5;
     }
   }
 
@@ -206,7 +250,7 @@ export async function generateEncounterPDF(
     y = sectionHeader(doc, 'Notas Clínicas', y, W);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    y = addText(doc, encounter.clinicalNotes, m, y, cw, 5) + 6;
+    y = textoPaginado(doc, encounter.clinicalNotes, m, y, cw, 5) + 6;
   }
 
   // Custom template data
@@ -234,14 +278,15 @@ export async function generateEncounterPDF(
       doc.setTextColor(0, 0, 0);
       y += 5;
       const displayVal = textoDeValor(value);
-      y = addText(doc, displayVal, m, y, cw, 5) + 4;
+      y = textoPaginado(doc, displayVal, m, y, cw, 5) + 4;
     }
     y += 2;
   }
 
   // Follow-up
   if (settings.showFollowUp && (encounter.followUpDate || encounter.followUpNotes)) {
-    y = pageBreakIfNeeded(doc, y, breakThreshold, topReset);
+    // Header (8) + box (up to 34): the whole box must fit above the footer band.
+    y = pageBreakIfNeeded(doc, y, breakThreshold - 42, topReset);
     y = sectionHeader(doc, 'Seguimiento', y, W);
     doc.setFillColor(239, 246, 255);
     // Compute height dynamically so wrapped notes don't overflow the box
@@ -272,27 +317,27 @@ export async function generateEncounterPDF(
     y += fuh + 8;
   }
 
-  // Footer on every page
-  if (settings.showFooter || settings.showPageNumbers) {
+  cerrarHoja(h, y, '', emisor, diseno, settings);
+
+  // Page numbers (the visita PDF's own switch): inside the footer band (centered, it has room there)
+  // or, without footer, 8 mm above the bottom margin — never on the content nor at the paper's edge.
+  if (settings.showPageNumbers) {
     const totalPages = (doc as any).internal.getNumberOfPages();
-    const footerY = H - 8 - settings.bottomMarginMm;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(160, 160, 160);
       if (settings.showFooter) {
-        doc.text(`tusalud.pro — Generado el ${new Date().toLocaleDateString('es-MX')}`, m, footerY);
-      }
-      if (settings.showPageNumbers) {
-        doc.text(`Página ${i} de ${totalPages}`, W - m, footerY, { align: 'right' });
+        const t = h.noColor ? 90 : 255;
+        doc.setTextColor(t, t, t);
+        doc.text(`Página ${i} de ${totalPages}`, W / 2, h.footerY + h.footerH - 3, { align: 'center' });
+      } else {
+        doc.setTextColor(160, 160, 160);
+        doc.text(`Página ${i} de ${totalPages}`, W - m, h.pageH - 6 - settings.bottomMarginMm, { align: 'right' });
       }
     }
   }
-
-  const dateStr = encounter.encounterDate.split('T')[0];
-  const slug = `${pat.firstName}-${pat.lastName}`.toLowerCase().replace(/\s+/g, '-');
-  doc.save(`consulta-${dateStr}-${slug}.pdf`);
+  return doc;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -10,6 +10,8 @@ import { getEncounterTypeLabel } from '../_components/encounter-types';
 import { EncounterVitalsCard } from '../_components/EncounterVitalsCard';
 import { EncounterSOAPCard } from '../_components/EncounterSOAPCard';
 import { useEncounterDetail } from '../_components/useEncounterDetail';
+import { DocumentoPdfModal } from '@/components/pdf/DocumentoPdfModal';
+import { ajustesConsulta, dibujarConsulta, nombreArchivoConsulta } from '@/lib/pdf/encounter-pdf';
 
 export default function EncounterDetailPage() {
   const {
@@ -28,6 +30,7 @@ export default function EncounterDetailPage() {
     setShowPdfSettings,
     handleExportPDF,
     handleDelete,
+    setExportingPDF,
   } = useEncounterDetail();
 
   if (sessionStatus === 'loading' || loading) {
@@ -82,8 +85,8 @@ export default function EncounterDetailPage() {
               disabled={exportingPDF}
               className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1.5"
             >
-              {exportingPDF ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-              {exportingPDF ? 'Generando...' : 'PDF'}
+              <Download className="w-3.5 h-3.5" />
+              PDF
             </button>
             <button
               onClick={() => setShowPdfSettings(true)}
@@ -307,6 +310,17 @@ export default function EncounterDetailPage() {
         </div>
       </div>
 
+      {exportingPDF && encounter && (
+        <DocumentoPdfModal
+          titulo="PDF de la consulta"
+          nombreArchivo={nombreArchivoConsulta(encounter)}
+          queEs="el PDF de la consulta"
+          ajustesDe={ajustesConsulta}
+          redibujarCon={customTemplate?.id ?? ''}
+          dibujar={(jsPDF, _autoTable, emisor, diseno, rx) => dibujarConsulta(jsPDF, emisor, diseno, rx, encounter, customTemplate)}
+          onClose={() => setExportingPDF(false)}
+        />
+      )}
       <PdfSettingsDialog
         open={showPdfSettings}
         onClose={() => setShowPdfSettings(false)}

@@ -107,13 +107,13 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
               <div className="space-y-2">
                 <CheckboxRow
                   id="showHeader"
-                  label="Mostrar encabezado (barra azul)"
+                  label="Mostrar encabezado (con el diseño de tu receta)"
                   checked={settings.showHeader}
                   onChange={() => toggle('showHeader')}
                 />
                 <CheckboxRow
                   id="showFooter"
-                  label="Mostrar pie de pagina (tusalud.pro)"
+                  label="Mostrar pie (tu nombre, cédula y firma)"
                   checked={settings.showFooter}
                   onChange={() => toggle('showFooter')}
                 />

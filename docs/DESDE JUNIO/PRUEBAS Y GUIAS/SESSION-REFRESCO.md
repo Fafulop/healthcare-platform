@@ -27,7 +27,9 @@ H-061 (asistente/chat/reagendar no muestran el toast de «link apagado»; regla 
 
 **2026-10-05:** H-024 en prod `2466a2b2` y verificado (una visita sólo puede ser seguimiento de una del mismo día o anterior). Datos QA nuevos: tratamiento «Seguimiento del 21 oct» `cmuvf7q9h…` (sesiones 21-oct y 22-oct; visita nueva `cmuvf7q82…`).
 **Decisiones 2026-10-05:** H-062 → por ahora sólo doc (completar la nueva en $0; manual + A10), arreglo de fondo después · H-063 → ESTACIONADO (el asistente de IA no se usará en un buen tiempo).
-**Siguiente sugerido:** resto de abiertos en `03-HALLAZGOS.md`.
+**2026-10-05 también:** `e2c19214` — H-058 (folios pasan de 999: máximo NUMÉRICO del sufijo) y H-001/H-036 («Forma de pago» en ventas), verificados en prod (venta QA VTA-2026-012, ING-2026-400 efectivo).
+**2026-10-05, BLOQUE DE IDENTIDAD en PDFs clínicos (pedido del usuario; sin commit al escribir esto):** todo PDF clínico lleva SIEMPRE nombre del médico · cédula(s) profesional(es) · fecha del documento — en la banda del encabezado (fecha abajo a la izquierda) o, sin encabezado, en un renglón al inicio (con el pie puesto, ese renglón lleva sólo la fecha). El PDF de la consulta/plantilla pasó a la hoja compartida (diseño de la receta) con SUS ajustes, se abre en vista previa, pagina textos largos (antes la banda del pie los tapaba). Arregla H-048; H-022 («Fecha de Consulta» en plantillas personalizadas). Nuevo H-064 (receta en hoja angosta: título y nombre largo se enciman — existía antes). Queda: el PDF «Historial clínico» de la Línea de Tiempo con su diseño viejo.
+**Siguiente sugerido:** H-050 (fechas crudas en la Línea de Tiempo) · H-064 · H-041 (desarchivar) · resto en `03-HALLAZGOS.md`.
 
 **Reglas de esta pasada que cambiaron hoy:** los links de pago SÍ se pueden pagar con montos mínimos
 (mínimo de la app $10; `00-PLAN` §4). Cada arreglo: plan → OK → código → type-check → code review (y otra
