@@ -98,11 +98,14 @@ export function AyudaPestanas({ manual }: { manual: ManualEnPestanas }) {
         {pestana.secciones.length > 0 && (
           <nav className="hidden lg:block text-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">En esta pestaña</p>
-            <ul className="space-y-1 sticky top-4">
+            {/* Bullets + air between items: as a plain column the titles read as one blob of text. Capped at
+                the screen's height with its own scroll: «Flujos» has 27 items and a sticky list taller than
+                the screen hides its last ones. */}
+            <ul className="space-y-2.5 sticky top-4 list-disc pl-4 marker:text-gray-400 max-h-[calc(100vh-2rem)] overflow-y-auto pr-2">
               {pestana.secciones.map((s) => (
-                <li key={s.id}>
+                <li key={s.id} className="pl-1 leading-snug">
                   <a href={`?tab=${pestana.id}#${s.id}`} onClick={(e) => { e.preventDefault(); irA(pestana.id, s.id); }}
-                    className="text-gray-600 hover:text-blue-700">{s.titulo}</a>
+                    className="text-gray-600 hover:text-blue-800">{s.titulo}</a>
                 </li>
               ))}
             </ul>
@@ -110,7 +113,9 @@ export function AyudaPestanas({ manual }: { manual: ManualEnPestanas }) {
         )}
         <article
           onClick={alHacerClic}
-          className="prose prose-sm sm:prose-base max-w-none prose-headings:scroll-mt-4 prose-a:text-blue-700"
+          // A line above each `###` (a guide in «Flujos», a section in the manual tabs) so it's clear where
+          // one ends and the next begins — except right under a group title (`##`).
+          className="prose prose-sm sm:prose-base max-w-none prose-headings:scroll-mt-4 prose-a:text-blue-700 [&_h3]:border-t [&_h3]:border-gray-200 [&_h3]:pt-6 [&_h3]:mt-10 [&_h2+h3]:border-t-0 [&_h2+h3]:pt-0 [&_h2+h3]:mt-4"
           dangerouslySetInnerHTML={{ __html: pestana.html }}
         />
       </div>
