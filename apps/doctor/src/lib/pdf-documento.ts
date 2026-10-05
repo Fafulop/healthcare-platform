@@ -15,7 +15,7 @@
  */
 import type { jsPDF as JsPDF } from 'jspdf';
 import { RX_PAGE_FORMATS } from '@/types/pdf-settings';
-import { COLOR_MAP, renglonIdentidad, type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
+import { COLOR_MAP, renglonIdentidad, tamanoQueCabe, type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
 
 /** Quién firma y dónde: del diseño de la receta + el consultorio PRINCIPAL del perfil. */
 export interface EmisorNota {
@@ -131,11 +131,7 @@ export function abrirHoja(
     doc.setFontSize(narrow ? 13 : 18);
     // Only narrow pages: on wide ones the centered title sits ABOVE the name/credentials (no overlap).
     const libre = narrow ? pageW - margin - (tituloX + doc.getTextWidth(grande)) - 4 : Infinity;
-    const ajustado = (text: string, size: number) => {
-      doc.setFontSize(size);
-      let s = size;
-      while (s > 6 && doc.getTextWidth(text) > libre) doc.setFontSize((s -= 0.5));
-    };
+    const ajustado = (text: string, size: number) => tamanoQueCabe(doc, text, size, libre);
     doc.setFont('helvetica', 'bold');
     ajustado(emisor.doctorFullName, 9);
     doc.text(emisor.doctorFullName, pageW - margin, 18, { align: 'right' });

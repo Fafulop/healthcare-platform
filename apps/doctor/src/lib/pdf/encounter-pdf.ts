@@ -1,7 +1,7 @@
 // jsPDF is dynamically imported — safe for client-only use, no SSR issues
 import type { jsPDF as JsPDF } from 'jspdf';
 import { DEFAULT_PDF_SETTINGS, type PdfSettings } from '@/types/pdf-settings';
-import { ajustesRx, type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
+import { ajustesRx, sexoTexto, type AjustesRx, type DisenoReceta } from '@/lib/receta-pdf';
 import { abrirHoja, cerrarHoja, type EmisorNota } from '@/lib/pdf-documento';
 import { calcularEdad as calcAge } from '@/lib/edad';
 import { sinValor, textoDeValor } from '@/lib/campo-archivo';
@@ -79,11 +79,6 @@ export function ajustesConsulta(settings: PdfSettings) {
   };
 }
 export type AjustesConsulta = ReturnType<typeof ajustesConsulta>;
-
-function sexoTexto(sex: string | null | undefined): string | null {
-  if (!sex) return null;
-  return ({ female: 'Femenino', male: 'Masculino', other: 'Otro' } as Record<string, string>)[sex.toLowerCase()] ?? sex;
-}
 
 /** `consulta-AAAA-MM-DD-nombre-apellido.pdf` */
 export function nombreArchivoConsulta(encounter: any): string {

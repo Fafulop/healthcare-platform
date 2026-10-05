@@ -7,6 +7,7 @@ import { ImagingStudyList, LabStudyList } from '@/components/medical-records/Stu
 import { PrescriptionPdfSettingsDialog } from '@/components/medical-records/PrescriptionPdfSettingsDialog';
 import { formatDateLong } from '@/lib/practice-utils';
 import { resolveRecetaCustomContent } from '@/lib/receta-custom-content';
+import { sexoTexto } from '@/lib/receta-pdf';
 import { getStatusLabel, getStatusColor } from '../_components/prescription-types';
 import { usePrescriptionDetail } from '../_components/usePrescriptionDetail';
 import { useSession } from 'next-auth/react';
@@ -252,7 +253,7 @@ export default function ViewPrescriptionPage() {
 
           <div>
             <p className="text-sm text-gray-600">Sexo</p>
-            <p className="text-gray-900">{prescription.patient.sex}</p>
+            <p className="text-gray-900">{sexoTexto(prescription.patient.sex) ?? '—'}</p>
           </div>
         </div>
       </div>

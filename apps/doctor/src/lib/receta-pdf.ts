@@ -61,6 +61,22 @@ export const formatDate = (iso: string) =>
   new Date(`${iso.slice(0, 10)}T12:00:00`)
     .toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+/** The patient's sex as printed on clinical PDFs (the DB stores `female`/`male`/`other`). */
+export function sexoTexto(sex: string | null | undefined): string | null {
+  if (!sex) return null;
+  return ({ female: 'Femenino', male: 'Masculino', other: 'Otro' } as Record<string, string>)[sex.toLowerCase()] ?? sex;
+}
+
+/**
+ * Sets `size` and shrinks it (0.5 pt steps, down to 6 pt) until `text` fits in `ancho` mm — the right
+ * block of a header band (name, cédulas) on a narrow page. ONE copy for the receta and the shared sheet.
+ */
+export function tamanoQueCabe(doc: JsPDF, text: string, size: number, ancho: number): void {
+  doc.setFontSize(size);
+  let s = size;
+  while (s > 6 && doc.getTextWidth(text) > ancho) doc.setFontSize((s -= 0.5));
+}
+
 /**
  * El renglón de identidad cuando la hoja va SIN encabezado: «Dr. … · Céd. … · 22 oct 2026», en gris,
  * partido en renglones si no cabe. Devuelve dónde sigue el cuerpo. Lo usan la receta y la hoja compartida (`pdf-documento.ts`).
@@ -196,7 +212,14 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
     doc.setTextColor(noColor ? 30 : 255, noColor ? 30 : 255, noColor ? 30 : 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(narrow ? 13 : 18);
-    doc.text('RECETA MÉDICA', pageW / 2, 15, { align: 'center' });
+    // Narrow pages: a centered title runs into a long doctor's name on the right (H-064), so it goes
+    // left, after the logo — same as the shared sheet (`pdf-documento.ts`).
+    const tituloX = narrow ? margin + (logoB64 ? 22 : 0) : pageW / 2;
+    doc.text('RECETA MÉDICA', tituloX, 15, { align: narrow ? 'left' : 'center' });
+    // The right block may only use what the title leaves free (narrow pages only; on wide ones the
+    // centered title sits ABOVE the name/credentials): a long name or credential shrinks down to 6 pt.
+    const libre = narrow ? pageW - margin - (tituloX + doc.getTextWidth('RECETA MÉDICA')) - 4 : Infinity;
+    const ajustado = (text: string, size: number) => tamanoQueCabe(doc, text, size, libre);
     // Bloque de identidad: la fecha también en la banda (si el doctor apaga la caja del paciente, era
     // el único lugar con la fecha).
     doc.setFont('helvetica', 'normal');
@@ -206,13 +229,13 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
     doc.text(formatDate(prescription.prescriptionDate), margin, 32);
     doc.setFont('helvetica', 'bold');
 
-    doc.setFontSize(9);
+    ajustado(prescription.doctorFullName, 9);
     doc.text(prescription.doctorFullName, pageW - margin, 18, { align: 'right' });
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
     // Credentials list (titulo + cédula each); fallback: legacy single cédula
     // header band (35mm) fits 4 lines: last baseline 32.1
     credLines.forEach((line, i) => {
+      ajustado(line, 7);
       doc.text(line, pageW - margin, 22.5 + i * 3.2, { align: 'right' });
     });
     y = 40 + topMarginMm;
@@ -245,7 +268,12 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(100, 100, 100);
-    doc.text(`ID: ${prescription.patient.internalId}  •  Sexo: ${prescription.patient.sex}`, margin + 4, y + 20.5);
+    // «Sexo: Femenino», not the DB's «female» (H-065); a missing value is left out, not «null».
+    const datosPaciente = [
+      prescription.patient.internalId ? `ID: ${prescription.patient.internalId}` : null,
+      sexoTexto(prescription.patient.sex) ? `Sexo: ${sexoTexto(prescription.patient.sex)}` : null,
+    ].filter(Boolean).join('  •  ');
+    doc.text(datosPaciente, margin + 4, y + 20.5);
 
     // Right column
     doc.text('Fecha de prescripción', midX, y + 7);

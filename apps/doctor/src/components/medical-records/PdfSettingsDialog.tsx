@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Loader2, Eye } from 'lucide-react';
 import type { PdfSettings } from '@/types/pdf-settings';
 import { DEFAULT_PDF_SETTINGS } from '@/types/pdf-settings';
@@ -19,9 +19,12 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  // The close that follows a save; cancelled if the dialog is closed and reopened before it fires.
+  const cierre = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (open) {
+      if (cierre.current) clearTimeout(cierre.current);
       fetchSettings();
       setSaved(false);
     }
@@ -38,7 +41,7 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
         onSettingsLoaded(data.data);
       }
     } catch {
-      setError('Error al cargar configuracion');
+      setError('Error al cargar la configuración');
     } finally {
       setLoading(false);
     }
@@ -57,13 +60,14 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
       const data = await res.json();
       if (data.success) {
         onSettingsLoaded(data.data);
+        // Show «Guardado» for a moment, then close: staying open looked like the save did nothing (H-066).
         setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
+        cierre.current = setTimeout(onClose, 700);
       } else {
         setError(data.error || 'Error al guardar');
       }
     } catch {
-      setError('Error al guardar configuracion');
+      setError('Error al guardar la configuración');
     } finally {
       setSaving(false);
     }
@@ -85,7 +89,7 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
       <div className="bg-white rounded-xl shadow-lg max-w-md w-full my-4">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">Configuracion de Impresion PDF</h2>
+          <h2 className="text-base font-semibold text-gray-900">Configuración de impresión PDF</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
@@ -103,7 +107,7 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
 
             {/* Header & Footer */}
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Encabezado y Pie de Pagina</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Encabezado y pie de página</p>
               <div className="space-y-2">
                 <CheckboxRow
                   id="showHeader"
@@ -119,7 +123,7 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
                 />
                 <CheckboxRow
                   id="showPageNumbers"
-                  label="Mostrar numeros de pagina"
+                  label="Mostrar números de página"
                   checked={settings.showPageNumbers}
                   onChange={() => toggle('showPageNumbers')}
                 />
@@ -128,7 +132,7 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
 
             {/* Margins */}
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Margenes para Papel Membretado</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Márgenes para papel membretado</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Margen superior</label>
@@ -159,12 +163,12 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-gray-400 mt-1">Espacio en blanco para logo o datos pre-impresos (0-80 mm)</p>
+              <p className="text-xs text-gray-400 mt-1">Espacio en blanco para logo o datos preimpresos (0-80 mm)</p>
             </div>
 
             {/* Sections */}
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Secciones del Documento</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Secciones del documento</p>
               <div className="space-y-2">
                 <CheckboxRow
                   id="showPatientBox"
@@ -204,14 +208,14 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 <Eye className="w-3.5 h-3.5" />
-                Vista Previa
+                Vista previa
               </button>
             ) : (
               <div />
             )}
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || saved}
               className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
