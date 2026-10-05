@@ -25,8 +25,9 @@ H-061 (asistente/chat/reagendar no muestran el toast de «link apagado»; regla 
 **H-062** (reagendar una cita YA PAGADA ⇒ la nueva no se puede concluir sin 2º ingreso — **decidir**) ·
 **H-063** (el asistente no completa en $0; la cortesía no queda marcada — **decidir**).
 
-**Siguiente sugerido:** H-024 (seguimiento crea tratamiento sin avisar y no valida el orden de sesiones) ·
-decisiones H-062/H-063 · resto de abiertos en `03-HALLAZGOS.md`.
+**2026-10-05:** H-024 en prod `2466a2b2` y verificado (una visita sólo puede ser seguimiento de una del mismo día o anterior). Datos QA nuevos: tratamiento «Seguimiento del 21 oct» `cmuvf7q9h…` (sesiones 21-oct y 22-oct; visita nueva `cmuvf7q82…`).
+**Decisiones 2026-10-05:** H-062 → por ahora sólo doc (completar la nueva en $0; manual + A10), arreglo de fondo después · H-063 → ESTACIONADO (el asistente de IA no se usará en un buen tiempo).
+**Siguiente sugerido:** resto de abiertos en `03-HALLAZGOS.md`.
 
 **Reglas de esta pasada que cambiaron hoy:** los links de pago SÍ se pueden pagar con montos mínimos
 (mínimo de la app $10; `00-PLAN` §4). Cada arreglo: plan → OK → código → type-check → code review (y otra

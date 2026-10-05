@@ -11,7 +11,7 @@
 
 **Tu dinero:** nada cambia.
 
-**Si algo sale mal:** el paciente recibe dos correos: el aviso de que la anterior se canceló y la confirmación de la nueva. **«¿Necesita factura?»** pasa a la cita nueva (mismo expediente y sin cobro previo; revisa la casilla). Si la cita tenía un **link de pago** sin pagar, se desactiva al cancelarse la anterior: crea uno nuevo en la cita nueva. Si ya estaba pagada, el pago se queda en la anterior y la nueva se ve sin pagar: no vuelvas a cobrar.
+**Si algo sale mal:** el paciente recibe dos correos: el aviso de que la anterior se canceló y la confirmación de la nueva. **«¿Necesita factura?»** pasa a la cita nueva (mismo expediente y sin cobro previo; revisa la casilla). Si la cita tenía un **link de pago** sin pagar, se desactiva al cancelarse la anterior: crea uno nuevo en la cita nueva. Si ya estaba pagada, el pago se queda en la anterior y la nueva se ve sin pagar: no vuelvas a cobrar; al completar la nueva, pon el monto en **$0** (el pago ya está registrado en la anterior).
 
 **Video:** (pendiente)
 

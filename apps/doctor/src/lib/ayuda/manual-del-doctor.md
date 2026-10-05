@@ -229,7 +229,8 @@ se había cobrado. Revisa la casilla en la cita nueva: si cambiaste de paciente,
 Si la cita tenía un **link de pago sin pagar**, ese link **se desactiva** al cancelarse: crea uno
 nuevo en la cita nueva. Si la cita anterior **ya estaba pagada**, el pago (y su factura) se quedan
 registrados en ella, en Flujo de Dinero, y **la cita nueva se ve sin pagar**: no le vuelvas a
-cobrar al paciente.
+cobrar al paciente. Al completar la cita nueva, pon el monto en **$0**: el pago ya está registrado en
+la cita anterior.
 
 ### Confirmar la cita con el paciente
 
