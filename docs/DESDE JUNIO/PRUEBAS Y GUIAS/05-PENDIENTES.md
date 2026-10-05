@@ -41,19 +41,19 @@
 - [x] **H-070** (`750310d4`, ✅ prod) — esconder «Completar» / «No asistió» en una cita Pendiente y quitar el aviso de la guía A4
 
 **Lote B — una línea o casi**
-- [x] (B1, sin commit) H-031 «No asistió» con confirmación, como «Cancelar»
-- [x] (B1, sin commit) H-032 eliminar una cita deja rastro en la bitácora
-- [x] (B1, sin commit) H-039 la tarjeta «Pendientes» filtra las pendientes al tocarla
-- [x] (B2, sin commit) H-044 tipo de sangre y condiciones crónicas visibles en el perfil
-- [x] (B1, sin commit) H-012 Reagendar trae el servicio de la cita (el valor ya se calcula, no se pasa)
-- [x] (B1, sin commit) H-014 la pista del consultorio no dice «no hay de dónde deducir» cuando ya eligió uno
-- [x] (B2, sin commit) H-017 quitar «o haz clic para agregar» de la paleta (en escritorio no funciona)
-- [x] (B2, sin commit) H-020 los errores del editor de plantillas salen al guardar, no al abrir
-- [x] (B2, sin commit) H-028 sin asteriscos de formulario en la vista de la receta
-- [x] (B1, sin commit) H-053 Escape cierra «Gestionar Bloqueos»
-- [x] (B2, sin commit) H-055 «Nuevo tratamiento» no propone una hora que ya pasó
-- [x] (B1, sin commit) H-047 una línea en el manual (cita dentro de la ventana del recordatorio = sin recordatorio)
-- [x] (B2, sin commit) H-008 borrar el script muerto
+- [x] (B1 `0f0d5503` ✅) H-031 «No asistió» con confirmación, como «Cancelar»
+- [x] (B1 `0f0d5503` ✅) H-032 eliminar una cita deja rastro en la bitácora
+- [x] (B1 `0f0d5503` ✅) H-039 la tarjeta «Pendientes» filtra las pendientes al tocarla
+- [x] (B2 `6ee40b1a` ✅) H-044 tipo de sangre y condiciones crónicas visibles en el perfil
+- [x] (B1 `0f0d5503` ✅) H-012 Reagendar trae el servicio de la cita (el valor ya se calcula, no se pasa)
+- [x] (B1 `0f0d5503` ✅) H-014 la pista del consultorio no dice «no hay de dónde deducir» cuando ya eligió uno
+- [x] (B2 `6ee40b1a` ✅) H-017 quitar «o haz clic para agregar» de la paleta (en escritorio no funciona)
+- [x] (B2 `6ee40b1a` ✅) H-020 los errores del editor de plantillas salen al guardar, no al abrir
+- [x] (B2 `6ee40b1a` ✅) H-028 sin asteriscos de formulario en la vista de la receta
+- [x] (B1 `0f0d5503` ✅) H-053 Escape cierra «Gestionar Bloqueos»
+- [x] (B2 `6ee40b1a` ✅) H-055 «Nuevo tratamiento» no propone una hora que ya pasó
+- [x] (B1 `0f0d5503` ✅) H-047 una línea en el manual (cita dentro de la ventana del recordatorio = sin recordatorio)
+- [x] (B2 `6ee40b1a` ✅) H-008 borrar el script muerto
 
 **Dejar (no vale la complejidad hoy)**
 - H-052 ventas en «Citas e Ingresos» · H-056 «vacía» y fecha de la venta · H-061 más toasts de «link desactivado» · H-043 bitácora sólo con lo que cambió · H-019 jerga del editor · H-034 modalidad desde el servicio · H-040 partir el nombre de la reserva · H-060 doble pago simultáneo · H-003 tope de 200 · H-002 · H-004 · H-006
