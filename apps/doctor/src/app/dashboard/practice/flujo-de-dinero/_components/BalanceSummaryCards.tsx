@@ -16,6 +16,10 @@ export function BalanceSummaryCards({ balance }: Props) {
           <div>
             <p className="text-xs sm:text-sm text-gray-600">Balance Actual</p>
             <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{formatCurrency(balance.balance)}</p>
+            {/* H-009: the cards count money that actually moved; what's still owed is shown, not hidden. */}
+            {Math.abs(balance.projectedBalance - balance.balance) >= 0.01 && (
+              <p className="text-xs text-gray-500 mt-0.5 truncate">Proyectado: {formatCurrency(balance.projectedBalance)}</p>
+            )}
           </div>
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
             <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500" />
@@ -28,6 +32,9 @@ export function BalanceSummaryCards({ balance }: Props) {
           <div>
             <p className="text-xs sm:text-sm text-gray-600">Total Ingresos</p>
             <p className="text-lg sm:text-2xl font-bold text-teal-700 truncate">{formatCurrency(balance.totalIngresos)}</p>
+            {balance.pendingIngresos >= 0.01 && (
+              <p className="text-xs text-gray-500 mt-0.5 truncate">+ {formatCurrency(balance.pendingIngresos)} por cobrar</p>
+            )}
           </div>
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-teal-50 rounded-full flex items-center justify-center flex-shrink-0">
             <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-teal-600" />
@@ -40,6 +47,9 @@ export function BalanceSummaryCards({ balance }: Props) {
           <div>
             <p className="text-xs sm:text-sm text-gray-600">Total Egresos</p>
             <p className="text-lg sm:text-2xl font-bold text-rose-600 truncate">{formatCurrency(balance.totalEgresos)}</p>
+            {balance.pendingEgresos >= 0.01 && (
+              <p className="text-xs text-gray-500 mt-0.5 truncate">+ {formatCurrency(balance.pendingEgresos)} por pagar</p>
+            )}
           </div>
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-rose-50 rounded-full flex items-center justify-center flex-shrink-0">
             <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-rose-500" />

@@ -20,7 +20,7 @@
 
 | | ID | Qué | **Recomendación simple** |
 |---|---|---|---|
-| [ ] | **H-009** | Una venta NO pagada cuenta como ingreso (verificado 2026-10-05: `ledger/balance` suma el `amount` completo de todo ingreso con `porRealizar: false`, y las ventas nacen así) | **Que las tarjetas de saldo sumen lo PAGADO (`amountPaid`) y el resto vaya a «Por cobrar»**, en un solo lugar (la ruta de saldo). Antes: una consulta de sólo lectura en prod que confirme que todos los ingresos traen `amountPaid` lleno. Es el único pendiente que sí vale un plan propio |
+| [x] | **H-009** (sin commit) | Una venta NO pagada cuenta como ingreso (verificado 2026-10-05: `ledger/balance` suma el `amount` completo de todo ingreso con `porRealizar: false`, y las ventas nacen así) | **Que las tarjetas de saldo sumen lo PAGADO (`amountPaid`) y el resto vaya a «Por cobrar»**, en un solo lugar (la ruta de saldo). Antes: una consulta de sólo lectura en prod que confirme que todos los ingresos traen `amountPaid` lleno. Es el único pendiente que sí vale un plan propio |
 | [x] | **H-062** (B3, sin commit) | Cita ya pagada que se reagenda: el pago se queda en la vieja | **Mover el pago a la cita nueva** en el mismo punto donde Reagendar ya pasa «¿Necesita factura?» (`7323a896`). Mientras, sigue el atajo documentado (completar la nueva en $0) |
 | [x] | **H-059** | Devolución/contracargo no toca Flujo | **Documentarlo**: «si devuelves dinero, registra un egreso "Devolución" en Flujo». Las devoluciones las inicia el doctor en MP/Stripe y son raras; automatizar = más webhooks |
 | [x] | **H-057** | Ligar una cita a una sesión cambia su precio en silencio | **No cambiar el precio de la cita** (quitar la sobrescritura) |

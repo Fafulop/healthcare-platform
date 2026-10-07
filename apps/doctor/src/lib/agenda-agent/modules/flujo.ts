@@ -67,7 +67,7 @@ const FLUJO_TOOLS: AnthropicTool[] = [
   {
     name: 'get_balance',
     description:
-      'Balance del ledger: ingresos menos egresos REALIZADOS, los POR REALIZAR (proyectados) por separado y el balance proyectado. Rango de fechas opcional. Úsala para "¿cuánto tengo de balance?", "¿cuánto entró y salió en junio?".',
+      'Balance del ledger: ingresos COBRADOS menos egresos PAGADOS (lo registrado pero aún sin cobrar o pagar va aparte, en "pendientes"), los POR REALIZAR (proyectados) por separado y el balance proyectado. Rango de fechas opcional. Úsala para "¿cuánto tengo de balance?", "¿cuánto entró y salió en junio?".',
     input_schema: {
       type: 'object',
       properties: {
@@ -546,7 +546,8 @@ async function getMovimientos(ctx: ToolContext, input: MovimientosInput) {
 
 // -----------------------------------------------------------------------------
 // get_balance — REPLICA of GET /practice-management/ledger/balance
-// (realized vs porRealizar, projected).
+// (realized = what was PAID, the unpaid rest of a recorded entry, porRealizar, projected — H-009).
+// Keep both in step: the page and the assistant must give the same numbers.
 // -----------------------------------------------------------------------------
 
 async function getBalance(ctx: ToolContext, input: { startDate?: string; endDate?: string }) {
@@ -556,7 +557,7 @@ async function getBalance(ctx: ToolContext, input: { startDate?: string; endDate
   const agg = (entryType: string, porRealizar: boolean) =>
     prisma.ledgerEntry.aggregate({
       where: { doctorId, entryType, porRealizar, ...range },
-      _sum: { amount: true },
+      _sum: { amount: true, amountPaid: true },
     });
 
   const [ing, egr, pIng, pEgr] = await Promise.all([
@@ -566,8 +567,11 @@ async function getBalance(ctx: ToolContext, input: { startDate?: string; endDate
     agg('egreso', true),
   ]);
 
-  const totalIngresos = money(ing._sum.amount);
-  const totalEgresos = money(egr._sum.amount);
+  // H-009: realized = money that actually moved (`amountPaid`); recorded-but-unpaid goes to `pendientes`.
+  const totalIngresos = money(ing._sum.amountPaid);
+  const totalEgresos = money(egr._sum.amountPaid);
+  const porCobrar = round2(money(ing._sum.amount) - totalIngresos);
+  const porPagar = round2(money(egr._sum.amount) - totalEgresos);
   const pendIngresos = money(pIng._sum.amount);
   const pendEgresos = money(pEgr._sum.amount);
 
@@ -575,9 +579,10 @@ async function getBalance(ctx: ToolContext, input: { startDate?: string; endDate
     ...(asDay(input.startDate) || asDay(input.endDate)
       ? { periodo: `${asDay(input.startDate) ?? 'inicio'} a ${asDay(input.endDate) ?? 'hoy'}` }
       : { periodo: 'todo el historial' }),
-    realizados: { ingresos: totalIngresos, egresos: totalEgresos, balance: round2(totalIngresos - totalEgresos) },
+    realizados: { ingresosCobrados: totalIngresos, egresosPagados: totalEgresos, balance: round2(totalIngresos - totalEgresos) },
+    pendientes: { porCobrar, porPagar },
     porRealizar: { ingresos: pendIngresos, egresos: pendEgresos },
-    balanceProyectado: round2(totalIngresos + pendIngresos - totalEgresos - pendEgresos),
+    balanceProyectado: round2(totalIngresos + porCobrar + pendIngresos - totalEgresos - porPagar - pendEgresos),
     fuente:
       'Ledger (Flujo de Dinero): TODO el dinero registrado, con o sin factura. Para números de declaración (base de efectivo del SAT) usa get_resumen_fiscal — miden cosas distintas.',
   };

@@ -3,7 +3,7 @@ import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 
 // GET /api/practice-management/ledger/balance
-// Calculate balance: total ingresos - total egresos (excluding por realizar)
+// Calculate balance: ingresos COBRADOS - egresos PAGADOS (H-009); the unpaid rest and por realizar → pending
 export async function GET(request: NextRequest) {
   try {
     const { doctor } = await getAuthenticatedDoctor(request);
@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
         ...dateWhere,
       },
       _sum: {
-        amount: true
+        amount: true,
+        amountPaid: true,
       }
     });
 
@@ -41,7 +42,8 @@ export async function GET(request: NextRequest) {
         ...dateWhere,
       },
       _sum: {
-        amount: true
+        amount: true,
+        amountPaid: true,
       }
     });
 
@@ -70,10 +72,16 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const totalIngresos = ingresos._sum.amount || 0;
-    const totalEgresos = egresos._sum.amount || 0;
-    const totalPendingIngresos = pendingIngresos._sum.amount || 0;
-    const totalPendingEgresos = pendingEgresos._sum.amount || 0;
+    // H-009 (2026-10-06): «Total Ingresos / Egresos» and «Balance Actual» are money that actually came in or
+    // went out — what was PAID (`amountPaid`), not what was recorded. An unpaid sale (PENDING, $0 paid) used
+    // to count in full (prod: $561 K of income and $2.07 M of expenses not yet paid). The unpaid remainder
+    // of a recorded entry joins the pending figures, so the projected balance is unchanged.
+    const totalIngresos = Number(ingresos._sum.amountPaid || 0);
+    const totalEgresos = Number(egresos._sum.amountPaid || 0);
+    const sinCobrar = Number(ingresos._sum.amount || 0) - totalIngresos;
+    const sinPagar = Number(egresos._sum.amount || 0) - totalEgresos;
+    const totalPendingIngresos = Number(pendingIngresos._sum.amount || 0) + sinCobrar;
+    const totalPendingEgresos = Number(pendingEgresos._sum.amount || 0) + sinPagar;
 
     return NextResponse.json({
       data: {
