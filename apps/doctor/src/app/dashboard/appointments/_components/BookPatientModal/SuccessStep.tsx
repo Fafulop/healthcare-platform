@@ -21,6 +21,8 @@ interface Props {
   selectedService: DoctorService | null;
   onClose: () => void;
   isRescheduled?: boolean;
+  /** El precio GUARDADO en la cita (H-071), no el del catálogo. */
+  precio: number | null;
   /** ¿La cita tiene a dónde mandar el aviso? Sin correo NO se manda nada (apps/api lo salta). */
   tieneCorreo?: boolean;
 }
@@ -29,6 +31,7 @@ export function SuccessStep({
   patientName,
   displaySlot,
   selectedService,
+  precio,
   onClose,
   isRescheduled = false,
   tieneCorreo = false,
@@ -80,12 +83,12 @@ export function SuccessStep({
               </span>
               <span className="font-semibold text-gray-900">{selectedService.serviceName}</span>
             </div>
-            {selectedService.price != null && (
+            {precio != null && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500 flex items-center gap-1">
                   <DollarSign className="w-3 h-3" /> Precio
                 </span>
-                <span className="font-semibold text-gray-900">${selectedService.price}</span>
+                <span className="font-semibold text-gray-900">${precio}</span>
               </div>
             )}
           </>

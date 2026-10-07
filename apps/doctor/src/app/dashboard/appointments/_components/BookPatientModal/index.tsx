@@ -37,6 +37,13 @@ function todayStr(): string {
   return getClinicDateString();
 }
 
+// `finalPrice` llega como número o como string (Decimal de Prisma serializado).
+function precioDe(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 type Step = "slot" | "form" | "success";
 
 interface Props {
@@ -128,6 +135,9 @@ export function BookPatientModal({
 
   // Tracks whether this booking was a reschedule (captured at submit, stable for SuccessStep)
   const [wasRescheduled, setWasRescheduled] = useState(false);
+  // H-071: el precio que el servidor GUARDÓ (la sesión de un tratamiento trae el suyo); la pantalla de
+  // éxito decía el del catálogo ($650) aunque la cita quedó en $600.
+  const [precioGuardado, setPrecioGuardado] = useState<number | null>(null);
 
   // Booking field settings per flow
   const [horariosSettings, setHorariosSettings] = useState<PatientFieldSettings>(DEFAULT_FIELD_SETTINGS);
@@ -232,6 +242,7 @@ export function BookPatientModal({
       notes: rescheduleBooking.notes ?? "",
     } : { patientFirstName: "", patientLastName: "", patientEmail: "", patientPhone: "", patientWhatsapp: "", notes: "" });
     setWasRescheduled(false);
+    setPrecioGuardado(null);
     setSelectedPatientId(rescheduleBooking?.patientId ?? null);
     setSelectedPatientName(rpNombre);
     setPatientContactAlSeleccionar(
@@ -447,6 +458,7 @@ export function BookPatientModal({
         // Estaba fijo en false: la pantalla de éxito decía "cita creada" aunque el doctor
         // acabara de reagendar por rangos.
         setWasRescheduled(!!rescheduleBooking);
+        setPrecioGuardado(precioDe(data.data?.finalPrice));
         setStep("success");
         onSuccess(data.data.id, data.sesionReagendada);
         return;
@@ -495,6 +507,7 @@ export function BookPatientModal({
 
         sincronizarContactoConExpediente();
         setWasRescheduled(!!rescheduleBooking);
+        setPrecioGuardado(precioDe(data.data?.slot?.finalPrice));
         setStep("success");
         onSuccess(data.data.id, data.sesionReagendada);
         return;
@@ -528,6 +541,7 @@ export function BookPatientModal({
       }
 
       setWasRescheduled(!!rescheduleBooking);
+      setPrecioGuardado(precioDe(bookingData.data?.finalPrice));
       setStep("success");
       onSuccess(bookingData.data.id, bookingData.sesionReagendada);
     } catch {
@@ -734,6 +748,7 @@ export function BookPatientModal({
               selectedService={selectedService}
               onClose={handleClose}
               isRescheduled={wasRescheduled}
+              precio={precioGuardado ?? selectedService?.price ?? null}
               // Igual que apps/api (send-confirmation-email): el correo del EXPEDIENTE primero, la copia
               // de la cita después — si no, borrar el campo decía «no se le avisó» aunque sí se mandó.
               tieneCorreo={!!(rescheduleBooking?.patient?.email?.trim() || formData.patientEmail?.trim())}

@@ -20,8 +20,8 @@
 
 | | ID | Qué | **Recomendación simple** |
 |---|---|---|---|
-| [x] | **H-009** (sin commit) | Una venta NO pagada cuenta como ingreso (verificado 2026-10-05: `ledger/balance` suma el `amount` completo de todo ingreso con `porRealizar: false`, y las ventas nacen así) | **Que las tarjetas de saldo sumen lo PAGADO (`amountPaid`) y el resto vaya a «Por cobrar»**, en un solo lugar (la ruta de saldo). Antes: una consulta de sólo lectura en prod que confirme que todos los ingresos traen `amountPaid` lleno. Es el único pendiente que sí vale un plan propio |
-| [x] | **H-062** (B3, sin commit) | Cita ya pagada que se reagenda: el pago se queda en la vieja | **Mover el pago a la cita nueva** en el mismo punto donde Reagendar ya pasa «¿Necesita factura?» (`7323a896`). Mientras, sigue el atajo documentado (completar la nueva en $0) |
+| [x] | **H-009** (`23c18275` ✅) | Una venta NO pagada cuenta como ingreso (verificado 2026-10-05: `ledger/balance` suma el `amount` completo de todo ingreso con `porRealizar: false`, y las ventas nacen así) | **Que las tarjetas de saldo sumen lo PAGADO (`amountPaid`) y el resto vaya a «Por cobrar»**, en un solo lugar (la ruta de saldo). Antes: una consulta de sólo lectura en prod que confirme que todos los ingresos traen `amountPaid` lleno. Es el único pendiente que sí vale un plan propio |
+| [x] | **H-062** (B3 `984506ec` ✅ prueba en vivo 2026-10-06 con pago real MP $10) | Cita ya pagada que se reagenda: el pago se queda en la vieja | **Mover el pago a la cita nueva** en el mismo punto donde Reagendar ya pasa «¿Necesita factura?» (`7323a896`). Mientras, sigue el atajo documentado (completar la nueva en $0) |
 | [x] | **H-059** | Devolución/contracargo no toca Flujo | **Documentarlo**: «si devuelves dinero, registra un egreso "Devolución" en Flujo». Las devoluciones las inicia el doctor en MP/Stripe y son raras; automatizar = más webhooks |
 | [x] | **H-057** | Ligar una cita a una sesión cambia su precio en silencio | **No cambiar el precio de la cita** (quitar la sobrescritura) |
 | [x] | **H-042** | Archivar con citas futuras no avisa | **Avisar en la confirmación**: «Tiene N citas futuras; no se cancelan» — las cancela el doctor si quiere |
@@ -62,7 +62,7 @@
 ## 3. Construido pero nunca probado a mano
 
 - [x] Aviso de H-030 al cancelar — ✅ 2026-10-05: al cancelar la cita de prueba de H-070 salió «Cita cancelada» (en español)
-- [ ] Tratamientos V2 y V5 («Resumen PDF») — los pruebo en Chrome con QA E1
+- [x] Tratamientos V2 y V5 («Resumen PDF») — ✅ 2026-10-06 en Chrome con QA E1 (detalle en VISITAS/SESSION-REFRESCO.md; queda H-072, menor)
 - [ ] Pago real de Mercado Pago a un link desactivado — reintentar una vez con otra tarjeta; si MP sigue rechazando, queda documentado
 - «Reactivar» con el plan lleno — dejarlo (mismo chequeo del servidor que «Nuevo paciente»)
 

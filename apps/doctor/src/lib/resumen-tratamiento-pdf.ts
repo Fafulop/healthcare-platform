@@ -154,7 +154,9 @@ export function dibujarResumenTratamiento(
           1: { cellWidth: 17 },
           3: { cellWidth: 17 },
           4: { halign: 'right', cellWidth: 23 },
-          5: { cellWidth: 17 },
+          // H-072: en 17 mm el folio se partía a media palabra («ING-2026-3» / «96»); 22 mm caben a
+          // 7 pt. La diferencia la cede el servicio, que se parte por palabras.
+          5: { cellWidth: 22 },
         }
       : {
           0: { cellWidth: 22 },
