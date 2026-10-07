@@ -702,7 +702,7 @@ export async function PATCH(
       // income: a server-side effect, so it covers every path that ends a cita (agenda,
       // assistant, patient self-cancel). Never fails the status change. (A reschedule cancels the
       // old cita, so its pending link dies here too — it is NOT moved to the new one, see
-      // `facturaAlReagendar` in lib/reagendar-sesion.ts for why.)
+      // `pagoYFacturaAlReagendar` in lib/reagendar-sesion.ts for why.)
       let links: ResultadoDesactivar | undefined;
       // `income` present = the doctor decided the cobro in «Completar cita» — including $0, a
       // CORTESÍA (H-029): nothing more to charge, so the link dies too. Absent = only the legacy

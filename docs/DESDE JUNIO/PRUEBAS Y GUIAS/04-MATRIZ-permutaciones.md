@@ -48,11 +48,11 @@
 | E5 | Plantilla #1 creada DE CERO | ✅ · 🐞 H-017 · H-018 → arreglado `4c6dce72` ✅ prod · 🤔 H-019 H-020 |
 | E6 | Plantilla #2 creada DE CERO (otros tipos de campo) | ✅ · 🐞🔴 H-025 → arreglado `a4248843` · H-026 → arreglado `4c6dce72` ✅ prod |
 | E7 | Usar plantilla #1 en una visita, llenar y guardar; reabrir y ver lo guardado | ✅ (y editar) · 🐞 H-021 |
-| E8 | Usar plantilla #2; editar fecha propia de la plantilla | 🐞 H-022 |
+| E8 | Usar plantilla #2; editar fecha propia de la plantilla | ✅ H-022 arreglado `f360a2a7` — «Fecha de Consulta» editable, guardada y recargada en prod (2026-10-05) |
 | E9 | Receta en la visita (+ PDF) | ✅ pantalla · 🐞🔴 H-027 PDF · H-028 |
 | E10 | Documento / foto en la visita | ✅ |
 | E11 | Venta en la visita → ingreso en Flujo | ✅ (pago parcial) · H-036 |
-| E12 | Agendar desde el expediente | 🕳️ H-045 (no existe fuera de Tratamientos) |
+| E12 | Agendar desde el expediente | — no existe fuera de Tratamientos: **decidido no construirlo** (H-045 cerrado 2026-10-05); se agenda en «Mis Citas» |
 | E13 | Archivar / desarchivar | ✅ archivar · 🕳️ H-041 (no hay desarchivar) · 🤔 H-042 |
 
 ## Extra — permutaciones que salieron en la corrida

@@ -21,7 +21,7 @@
 | | ID | Qué | **Recomendación simple** |
 |---|---|---|---|
 | [ ] | **H-009** | Una venta NO pagada cuenta como ingreso (verificado 2026-10-05: `ledger/balance` suma el `amount` completo de todo ingreso con `porRealizar: false`, y las ventas nacen así) | **Que las tarjetas de saldo sumen lo PAGADO (`amountPaid`) y el resto vaya a «Por cobrar»**, en un solo lugar (la ruta de saldo). Antes: una consulta de sólo lectura en prod que confirme que todos los ingresos traen `amountPaid` lleno. Es el único pendiente que sí vale un plan propio |
-| [ ] | **H-062** | Cita ya pagada que se reagenda: el pago se queda en la vieja | **Mover el pago a la cita nueva** en el mismo punto donde Reagendar ya pasa «¿Necesita factura?» (`7323a896`). Mientras, sigue el atajo documentado (completar la nueva en $0) |
+| [x] | **H-062** (B3, sin commit) | Cita ya pagada que se reagenda: el pago se queda en la vieja | **Mover el pago a la cita nueva** en el mismo punto donde Reagendar ya pasa «¿Necesita factura?» (`7323a896`). Mientras, sigue el atajo documentado (completar la nueva en $0) |
 | [x] | **H-059** | Devolución/contracargo no toca Flujo | **Documentarlo**: «si devuelves dinero, registra un egreso "Devolución" en Flujo». Las devoluciones las inicia el doctor en MP/Stripe y son raras; automatizar = más webhooks |
 | [x] | **H-057** | Ligar una cita a una sesión cambia su precio en silencio | **No cambiar el precio de la cita** (quitar la sobrescritura) |
 | [x] | **H-042** | Archivar con citas futuras no avisa | **Avisar en la confirmación**: «Tiene N citas futuras; no se cancelan» — las cancela el doctor si quiere |
@@ -29,7 +29,7 @@
 | [x] | **H-013** | Telemedicina pide «Consultorio *» | **No pedirlo ni guardarlo en Telemedicina** |
 | [x] | **H-049** | Editar una plantilla ya usada cambia las consultas viejas | **Avisar al editar** una plantilla que ya tiene consultas |
 | [x] | **H-035** | La nota de venta imprime la dirección del perfil, no la del consultorio | **Usar la del consultorio** de la cita *si el consultorio guarda dirección*; si no, dejarlo |
-| [ ] | **H-045** | No se puede agendar desde el expediente | **Dejarlo** — el manual no lo promete y Agenda funciona |
+| [x] | **H-045** | No se puede agendar desde el expediente | **Dejarlo** — el manual no lo promete y Agenda funciona |
 | [x] | **H-016** | El ingreso de una cita futura se fecha el día de la cita | **Dejarlo** — la guía A6 ya lo dice. Cerrar |
 | [x] | **H-005** | Quitar el precio a una sesión cuya cita ya lo tomó | **No arreglar** (caso raro). Cerrar |
 | — | H-063 | El asistente no completa en $0 | **Estacionado** (decisión del usuario) |

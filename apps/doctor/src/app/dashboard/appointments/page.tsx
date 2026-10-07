@@ -33,6 +33,12 @@ import type { ClinicLocation } from "./_hooks/useSlots";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
+// H-062 (review): if the old cita was paid, its payment ALREADY moved to the new one — charging the old
+// one again would collect twice.
+const NO_SE_CANCELO_LA_ANTERIOR =
+  "No se pudo cancelar la cita anterior automáticamente: cancélala tú desde la agenda. " +
+  "Si estaba pagada, el pago ya pasó a la cita nueva — no la cobres otra vez.";
+
 export default function AppointmentsPage() {
   const { data: session, status: authStatus } = useSession({
     required: true,
@@ -542,9 +548,9 @@ export default function AppointmentsPage() {
               );
               const data = await res.json();
               cancelada = !!data.success;
-              if (!data.success) toast.error("No se pudo cancelar la cita anterior automáticamente");
+              if (!data.success) toast.error(NO_SE_CANCELO_LA_ANTERIOR);
             } catch {
-              toast.error("No se pudo cancelar la cita anterior automáticamente");
+              toast.error(NO_SE_CANCELO_LA_ANTERIOR);
             }
             // TRATAMIENTOS T4: el SERVIDOR ya pasó la sesión a la cita nueva al crearla
             // (`reagendaDe`); aquí sólo se avisa. Que no se mueva (sesión cancelada, con visita) es

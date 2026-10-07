@@ -225,13 +225,13 @@ Eliges la nueva fecha y hora y confirmas. Entonces:
 El paciente recibe **dos correos**: el aviso de que la cita anterior se canceló y la
 confirmación de la nueva.
 
-**«¿Necesita factura?»** pasa a la cita nueva cuando es el mismo expediente y la cita anterior no
-se había cobrado. Revisa la casilla en la cita nueva: si cambiaste de paciente, no pasa.
+**«¿Necesita factura?»** pasa a la cita nueva cuando es el mismo expediente. Revisa la casilla en la
+cita nueva: si cambiaste de paciente, no pasa.
+Si la cita anterior **ya estaba pagada** (link de pago), **el pago pasa a la cita nueva** —su ingreso en
+Flujo de Dinero y el link pagado—: la nueva se ve **«Pagado»** y al completarla no se vuelve a
+cobrar. Si cambiaste de paciente, el pago se queda en la anterior.
 Si la cita tenía un **link de pago sin pagar**, ese link **se desactiva** al cancelarse: crea uno
-nuevo en la cita nueva. Si la cita anterior **ya estaba pagada**, el pago (y su factura) se quedan
-registrados en ella, en Flujo de Dinero, y **la cita nueva se ve sin pagar**: no le vuelvas a
-cobrar al paciente. Al completar la cita nueva, pon el monto en **$0**: el pago ya está registrado en
-la cita anterior.
+nuevo en la cita nueva.
 
 ### Confirmar la cita con el paciente
 

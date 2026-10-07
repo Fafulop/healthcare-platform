@@ -1,6 +1,8 @@
 # 01 — CATÁLOGO de flujos: qué se prueba, qué debe pasar, y cómo quedó
 
 > **Tipo: REFERENCIA (viva).** Cada flujo tiene un id estable (A6, E9, T3…) que usan la bitácora, los
+> **2026-10-06:** la columna Estado de los flujos A y E se quedó en P1 (el plan); cada uno se CORRIÓ en P2 como filas C/E/X de
+> `04-MATRIZ-permutaciones.md` — ahí está su resultado («→ 04-MATRIZ»). Los T y R conservan su estado aquí.
 > hallazgos y las guías. **Estado:** ⬜ sin probar · 🔎 esperado escrito (P1) · ✅ pasa · 🐞 bug ·
 > 📝 doc desviado · 🤔 confunde. «Manual» = sección de `manual-del-doctor.md`.
 >
@@ -27,42 +29,40 @@ ligada (`booking_id` / `sale_id`).
 
 | Id | Flujo | Manual | Debe quedar (BD / Flujo) | Estado |
 |---|---|---|---|---|
-| A1 | Agendar una cita con rango («Nueva cita» → servicio, día, hora del rango) | Agenda > Agendar una cita | `bookings` PENDING/CONFIRMED con `patient_id` si se eligió expediente; correo de confirmación (si hay correo + Google); evento en Google Calendar ⟨P1⟩. **Sin movimiento** en Flujo | ⬜ |
-| A2 | Agendar **sin rango** (hora escrita, rejilla de 1 min) | Agenda > Agendar una cita | igual que A1, `slot_id` NULL, `date`/`start_time` propios | ⬜ |
-| A3 | Agendar desde el calendario (clic en un hueco) | Agenda > Agendar desde el calendario | igual que A1 | ⬜ |
-| A4 | Cita que pide el paciente desde el sitio público → aparece «Pendiente» → «Confirmar» | Agenda > Citas que piden tus pacientes | PENDING → CONFIRMED; correos ⟨P1⟩ | ⬜ |
-| A5 | Confirmar la cita con el paciente (WhatsApp / correo) | Agenda > Confirmar la cita con el paciente | ⟨P1⟩ | ⬜ |
-| A6 | **Completar** una cita con monto y forma de pago | Agenda > Completar una cita | COMPLETED; **1 ingreso** (regla F); **visita automática** (`visitas` con `booking_id`, `origen` 'cita') si la cita tiene expediente | ⬜ |
-| A7 | Completar con monto distinto al precio / con monto 0 | Agenda > Completar una cita | monto distinto ⇒ ingreso = lo capturado; 0 ⇒ sin ingreso y el toast lo dice | ⬜ |
-| A8 | Crear link de pago (sin pagarlo) y completar después | Agenda > Cobrar una cita | link activo en `payment_links` / `mp_payment_preferences`; completar crea el ingreso normal; **el link NO se apaga** (P1: `PATCH` no lo toca) → H-010 | 🔎 |
-| A9 | Cancelar · No asistió · Eliminar | Agenda > Cancelar, No asistió y Eliminar | CANCELLED / NO_SHOW (sin ingreso, sin visita); correo de cancelación. **Eliminar** = borra la cita (y su slot si era privado) y su evento de Google; su ingreso, su visita y su sesión SE QUEDAN sin cita (`SetNull`) → H-011 | 🔎 |
-| A10 | Reagendar una cita | Agenda > Reagendar una cita | cita nueva `is_rescheduled`; la vieja CANCELLED; si era sesión de tratamiento, la sesión (y su visita) pasan a la nueva | ⬜ |
-| A11 | Bloquear horarios / bloqueo extendido | Agenda > Bloquear horarios | `blocked_times`; ese horario ya no se ofrece al agendar ni al paciente | ⬜ |
-| A12 | Rangos de disponibilidad (crear / editar / borrar) | Agenda > Rangos de disponibilidad | ⟨P1⟩ | ⬜ |
-| A13 | Vincular la cita a un expediente (existente / crear uno) | Agenda > Vincular la cita a un expediente | `bookings.patient_id`; si ya estaba COMPLETED, se crea su visita al vincular | ⬜ |
-| A14 | Formulario pre-consulta (mandarlo, que el paciente lo llene, verlo) | Agenda > Formulario pre-consulta | ⟨P1⟩; cae en la visita de la cita | ⬜ |
-| A15 | Nota de la cita (PDF del cobro) | Agenda > Cobrar una cita | sólo con ingreso > 0; folio ⟨P1⟩ | ⬜ |
-| A16 | Facturar una cita — **SIN emitir** | Agenda > Facturar una cita | el ingreso aparece como facturable; no se manda nada al SAT | ⬜ |
-| A17 | Recordatorios y campos de cita (configuración) | Agenda > Recordatorios / Campos de Cita | ⟨P1⟩ | ⬜ |
-
+| A1 | Agendar una cita con rango («Nueva cita» → servicio, día, hora del rango) | Agenda > Agendar una cita | `bookings` PENDING/CONFIRMED con `patient_id` si se eligió expediente; correo de confirmación (si hay correo + Google); evento en Google Calendar ⟨P1⟩. **Sin movimiento** en Flujo | → 04-MATRIZ |
+| A2 | Agendar **sin rango** (hora escrita, rejilla de 1 min) | Agenda > Agendar una cita | igual que A1, `slot_id` NULL, `date`/`start_time` propios | → 04-MATRIZ |
+| A3 | Agendar desde el calendario (clic en un hueco) | Agenda > Agendar desde el calendario | igual que A1 | → 04-MATRIZ |
+| A4 | Cita que pide el paciente desde el sitio público → aparece «Pendiente» → «Confirmar» | Agenda > Citas que piden tus pacientes | PENDING → CONFIRMED; correos ⟨P1⟩ | → 04-MATRIZ |
+| A5 | Confirmar la cita con el paciente (WhatsApp / correo) | Agenda > Confirmar la cita con el paciente | ⟨P1⟩ | → 04-MATRIZ |
+| A6 | **Completar** una cita con monto y forma de pago | Agenda > Completar una cita | COMPLETED; **1 ingreso** (regla F); **visita automática** (`visitas` con `booking_id`, `origen` 'cita') si la cita tiene expediente | → 04-MATRIZ |
+| A7 | Completar con monto distinto al precio / con monto 0 | Agenda > Completar una cita | monto distinto ⇒ ingreso = lo capturado; 0 ⇒ sin ingreso y el toast lo dice | → 04-MATRIZ |
+| A8 | Crear link de pago (sin pagarlo) y completar después | Agenda > Cobrar una cita | link activo en `payment_links` / `mp_payment_preferences`; completar crea el ingreso normal; **el link NO se apaga** (P1: `PATCH` no lo toca) → H-010 | → 04-MATRIZ |
+| A9 | Cancelar · No asistió · Eliminar | Agenda > Cancelar, No asistió y Eliminar | CANCELLED / NO_SHOW (sin ingreso, sin visita); correo de cancelación. **Eliminar** = borra la cita (y su slot si era privado) y su evento de Google; su ingreso, su visita y su sesión SE QUEDAN sin cita (`SetNull`) → H-011 | → 04-MATRIZ |
+| A10 | Reagendar una cita | Agenda > Reagendar una cita | cita nueva `is_rescheduled`; la vieja CANCELLED; si era sesión de tratamiento, la sesión (y su visita) pasan a la nueva | → 04-MATRIZ |
+| A11 | Bloquear horarios / bloqueo extendido | Agenda > Bloquear horarios | `blocked_times`; ese horario ya no se ofrece al agendar ni al paciente | → 04-MATRIZ |
+| A12 | Rangos de disponibilidad (crear / editar / borrar) | Agenda > Rangos de disponibilidad | ⟨P1⟩ | → 04-MATRIZ |
+| A13 | Vincular la cita a un expediente (existente / crear uno) | Agenda > Vincular la cita a un expediente | `bookings.patient_id`; si ya estaba COMPLETED, se crea su visita al vincular | → 04-MATRIZ |
+| A14 | Formulario pre-consulta (mandarlo, que el paciente lo llene, verlo) | Agenda > Formulario pre-consulta | ⟨P1⟩; cae en la visita de la cita | → 04-MATRIZ |
+| A15 | Nota de la cita (PDF del cobro) | Agenda > Cobrar una cita | sólo con ingreso > 0; folio ⟨P1⟩ | → 04-MATRIZ |
+| A16 | Facturar una cita — **SIN emitir** | Agenda > Facturar una cita | el ingreso aparece como facturable; no se manda nada al SAT | → 04-MATRIZ |
+| A17 | Recordatorios y campos de cita (configuración) | Agenda > Recordatorios / Campos de Cita | ⟨P1⟩ | → 04-MATRIZ |
 ## E — Expediente
 
 | Id | Flujo | Manual | Debe quedar (BD / Flujo) | Estado |
 |---|---|---|---|---|
-| E1 | Crear un paciente | Expediente > Crear un paciente | `medical_records.patients` activo; cuenta para el cupo del plan | ⬜ |
-| E2 | Perfil del paciente: lo que muestra (visitas, tratamientos, citas, cobros) | Expediente > El perfil del paciente | lectura: cada tarjeta coincide con la BD | ⬜ |
-| E3 | Nueva visita **de una cita** / **sin cita** | Expediente > Visitas | `visitas` (`origen` 'manual'; con cita: `booking_id`, fecha = la de la cita) | ⬜ |
-| E4 | Agregar plantilla en una visita (fecha propia, editable — `e1cdc37f`) | Expediente > Consultas | `clinical_encounters` con `visita_id` y su `encounter_date` | ⬜ |
-| E5 | Receta: crear, vista previa, descargar PDF | Expediente > Recetas | `prescriptions` con `visita_id` ⟨P1⟩ | ⬜ |
-| E6 | Documentos y galería (subir a una visita) | Expediente > Documentos y galería | `media` con `visita_id`; archivo en storage | ⬜ |
-| E7 | Notas del paciente | Expediente > Notas del paciente | ⟨P1⟩ | ⬜ |
-| E8 | Informe para aseguradora (AXA / Allianz / GNP) | Expediente > Informe para aseguradora | ⟨P1⟩ | ⬜ |
-| E9 | **Venta desde la visita** + nota de venta (PDF) | Expediente > Visitas | `sales` con `patient_id` + `visita_id`; **1 ingreso** `origin` 'venta' (regla F); aviso de doble cobro si la cita ya se cobró | ⬜ |
-| E10 | Importar pacientes (.xlsx) y documentos (Word → nota) | Expediente > Importar pacientes | ⟨P1⟩ | ⬜ |
-| E11 | Archivar / desarchivar (cupo) | Expediente > Archivar un paciente | ⟨P1⟩ | ⬜ |
-| E12 | Facturar desde el expediente — **SIN emitir** | Expediente > Facturar desde el expediente | ⟨P1⟩ | ⬜ |
-| E13 | Mover cosas entre visitas («Mover a…», «Traerla aquí…», ligar cita a una visita) | Expediente > Visitas | sin regla de mismo día desde `e1cdc37f` | ⬜ |
-
+| E1 | Crear un paciente | Expediente > Crear un paciente | `medical_records.patients` activo; cuenta para el cupo del plan | → 04-MATRIZ |
+| E2 | Perfil del paciente: lo que muestra (visitas, tratamientos, citas, cobros) | Expediente > El perfil del paciente | lectura: cada tarjeta coincide con la BD | → 04-MATRIZ |
+| E3 | Nueva visita **de una cita** / **sin cita** | Expediente > Visitas | `visitas` (`origen` 'manual'; con cita: `booking_id`, fecha = la de la cita) | → 04-MATRIZ |
+| E4 | Agregar plantilla en una visita (fecha propia, editable — `e1cdc37f`) | Expediente > Consultas | `clinical_encounters` con `visita_id` y su `encounter_date` | → 04-MATRIZ |
+| E5 | Receta: crear, vista previa, descargar PDF | Expediente > Recetas | `prescriptions` con `visita_id` ⟨P1⟩ | → 04-MATRIZ |
+| E6 | Documentos y galería (subir a una visita) | Expediente > Documentos y galería | `media` con `visita_id`; archivo en storage | → 04-MATRIZ |
+| E7 | Notas del paciente | Expediente > Notas del paciente | ⟨P1⟩ | → 04-MATRIZ |
+| E8 | Informe para aseguradora (AXA / Allianz / GNP) | Expediente > Informe para aseguradora | ⟨P1⟩ | → 04-MATRIZ |
+| E9 | **Venta desde la visita** + nota de venta (PDF) | Expediente > Visitas | `sales` con `patient_id` + `visita_id`; **1 ingreso** `origin` 'venta' (regla F); aviso de doble cobro si la cita ya se cobró | → 04-MATRIZ |
+| E10 | Importar pacientes (.xlsx) y documentos (Word → nota) | Expediente > Importar pacientes | ⟨P1⟩ | → 04-MATRIZ |
+| E11 | Archivar / desarchivar (cupo) | Expediente > Archivar un paciente | ⟨P1⟩ | → 04-MATRIZ |
+| E12 | Facturar desde el expediente — **SIN emitir** | Expediente > Facturar desde el expediente | ⟨P1⟩ | → 04-MATRIZ |
+| E13 | Mover cosas entre visitas («Mover a…», «Traerla aquí…», ligar cita a una visita) | Expediente > Visitas | sin regla de mismo día desde `e1cdc37f` | → 04-MATRIZ |
 ## T — Tratamientos
 
 | Id | Flujo | Manual | Debe quedar (BD / Flujo) | Estado |

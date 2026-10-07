@@ -26,6 +26,7 @@ export type ActivityActionType =
   | "BOOKING_COMPLETED"
   | "BOOKING_NO_SHOW"
   | "BOOKING_DELETED"
+  | "PAYMENT_MOVED"
   | "SLOT_UPDATED"
   | "PATIENT_CREATED"
   | "PATIENT_UPDATED"
