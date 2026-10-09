@@ -444,7 +444,9 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
 }) {
   const [notas, setNotas] = useState<string | null>(null);
   const [editandoServicio, setEditandoServicio] = useState(false);
-  const [menu, setMenu] = useState(false);
+  // El «⋯»: cerrado, o abierto hacia abajo / hacia ARRIBA. En la última tarjeta el panel se salía por
+  // abajo y no había cómo bajar (el respaldo que lo cierra tapa la pantalla y se come la rueda).
+  const [menu, setMenu] = useState<'abajo' | 'arriba' | null>(null);
   const detalle = detalleDeSesion(s);
   const cita = s.cita;
   // 07-PLAN P1: dentro del tratamiento ya no se LIGA a mano (ni cita ni visita): sólo se crea. La
@@ -578,33 +580,39 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
               `MenuMasAcciones` (respaldo transparente que cierra + panel absoluto). */}
           <div className="relative">
             <button
-              onClick={() => setMenu((v) => !v)} disabled={t.trabajando}
-              aria-haspopup="menu" aria-expanded={menu} aria-label="Más acciones de la sesión"
+              onClick={(e) => {
+                if (menu) { setMenu(null); return; }
+                // El panel mide ~170 px: si no cabe abajo, se abre hacia arriba.
+                const caja = e.currentTarget.getBoundingClientRect();
+                setMenu(window.innerHeight - caja.bottom < 200 ? 'arriba' : 'abajo');
+              }}
+              disabled={t.trabajando}
+              aria-haspopup="menu" aria-expanded={menu !== null} aria-label="Más acciones de la sesión"
               className="p-1.5 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50"
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
             {menu && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
-                <div role="menu" className="absolute right-0 top-9 z-20 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-                  <button role="menuitem" onClick={() => { setMenu(false); setEditandoServicio((v) => !v); }} className={`${opcionMenu} text-gray-700`}>
+                <div className="fixed inset-0 z-10" onClick={() => setMenu(null)} />
+                <div role="menu" className={`absolute right-0 ${menu === 'arriba' ? 'bottom-9' : 'top-9'} z-20 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1`}>
+                  <button role="menuitem" onClick={() => { setMenu(null); setEditandoServicio((v) => !v); }} className={`${opcionMenu} text-gray-700`}>
                     Servicio y precio
                   </button>
-                  <button role="menuitem" onClick={() => { setMenu(false); setNotas(notas === null ? s.notas ?? '' : null); }} className={`${opcionMenu} text-gray-700`}>
+                  <button role="menuitem" onClick={() => { setMenu(null); setNotas(notas === null ? s.notas ?? '' : null); }} className={`${opcionMenu} text-gray-700`}>
                     Notas
                   </button>
                   {s.cancelada ? (
-                    <button role="menuitem" onClick={() => { setMenu(false); t.patchSesion(s, { cancelada: false }, 'Sesión reactivada'); }} className={`${opcionMenu} text-gray-700`}>
+                    <button role="menuitem" onClick={() => { setMenu(null); t.patchSesion(s, { cancelada: false }, 'Sesión reactivada'); }} className={`${opcionMenu} text-gray-700`}>
                       Reactivar
                     </button>
                   ) : (
-                    <button role="menuitem" onClick={() => { setMenu(false); onCancelar(); }} className={`${opcionMenu} text-gray-700`}>
+                    <button role="menuitem" onClick={() => { setMenu(null); onCancelar(); }} className={`${opcionMenu} text-gray-700`}>
                       Cancelar sesión
                     </button>
                   )}
                   {!cita && !s.visita && (
-                    <button role="menuitem" onClick={() => { setMenu(false); t.borrarSesion(s); }} className={`${opcionMenu} text-red-600`}>
+                    <button role="menuitem" onClick={() => { setMenu(null); t.borrarSesion(s); }} className={`${opcionMenu} text-red-600`}>
                       <Trash2 className="w-4 h-4" />Borrar
                     </button>
                   )}
