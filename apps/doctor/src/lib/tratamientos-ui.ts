@@ -2,7 +2,9 @@
  * TRATAMIENTOS T3 — lo común de la UI de tratamientos (cliente). La API vive en
  * `lib/tratamientos.ts` (servidor). Plan: docs/DESDE JUNIO/VISITAS/03-PLAN-fase-2.md §4.
  */
-import type { CitaDeVisita } from '@/lib/visitas-ui';
+import { formatoFechaVisita, type CitaDeVisita } from '@/lib/visitas-ui';
+import { getClinicDateString } from '@/lib/dates';
+import { ESTADO_CITA_TEXTO } from '@/components/medical-records/CitaBadges';
 
 /**
  * La UI de tratamientos: ABIERTA PARA TODOS los doctores desde el lanzamiento (2026-10-01). Hasta
@@ -38,9 +40,6 @@ export interface TratamientoResumen {
   createdAt: string;
   conteo?: ConteoSesiones;
 }
-
-/** Citas y visitas que ya son de alguna sesión del paciente. */
-export interface Ocupadas { citas: string[]; visitas: string[] }
 
 /** Una sesión como la manda la API: el estado ya viene DERIVADO por el servidor (P1). */
 export interface SesionDeTratamiento {
@@ -105,14 +104,49 @@ export const ESTADO_TRATAMIENTO: Record<EstadoTratamiento, { texto: string; clas
   cancelado: { texto: 'Cancelado', clase: 'bg-gray-100 text-gray-600' },
 };
 
-export const ESTADO_SESION: Record<EstadoSesion, { texto: string; clase: string }> = {
-  hecha: { texto: 'Hecha', clase: 'bg-green-100 text-green-700' },
-  agendada: { texto: 'Agendada', clase: 'bg-blue-100 text-blue-700' },
-  por_agendar: { texto: 'Por agendar', clase: 'bg-amber-100 text-amber-800' },
-  cancelada: { texto: 'Cancelada', clase: 'bg-gray-100 text-gray-600' },
-};
+// 07-PLAN P1: ya no hay chip «Hecha / Agendada / Por agendar» — la pantalla dice el estado de la cita
+// (el de la agenda), «Atendida» o «Sin fecha». `EstadoSesion` sigue siendo lo que deriva el servidor;
+// lo de abajo sólo lo NOMBRA (pantalla del tratamiento y su «Resumen PDF», con las mismas palabras).
 
-/** El porqué de «Por agendar» / el aviso de «Hecha», en palabras del doctor. */
+/** ¿La visita de la sesión ya pasó (hoy o antes)? Una visita sin cita fechada en el futuro no es «atendida». */
+const visitaYaPaso = (s: SesionDeTratamiento) => !!s.visita?.fecha && s.visita.fecha.slice(0, 10) <= getClinicDateString();
+
+/**
+ * Hecha por su VISITA (no por una cita completada): sin cita, o con una cita que se cayó pero con su
+ * propia visita. Ahí la píldora de la cita no dice lo que pasó — lo dice «Atendida el …». Sin visita,
+ * «hecha» sólo sale de una cita completada (aunque no la puedas ver): ésa es «Completada».
+ */
+export const hechaPorVisita = (s: SesionDeTratamiento) =>
+  !s.cancelada && s.estado === 'hecha' && !!s.visita && s.cita?.status !== 'COMPLETED';
+
+/** «Atendida», o —una visita sin cita fechada en el futuro (de antes de 07-PLAN P2)— «Visita sin cita». */
+export const palabraDeVisita = (s: SesionDeTratamiento) => (visitaYaPaso(s) ? 'Atendida' : 'Visita sin cita');
+
+/**
+ * El estado en las palabras de la pantalla (y del PDF): el de la AGENDA si hay cita (Agendada ·
+ * Pendiente · Completada), «Atendida» si se atendió por su visita, «Sin fecha» si no tiene nada (o su
+ * cita se cayó).
+ */
+export function estadoEnPalabras(s: SesionDeTratamiento): string {
+  if (s.cancelada) return 'Cancelada';
+  if (s.estado === 'por_agendar') return 'Sin fecha';
+  if (hechaPorVisita(s)) return palabraDeVisita(s);
+  if (s.estado === 'hecha') return 'Completada';
+  return (s.cita?.status && ESTADO_CITA_TEXTO[s.cita.status]) || 'Agendada';
+}
+
+/** «10 oct 2026 10:00»: la cita activa más cercana de hoy en adelante (null = ninguna). */
+export function proximaCita(sesiones: SesionDeTratamiento[]): string | null {
+  const hoy = getClinicDateString();
+  const activas = sesiones
+    .flatMap((s) => (!s.cancelada && s.cita?.fecha && (s.cita.status === 'PENDING' || s.cita.status === 'CONFIRMED')
+      && s.cita.fecha.slice(0, 10) >= hoy ? [s.cita] : []))
+    .sort((a, b) => `${a.fecha!.slice(0, 10)} ${a.horaInicio ?? ''}`.localeCompare(`${b.fecha!.slice(0, 10)} ${b.horaInicio ?? ''}`));
+  const c = activas[0];
+  return c ? [formatoFechaVisita(c.fecha!), c.horaInicio].filter(Boolean).join(' ') : null;
+}
+
+/** El porqué de una sesión «Sin fecha» / el aviso de una completada sin visita, en palabras del doctor. */
 export function detalleDeSesion(s: SesionDeTratamiento): string | null {
   if (s.aviso === 'visita_no_abierta') return 'La cita se completó pero su visita no se abrió.';
   switch (s.motivo) {
@@ -124,14 +158,18 @@ export function detalleDeSesion(s: SesionDeTratamiento): string | null {
   }
 }
 
-/** «3 de 6 hechas · 1 agendada» — el plan manda el total si existe; si no, las creadas. */
-export function describirAvance(t: Pick<TratamientoResumen, 'sesionesPlaneadas' | 'conteo'>): string {
+/**
+ * «3 de 6 atendidas · 1 agendada» — el plan manda el total si existe; si no, las creadas. Las
+ * canceladas no se dicen (07-PLAN P1: van plegadas). Con `proxima` («10 oct 10:00»), ésa reemplaza
+ * al conteo de agendadas: es lo que el doctor quiere saber de ellas.
+ */
+export function describirAvance(t: Pick<TratamientoResumen, 'sesionesPlaneadas' | 'conteo'>, proxima?: string | null): string {
   const c = t.conteo;
   if (!c) return '';
   const total = t.sesionesPlaneadas ?? c.total;
-  const partes = [`${c.hechas} de ${total} ${total === 1 ? 'hecha' : 'hechas'}`];
-  if (c.agendadas > 0) partes.push(`${c.agendadas} ${c.agendadas === 1 ? 'agendada' : 'agendadas'}`);
-  if (c.canceladas > 0) partes.push(`${c.canceladas} ${c.canceladas === 1 ? 'cancelada' : 'canceladas'}`);
+  const partes = [`${c.hechas} de ${total} ${total === 1 ? 'atendida' : 'atendidas'}`];
+  if (proxima) partes.push(`próxima: ${proxima}`);
+  else if (c.agendadas > 0) partes.push(`${c.agendadas} ${c.agendadas === 1 ? 'agendada' : 'agendadas'}`);
   return partes.join(' · ');
 }
 

@@ -199,7 +199,7 @@ export function AgendarSesionesModal({ patientId, tratamiento, onClose, onListo,
           ) : vacio ? (
             <p className="text-sm text-gray-500">
               {modo.tipo === 'pendientes'
-                ? 'No hay sesiones «Por agendar». Agrega una sesión o desliga la cita de alguna.'
+                ? 'No hay sesiones sin fecha. Agrega una sesión.'
                 : 'Esa sesión ya no está disponible: recarga el tratamiento.'}
             </p>
           ) : (
@@ -215,7 +215,7 @@ export function AgendarSesionesModal({ patientId, tratamiento, onClose, onListo,
               />
               {soloServicio && (
                 <p className="text-xs text-gray-500">
-                  La sesión queda «Por agendar»: para darle fecha se necesita el permiso de citas y el tratamiento activo.
+                  La sesión queda sin fecha: para darle fecha se necesita el permiso de citas y el tratamiento activo.
                 </p>
               )}
             </>

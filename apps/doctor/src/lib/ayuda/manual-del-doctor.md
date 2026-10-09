@@ -481,31 +481,33 @@ tratamiento» si no hay ninguno). Escribe el **Nombre** y las **Sesiones planead
   llenan solas; cada fila se puede cambiar a mano (la que cambias ya no se recalcula).
 - Junto a cada fila ves si el horario está **libre** o si **se traslapa** con otra cita (o con un
   horario bloqueado, o con otra sesión de la misma lista). No se puede confirmar con una fila en rojo:
-  cámbiala o márcala **«Agendar después»** — esa sesión se crea «Por agendar», con su servicio y precio.
+  cámbiala o márcala **«Agendar después»** — esa sesión se crea **sin fecha**, con su servicio y precio.
   Si no se pudo revisar, la fila lo dice y sí se puede confirmar: al crear la cita se revisa otra vez.
 - Para las que se agendan: **Consultorio**, el **correo/teléfono/WhatsApp** del paciente y la
   **Modalidad**.
 
 Pica **«Crear y agendar N citas»** (o **«Crear tratamiento»** si ninguna se agenda ahora): nace el
 tratamiento con sus sesiones y se crea la cita de cada fila, ya con su precio. Si alguna cita no se
-puede crear, su sesión se queda «Por agendar» y la ventana te dice cuál y por qué.
+puede crear, su sesión se queda sin fecha y la ventana te dice cuál y por qué.
 
-**La pantalla del tratamiento** (clic en uno de la tarjeta) enseña sus sesiones en orden. Cada
-sesión dice en qué va:
+**La pantalla del tratamiento** (clic en uno de la tarjeta) enseña sus sesiones en orden. Arriba dice
+cuántas van atendidas y la **próxima** cita (por ejemplo, «2 de 4 atendidas · próxima: 10 oct 2026
+10:00»). Cada sesión dice en qué va con las mismas palabras de la agenda:
 
-- **Por agendar** — sin cita, o su cita se canceló o el paciente no asistió (se dice por qué).
-- **Agendada** — tiene una cita pendiente o confirmada (con su fecha y hora), aunque ya le hayas
-  abierto la visita.
-- **Hecha** — ya tiene su visita (sin cita pendiente), o su cita se completó. Si abriste la visita
-  antes y luego su cita se canceló (o el paciente no asistió), vuelve a **Por agendar**: pica
-  **«Agendar»** y su visita pasa a la cita nueva.
-- **Cancelada** — la cancelaste tú.
+- **Con cita** — su fecha, hora y servicio con el estado de la cita: **Agendada**, **Pendiente**,
+  **Completada**, **Cancelada** o **No asistió**.
+- **Atendida el …** — tiene su visita pero no tiene cita. Con permiso de Flujo de Dinero dice además
+  **«Sin cita: no se cobra desde la agenda»** (el cobro nace al concluir una cita).
+- **Sin fecha** — todavía no tiene cita, o su cita se canceló o el paciente no asistió (se dice por
+  qué). Si abriste la visita antes y luego su cita se canceló, pica **«Agendar»** y su visita pasa a
+  la cita nueva.
+- Las **canceladas** se juntan al final, plegadas: **«Ver canceladas (N)»**.
 
-Cada sesión se ve como una tarjeta de visita: su cita (fecha, hora y estado), su servicio y precio,
-las notas de la cita, lo que tiene su visita (plantillas, fotos, recetas…) y si ya se cobró o se
-facturó. A la derecha, lo principal:
+Cada sesión se ve como una tarjeta de visita: su cita, su servicio y precio, las notas de la cita, lo
+que tiene su visita (plantillas, fotos, recetas…) y si ya se cobró o se facturó. A la derecha, lo
+principal:
 
-- **«Agendar»** (sesiones «Por agendar») — abre la fila de esa sesión: servicio, precio, fecha y hora,
+- **«Agendar»** (sesiones sin fecha) — abre la fila de esa sesión: servicio, precio, fecha y hora,
   con si el horario está libre. Necesita permiso de citas y el tratamiento activo.
 - **«Reagendar»** (sesiones con cita pendiente o confirmada) — eliges la fecha y hora nuevas (vienen
   el servicio y el precio de la sesión, o los de su cita si la sesión no tiene propios): se crea la
@@ -516,16 +518,12 @@ facturó. A la derecha, lo principal:
   conserva su propia fecha.
 - **«Abrir visita»** — si ya tiene visita, la abre. Si aún no tiene, la crea: con la fecha de su cita
   si tiene una vigente, o con la de **hoy** si no tiene (o su cita se canceló o el paciente no
-  asistió): dice **«Abrir visita hoy»** y te pregunta antes, porque la sesión cuenta como hecha; esto
+  asistió): dice **«Abrir visita hoy»** y te pregunta antes, porque la sesión cuenta como atendida; esto
   sólo en tratamientos activos. Si la sesión es otro día, agéndala primero. No aparece en sesiones
   canceladas ni si la sesión tiene una cita que no puedes ver.
 
-Abajo, lo demás:
+En el botón **«⋯»** de cada sesión, lo demás:
 
-- **«Ligar una cita…»** — elige una cita del paciente (por ejemplo, una que agendaste desde la agenda
-  para esta sesión). No hay «Desligar»: una sesión que no va a pasar se **cancela**, y una que cambia
-  de día se **reagenda**.
-- **«Ligar una visita…»** — sólo si la sesión no tiene cita.
 - **«Cancelar sesión»** — si tiene una cita activa, pregunta qué hacer con ella: **«Cancelar la
   sesión y la cita»** (se cancela como desde la agenda, con los mismos avisos al paciente),
   **«Cancelar sólo la sesión (la cita se queda)»** o **«No cancelar nada»**. Una sesión cancelada
@@ -534,18 +532,25 @@ Abajo, lo demás:
   quieres. Si su cita aún no se concluye (y no tiene un pago ni un link de pago), la cita toma ese
   precio, así que al concluirla ya viene puesto.
 - **«Notas»** de la sesión, y **«Borrar»** mientras no tenga cita ni visita.
+
+Dentro del tratamiento las sesiones sólo se **crean** (agendar, agregar, abrir visita): no se le
+pegan citas ni visitas hechas en otro lado. No hay «Desligar»: una sesión que no va a pasar se
+**cancela**, y una que cambia de día se **reagenda**. Si agendaste desde la agenda una cita que es
+de este tratamiento, entra al abrir su visita: **«Nueva Visita»** → esa cita → **«¿Es
+seguimiento?»** → **«Sesión siguiente de …»**.
+
 - **«Agregar sesión»** (arriba de las sesiones) abre la fila de la siguiente: servicio, precio, fecha
   y hora, o **«Agendar después»**. Pica **«Agregar y agendar»** (o **«Agregar sesión»** si la dejas
   para después). Sin permiso de citas o con el tratamiento terminado o cancelado, sólo pide servicio y precio (el
   precio, con permiso de Flujo de Dinero).
   Cambiar las sesiones planeadas (en **«Editar»**) no crea ni borra sesiones.
 
-Si hay sesiones «Por agendar», arriba de la lista sale un aviso con cuántas son y el botón
+Si hay sesiones sin fecha, arriba de la lista sale un aviso con cuántas son y el botón
 **«Agendar sesiones…»**, que las agenda todas juntas con las **mismas filas** que «Nuevo tratamiento»:
 servicio y precio, fecha y hora (con la regla de **Primera · Hora · Cada (días)**), si el horario
 está **libre**, y **«Agendar después»** para las que no quieres agendar todavía. Picas **«Agendar N
 citas»**. Cada cita se crea como si la agendaras en la agenda. Si alguna no se puede (por ejemplo,
-alguien agendó a esa hora mientras tanto), las demás sí se agendan y ésa se queda «Por agendar»;
+alguien agendó a esa hora mientras tanto), las demás sí se agendan y ésa se queda sin fecha;
 la ventana te dice cuál y por qué. Sólo aparece en tratamientos activos. En presencial, al paciente
 le llega **un solo correo** con todas sus citas (si tiene correo y tu cuenta de Google está
 conectada); en telemedicina, cada cita manda el suyo con su liga de Meet. (Igual al crear el

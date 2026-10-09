@@ -5,7 +5,7 @@
 2. El monto viene con el precio de la sesión; cámbialo si cobraste otro → forma de pago → **«Completar»**.
 3. Abre el tratamiento (perfil → tarjeta Tratamientos).
 
-**Qué vas a ver:** la sesión **«Hecha · cobrado $800 (ING-…)»** y la **Cuenta del tratamiento**:
+**Qué vas a ver:** la sesión con su cita **«Completada»** y **«cobrado $800 (ING-…)»**, y la **Cuenta del tratamiento**:
 - **Total:** suma de cada sesión (lo cobrado, o su precio si no se ha cobrado; sin las canceladas).
 - **Pagado** y **Pendiente**.
 - Aparte: **«Ventas en las visitas de las sesiones»**.

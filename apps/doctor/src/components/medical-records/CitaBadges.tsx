@@ -63,6 +63,15 @@ export interface PatientBooking {
   mpLink?: BookingPaymentLink | null;
 }
 
+/** El nombre de cada estado de cita, el de la agenda. Lo usa también el tratamiento (pantalla y PDF). */
+export const ESTADO_CITA_TEXTO: Record<string, string> = {
+  CONFIRMED: 'Agendada',
+  PENDING:   'Pendiente',
+  COMPLETED: 'Completada',
+  CANCELLED: 'Cancelada',
+  NO_SHOW:   'No asistió',
+};
+
 export function BookingStatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
     CONFIRMED:  'bg-blue-100 text-blue-700',
@@ -71,16 +80,9 @@ export function BookingStatusPill({ status }: { status: string }) {
     CANCELLED:  'bg-red-100 text-red-700',
     NO_SHOW:    'bg-orange-100 text-orange-700',
   };
-  const label: Record<string, string> = {
-    CONFIRMED: 'Agendada',
-    PENDING:   'Pendiente',
-    COMPLETED: 'Completada',
-    CANCELLED: 'Cancelada',
-    NO_SHOW:   'No asistió',
-  };
   return (
     <span className={`text-xs px-2 py-0.5 rounded ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
-      {label[status] ?? status}
+      {ESTADO_CITA_TEXTO[status] ?? status}
     </span>
   );
 }

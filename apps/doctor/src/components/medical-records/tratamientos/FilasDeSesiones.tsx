@@ -294,7 +294,9 @@ export async function agendarFilas(
           : {
               key: f.key, numero: f.numero, fecha: f.fecha, hora: f.hora, ok: false,
               error: !movida
-                ? 'la cita nueva se creó, pero la sesión NO pasó a ella y la anterior NO se canceló: en la agenda cancela la que sobra y liga la otra desde el tratamiento'
+                // 07-PLAN P1: ya no hay «Ligar» en el tratamiento. La sesión sigue en su cita anterior
+                // (activa): sobra la NUEVA — se cancela en la agenda y se reintenta.
+                ? 'la cita nueva se creó, pero la sesión NO pasó a ella y sigue en la anterior: cancela la nueva desde la agenda y vuelve a «Reagendar»'
                 : 'la cita nueva se creó y la sesión pasó a ella, pero la anterior NO se canceló: cancélala desde la agenda',
               completo: true,
             });
@@ -490,7 +492,7 @@ export function FormularioDeFilas({ a, planeadas, conDespues = true, soloServici
             {a.modalidad === 'PRESENCIAL'
               ? 'Al paciente se le manda UN correo con todas (si tiene correo y tu cuenta de Google está conectada).'
               : 'En telemedicina cada cita manda su propio correo con su liga de Meet.'}
-            {' '}Si alguna no se puede al crearla (alguien agendó a esa hora en medio), las demás sí se agendan y ésa se queda «Por agendar».
+            {' '}Si alguna no se puede al crearla (alguien agendó a esa hora en medio), las demás sí se agendan y ésa se queda sin fecha.
           </p>
         </>
       )}
@@ -515,8 +517,8 @@ export function ResultadosDeFilas({ resultados, total, planeadas, corriendo, avi
           <span>
             <strong>{etiquetaSesion(r.numero, planeadas)}</strong>{r.fecha ? ` — ${formatoFechaVisita(r.fecha)} ${r.hora}` : ''}
             {r.ok
-              ? r.ligada ? ' · agendada' : ' · cita creada, pero NO se ligó a la sesión: lígala desde el tratamiento'
-              : r.completo ? ` · ${r.error}` : ` · no se agendó: ${r.error}. Se queda «Por agendar».`}
+              ? r.ligada ? ' · agendada' : ' · cita creada, pero NO quedó en la sesión: cancélala desde la agenda y vuelve a agendar la sesión'
+              : r.completo ? ` · ${r.error}` : ` · no se agendó: ${r.error}. Se queda sin fecha.`}
           </span>
         </div>
       ))}

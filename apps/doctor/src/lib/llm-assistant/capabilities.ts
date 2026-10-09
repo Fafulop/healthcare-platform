@@ -222,15 +222,17 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
 
       'Tratamiento': {
         states:
-          'Tratamiento: Activo | Terminado | Cancelado. Cada sesión: Por agendar | Agendada | Hecha | Cancelada ' +
-          '(el estado de la sesión sale de su cita y su visita; sólo "Cancelada" la marca el doctor).',
+          'Tratamiento: Activo | Terminado | Cancelado. Cada sesión se ve con el estado de su CITA (el de la agenda: ' +
+          'Agendada | Pendiente | Completada | Cancelada | No asistió); sin cita dice "Atendida el <fecha>" si tiene ' +
+          'visita (y "Sin cita: no se cobra desde la agenda") o "Sin fecha" si no. Las sesiones canceladas por el doctor ' +
+          'van plegadas al final ("Ver canceladas"). Arriba: "N de M atendidas · próxima: <fecha hora>".',
         actions: {
 
           crear: {
             allowedIf:
               'Perfil del paciente → tarjeta "Tratamientos" → "Nuevo tratamiento" (o "Crear un tratamiento") → ' +
               'Nombre, Sesiones planeadas (opcional), Notas → "Crear tratamiento".',
-            notes: 'Con sesiones planeadas se crean esas sesiones "Por agendar". "Agregar sesión" agrega la siguiente.',
+            notes: 'Con sesiones planeadas se crean esas sesiones (sin fecha si se dejan para después). "Agregar sesión" agrega la siguiente.',
           },
 
           'marcar una visita como seguimiento': {
@@ -245,20 +247,24 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
 
           'ligar una cita o una visita a una sesión': {
             allowedIf:
-              'En la pantalla del tratamiento: "Ligar una cita…" (citas del paciente que no son de otra sesión) o, ' +
-              'sin cita, "Ligar una visita…". No hay "Desligar": una sesión que no va a pasar se cancela ("Cancelar sesión") ' +
-              'y una que cambia de día se reagenda ("Reagendar"; su visita, si ya se abrió, se va con la cita).',
-            notes: 'Ligar una cita requiere permiso de citas.',
+              'Dentro del tratamiento NO se ligan citas ni visitas hechas en otro lado: las sesiones sólo se crean ' +
+              '("Agendar", "Agregar sesión", "Abrir visita"). Una cita agendada desde la agenda entra al tratamiento al ' +
+              'abrir su visita: "Nueva Visita" → esa cita → "¿Es seguimiento?" → "Sesión siguiente de «X»".',
+            notes:
+              'No hay "Desligar": una sesión que no va a pasar se cancela ("⋯" → "Cancelar sesión") y una que cambia ' +
+              'de día se reagenda ("Reagendar"; su visita, si ya se abrió, se va con la cita).',
           },
 
           'cancelar una sesión': {
-            allowedIf: '"Cancelar sesión". Con una cita activa pregunta: cancelar la sesión y la cita, sólo la sesión, o nada.',
+            allowedIf: '"⋯" → "Cancelar sesión". Con una cita activa pregunta: cancelar la sesión y la cita, sólo la sesión, o nada.',
             notes: 'Cancelar la cita desde aquí es lo mismo que desde la agenda (con sus avisos). "Reactivar" la deshace.',
           },
 
           reagendar: {
             allowedIf: 'Al reagendar la cita de una sesión (agenda o asistente), la sesión pasa sola a la cita nueva.',
-            blockedIf: 'La sesión ya tiene su visita o está cancelada: no se mueve, se avisa y se liga a mano.',
+            blockedIf:
+              'La sesión está cancelada o tiene una visita que no es la de esa cita: no se mueve y se avisa. Se ' +
+              'resuelve en el tratamiento: cancelar la cita que sobra en la agenda y usar "Reagendar" o "Agendar" en la sesión.',
           },
 
           borrar: {
@@ -268,7 +274,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
 
           'cobrar un tratamiento': {
             allowedIf:
-              'Ya no hay precio de paquete: cada sesión tiene su servicio y su precio ("Servicio y precio"), y se ' +
+              'Ya no hay precio de paquete: cada sesión tiene su servicio y su precio ("⋯" → "Servicio y precio"), y se ' +
               'cobra al concluir su cita, como cualquier cita (también con link de pago).',
             notes:
               'Con permiso de Flujo de Dinero, la "Cuenta del tratamiento" suma las sesiones: Total · Pagado · Pendiente. ' +

@@ -10,7 +10,7 @@ import type { BookingPermisos } from '@/lib/booking-permisos';
 import type { PatientBooking } from '@/components/medical-records/CitaBadges';
 import { visitaHref, type VisitaResumen } from '@/lib/visitas-ui';
 import { getClinicDateString } from '@/lib/dates';
-import { etiquetaSesion, type Ocupadas, type SesionDeTratamiento, type TratamientoDetalle } from '@/lib/tratamientos-ui';
+import { etiquetaSesion, type SesionDeTratamiento, type TratamientoDetalle } from '@/lib/tratamientos-ui';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -24,9 +24,9 @@ async function json(res: Response) {
 
 /**
  * TRATAMIENTOS T3 — todo lo de la pantalla de UN tratamiento: el detalle (sesiones con su estado
- * DERIVADO por el servidor), y lo de alrededor para los selectores: las citas del paciente (con
- * sus permisos), sus visitas y lo que ya es de otra sesión (`ocupadas`). `null` = no cargó: la
- * pantalla esconde esa acción en vez de afirmar que no hay nada.
+ * DERIVADO por el servidor), y lo de alrededor: las citas del paciente (con sus permisos, notas y
+ * cobro) y sus visitas (lo que tiene cada una). `null` = no cargó: la pantalla esconde eso en vez de
+ * afirmar que no hay nada. (Sin selectores de «Ligar…» desde 07-PLAN P1.)
  */
 export function useTratamientoDetalle() {
   const params = useParams<{ id: string; tratamientoId: string }>();
@@ -48,8 +48,6 @@ export function useTratamientoDetalle() {
   const [permisos, setPermisos] = useState<BookingPermisos | null>(null);
   const [visitas, setVisitas] = useState<VisitaResumen[] | null>(null);
   const [trabajando, setTrabajando] = useState(false);
-  // Viene con el detalle (no con la lista de tratamientos: eso traía TODAS las sesiones).
-  const [ocupadas, setOcupadas] = useState<Ocupadas | null>(null);
 
   const cargarDetalle = useCallback(async () => {
     try {
@@ -57,7 +55,6 @@ export function useTratamientoDetalle() {
       if (res.status === 404) { setEstado('no-existe'); return; }
       const d = await json(res);
       setTratamiento(d.data);
-      setOcupadas(d.ocupadas ?? null);
       setEstado('ok');
     } catch {
       setEstado('error');
@@ -194,20 +191,10 @@ export function useTratamientoDetalle() {
     return escribir(() => enviar(`${urlT}/sesiones/${s.id}`, 'PATCH', { cancelada: true }), 'Sesión cancelada');
   };
 
-  const ligarCita = (s: SesionDeTratamiento, bookingId: string) =>
-    escribir(() => enviar(`${urlT}/sesiones/${s.id}`, 'PATCH', { bookingId }), 'Cita ligada', true);
-
-  const ligarVisita = (s: SesionDeTratamiento, visitaId: string | null) =>
-    escribir(
-      () => enviar(`${urlT}/sesiones/${s.id}`, 'PATCH', { visitaId }),
-      visitaId ? 'Visita ligada' : 'Visita desligada', true,
-    );
-
   return {
     patientId, tratamientoId, doctorId: session?.user?.doctorId ?? null, sessionStatus,
-    estado, tratamiento, patientName, bookings, permisos, visitas, ocupadas, trabajando,
+    estado, tratamiento, patientName, bookings, permisos, visitas, trabajando,
     patchTratamiento, patchSesion, abrirVisita, borrarTratamiento, borrarSesion, cancelarSesion,
-    ligarCita, ligarVisita,
     /** Re-lee el tratamiento y lo de alrededor (T5: después de «Agendar sesiones»). */
     recargar: () => Promise.all([cargarDetalle(), cargarAlrededor()]),
   };

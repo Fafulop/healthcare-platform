@@ -1,22 +1,19 @@
-# Cancelar, reactivar o ligar una sesión
+# Cancelar o reactivar una sesión
 
 **Pasos — Cancelar**
-1. En el tratamiento, en la sesión → **«Cancelar sesión»**.
+1. En el tratamiento, en la sesión → **«⋯»** → **«Cancelar sesión»**.
 2. Si tiene cita, elige: **«Cancelar la sesión y la cita»**, **«Cancelar sólo la sesión (la cita se queda)»** o **«No cancelar nada»**.
 
 **Pasos — Reactivar**
-1. En la sesión cancelada → **«Reactivar»**. Vuelve a «Por agendar».
+1. Abajo de las sesiones → **«Ver canceladas»** → en la sesión → **«⋯»** → **«Reactivar»**. Vuelve a la lista.
 
-**Pasos — Ligar una cita que ya existe**
-1. En una sesión «Por agendar» → **«Ligar una cita…»** → elige la cita.
+**Qué vas a ver:** la sesión cancelada se va al final, plegada en **«Ver canceladas (N)»**. La cuenta se recalcula sola.
 
-**Qué vas a ver:** «Cancelada» / «Por agendar» / «Cita ligada». La cuenta se recalcula sola.
-
-**Si algo sale mal:** al ligar una cita, su precio pasa a ser el de la sesión.
+**Una cita que agendaste desde la agenda para este tratamiento:** dentro del tratamiento ya no se ligan citas. Entra al abrir su visita: **«Nueva Visita»** → esa cita → **«¿Es seguimiento?»** → **«Sesión siguiente de …»**.
 
 **Video:** (pendiente)
 
 
 ---
 
-**QA (interno — se quita al publicar):** 2026-10-03 — T7 ✅ + reactivar + ligar. ⚠️ H-057.
+**QA (interno — se quita al publicar):** 2026-10-03 — T7 ✅ + reactivar + ligar. ⚠️ H-057. 2026-10-09 — «Ligar» quitado de la pantalla (07-PLAN P1): re-probar.

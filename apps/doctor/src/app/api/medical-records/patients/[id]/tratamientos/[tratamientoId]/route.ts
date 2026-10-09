@@ -5,7 +5,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { leerBody, puedeVer } from '@/lib/visitas';
 import {
   INTERVALO_MAX, SESIONES_MAX, TRATAMIENTO_SELECT, cargarTratamiento, parseEnteroOpcional, parseEstadoTratamiento,
-  cuentaDelTratamiento, ocupadasDelPaciente, parseNombre, parseNotas, parsePlantilla, rechazarPrecioPaquete,
+  cuentaDelTratamiento, parseNombre, parseNotas, parsePlantilla, rechazarPrecioPaquete,
   sesionesParaRespuesta,
 } from '@/lib/tratamientos';
 
@@ -23,10 +23,10 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (!tratamiento) {
       return NextResponse.json({ error: 'Tratamiento not found' }, { status: 404 });
     }
-    const [sesiones, ocupadas, cuenta] = await Promise.all([
+    // (Ya no viaja `ocupadas`: era para los selectores «Ligar una cita / visita…», que se quitaron
+    // de la pantalla en 07-PLAN P1. La API de ligar sigue y rechaza con 409 lo que no procede.)
+    const [sesiones, cuenta] = await Promise.all([
       sesionesParaRespuesta(ctx, patientId, { tratamientoId }),
-      // T3: citas y visitas que ya son de alguna sesión del paciente (para los selectores).
-      ocupadasDelPaciente(ctx.doctorId, patientId),
       // V1/V2: la CUENTA = suma de sus sesiones (06-PLAN §4), sólo con `flujo`. Ya no hay paquetes
       // (V2): también los 2 viejos con precio de paquete se muestran así.
       puedeVer(ctx, 'flujo') ? cuentaDelTratamiento(ctx.doctorId, patientId, tratamientoId) : Promise.resolve(undefined),
@@ -44,7 +44,6 @@ export async function GET(request: NextRequest, { params }: Params) {
         ...tratamiento, sesiones,
         ...(cuenta !== undefined ? { cuenta } : {}),
       },
-      ocupadas,
     });
   } catch (error) {
     return handleApiError(error, 'GET /api/medical-records/patients/[id]/tratamientos/[tratamientoId]');

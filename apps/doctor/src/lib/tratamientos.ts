@@ -424,21 +424,6 @@ export async function sesionDeVisita(doctorId: string, patientId: string, visita
 }
 
 /**
- * Las citas y visitas que ya son de ALGUNA sesión del paciente: los selectores de «Ligar una
- * cita / una visita…» no ofrecen lo que el servidor rechazaría con 409.
- */
-export async function ocupadasDelPaciente(doctorId: string, patientId: string) {
-  const sesiones = await prisma.tratamientoSesion.findMany({
-    where: { doctorId, patientId, OR: [{ bookingId: { not: null } }, { visitaId: { not: null } }] },
-    select: { bookingId: true, visitaId: true },
-  });
-  return {
-    citas: sesiones.flatMap((s) => (s.bookingId ? [s.bookingId] : [])),
-    visitas: sesiones.flatMap((s) => (s.visitaId ? [s.visitaId] : [])),
-  };
-}
-
-/**
  * T7 — la sesión de cada visita, para la etiqueta «Sesión N de M — X» en la tarjeta de Visitas del
  * perfil. Misma regla que `sesionDeVisita` (la sesión que guarda la visita o, si no, la de su cita
  * mientras siga siendo de este paciente), en UNA consulta para toda la lista.
