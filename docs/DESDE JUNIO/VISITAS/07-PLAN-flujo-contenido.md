@@ -7,7 +7,10 @@
 > la última tarjeta— hacia ARRIBA (el clic encontró que «Borrar» quedaba fuera de pantalla). No visto
 > aún: la cabecera con «próxima: …» (ese tratamiento no tiene citas activas).
 >
-> **P2 (2026-10-09): escrito y revisado, esperando OK de commit.** Regla `rechazarVisitaFuturaSinCita`
+> **P2 (2026-10-09): EN PROD `486c3515` (doctor SUCCESS).** Probado en Chrome («Nombre Prueba», sin
+> citas): «Nueva Visita» sin cita muestra «Sin cita, hoy o antes…»; con mañana escrita, «Crear visita»
+> → toast «Una visita sin cita no puede ser en el futuro…» y NO se creó nada. No visto aún: elegir una
+> cita futura (ese paciente no tiene citas) ni el «Desligar» escondido. Regla `rechazarVisitaFuturaSinCita`
 > (lib/visitas) en POST y PATCH de visitas; corrida con TZ=UTC: ayer/hoy pasan, mañana/+30 rechazan
 > (400), con fechas de `parseFecha` y de `@db.Date`. Prod (sólo lectura): 3 visitas sin cita con fecha
 > futura, las 3 de dr-prueba y sesiones de tratamiento — no se tocan. Además de lo planeado: «Desligar
@@ -115,20 +118,21 @@ alimentando la cuenta, el conteo y el PDF. Sólo cambia cómo se dice.
 
 ### P3 — «Agendar seguimiento» y «También en la agenda»
 
-**P3a — «Agendar seguimiento» en la página de la visita.**
+**P3a — «Agendar seguimiento» en la página de la visita. (Después de P3b.)**
 
 - Botón en la visita (no en visitas canceladas ni con permiso faltante: necesita `citas`).
 - Abre un modal con **un renglón** de `FilasDeSesiones` (servicio · precio · fecha · hora ·
   disponibilidad «libre») + contacto/modalidad como en «Agendar sesiones». Reutiliza
   `useAgendaDeSesiones` / `agendarFilas` tal cual.
 - Al confirmar:
-  1. **Servidor (una transacción):** si la visita NO es de un tratamiento → crea «Seguimiento del <día>»
-     con sesión 1 = esta visita (y su cita, si la tiene y está libre — misma regla que
-     `unirComoSeguimiento`) y sesión 2 vacía. Si YA es de un tratamiento activo → agrega la sesión
-     siguiente vacía. Si es de uno terminado/cancelado → 409 «reactívalo primero».
-     Forma propuesta: extender `POST …/tratamientos` con `desdeVisita: <visitaId>` (o una ruta
-     `POST …/visitas/[visitaId]/seguimiento`); se decide al escribirla, con smoke test read-only contra
-     prod ANTES del push (query shape nuevo).
+  1. **Visita que YA es de un tratamiento activo:** se reutiliza «Agregar sesión» TAL CUAL
+     (`AgendarSesionesModal` modo `nueva` + su ruta): cero servidor nuevo. Terminado/cancelado → el
+     botón dice «Reactiva el tratamiento para agendar su seguimiento» y lleva a él.
+  2. **Visita suelta — servidor (una transacción):** crea «Seguimiento del <día>» con sesión 1 = esta
+     visita (y su cita, si la tiene y está libre — misma regla que `unirComoSeguimiento`, que se
+     factoriza para no duplicarla) y sesión 2 vacía con su servicio y precio. Forma: `POST
+     …/tratamientos` con `desdeVisita: <visitaId>`; smoke test read-only contra prod ANTES del push
+     (query shape nuevo).
   2. **Cliente:** agenda la sesión nueva con `range-bookings/instant` + `paraSesion` (el camino de
      siempre: correo, Google Calendar, precio de la sesión). Si la cita falla, la sesión queda «Sin
      fecha» con su botón Agendar — igual que «Nuevo tratamiento» hoy. No se inventa atomicidad nueva.
@@ -136,20 +140,53 @@ alimentando la cuenta, el conteo y el PDF. Sólo cambia cómo se dice.
   tratamiento.
 - Clics: hoy ~8 pantallas/clics → 1 botón + llenar fecha/hora + «Agendar».
 
-**P3b — «También en la agenda» en «Abrir visita hoy» (sesión sin cita).**
+**P3b — «También en la agenda» en «Abrir visita hoy» (sesión sin cita). SE HACE PRIMERO.**
 
-- El confirm actual se vuelve un modal mínimo: hora (default = ahora, redondeada), servicio (default =
-  el de la sesión) y la casilla **«También en la agenda»** (marcada).
-- Marcada → `range-bookings/instant` hoy a esa hora con `paraSesion` → `POST …/visitas` con ese
-  `bookingId` → se navega a la visita. La cita queda **Confirmada**; se cobra al concluirla, como
-  cualquier otra (NO se crea «ya completada»: eso se saltaría el modal de cobro).
-- Desmarcada → lo de hoy (`paraSesion`, visita sola) + el aviso «sin cita: no se cobra desde la agenda».
-- **A verificar al escribirla** (abierto):
-  - que una cita de HOY creada así NO le mande al paciente el correo de «tu cita fue agendada»
-    (está ahí con el doctor) — revisar los flags de `instant` (`avisoEnResumen`, etc.);
-  - qué hace `instant` si la hora choca con otra cita (¿rechaza?) → entonces ofrecer otra hora o
-    desmarcar;
-  - sesión sin servicio → el select pide uno (o se permite sin servicio si `instant` lo acepta).
+Investigado 2026-10-09 (código de `apps/api/.../range-bookings/instant/route.ts` + prod en sólo
+lectura):
+
+| Pregunta | Respuesta |
+|---|---|
+| ¿Correo de confirmación? | Sí, siempre — salvo `avisoEnResumen` (T5). Se apaga. |
+| ¿SMS? | Sólo con `sms_enabled` = `'false'` en prod hoy. Se apaga igual, por si un día se prende. |
+| ¿Recordatorio? | No: el cron avisa `offset` (2 h) ANTES; una cita creada «ahora» ya pasó esa ventana. |
+| ¿Google Calendar? | Crea el evento (es el espejo en la agenda: bien). Sin `attendees`: no invita al paciente. |
+| ¿Choque de horario? | 409 «Este horario se traslapa con una cita existente (10:00–10:45)…». |
+| ¿Sin servicio? | `serviceId` es OBLIGATORIO (400). |
+| ¿Contacto del paciente? | Exigido según el doctor: **7 de 13** doctores exigen correo+teléfono+WhatsApp, y **254 de 337** pacientes activos NO tienen correo (96 sin teléfono). |
+
+⇒ **Decisión del usuario (2026-10-09):** en este modo NO se exige el contacto (el paciente está
+enfrente; no hay a quién avisar). Sin eso, la casilla fallaría para 3 de cada 4 pacientes.
+
+**Servidor (`apps/api`, ruta `range-bookings/instant`):** nuevo campo `enConsulta: true` («el paciente
+está aquí ahora»). Vale SÓLO si: lo manda un DOCTOR autenticado (no admin, no público) · `date` = HOY en
+hora de la clínica · trae `paraSesion`. Si no se cumple → 400 (no se ignora en silencio). Con él:
+- no se exige correo / teléfono / WhatsApp;
+- no se manda correo ni SMS (como `avisoEnResumen`, pero sin resumen después);
+- todo lo demás igual: traslape, servicio del doctor, `patientId`, precio de la sesión, evento de
+  Calendar, ligar la sesión (`ligarSesionAlAgendar`).
+Deploy: toca `apps/api` ⇒ despliega el servicio API (verificar su `commitHash`, no sólo el de doctor).
+
+**Cliente (pantalla del tratamiento):** el `practiceConfirm` de «Abrir visita hoy» se vuelve un modal
+chico:
+- **Servicio** (select de tus servicios; default = el de la sesión; obligatorio si va a la agenda) y
+  **Hora** (default = ahora, HH:MM de la clínica).
+- Casilla **«También en la agenda»**, marcada. Sólo aparece con permiso `citas` (si no, el modal es el
+  de hoy: visita sola).
+- Marcada → `instant` con `enConsulta` → `POST …/visitas` con ese `bookingId` (la sesión ya tiene la
+  cita: la visita entra sola, G3) → se navega a la visita. La cita queda **Agendada** (CONFIRMED) y se
+  cobra al concluirla, como cualquier otra (NO nace «completada»: se saltaría el modal de cobro).
+- Si `instant` falla (traslape, horario bloqueado): el error se queda EN el modal; se cambia la hora o
+  se desmarca la casilla.
+- Si la cita se creó pero la visita no: toast «La cita se creó pero la visita no: ábrela desde la
+  sesión» y se recarga (la sesión ya muestra su cita con «Abrir visita»).
+- Desmarcada → lo de hoy (`paraSesion`, visita sola) + el aviso «Sin cita: no se cobra desde la agenda».
+- Ayuda en el mismo commit: manual (tratamientos), guía de sesiones y `capabilities.ts`.
+
+Verificación P3b: smoke read-only de lo que lea `enConsulta` (si agrega un query) · prueba a mano en
+prod con dr-prueba: casilla marcada → cita de hoy en la agenda, sin correo, visita de esa cita, la
+sesión dice «Agendada»; concluirla cobra; desmarcada → visita sola + aviso; hora ocupada → error en
+el modal. Los datos de prueba se cancelan al final (no se borran).
 
 ## 4. Qué NO cambia
 

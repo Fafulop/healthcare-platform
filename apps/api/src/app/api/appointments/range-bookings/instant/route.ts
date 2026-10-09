@@ -46,6 +46,9 @@ export async function POST(request: Request) {
       // por cita (sin correo ni SMS de esta cita; el resumen lo manda `bookings/resumen-tratamiento`).
       paraSesion,
       avisoEnResumen,
+      // VISITAS 07-PLAN P3b — «el paciente está aquí ahora» («Abrir visita hoy» con «También en la
+      // agenda»): la cita espejo de la visita de HOY de una sesión. No exige contacto ni avisa.
+      enConsulta,
       patientId,
       // En cuál consultorio es la cita. Opcional: si no viene, se hereda del rango que la
       // contiene (booking-location.ts). Sólo hay algo que elegir cuando el doctor tiene 2+
@@ -103,10 +106,26 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate required contact fields (instant flow settings)
-    const emailRequired = doctor.bookingInstantEmailRequired ?? true;
-    const phoneRequired = doctor.bookingInstantPhoneRequired ?? true;
-    const whatsappRequired = doctor.bookingInstantWhatsappRequired ?? true;
+    // VISITAS 07-PLAN P3b — `enConsulta` sólo vale para un DOCTOR autenticado (no admin ni público),
+    // para HOY en hora de la clínica y para una sesión de tratamiento. Si no, 400: ignorarlo en
+    // silencio exigiría el contacto y avisaría al paciente, que es justo lo que pidió no hacer.
+    const modoConsulta = enConsulta === true;
+    if (modoConsulta) {
+      const hoyClinica = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
+      if (role !== 'DOCTOR' || !authenticatedDoctorId || !paraSesion || date !== hoyClinica) {
+        return NextResponse.json(
+          { success: false, error: 'enConsulta sólo vale para una sesión de tratamiento, hoy, agendada por el doctor' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate required contact fields (instant flow settings). En consulta no: el paciente está
+    // enfrente y no se le avisa nada (decisión del usuario 2026-10-09: 254 de 337 pacientes activos
+    // no tienen correo, y 7 de 13 doctores lo exigen).
+    const emailRequired = !modoConsulta && (doctor.bookingInstantEmailRequired ?? true);
+    const phoneRequired = !modoConsulta && (doctor.bookingInstantPhoneRequired ?? true);
+    const whatsappRequired = !modoConsulta && (doctor.bookingInstantWhatsappRequired ?? true);
 
     const missing = [
       emailRequired && !patientEmail ? 'patientEmail' : null,
@@ -248,9 +267,14 @@ export async function POST(request: Request) {
             // y una cadena vacía pasaría el ?? y dejaría el campo del expediente en blanco.
             patientFirstName: typeof patientFirstName === 'string' && patientFirstName.trim() ? patientFirstName.trim() : null,
             patientLastName:  typeof patientLastName  === 'string' && patientLastName.trim()  ? patientLastName.trim()  : null,
-            patientEmail,
-            patientPhone,
+            // En consulta (P3b) el contacto puede no venir, y las columnas son NOT NULL: '' (como lo
+            // manda el formulario cuando el doctor no lo exige).
+            patientEmail: modoConsulta ? (patientEmail ?? '') : patientEmail,
+            patientPhone: modoConsulta ? (patientPhone ?? '') : patientPhone,
             patientWhatsapp: patientWhatsapp || null,
+            // En consulta, el recordatorio por correo se da por mandado: la hora es editable y una cita
+            // de más tarde HOY le avisaría al paciente (el cron lee el correo del EXPEDIENTE).
+            ...(modoConsulta ? { reminderEmailSentAt: new Date() } : {}),
             notes: notes || null,
             serviceId,
             serviceName,
@@ -306,7 +330,8 @@ export async function POST(request: Request) {
     // esta cita (va uno resumen al final). Los SMS siguen siendo por cita, como antes: quitarlos
     // dejaba sin ningún aviso al paciente que sólo tiene teléfono.
     const enResumen = avisoEnResumen === true && !!authenticatedDoctorId;
-    const smsEnabled = await isSMSEnabled();
+    // En consulta (P3b) no hay SMS ni correo: el paciente está ahí.
+    const smsEnabled = !modoConsulta && await isSMSEnabled();
     if (smsEnabled) {
       const smsDetails = {
         patientName,
@@ -375,7 +400,7 @@ export async function POST(request: Request) {
     .finally(() => {
       // Always send confirmation email for instant bookings — salvo T5 `avisoEnResumen` (un correo
       // resumen al final de todas las sesiones, no N).
-      if (enResumen) return;
+      if (enResumen || modoConsulta) return;
       sendBookingConfirmationEmail(booking.id).catch((err) =>
         console.error('[Email] auto-send confirmation (range-instant POST):', err)
       );

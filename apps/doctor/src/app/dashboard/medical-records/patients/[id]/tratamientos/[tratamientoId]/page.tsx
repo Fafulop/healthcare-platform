@@ -17,6 +17,7 @@ import { DocumentoPdfModal } from '@/components/pdf/DocumentoPdfModal';
 import { dibujarResumenTratamiento, nombreArchivoResumen, type ResumenTratamientoDatos } from '@/lib/resumen-tratamiento-pdf';
 import { getClinicDateString } from '@/lib/dates';
 import { AgendarSesionesModal, type ModoAgendar } from '@/components/medical-records/tratamientos/AgendarSesionesModal';
+import { AbrirVisitaHoyModal } from '@/components/medical-records/tratamientos/AbrirVisitaHoyModal';
 
 const inputClass = 'px-2 py-1.5 border border-gray-300 rounded-md text-sm';
 const botonTexto = 'text-sm text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 disabled:opacity-50';
@@ -471,14 +472,10 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
   const agendable = puedeAgendar && !s.cancelada && visitaNoEstorba && s.estado === 'por_agendar';
   const reagendable = puedeAgendar && !s.cancelada && visitaNoEstorba && citaActiva;
 
+  // 07-PLAN P3b: sin cita que cuente, «Abrir visita hoy» abre su modal (con «También en la agenda»).
+  const [abriendoHoy, setAbriendoHoy] = useState(false);
   const abrirVisitaNueva = async () => {
-    if (!citaVigente) {
-      const ok = await practiceConfirm(
-        'La visita queda con fecha de HOY y la sesión cuenta como hecha. Si la sesión es otro día, mejor agéndala primero: su visita tomará la fecha de la cita.',
-        '¿Abrir la visita hoy?',
-      );
-      if (!ok) return;
-    }
+    if (!citaVigente) { setAbriendoHoy(true); return; }
     await t.abrirVisita(s);
   };
 
@@ -622,6 +619,17 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
           </div>
         </div>
       </div>
+
+      {abriendoHoy && (
+        <AbrirVisitaHoyModal
+          patientId={t.patientId} s={s} planeadas={planeadas}
+          // La casilla pide lo mismo que agendar: permiso de citas y tratamiento activo.
+          conAgenda={puedeAgendar}
+          onSinAgenda={() => t.abrirVisita(s)}
+          onClose={() => setAbriendoHoy(false)}
+          onFallo={() => { t.recargar(); }}
+        />
+      )}
 
       {editandoServicio && (
         <EditorServicioSesion

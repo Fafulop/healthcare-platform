@@ -520,9 +520,15 @@ principal:
   conserva su propia fecha.
 - **«Abrir visita»** — si ya tiene visita, la abre. Si aún no tiene, la crea: con la fecha de su cita
   si tiene una vigente, o con la de **hoy** si no tiene (o su cita se canceló o el paciente no
-  asistió): dice **«Abrir visita hoy»** y te pregunta antes, porque la sesión cuenta como atendida; esto
+  asistió): dice **«Abrir visita hoy»** y abre una ventana, porque la sesión cuenta como atendida; esto
   sólo en tratamientos activos. Si la sesión es otro día, agéndala primero. No aparece en sesiones
   canceladas ni si la sesión tiene una cita que no puedes ver.
+  En esa ventana, **«También en la agenda»** (marcada) crea además su **cita de hoy**: eliges el
+  **Servicio** (viene el de la sesión) y la **Hora** (viene la de ahora) y picas **«Abrir visita y
+  agendar»**. La cita queda Agendada, no le llega ningún aviso al paciente (está contigo) y no te pide
+  su correo ni su teléfono; se cobra al **completarla**, como cualquier cita. Si esa hora choca con
+  otra cita, la ventana te lo dice: cambia la hora o desmarca la casilla. Desmarcada, sólo se abre la
+  visita — y esa sesión no se cobra desde la agenda. La casilla sale con permiso de citas.
 
 En el botón **«⋯»** de cada sesión, lo demás:
 

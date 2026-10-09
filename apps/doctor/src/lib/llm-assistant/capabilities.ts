@@ -256,6 +256,17 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
               'de día se reagenda ("Reagendar"; su visita, si ya se abrió, se va con la cita).',
           },
 
+          'abrir la visita de una sesión hoy': {
+            allowedIf:
+              'En la sesión sin cita (o con su cita cancelada / no asistió): "Abrir visita hoy" → ventana con ' +
+              '"También en la agenda" (marcada): Servicio (el de la sesión) y Hora (ahora) → "Abrir visita y agendar". ' +
+              'Crea la visita de hoy Y su cita de hoy (Agendada), sin avisar al paciente ni pedir su correo/teléfono; ' +
+              'se cobra al completar la cita, como cualquier otra. Desmarcada: sólo la visita (esa sesión no se cobra desde la agenda).',
+            blockedIf:
+              'La casilla necesita permiso de citas y el tratamiento activo. Si la hora choca con otra cita, la ventana ' +
+              'lo dice: otra hora o desmarcar. Una visita de otro día se agenda primero (cita), no se abre.',
+          },
+
           'cancelar una sesión': {
             allowedIf: '"⋯" → "Cancelar sesión". Con una cita activa pregunta: cancelar la sesión y la cita, sólo la sesión, o nada.',
             notes: 'Cancelar la cita desde aquí es lo mismo que desde la agenda (con sus avisos). "Reactivar" la deshace.',
