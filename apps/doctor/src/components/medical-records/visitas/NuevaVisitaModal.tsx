@@ -119,6 +119,11 @@ export function NuevaVisitaModal({
       toast.error('Elige la fecha de la visita');
       return;
     }
+    // 07-PLAN P2 (el servidor también lo rechaza): sin cita, sólo hoy o antes.
+    if (!elegida && fecha > getClinicDateString()) {
+      toast.error('Una visita sin cita no puede ser en el futuro: agenda una cita para ese día');
+      return;
+    }
     setGuardando(true);
     try {
       const res = await fetch(`/api/medical-records/patients/${patientId}/visitas`, {
@@ -208,10 +213,15 @@ export function NuevaVisitaModal({
               value={elegida?.date ?? fecha}
               onChange={(e) => setFecha(e.target.value)}
               disabled={!!elegida?.date}
+              // 07-PLAN P2: sin cita, hasta hoy. Una visita futura es una cita.
+              max={elegida ? undefined : getClinicDateString()}
               className={inputClass}
             />
-            {elegida?.date && (
-              <p className="text-xs text-gray-500 mt-1">Con cita, la fecha de la visita es la de la cita.</p>
+            {/* Con cita sin día (su slot se borró) no se dice nada: la fecha escrita vale y puede ser futura. */}
+            {elegida ? (
+              elegida.date && <p className="text-xs text-gray-500 mt-1">Con cita, la fecha de la visita es la de la cita.</p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">Sin cita, hoy o antes. Para otro día, agenda una cita.</p>
             )}
           </div>
 

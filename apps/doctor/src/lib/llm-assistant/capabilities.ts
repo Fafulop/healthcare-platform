@@ -192,7 +192,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             allowedIf:
               'Sola al completar una cita de un paciente con expediente (o al vincular el expediente ' +
               'a una cita ya completada). A mano: botón "Nueva Visita" en el perfil del paciente → ' +
-              '"¿De qué cita?" o "Sin cita" con su fecha → "Crear visita".',
+              '"¿De qué cita?" o "Sin cita" con su fecha → "Crear visita". Sin cita, la fecha es hoy o antes: ' +
+              'una visita sin cita no puede ser en el futuro (para otro día se agenda una cita).',
             notes:
               'Si la cita elegida ya tiene su visita, el botón dice "Abrir su visita" y no crea otra. ' +
               'Dentro de la visita: Plantillas ("Agregar plantilla"), Fotos y documentos ("Subir"), ' +

@@ -13,6 +13,7 @@ import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical
 import { NotasCita } from '@/components/citas/NotasCita';
 import { formatoFechaVisita, totalHijos } from '@/lib/visitas-ui';
 import { tituloDePlantilla } from '@/lib/titulo-plantilla';
+import { getClinicDateString } from '@/lib/dates';
 import { etiquetaSesion, tratamientoHref, tratamientosUiActiva } from '@/lib/tratamientos-ui';
 import { useVisitaDetalle, type ConsultaDeVisita } from '../_components/useVisitaDetalle';
 
@@ -230,8 +231,9 @@ export default function VisitaPage() {
                   {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} cubierta={booking.estadoPago === 'CUBIERTA'} />}
                 </div>
               )}
-              {/* La visita automática ES la de su cita: no se desliga (la API contesta 409). */}
-              {visita.origen !== 'cita' && verCitas && (
+              {/* La visita automática ES la de su cita: no se desliga (la API contesta 409). Tampoco la de
+                  una cita futura: quedaría una visita sin cita en el futuro (07-PLAN P2; la API, 400). */}
+              {visita.origen !== 'cita' && verCitas && visita.fecha <= getClinicDateString() && (
                 <button
                   onClick={() => v.ligarCita(null)}
                   disabled={v.trabajando}
@@ -275,9 +277,14 @@ export default function VisitaPage() {
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
+              // 07-PLAN P2: sin cita, hasta hoy (el servidor también lo rechaza).
+              max={getClinicDateString()}
               className="px-2 py-1.5 border border-gray-300 rounded-md text-sm"
             />
-            {fecha && fecha !== visita.fecha && (
+            {fecha && fecha > getClinicDateString() && (
+              <span className="text-xs text-red-700">Sin cita, hoy o antes. Para otro día, agenda una cita.</span>
+            )}
+            {fecha && fecha !== visita.fecha && fecha <= getClinicDateString() && (
               <button
                 onClick={() => v.guardarFecha(fecha)}
                 disabled={v.trabajando}

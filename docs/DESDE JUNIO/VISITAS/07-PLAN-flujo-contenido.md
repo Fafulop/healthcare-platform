@@ -1,8 +1,18 @@
 # 07 — PLAN: el tratamiento como flujo contenido (menos clics, menos vocabulario)
 
-> **Estado (2026-10-09): plan APROBADO. P1 escrito y revisado (inline: 4 hallazgos, arreglados y
-> corridos — `estadoEnPalabras` contra 13 tipos de sesión, todo OK), type-check + 5 gates en verde;
-> esperando OK de commit. P2 y P3 sin empezar.**
+> **Estado (2026-10-09): P1 EN PROD Y PROBADO** — `4fdb6295` + arreglo del menú `4cb571bd` (doctor
+> SUCCESS). Review inline: 4 hallazgos, arreglados y corridos (`estadoEnPalabras` contra 13 tipos de
+> sesión). Probado en Chrome sobre «Seguimiento del 10 oct»: renglones de estado, sin «Ligar»,
+> canceladas plegadas (con la fecha de su visita), PDF con las mismas palabras, «⋯» hacia abajo y —en
+> la última tarjeta— hacia ARRIBA (el clic encontró que «Borrar» quedaba fuera de pantalla). No visto
+> aún: la cabecera con «próxima: …» (ese tratamiento no tiene citas activas).
+>
+> **P2 (2026-10-09): escrito y revisado, esperando OK de commit.** Regla `rechazarVisitaFuturaSinCita`
+> (lib/visitas) en POST y PATCH de visitas; corrida con TZ=UTC: ayer/hoy pasan, mañana/+30 rechazan
+> (400), con fechas de `parseFecha` y de `@db.Date`. Prod (sólo lectura): 3 visitas sin cita con fecha
+> futura, las 3 de dr-prueba y sesiones de tratamiento — no se tocan. Además de lo planeado: «Desligar
+> la cita» se esconde si la visita es de una cita futura (dejaría una visita futura sin cita).
+> **P3 sin empezar.**
 >
 > Cambio sobre el plan en P1: los helpers de estado (`estadoEnPalabras`, `hechaPorVisita`,
 > `proximaCita`) viven en `lib/tratamientos-ui.ts` (pantalla y PDF dicen lo mismo); y el GET del

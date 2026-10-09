@@ -3,8 +3,8 @@ import { prisma, Prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { AppError, handleApiError } from '@/lib/api-error-handler';
 import {
-  bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, totalHijos,
-  unicaPorCita, validarCitaParaVisita,
+  bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, rechazarVisitaFuturaSinCita,
+  totalHijos, unicaPorCita, validarCitaParaVisita,
 } from '@/lib/visitas';
 import {
   aplicarEnSesion, auditarCambioDeSesion, exigirSinSesionAlDesligar, sesionAlLigarCitaAVisita, sesionDeVisita,
@@ -141,6 +141,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
+    }
+
+    // 07-PLAN P2: si queda SIN cita y cambió su fecha o su cita (desligar una cita futura también
+    // dejaría una visita futura sin cita), sólo hoy o antes. Editar sólo el comentario de una visita
+    // vieja así no se bloquea.
+    if (!bookingFinal && (data.fecha !== undefined || data.bookingId !== undefined)) {
+      rechazarVisitaFuturaSinCita((data.fecha as Date | undefined) ?? visita.fecha);
     }
 
     // Tratamientos G3: ligar una cita a la visita no puede dejar la cita en una sesión y la visita

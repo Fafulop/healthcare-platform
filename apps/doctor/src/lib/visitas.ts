@@ -12,6 +12,7 @@ import {
 } from '@healthcare/database';
 import type { MedicalAuthContext } from '@/lib/medical-auth';
 import { AppError } from '@/lib/api-error-handler';
+import { getClinicDateString } from '@/lib/dates';
 
 /**
  * ¿Puede VER este bloque de DATOS? Dueño y admin: siempre. Member: su toggle.
@@ -34,6 +35,18 @@ export function parseFecha(v: unknown): Date | null {
   if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
   const d = new Date(`${v}T12:00:00Z`);
   return Number.isNaN(d.getTime()) || diaISO(d) !== v ? null : d;
+}
+
+/**
+ * VISITAS 07-PLAN P2 — una visita SIN cita no puede ser en el futuro: algo futuro sin cita es plan, no
+ * visita (una así contaba como sesión «hecha» antes de que pasara). Para el futuro está la cita. Día
+ * contra día en hora de la CLÍNICA (`getClinicDateString`), no en UTC: a las 19:00 en CDMX ya es
+ * «mañana» en UTC. `fecha` es un día (`parseFecha` o una columna `@db.Date`): se lee con `diaISO`.
+ */
+export function rechazarVisitaFuturaSinCita(fecha: Date) {
+  if (diaISO(fecha) > getClinicDateString()) {
+    throw new AppError('Una visita sin cita no puede ser en el futuro: agenda una cita para ese día', 400);
+  }
 }
 
 export const COMENTARIO_MAX = 5000;

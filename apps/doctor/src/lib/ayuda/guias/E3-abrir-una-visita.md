@@ -6,7 +6,7 @@
 
 **Pasos — abrirla tú**
 1. Perfil del paciente → **«Nueva Visita»**.
-2. **«¿De qué cita?»**: elige una cita del paciente o **«Sin cita»** (y la **Fecha**).
+2. **«¿De qué cita?»**: elige una cita del paciente o **«Sin cita»** (y la **Fecha**: hoy o antes — para otro día, agenda una cita).
 3. Si te pregunta **«¿Es seguimiento?»**, deja «No» para una visita suelta. Si eliges una **visita anterior** (sólo salen las del mismo día o antes), se crea un tratamiento «Seguimiento del …» con las dos, y las dos dejan de verse en «Visitas» (están dentro del tratamiento).
 4. **«Crear visita»**.
 

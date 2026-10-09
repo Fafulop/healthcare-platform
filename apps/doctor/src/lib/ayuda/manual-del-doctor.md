@@ -432,7 +432,8 @@ documentos, notas, recetas e informes, la cita y un comentario.
   la fecha, hora y cobro de la cita. Si el expediente se vincula a la cita **después** de
   completarla, la visita aparece al vincularlo.
 - **«Nueva Visita»** en el perfil: pregunta **«¿De qué cita?»** (la de hoy ya viene elegida) o
-  «Sin cita» con su **Fecha**, y se crea al picar **«Crear visita»**. Si esa cita ya tiene su
+  «Sin cita» con su **Fecha** (hoy o antes: una visita sin cita no puede ser en el futuro — para otro
+  día, agenda una cita), y se crea al picar **«Crear visita»**. Si esa cita ya tiene su
   visita, el botón dice **«Abrir su visita»** y no crea otra. Un ayudante sin permiso de citas no ve
   «¿De qué cita?»: su visita se crea sin cita.
   Si el paciente tiene tratamientos activos o visitas anteriores, también pregunta **«¿Es
@@ -447,7 +448,8 @@ documentos, notas, recetas e informes, la cita y un comentario.
 **La pantalla de la visita** (clic en «Visita del …»):
 
 - **Cita** — fecha, hora, servicio y si está pagada y facturada. Sin cita, puedes **«Ligar una
-  cita…»** o corregir la **Fecha**. La visita que nació de una cita no se desliga.
+  cita…»** o corregir la **Fecha** (hoy o antes). La visita que nació de una cita no se desliga, ni
+  la de una cita futura (quedaría una visita sin cita en el futuro).
 - **Plantillas** («Agregar plantilla») · **Fotos y documentos** («Subir») · **Notas** («Nueva
   nota») · **Recetas** («Nueva receta») · **Comentario** («Guardar comentario»). Lo que agregas
   desde aquí queda en esta visita. Los **Informes médicos** se hacen desde su plantilla y aparecen
