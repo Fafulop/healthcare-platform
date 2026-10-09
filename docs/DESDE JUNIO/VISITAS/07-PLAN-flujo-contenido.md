@@ -15,7 +15,25 @@
 > (400), con fechas de `parseFecha` y de `@db.Date`. Prod (sólo lectura): 3 visitas sin cita con fecha
 > futura, las 3 de dr-prueba y sesiones de tratamiento — no se tocan. Además de lo planeado: «Desligar
 > la cita» se esconde si la visita es de una cita futura (dejaría una visita futura sin cita).
-> **P3 sin empezar.**
+>
+> **P3b (2026-10-09): EN PROD `929d6cd9` (api Y doctor SUCCESS) y PROBADO de punta a punta** (Chrome +
+> BD, dr-prueba, «Seguimiento del 10 oct», sesión 4): «Abrir visita hoy» → modal con servicio de la
+> sesión y hora de ahora, casilla marcada → cita `cmv1jsdpc0001qh0tll9ajf8n` CONFIRMED hoy 16:39, $900
+> (precio de la sesión), correo/tel '' , SIN correo de confirmación (`confirmation_email_sent_at`
+> NULL) y recordatorio marcado; sesión 4 ligada; visita `cmv1jsduf…` de esa cita y en la sesión. En la
+> agenda: «Sesión 4 de 4 — …»; «Completar» prellenó $900 → COMPLETED + ingreso #1849 $900
+> (ING-2026-405); el tratamiento pasó a «3 de 4 atendidas · Pagado $900 · Pendiente $900» y la sesión
+> dice «Completada · cobrado $900 (ING-2026-405) · Pagado · Efectivo». Datos de prueba que QUEDAN en
+> dr-prueba: esa cita completada y el ingreso #1849 (no se borran sin preguntar). No probado: la
+> casilla desmarcada ni el error de traslape en el modal.
+>
+> **P3a (2026-10-09): escrito y revisado, esperando OK de commit.** Botón «Agendar seguimiento» en la
+> visita (con `citas`): visita de un tratamiento activo → «Agregar sesión» tal cual; visita suelta →
+> `POST …/tratamientos { desdeVisita, sesion }` (UNA tx: «Seguimiento del …» con s1 = la visita y s2 =
+> el seguimiento) y luego la cita de s2 por `agendarFilas`. La regla de crear desde una visita suelta se
+> factorizó (`crearSeguimientoDeVisita` + `diaDeVisita`) y la usa también «Nueva Visita» → seguimiento.
+> Smoke SÓLO LECTURA en prod de las lecturas nuevas: OK (la visita suelta del 1 oct de «Nombre Prueba»
+> crearía el tratamiento; las 5 que ya son de uno → 409).
 >
 > Cambio sobre el plan en P1: los helpers de estado (`estadoEnPalabras`, `hechaPorVisita`,
 > `proximaCita`) viven en `lib/tratamientos-ui.ts` (pantalla y PDF dicen lo mismo); y el GET del

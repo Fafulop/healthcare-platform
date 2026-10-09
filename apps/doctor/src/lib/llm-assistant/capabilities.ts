@@ -256,6 +256,16 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
               'de día se reagenda ("Reagendar"; su visita, si ya se abrió, se va con la cita).',
           },
 
+          'agendar el seguimiento de una visita': {
+            allowedIf:
+              'En la página de la visita: "Agendar seguimiento" → servicio, precio, fecha y hora → "Agendar seguimiento" ' +
+              '(o "Agregar y agendar"). Visita de un tratamiento activo: se agrega su sesión siguiente con su cita. ' +
+              'Visita suelta: nace el tratamiento "Seguimiento del <fecha>" con esa visita como sesión 1 y la cita ' +
+              'como sesión 2. La cita manda su correo al paciente como cualquier cita agendada.',
+            blockedIf:
+              'Necesita permiso de citas. Si la visita es de un tratamiento terminado o cancelado, hay que reactivarlo primero.',
+          },
+
           'abrir la visita de una sesión hoy': {
             allowedIf:
               'En la sesión sin cita (o con su cita cancelada / no asistió): "Abrir visita hoy" → ventana con ' +

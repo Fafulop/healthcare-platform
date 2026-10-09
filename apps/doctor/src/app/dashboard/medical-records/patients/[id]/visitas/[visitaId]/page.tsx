@@ -16,6 +16,7 @@ import { tituloDePlantilla } from '@/lib/titulo-plantilla';
 import { getClinicDateString } from '@/lib/dates';
 import { etiquetaSesion, tratamientoHref, tratamientosUiActiva } from '@/lib/tratamientos-ui';
 import { useVisitaDetalle, type ConsultaDeVisita } from '../_components/useVisitaDetalle';
+import { AgendarSeguimiento } from '@/components/medical-records/tratamientos/AgendarSeguimiento';
 
 // Los `origen` que existen: D1 ('cita') y la API de D2 ('manual'). 'backfill' lo admite la BD (CHECK)
 // para el script `scripts/visitas/backfill-visitas.cjs`, que se DESCARTÓ el 2026-09-29 y nunca corrió:
@@ -190,16 +191,22 @@ export default function VisitaPage() {
               {vacia && ' Todavía está vacía.'}
             </p>
           </div>
-          {/* Borrar sólo mientras esté vacía (la API también lo exige: 409 con contenido). */}
-          {vacia && (
-            <button
-              onClick={v.borrar}
-              disabled={v.trabajando}
-              className="px-3 py-2 border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-1.5 text-sm self-start"
-            >
-              <Trash2 className="w-4 h-4" /> Borrar visita
-            </button>
-          )}
+          <div className="flex items-start gap-2 flex-wrap">
+            {/* 07-PLAN P3a — el seguimiento CREA su cita (y su tratamiento, si la visita es suelta). */}
+            {verCitas && tratamientosUiActiva(v.doctorId) && (
+              <AgendarSeguimiento patientId={patientId} visitaId={visitaId} sesion={visita.sesion ?? null} />
+            )}
+            {/* Borrar sólo mientras esté vacía (la API también lo exige: 409 con contenido). */}
+            {vacia && (
+              <button
+                onClick={v.borrar}
+                disabled={v.trabajando}
+                className="px-3 py-2 border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-1.5 text-sm self-start"
+              >
+                <Trash2 className="w-4 h-4" /> Borrar visita
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -488,6 +488,34 @@ function diaCorto(iso: string) {
   return `${d} ${MESES[m - 1]}`;
 }
 
+/** El día que MUESTRA una visita: el de su cita si la tiene (DISEÑO §3), si no el suyo. */
+export async function diaDeVisita(doctorId: string, v: { fecha: Date; bookingId: string | null }) {
+  const diaCita = v.bookingId ? (await diasDeCitas(doctorId, [v.bookingId])).get(v.bookingId) : undefined;
+  return diaISO(diaCita ?? v.fecha);
+}
+
+/**
+ * El tratamiento «Seguimiento del <día>» que nace de una visita SUELTA: sesión 1 = esa visita, y su cita
+ * si no es ya de otra sesión. Una sola regla para los dos caminos que lo crean: «Nueva Visita» →
+ * «Seguimiento de una visita anterior» (T7) y «Agendar seguimiento» desde la visita (07-PLAN P3a).
+ * Dentro de la transacción del llamador; `diaVisita` = `diaDeVisita(...)`.
+ */
+export async function crearSeguimientoDeVisita(
+  tx: Prisma.TransactionClient, doctorId: string, patientId: string,
+  visita: { id: string; bookingId: string | null }, diaVisita: string,
+): Promise<{ tratamientoId: string; nombre: string; sesionId: string }> {
+  const nombre = `Seguimiento del ${diaCorto(diaVisita)}`;
+  const t = await tx.tratamiento.create({ data: { patientId, doctorId, nombre }, select: { id: true } });
+  const citaLibre = visita.bookingId
+    && !(await tx.tratamientoSesion.findFirst({ where: { bookingId: visita.bookingId }, select: { id: true } }))
+    ? visita.bookingId : null;
+  const s1 = await tx.tratamientoSesion.create({
+    data: { tratamientoId: t.id, patientId, doctorId, numero: 1, visitaId: visita.id, bookingId: citaLibre },
+    select: { id: true },
+  });
+  return { tratamientoId: t.id, nombre, sesionId: s1.id };
+}
+
 export interface SeguimientoHecho {
   tratamientoId: string;
   /** El tratamiento se CREÓ aquí (seguimiento de una visita que no era de ninguno). */
@@ -533,8 +561,7 @@ export async function unirComoSeguimiento(
       // H-024 (2026-10-04): «seguimiento de una visita anterior» — la anterior no puede ser POSTERIOR a
       // ésta (si no, la sesión 2 queda antes que la 1). Día de cada visita = el de su cita si la tiene
       // (misma regla que el nombre «Seguimiento del …» y que la tarjeta de Visitas).
-      const diaCitaPrev = prev.bookingId ? (await diasDeCitas(doctorId, [prev.bookingId])).get(prev.bookingId) : undefined;
-      const diaPrev = diaISO(diaCitaPrev ?? prev.fecha);
+      const diaPrev = await diaDeVisita(doctorId, prev);
       const diaNueva = diaISO(nueva.fecha);
       if (diaPrev > diaNueva) {
         // Con el año si son de años distintos: «5 ene, posterior a 20 dic» se leería falso.
@@ -554,18 +581,9 @@ export async function unirComoSeguimiento(
         }
         tratamientoId = prev.tratamientoSesion.tratamientoId;
       } else {
-        // Con cita, el día de la visita es el de la cita (DISEÑO §3).
-        const nombre = `Seguimiento del ${diaCorto(diaPrev)}`;
-        const t = await tx.tratamiento.create({ data: { patientId, doctorId, nombre }, select: { id: true } });
-        const citaPrevLibre = prev.bookingId
-          && !(await tx.tratamientoSesion.findFirst({ where: { bookingId: prev.bookingId }, select: { id: true } }))
-          ? prev.bookingId : null;
-        const s1 = await tx.tratamientoSesion.create({
-          data: { tratamientoId: t.id, patientId, doctorId, numero: 1, visitaId: prev.id, bookingId: citaPrevLibre },
-          select: { id: true },
-        });
-        tratamientoId = t.id;
-        creado = { nombre, sesionAnteriorId: s1.id, visitaAnteriorId: prev.id };
+        const c = await crearSeguimientoDeVisita(tx, doctorId, patientId, prev, diaPrev);
+        tratamientoId = c.tratamientoId;
+        creado = { nombre: c.nombre, sesionAnteriorId: c.sesionId, visitaAnteriorId: prev.id };
       }
     } else {
       const t = await tx.tratamiento.findFirst({

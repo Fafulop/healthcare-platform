@@ -462,6 +462,12 @@ documentos, notas, recetas e informes, la cita y un comentario.
 - **«Borrar visita»** sólo aparece mientras está vacía.
 - Si la visita es una sesión de un tratamiento, debajo del nombre del paciente dice **«Sesión 3 de
   6 — (nombre del tratamiento)»**; clic para abrir el tratamiento.
+- **«Agendar seguimiento»** (arriba, con permiso de citas) — agenda la **cita** del seguimiento desde
+  la visita: eliges servicio, precio, fecha y hora (con si el horario está libre). Si la visita ya es
+  sesión de un tratamiento activo, se agrega como su **sesión siguiente** («Agregar sesión»). Si es una
+  visita suelta, se crea el tratamiento **«Seguimiento del …»** con esta visita como sesión 1 y la cita
+  nueva como sesión 2 (le cambias el nombre en «Editar»). Al paciente le llega el correo de la cita como
+  a cualquier cita agendada.
 
 **Consultas sin visita** — las registradas fuera de una visita (por ejemplo, las de antes de que
 existieran las visitas). Se ven en su propia tarjeta; desde cualquier visita puedes traerlas
