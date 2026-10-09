@@ -27,7 +27,18 @@
 > dr-prueba: esa cita completada y el ingreso #1849 (no se borran sin preguntar). No probado: la
 > casilla desmarcada ni el error de traslape en el modal.
 >
-> **P3a (2026-10-09): escrito y revisado, esperando OK de commit.** Botón «Agendar seguimiento» en la
+> **P3a (2026-10-09): EN PROD `7c6db413` (doctor SUCCESS). Visto en Chrome SIN enviar nada:** en la
+> visita suelta del 1 oct, «Agendar seguimiento» abre su ventana (texto + «Sesión 2» con el servicio
+> $900, mañana 10:00 «libre», contacto); en la visita de hoy (sesión 4 de «Seguimiento del 10 oct»)
+> abre «Agregar sesión» de ese tratamiento («Sesión 5 de 4»). Ahí el PRIMER clic no abrió nada (el
+> segundo sí) — en la automatización resultó ser un artefacto de Chrome (ver SESSION-REFRESCO punto 1).
+> **Probado de punta a punta** (con contacto FALSO `prueba@example.com` / `0000000000`, OK del usuario):
+> nació «Seguimiento del 1 oct» `cmv1knevo0001s60t1bwkr3m8` — s1 = la visita del 1 oct, s2 = Consulta
+> $900 con su cita del 10 oct 10:00 CONFIRMED (correo de confirmación al correo falso); bitácora
+> `create_tratamiento` + `create_sesion`×2 + `link_sesion_cita`; el expediente NO tomó el contacto falso
+> (sigue vacío). Pantalla: «1 de 2 atendidas · próxima: 10 oct 2026 10:00» (primera vez que se ve la
+> «próxima» de P1). Limpieza: s2 cancelada con «Cancelar la sesión y la cita» → cita CANCELLED. Queda
+> en dr-prueba el tratamiento «Seguimiento del 1 oct» (activo, con s1 y s2 cancelada). Botón «Agendar seguimiento» en la
 > visita (con `citas`): visita de un tratamiento activo → «Agregar sesión» tal cual; visita suelta →
 > `POST …/tratamientos { desdeVisita, sesion }` (UNA tx: «Seguimiento del …» con s1 = la visita y s2 =
 > el seguimiento) y luego la cita de s2 por `agendarFilas`. La regla de crear desde una visita suelta se

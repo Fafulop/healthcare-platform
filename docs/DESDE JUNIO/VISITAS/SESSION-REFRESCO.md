@@ -28,7 +28,18 @@ prioridad #1 del usuario; espera a que Chrome se conecte con la cuenta quebradit
 
 En este orden:
 
-1. **🟡 «El primer clic no hace nada» — INVESTIGADO 2026-10-02, NO SE REPRODUJO; el usuario lo dejó como MENOR.**
+1. **🟡 «El primer clic no hace nada» — 2026-10-09: en la AUTOMATIZACIÓN ya se sabe qué es; a MANO sigue
+   abierto.** Medido con listeners en captura (`pointerdown/mousedown/mouseup/click/focusin` en
+   `document`) en la visita del 1 oct de «Nombre Prueba»: los clics que «no hicieron nada» **no
+   generaron NI UN evento DOM** — el clic nunca llegó a la página (no es React, ni hidratación, ni un
+   elemento encima: `elementFromPoint` daba el botón). El que sí abrió tuvo la secuencia completa. La
+   pestaña de la automatización está en `visibilityState: 'hidden'`, y el patrón en TODA la sesión fue
+   exacto: cada clic hecho después de navegar SIN una captura de pantalla en medio se perdió; cada clic
+   hecho después de una captura llegó (la captura obliga a pintar la pestaña). ⇒ En Chrome automatizado:
+   **captura antes de clicar** tras navegar. Para el reporte A MANO del usuario esto NO lo explica (su
+   pestaña sí está visible): falta saber página y circunstancia (¿venía de otra ventana? — el primer clic
+   sólo enfoca la ventana del sistema). Texto anterior (2026-10-02):
+   **INVESTIGADO 2026-10-02, NO SE REPRODUJO; el usuario lo dejó como MENOR.**
    Medido en Chrome (dr-prueba, pepit perez): en 7 de 7 clics hechos con el botón YA pintado se abrió el modal
    al primer clic — «Nueva Visita» por navegación SPA y por carga completa a ~1.9/2.8/4.9/8 s, «Agendar
    sesiones…» en «PRUEBA F13» a 2 y 8 s. El botón nace UNA vez (~1.1 s; ~0.9 s en el tratamiento), no se
