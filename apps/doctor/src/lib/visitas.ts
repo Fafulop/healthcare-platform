@@ -49,6 +49,27 @@ export function rechazarVisitaFuturaSinCita(fecha: Date) {
   }
 }
 
+/**
+ * VISITAS 08-PLAN F1 — una visita SIN cita no puede caer el día de una cita viva del paciente (no
+ * cancelada ni «no asistió»): ese día su visita ES la de la cita (dos visitas el mismo día era el hueco
+ * de «Sin cita» + concluir). El día se busca como RANGO en UTC: las rutas de alta guardan `date` a
+ * medianoche o a mediodía UTC, y el `date` del slot igual.
+ */
+export async function rechazarSiHayCitaEseDia(doctorId: string, patientId: string, fecha: Date) {
+  const dia = diaISO(fecha);
+  const rango = { gte: new Date(`${dia}T00:00:00.000Z`), lte: new Date(`${dia}T23:59:59.999Z`) };
+  const cita = await prisma.booking.findFirst({
+    where: {
+      doctorId, patientId, status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+      OR: [{ slotId: null, date: rango }, { slot: { date: rango } }],
+    },
+    select: { id: true },
+  });
+  if (cita) {
+    throw new AppError('Ese día el paciente tiene una cita: su visita es la de esa cita. Ábrela desde la cita.', 409);
+  }
+}
+
 export const COMENTARIO_MAX = 5000;
 
 /** `undefined` = no vino · `null` = borrarlo · string = el texto. Lanza si no es válido. */

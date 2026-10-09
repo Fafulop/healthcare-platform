@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, X } from 'lucide-react';
 import { getClinicDateString } from '@/lib/dates';
@@ -8,14 +8,16 @@ import { toast } from '@/lib/practice-toast';
 import type { PatientBooking } from '@/components/medical-records/CitaBadges';
 import { formatoFechaVisita, visitaHref, type VisitaResumen } from '@/lib/visitas-ui';
 import type { TratamientoResumen } from '@/lib/tratamientos-ui';
+import { CamposDeCita, CasillaEnAgenda } from '@/components/medical-records/tratamientos/AbrirVisitaHoyModal';
+import { horaDeAhora, useCitaEnConsulta } from './useCitaEnConsulta';
 
 interface Props {
   patientId: string;
   onClose: () => void;
-  /** Citas del paciente (ya recortadas por permiso). Sin `citas` llegan vacías: no hay qué ligar. */
+  /** Citas del paciente (ya recortadas por permiso). Sin `citas` llegan vacías. */
   bookings: PatientBooking[];
   verCitas: boolean;
-  /** Para saber qué citas YA tienen visita (la automática al concluir, o una ligada a mano). */
+  /** Para saber qué citas YA tienen visita. */
   visitas: VisitaResumen[];
   /** Estado de la carga de las VISITAS: sin ellas no se sabe qué cita ya tiene la suya. */
   visitasEstado: 'cargando' | 'error' | 'ok';
@@ -28,135 +30,143 @@ interface Props {
 }
 
 /**
- * VISITAS D4 — «Nueva Visita». La visita se crea al CONFIRMAR aquí, no al picar el botón: crearla
- * al clic dejaba una visita manual vacía cada vez que el doctor se arrepentía.
+ * VISITAS D4 → 08-PLAN F1 — «Nueva Visita». La visita se crea al CONFIRMAR aquí, no al picar el botón.
  *
- * Una cita que YA tiene visita (la automática al concluir) no se vuelve a ligar — la API contesta
- * 409 —: se ofrece ABRIR la suya. Es el camino diario: se concluye la cita y su visita ya existe.
+ * Ya NO se elige «¿De qué cita?» (no se liga a mano): visita y cita son el mismo evento.
+ *   · Si el paciente tiene una CITA viva ese día, su visita ES la de esa cita: se ofrece abrirla (o
+ *     abrirla por primera vez). No se crea una suelta ese día — el servidor también lo rechaza.
+ *   · Si no, nace una visita de ese día (hoy o antes, P2) y, HOY, con **«También en la agenda»**
+ *     (marcada) también su cita (`useCitaEnConsulta`, como «Abrir visita hoy» del tratamiento).
  */
 export function NuevaVisitaModal({
   patientId, onClose, bookings, verCitas, visitas, visitasEstado, citasEstado, recargarVisitas, tratamientos = [],
 }: Props) {
   const router = useRouter();
-  const [fecha, setFecha] = useState(getClinicDateString());
-  const [bookingId, setBookingId] = useState('');
+  const hoy = getClinicDateString();
+  const [fecha, setFecha] = useState(hoy);
   const [guardando, setGuardando] = useState(false);
   // T7 «¿Es seguimiento?»: '' = no · 't:<tratamientoId>' = sesión siguiente · 'v:<visitaId>' = de una visita anterior.
   const [seguimiento, setSeguimiento] = useState('');
   const activos = useMemo(() => tratamientos.filter((t) => t.estado === 'activo'), [tratamientos]);
-  // Visitas que no son de NINGÚN tratamiento: si ya son de uno activo, se elige ese tratamiento; si
-  // son de uno terminado/cancelado, el servidor lo rechaza (se reactiva primero). Las 20 más recientes.
-  // Sólo visitas del MISMO día o ANTERIORES (H-024): el servidor rechaza una posterior — la sesión 2
-  // quedaba antes que la 1. Se recalcula con la fecha/cita elegida (más abajo).
-  const visitasSueltasTodas = useMemo(() => visitas.filter((v) => !v.sesion), [visitas]);
 
   const visitaPorCita = useMemo(
     () => new Map(visitas.flatMap((v) => (v.cita ? [[v.cita.id, v.id] as const] : []))),
     [visitas],
   );
 
-  // Canceladas y no-show no son una visita (la API las rechaza). Las más recientes primero.
-  const citas = useMemo(
-    () => bookings
-      .filter((b) => b.status !== 'CANCELLED' && b.status !== 'NO_SHOW')
-      .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || (b.startTime ?? '').localeCompare(a.startTime ?? '')),
-    [bookings],
-  );
-
-  // ⚠️ Mientras citas o visitas cargan NO se crea nada: una visita «Sin cita» creada en esa
-  // ventana para la cita de hoy no se liga a ella, y al concluirla nace una SEGUNDA visita (D1).
-  // Si una de las dos falló, se DICE — no es lo mismo que «no hay citas» ni «sin permiso».
+  // ⚠️ Mientras citas o visitas cargan NO se crea nada: no se sabría si ese día ya tiene cita.
   const cargando = citasEstado === 'cargando' || visitasEstado === 'cargando';
   const fallo = citasEstado === 'error' || visitasEstado === 'error';
   const listo = !cargando && !fallo;
 
-  // La cita de HOY viene elegida: dejar «Sin cita» por default crea una visita suelta y, al
-  // concluir la cita, D1 crea OTRA para el mismo día. (Si ya tiene visita, el botón la abre.)
-  const preeligio = useRef(false);
-  useEffect(() => {
-    if (!listo || !verCitas || preeligio.current) return;
-    preeligio.current = true;
-    const hoy = getClinicDateString();
-    const deHoy = citas.find((b) => b.date === hoy);
-    if (deHoy) setBookingId(deHoy.id);
-  }, [listo, verCitas, citas]);
+  // La cita VIVA del paciente ese día (no cancelada ni «no asistió»): su visita es la de esa cita.
+  const citaDelDia = useMemo(() => {
+    if (!listo || !verCitas || !fecha) return null;
+    return bookings
+      .filter((b) => b.status !== 'CANCELLED' && b.status !== 'NO_SHOW' && (b.date ?? '').slice(0, 10) === fecha)
+      .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''))[0] ?? null;
+  }, [listo, verCitas, bookings, fecha]);
+  const visitaExistente = citaDelDia ? visitaPorCita.get(citaDelDia.id) : undefined;
+  const citaEsSesion = citaDelDia?.esSesion === true;
 
-  const elegida = listo ? citas.find((b) => b.id === bookingId) ?? null : null;
-  // Día de la visita NUEVA: el de la cita si hay una, si no el que se escribe.
-  const diaNueva = (elegida?.date ?? fecha ?? '').slice(0, 10);
+  // HOY sin cita: «También en la agenda» (con permiso de citas). Marcada por default.
+  const ofreceAgenda = listo && verCitas && fecha === hoy && !citaDelDia;
+  const c = useCitaEnConsulta(patientId, listo && verCitas);
+  const [enAgenda, setEnAgenda] = useState(true);
+  const [servicioId, setServicioId] = useState('');
+  const [hora, setHora] = useState(horaDeAhora);
+  const [error, setError] = useState<string | null>(null);
+  // Sin sesión de la que tomar el servicio: el primero de la lista, a la vista y cambiable.
+  useEffect(() => {
+    if (!servicioId && Array.isArray(c.servicios) && c.servicios.length) setServicioId(c.servicios[0].id);
+  }, [c.servicios, servicioId]);
+  const conCita = ofreceAgenda && enAgenda;
+
+  // Visitas que no son de NINGÚN tratamiento, del MISMO día o ANTERIORES (H-024). Las 20 más recientes.
   const visitasSueltas = useMemo(
-    // Sin fecha todavía no se ofrece ninguna: no hay contra qué comparar.
-    () => (diaNueva ? visitasSueltasTodas.filter((v) => v.fecha.slice(0, 10) <= diaNueva).slice(0, 20) : []),
-    [visitasSueltasTodas, diaNueva],
+    () => (fecha ? visitas.filter((v) => !v.sesion && v.fecha.slice(0, 10) <= fecha).slice(0, 20) : []),
+    [visitas, fecha],
   );
-  // Si al cambiar la fecha/cita la visita elegida queda fuera (posterior), la elección vale «No» —
-  // derivado en el render (el select lo muestra en el acto), no limpiado después por un efecto.
+  // Si al cambiar la fecha la visita elegida queda fuera (posterior), la elección vale «No».
   const seguimientoEf =
     seguimiento.startsWith('v:') && !visitasSueltas.some((v) => `v:${v.id}` === seguimiento) ? '' : seguimiento;
-  // Al cambiar el día se SUELTA una visita elegida (aunque vuelva a valer después): que no reaparezca
-  // sola una elección que el select ya había mostrado como «No».
   useEffect(() => {
     setSeguimiento((s) => (s.startsWith('v:') ? '' : s));
-  }, [diaNueva]);
-  const visitaExistente = elegida ? visitaPorCita.get(elegida.id) : undefined;
+  }, [fecha]);
   // La cita de una sesión ya lleva su visita al tratamiento: ahí no se pregunta (el servidor diría 409).
-  const citaEsSesion = elegida?.esSesion === true;
   const ofrecerSeguimiento = listo && !visitaExistente && !citaEsSesion && (activos.length > 0 || visitasSueltas.length > 0);
+  const cuerpoSeguimiento = ofrecerSeguimiento && seguimientoEf
+    ? { seguimiento: seguimientoEf.startsWith('t:') ? { tratamientoId: seguimientoEf.slice(2) } : { visitaId: seguimientoEf.slice(2) } }
+    : {};
 
-  const etiquetaCita = (b: PatientBooking) => [
-    b.date ? formatoFechaVisita(b.date) : 'Sin fecha',
-    b.startTime,
-    b.serviceName,
-    visitaPorCita.has(b.id) ? '(ya tiene su visita)' : null,
-  ].filter(Boolean).join(' · ');
+  /** Crea la visita (con `bookingId` = la de esa cita; sin él = suelta de ese día) y navega a ella. */
+  const crearVisita = async (body: Record<string, unknown>) => {
+    const res = await fetch(`/api/medical-records/patients/${patientId}/visitas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body, ...cuerpoSeguimiento }),
+    });
+    const data = await res.json().catch(() => null);
+    return { res, data };
+  };
+
+  const avisarSeguimiento = (seg: { tratamientoCreado?: string | null; numero: number } | undefined) => {
+    if (!seg) return;
+    toast.success(seg.tratamientoCreado
+      ? `Se creó el tratamiento «${seg.tratamientoCreado}»: esta visita es su sesión ${seg.numero}`
+      : `Esta visita es la sesión ${seg.numero} de su tratamiento`);
+  };
 
   const confirmar = async () => {
+    setError(null);
     if (visitaExistente) {
       router.push(visitaHref(patientId, visitaExistente));
       return;
     }
-    if (!elegida?.date && !fecha) {
-      toast.error('Elige la fecha de la visita');
-      return;
-    }
+    if (!fecha) { toast.error('Elige la fecha de la visita'); return; }
     // 07-PLAN P2 (el servidor también lo rechaza): sin cita, sólo hoy o antes.
-    if (!elegida && fecha > getClinicDateString()) {
+    if (!citaDelDia && fecha > hoy) {
       toast.error('Una visita sin cita no puede ser en el futuro: agenda una cita para ese día');
       return;
     }
     setGuardando(true);
     try {
-      const res = await fetch(`/api/medical-records/patients/${patientId}/visitas`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // Con cita, el día lo pone la CITA y el servidor ignora `fecha`; se manda cuando hay una
-        // porque una cita cuyo slot se borró no tiene día (02-PLAN §5.1) y ahí manda la escrita.
-        // Vacía NO se manda: el servidor rechaza una `fecha` mal formada aunque venga cita (400).
-        body: JSON.stringify({
-          ...(elegida ? { bookingId: elegida.id, ...(fecha && { fecha }) } : { fecha }),
-          ...(ofrecerSeguimiento && seguimientoEf
-            ? { seguimiento: seguimientoEf.startsWith('t:') ? { tratamientoId: seguimientoEf.slice(2) } : { visitaId: seguimientoEf.slice(2) } }
-            : {}),
-        }),
-      });
-      const data = await res.json().catch(() => null);
-      // Sólo ESTE 409 (texto exacto de `lib/visitas.ts`): los otros 409 —cita de otro paciente,
-      // cancelada— no son "lista vieja" y se muestran tal cual abajo.
-      if (res.status === 409 && elegida && data?.error === 'La cita ya tiene una visita') {
-        // La lista era vieja: a esa cita le nació su visita después (se concluyó en otra pestaña o
-        // desde el asistente). Se re-lee y el botón pasa solo a «Abrir su visita».
-        await recargarVisitas();
-        toast.error('Esa cita ya tiene su visita. Ábrela desde aquí.');
-        setGuardando(false);
+      // 1) La cita de ese día YA existe (sin visita todavía): se abre la suya.
+      if (citaDelDia) {
+        const { res, data } = await crearVisita({ bookingId: citaDelDia.id });
+        if (res.status === 409 && data?.error === 'La cita ya tiene una visita') {
+          // La lista era vieja: a esa cita le nació su visita después. Se re-lee y el botón pasa a «Abrir su visita».
+          await recargarVisitas();
+          toast.error('Esa cita ya tiene su visita. Ábrela desde aquí.');
+          setGuardando(false);
+          return;
+        }
+        if (!res.ok || !data?.data?.id) throw new Error(data?.error || 'No se pudo abrir la visita');
+        avisarSeguimiento(data.data.seguimiento);
+        router.push(visitaHref(patientId, data.data.id));
         return;
       }
-      if (!res.ok || !data?.data?.id) throw new Error(data?.error || 'No se pudo crear la visita');
-      const seg = data.data.seguimiento;
-      if (seg) {
-        toast.success(seg.tratamientoCreado
-          ? `Se creó el tratamiento «${seg.tratamientoCreado}»: esta visita es su sesión ${seg.numero}`
-          : `Esta visita es la sesión ${seg.numero} de su tratamiento`);
+      // 2) HOY con «También en la agenda»: primero su cita, luego la visita de esa cita.
+      if (conCita) {
+        if (!c.listoPara(servicioId, hora)) { setGuardando(false); return; }
+        const r = await c.crear({ servicioId, hora });
+        if (!r.ok) { setError(r.error); setGuardando(false); return; }
+        const { res, data } = await crearVisita({ bookingId: r.bookingId });
+        if (!res.ok || !data?.data?.id) {
+          toast.error('La cita se creó, pero la visita no: ábrela desde la cita (Nueva Visita la ofrece).');
+          await recargarVisitas();
+          setGuardando(false);
+          onClose();
+          return;
+        }
+        avisarSeguimiento(data.data.seguimiento);
+        router.push(visitaHref(patientId, data.data.id));
+        return;
       }
+      // 3) Sin cita: la visita sola de ese día.
+      const { res, data } = await crearVisita({ fecha });
+      if (!res.ok || !data?.data?.id) throw new Error(data?.error || 'No se pudo crear la visita');
+      avisarSeguimiento(data.data.seguimiento);
       router.push(visitaHref(patientId, data.data.id));
     } catch (err: any) {
       toast.error(err.message || 'No se pudo crear la visita');
@@ -165,10 +175,14 @@ export function NuevaVisitaModal({
   };
 
   const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500';
+  const textoBoton = visitaExistente ? 'Abrir su visita'
+    : citaDelDia ? 'Abrir la visita de su cita'
+    : guardando ? 'Creando…'
+    : conCita ? 'Crear visita y agendar' : 'Crear visita';
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-lg max-w-md w-full">
+      <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Nueva Visita</h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 text-gray-500" aria-label="Cerrar">
@@ -176,58 +190,51 @@ export function NuevaVisitaModal({
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
+        <div className="px-5 py-4 space-y-4 overflow-y-auto">
           {cargando && <p className="text-sm text-gray-500">Cargando las citas del paciente…</p>}
           {fallo && (
             <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               {citasEstado === 'error'
                 ? 'No se pudieron cargar las citas del paciente'
-                : 'No se pudieron cargar sus visitas (no se sabe qué citas ya tienen la suya)'}
-              , así que esta visita se creará sin cita. Si es de una cita, recarga la página antes de crearla.
+                : 'No se pudieron cargar sus visitas'}
+              . Recarga la página antes de crear la visita: si ese día tiene cita, su visita es la de la cita.
             </p>
           )}
           {listo && !verCitas && (
-            // Sin permiso de `citas` no se puede elegir la cita: la visita nace «Sin cita», y si el
-            // paciente tiene cita hoy, al completarla se abre OTRA visita (D1). Se dice.
             <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              No tienes permiso para ver citas, así que esta visita se crea sin cita. Si el paciente tiene
-              cita hoy, al completarla se abrirá otra visita para ella.
+              No tienes permiso para ver citas, así que esta visita se crea sin cita. Si ese día el paciente tiene
+              cita, no se puede crear: su visita es la de la cita.
             </p>
-          )}
-          {listo && verCitas && citas.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">¿De qué cita?</label>
-              <select value={bookingId} onChange={(e) => setBookingId(e.target.value)} className={inputClass}>
-                <option value="">Sin cita</option>
-                {citas.map((b) => (
-                  <option key={b.id} value={b.id}>{etiquetaCita(b)}</option>
-                ))}
-              </select>
-            </div>
           )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
             <input
-              type="date"
-              value={elegida?.date ?? fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              disabled={!!elegida?.date}
-              // 07-PLAN P2: sin cita, hasta hoy. Una visita futura es una cita.
-              max={elegida ? undefined : getClinicDateString()}
+              type="date" value={fecha} onChange={(e) => setFecha(e.target.value)}
+              // 07-PLAN P2: sin cita, hasta hoy. Un día futuro es una CITA (se agenda).
+              max={hoy}
               className={inputClass}
             />
-            {/* Con cita sin día (su slot se borró) no se dice nada: la fecha escrita vale y puede ser futura. */}
-            {elegida ? (
-              elegida.date && <p className="text-xs text-gray-500 mt-1">Con cita, la fecha de la visita es la de la cita.</p>
-            ) : (
-              <p className="text-xs text-gray-500 mt-1">Sin cita, hoy o antes. Para otro día, agenda una cita.</p>
-            )}
+            {!citaDelDia && <p className="text-xs text-gray-500 mt-1">Hoy o antes. Para otro día, agenda una cita.</p>}
           </div>
 
-          {listo && citaEsSesion && !visitaExistente && (
-            <p className="text-xs text-gray-500">Esta cita es sesión de un tratamiento: la visita entra sola a él.</p>
+          {citaDelDia && (
+            <p className="text-sm text-blue-800 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+              Ese día tiene cita ({[citaDelDia.startTime, citaDelDia.serviceName].filter(Boolean).join(' · ')}): su visita es la
+              de esa cita{visitaExistente ? '. Ábrela para agregarle plantillas, fotos, notas o recetas.' : ' y se abre ahora.'}
+              {citaEsSesion && !visitaExistente && ' Es sesión de un tratamiento: la visita entra sola a él.'}
+            </p>
           )}
+
+          {ofreceAgenda && (
+            <>
+              <CasillaEnAgenda enAgenda={enAgenda} setEnAgenda={setEnAgenda} />
+              {enAgenda && (
+                <CamposDeCita c={c} servicioId={servicioId} setServicioId={setServicioId} hora={hora} setHora={setHora} />
+              )}
+            </>
+          )}
+
           {ofrecerSeguimiento && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">¿Es seguimiento?</label>
@@ -259,11 +266,7 @@ export function NuevaVisitaModal({
             </div>
           )}
 
-          {visitaExistente && (
-            <p className="text-sm text-blue-800 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-              Esta cita ya tiene su visita. Ábrela para agregarle plantillas, fotos, notas o recetas.
-            </p>
-          )}
+          {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
@@ -276,11 +279,11 @@ export function NuevaVisitaModal({
           </button>
           <button
             onClick={confirmar}
-            disabled={guardando || cargando}
+            disabled={guardando || cargando || fallo || (conCita && !c.listoPara(servicioId, hora))}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5 font-medium"
           >
             {guardando && <Loader2 className="w-4 h-4 animate-spin" />}
-            {visitaExistente ? 'Abrir su visita' : guardando ? 'Creando…' : 'Crear visita'}
+            {textoBoton}
           </button>
         </div>
       </div>

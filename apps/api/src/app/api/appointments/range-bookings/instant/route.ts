@@ -106,15 +106,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // VISITAS 07-PLAN P3b — `enConsulta` sólo vale para un DOCTOR autenticado (no admin ni público),
-    // para HOY en hora de la clínica y para una sesión de tratamiento. Si no, 400: ignorarlo en
-    // silencio exigiría el contacto y avisaría al paciente, que es justo lo que pidió no hacer.
+    // VISITAS 07-PLAN P3b / 08-PLAN F1 — `enConsulta` sólo vale para un DOCTOR autenticado (no admin ni
+    // público), para HOY en hora de la clínica y para un paciente CON expediente (una sesión de
+    // tratamiento, o la visita de hoy de «Nueva Visita»). Si no, 400: ignorarlo en silencio exigiría el
+    // contacto y avisaría al paciente, que es justo lo que pidió no hacer.
     const modoConsulta = enConsulta === true;
     if (modoConsulta) {
       const hoyClinica = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
-      if (role !== 'DOCTOR' || !authenticatedDoctorId || !paraSesion || date !== hoyClinica) {
+      if (role !== 'DOCTOR' || !authenticatedDoctorId || (!paraSesion && !patientId) || date !== hoyClinica) {
         return NextResponse.json(
-          { success: false, error: 'enConsulta sólo vale para una sesión de tratamiento, hoy, agendada por el doctor' },
+          { success: false, error: 'enConsulta sólo vale para un paciente con expediente, hoy, agendada por el doctor' },
           { status: 400 }
         );
       }

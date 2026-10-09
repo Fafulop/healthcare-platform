@@ -3,8 +3,8 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { AppError, handleApiError } from '@/lib/api-error-handler';
 import {
-  bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, rechazarVisitaFuturaSinCita,
-  unicaPorCita, validarCitaParaVisita,
+  bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, rechazarSiHayCitaEseDia,
+  rechazarVisitaFuturaSinCita, unicaPorCita, validarCitaParaVisita,
 } from '@/lib/visitas';
 import {
   aplicarEnSesion, auditarCambioDeSesion, auditarSeguimiento, parseSeguimiento, sesionAlLigarCitaAVisita,
@@ -103,7 +103,11 @@ export async function POST(
     if (!fecha) throw new AppError('fecha es requerida (YYYY-MM-DD)', 400);
     // 07-PLAN P2: sin cita, sólo hoy o antes (también con `paraSesion` y con seguimiento). Con cita
     // sí puede ser futura: es abrir la visita antes (V4, decisión 4).
-    if (!bookingId) rechazarVisitaFuturaSinCita(fecha);
+    if (!bookingId) {
+      rechazarVisitaFuturaSinCita(fecha);
+      // 08-PLAN F1: el día de una cita, la visita es la de la cita (no una suelta).
+      await rechazarSiHayCitaEseDia(ctx.doctorId, patientId, fecha);
+    }
     const seguimiento = parseSeguimiento(body.seguimiento);
     // TRATAMIENTOS v2 · V4 — «Abrir visita» de una sesión SIN cita: la visita nace ligada a ESA sesión
     // en la misma transacción (con cita no hace falta: `bookingId` ya la liga, G3). Excluyente con cita

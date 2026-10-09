@@ -431,25 +431,31 @@ documentos, notas, recetas e informes, la cita y un comentario.
 - **Sola, al completar una cita** de un paciente con expediente: aparece «Visita del …» vacía, con
   la fecha, hora y cobro de la cita. Si el expediente se vincula a la cita **después** de
   completarla, la visita aparece al vincularlo.
-- **«Nueva Visita»** en el perfil: pregunta **«¿De qué cita?»** (la de hoy ya viene elegida) o
-  «Sin cita» con su **Fecha** (hoy o antes: una visita sin cita no puede ser en el futuro — para otro
-  día, agenda una cita), y se crea al picar **«Crear visita»**. Si esa cita ya tiene su
-  visita, el botón dice **«Abrir su visita»** y no crea otra. Un ayudante sin permiso de citas no ve
-  «¿De qué cita?»: su visita se crea sin cita.
+- **«Nueva Visita»** en el perfil: eliges la **Fecha** (hoy o antes: una visita sin cita no puede ser
+  en el futuro — para otro día, agenda una cita). Visita y cita son el mismo evento, así que **no se
+  liga una cita a mano**:
+  - Si ese día el paciente **tiene cita**, su visita es la de esa cita: el botón dice **«Abrir su
+    visita»** (o **«Abrir la visita de su cita»** si aún no existe) y no se crea otra. Tampoco se puede
+    crear una visita suelta ese día.
+  - Si no, se crea la visita de ese día. **Hoy**, con permiso de citas, sale marcada **«También en la
+    agenda»**: eliges **Servicio** y **Hora** (la de ahora) y picas **«Crear visita y agendar»** — nace
+    también su cita de hoy, sin pedirle al paciente correo ni teléfono y sin avisarle (está contigo); se
+    cobra al completarla. Desmarcada, **«Crear visita»** crea sólo la visita.
+  Un ayudante sin permiso de citas crea la visita sin cita (y no puede el día de una cita del paciente).
   Si el paciente tiene tratamientos activos o visitas anteriores, también pregunta **«¿Es
   seguimiento?»**: **«Sesión siguiente de «(tratamiento)»»** (la visita llena la siguiente sesión
   libre o se agrega una al final; queda dentro del tratamiento y no en «Visitas») o **«Seguimiento de una visita anterior»** (se crea un tratamiento
   **«Seguimiento del 12 sep»** con esa visita y la nueva; le cambias el nombre en «Editar»; las dos
   visitas pasan al tratamiento y dejan de verse en «Visitas»). Sólo se ofrecen visitas del mismo día o
   anteriores a la nueva: una visita no puede ser seguimiento de una posterior. Si la
-  cita elegida ya es sesión de un tratamiento no pregunta: la visita entra sola. Un tratamiento
+  cita de ese día ya es sesión de un tratamiento no pregunta: la visita entra sola. Un tratamiento
   terminado o cancelado no recibe seguimientos: reactívalo primero.
 
 **La pantalla de la visita** (clic en «Visita del …»):
 
-- **Cita** — fecha, hora, servicio y si está pagada y facturada. Sin cita, puedes **«Ligar una
-  cita…»** o corregir la **Fecha** (hoy o antes). La visita que nació de una cita no se desliga, ni
-  la de una cita futura (quedaría una visita sin cita en el futuro).
+- **Cita** — fecha, hora, servicio y si está pagada y facturada. La cita de una visita no se cambia
+  ni se quita (son el mismo evento). Sin cita, puedes corregir la **Fecha** (hoy o antes, y no el día
+  de una cita del paciente).
 - **Plantillas** («Agregar plantilla») · **Fotos y documentos** («Subir») · **Notas** («Nueva
   nota») · **Recetas** («Nueva receta») · **Comentario** («Guardar comentario»). Lo que agregas
   desde aquí queda en esta visita. Los **Informes médicos** se hacen desde su plantilla y aparecen
@@ -550,7 +556,7 @@ En el botón **«⋯»** de cada sesión, lo demás:
 Dentro del tratamiento las sesiones sólo se **crean** (agendar, agregar, abrir visita): no se le
 pegan citas ni visitas hechas en otro lado. No hay «Desligar»: una sesión que no va a pasar se
 **cancela**, y una que cambia de día se **reagenda**. Si agendaste desde la agenda una cita que es
-de este tratamiento, entra al abrir su visita: **«Nueva Visita»** → esa cita → **«¿Es
+de este tratamiento, entra el día de esa cita: **«Nueva Visita»** con esa fecha → **«¿Es
 seguimiento?»** → **«Sesión siguiente de …»**.
 
 - **«Agregar sesión»** (arriba de las sesiones) abre la fila de la siguiente: servicio, precio, fecha

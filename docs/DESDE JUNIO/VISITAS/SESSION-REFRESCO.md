@@ -5,7 +5,16 @@
 > paso en `02-PLAN-fase-1.md` (§4 backfill, §5.1 D1, §5.2 D2, §5.3 D3, §5.4 D4). Este doc NO repite eso:
 > lo señala.
 
-## 🆕 2026-10-09 — PLAN «flujo contenido» ESCRITO, esperando OK
+## 🆕 2026-10-09 (tarde) — PLAN 08 «la cita nace con su visita» ESCRITO, esperando OK
+
+`08-PLAN-cita-nace-con-visita.md`: ya no se liga cita↔visita a mano; toda cita con expediente nace con su
+visita (se puede subir antes); cancelada/no asistió borra la visita vacía y conserva la que tiene
+contenido; borrar una cita con contenido → 409; no hay segunda visita el día de una cita. Fases F1
+(apps/doctor, bajo riesgo) → F2 (apps/api + packages, ALTO: la visita al agendar, reagendar la mueve,
+P3b y «Abrir visita» deben cambiar en el MISMO deploy) → F3 («Próxima» en la tarjeta). 07-PLAN entero
+en prod.
+
+## 2026-10-09 — PLAN «flujo contenido» (07): P1–P3 EN PROD y probados
 
 `07-PLAN-flujo-contenido.md`: visita y cita son espejo; dentro del tratamiento sólo se CREA (fuera «Ligar
 una cita/visita…»); fuera «Hecha/Agendada/Por agendar» (la tarjeta dice el estado de la cita); ninguna

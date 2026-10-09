@@ -3,13 +3,10 @@ import { prisma, Prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { AppError, handleApiError } from '@/lib/api-error-handler';
 import {
-  bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, rechazarVisitaFuturaSinCita,
-  totalHijos, unicaPorCita, validarCitaParaVisita,
+  bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, rechazarSiHayCitaEseDia,
+  rechazarVisitaFuturaSinCita, totalHijos,
 } from '@/lib/visitas';
-import {
-  aplicarEnSesion, auditarCambioDeSesion, exigirSinSesionAlDesligar, sesionAlLigarCitaAVisita, sesionDeVisita,
-  type CambioDeSesion,
-} from '@/lib/tratamientos';
+import { sesionDeVisita } from '@/lib/tratamientos';
 
 // VISITAS D2 — docs/DESDE JUNIO/VISITAS/02-PLAN-fase-1.md §5.2. Permiso: `expedientes` (heredado).
 
@@ -86,10 +83,9 @@ export async function GET(request: NextRequest, { params }: Params) {
   }
 }
 
-// PATCH — { comentario?: string|null, fecha?: 'YYYY-MM-DD', bookingId?: string|null }
-// La fecha sólo se edita SIN cita: con cita, manda el día de la cita. Ligar exige `citas`.
-// La visita AUTOMÁTICA de una cita (origen 'cita') no cambia de cita: ES la de esa cita, y
-// soltarla a mano la dejaría duplicada en cuanto la sincronización de apps/api la re-creara.
+// PATCH — { comentario?: string|null, fecha?: 'YYYY-MM-DD' }
+// La fecha sólo se edita SIN cita: con cita, manda el día de la cita. Ya no se liga ni se desliga una
+// cita (08-PLAN F1): `bookingId` distinto del que tiene → 400.
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     const ctx = await requireDoctorAuth(request);
@@ -106,21 +102,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const comentario = parseComentario(body.comentario);
     if (comentario !== undefined) data.comentario = comentario;
 
-    let bookingFinal = visita.bookingId;
-    // Re-enviar la MISMA cita (un formulario que manda todo) no es ligar: no se valida ni se toca.
+    const bookingFinal = visita.bookingId;
+    // 08-PLAN F1 (2026-10-09): ya NO se liga ni se desliga una cita a mano — visita y cita son el
+    // mismo evento: la de una cita nace con ella; una suelta crea su cita («También en la agenda»).
+    // Re-enviar la MISMA cita (un formulario que manda todo) no es ligar: se ignora.
     if (body.bookingId !== undefined && body.bookingId !== visita.bookingId) {
-      if (visita.origen === 'cita' && visita.bookingId && body.bookingId !== visita.bookingId) {
-        throw new AppError('Es la visita automática de su cita: no se desliga ni se mueve', 409);
-      }
-      if (body.bookingId === null) {
-        bookingFinal = null;
-      } else {
-        const { fechaCita } = await validarCitaParaVisita(ctx, patientId, body.bookingId, visitaId);
-        // Las plantillas tienen su propia fecha (2026-10-02): una cita de cualquier día se puede ligar.
-        bookingFinal = body.bookingId as string;
-        if (fechaCita) data.fecha = fechaCita;
-      }
-      data.bookingId = bookingFinal;
+      throw new AppError('Ya no se liga ni se desliga una cita a una visita', 400);
     }
 
     if (body.fecha !== undefined) {
@@ -143,44 +130,25 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
     }
 
-    // 07-PLAN P2: si queda SIN cita y cambió su fecha o su cita (desligar una cita futura también
-    // dejaría una visita futura sin cita), sólo hoy o antes. Editar sólo el comentario de una visita
-    // vieja así no se bloquea.
-    if (!bookingFinal && (data.fecha !== undefined || data.bookingId !== undefined)) {
-      rechazarVisitaFuturaSinCita((data.fecha as Date | undefined) ?? visita.fecha);
+    // 07-PLAN P2 + 08-PLAN F1: una visita SIN cita que cambia de fecha: sólo hoy o antes, y no el día de
+    // una cita viva del paciente. Editar sólo el comentario de una visita vieja así no se bloquea.
+    if (!bookingFinal && data.fecha !== undefined) {
+      rechazarVisitaFuturaSinCita(data.fecha as Date);
+      await rechazarSiHayCitaEseDia(ctx.doctorId, patientId, data.fecha as Date);
     }
 
-    // Tratamientos G3: ligar una cita a la visita no puede dejar la cita en una sesión y la visita
-    // en otra; si sólo una de las dos es de una sesión, esa sesión toma la otra (P2 revisado).
-    // Desligar la cita de una visita que con ella forma una sesión → 409. Lee dentro de la tx.
-    const { updated, cambioSesion } = await prisma
-      .$transaction(async (tx) => {
-        let enSesion: CambioDeSesion | null = null;
-        if (typeof data.bookingId === 'string') {
-          enSesion = await sesionAlLigarCitaAVisita(tx, ctx.doctorId, patientId, data.bookingId, visitaId);
-        } else if (data.bookingId === null && visita.bookingId) {
-          await exigirSinSesionAlDesligar(tx, ctx.doctorId, visita.bookingId, visitaId);
-        }
-        const v = await tx.visita.update({ where: { id: visitaId }, data, select: VISITA_SELECT });
-        if (enSesion) await aplicarEnSesion(tx, enSesion, v.bookingId!, visitaId);
-        return { updated: v, cambioSesion: enSesion };
-      })
-      .catch(unicaPorCita);
+    // 08-PLAN F1: sin ligar/desligar ya no hay sesión que reacomodar (G3): sólo comentario y fecha.
+    const updated = await prisma.visita.update({ where: { id: visitaId }, data, select: VISITA_SELECT });
 
     await logAudit({
       patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
       action: 'update_visita', resourceType: 'visita', resourceId: visitaId,
       changes: {
-        ...(data.bookingId !== undefined ? { bookingId: { from: visita.bookingId, to: updated.bookingId } } : {}),
         ...(data.fecha !== undefined ? { fecha: { from: diaISO(visita.fecha), to: diaISO(updated.fecha) } } : {}),
         ...(data.comentario !== undefined ? { comentario: 'editado' } : {}),
-        ...(cambioSesion ? { sesionDeTratamiento: cambioSesion.sesionId } : {}),
       },
       request,
     });
-    if (cambioSesion) {
-      await auditarCambioDeSesion(ctx, request, patientId, cambioSesion, updated.bookingId!, visitaId);
-    }
 
     return NextResponse.json({ success: true, data: { ...updated, fecha: diaISO(updated.fecha) } });
   } catch (error) {

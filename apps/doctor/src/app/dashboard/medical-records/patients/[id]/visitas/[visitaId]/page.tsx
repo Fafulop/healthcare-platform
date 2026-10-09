@@ -139,15 +139,9 @@ export default function VisitaPage() {
     notas: visita.notas.length, informes: visita.informes.length,
   }) === 0 && !permisosCargando && (!puedeVentas || (Array.isArray(ventas) && ventas.length === 0));
 
-  // Citas que se pueden ligar: del paciente, ni canceladas ni no-show, y sin visita. Sólo si ya
-  // cargaron las otras visitas — sin ellas no se sabe cuáles ya tienen la suya.
-  // Las plantillas tienen SU fecha (decisión del usuario 2026-10-02, DISEÑO §3): una cita de cualquier
-  // día se liga, la fecha de la visita se corrige, y mover / traer una plantilla no mira el día (ni
-  // reescribe su `encounterDate`).
-  const conVisitaYa = new Set((v.otrasVisitas ?? []).flatMap((o) => (o.cita ? [o.cita.id] : [])));
-  const ligables = v.otrasVisitas && v.bookings
-    ? v.bookings.filter((b) => b.status !== 'CANCELLED' && b.status !== 'NO_SHOW' && !conVisitaYa.has(b.id))
-    : [];
+  // Las plantillas tienen SU fecha (decisión del usuario 2026-10-02, DISEÑO §3): la fecha de la visita
+  // se corrige, y mover / traer una plantilla no mira el día (ni reescribe su `encounterDate`).
+  // (08-PLAN F1: ya no hay «Ligar una cita…»: visita y cita son el mismo evento.)
 
   const diaDe = (c: ConsultaDeVisita) => c.encounterDate.slice(0, 10);
   const destinosPara = (_c: ConsultaDeVisita) => v.otrasVisitas ?? [];
@@ -238,40 +232,12 @@ export default function VisitaPage() {
                   {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} cubierta={booking.estadoPago === 'CUBIERTA'} />}
                 </div>
               )}
-              {/* La visita automática ES la de su cita: no se desliga (la API contesta 409). Tampoco la de
-                  una cita futura: quedaría una visita sin cita en el futuro (07-PLAN P2; la API, 400). */}
-              {visita.origen !== 'cita' && verCitas && visita.fecha <= getClinicDateString() && (
-                <button
-                  onClick={() => v.ligarCita(null)}
-                  disabled={v.trabajando}
-                  className="text-xs text-gray-500 hover:text-gray-700 underline"
-                >
-                  Desligar la cita
-                </button>
-              )}
+              {/* 08-PLAN F1: la cita ya no se desliga (ni se liga otra): visita y cita son el mismo evento. */}
             </div>
           ) : (
             // Sin permiso de `citas` sólo llega el id: HAY cita, no se puede ver.
             <Nada>Esta visita tiene una cita, pero no tienes permiso para ver sus datos.</Nada>
           )
-        ) : verCitas && ligables.length > 0 ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-gray-500">Sin cita.</span>
-            {/* Controlado en "": si ligar falla, el select vuelve al placeholder y se puede reintentar. */}
-            <select
-              value=""
-              disabled={v.trabajando}
-              onChange={(e) => { if (e.target.value) v.ligarCita(e.target.value); }}
-              className="px-2 py-1.5 border border-gray-300 rounded-md text-sm"
-            >
-              <option value="">Ligar una cita…</option>
-              {ligables.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {[b.date ? formatoFechaVisita(b.date) : 'Sin fecha', b.startTime, b.serviceName].filter(Boolean).join(' · ')}
-                </option>
-              ))}
-            </select>
-          </div>
         ) : (
           <Nada>Sin cita.</Nada>
         )}

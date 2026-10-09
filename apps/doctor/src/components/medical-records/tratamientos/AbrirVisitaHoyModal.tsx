@@ -1,32 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, X } from 'lucide-react';
-import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
-import { getClinicDateString, getClinicMinutesOfDay } from '@/lib/dates';
 import { visitaHref } from '@/lib/visitas-ui';
 import { etiquetaSesion, pesos, type SesionDeTratamiento } from '@/lib/tratamientos-ui';
-import { useDoctorProfile } from '@/contexts/DoctorProfileContext';
+import { horaDeAhora, useCitaEnConsulta } from '@/components/medical-records/visitas/useCitaEnConsulta';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent';
-
-interface Servicio { id: string; serviceName: string; price: number | null; durationMinutes?: number }
-
-/** «HH:MM» de AHORA en hora de la clínica. */
-function horaDeAhora() {
-  const m = getClinicMinutesOfDay();
-  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-}
 
 /**
  * VISITAS 07-PLAN P3b — «Abrir visita hoy» de una sesión SIN cita que cuente. Visita y cita son el
  * espejo del mismo evento: con **«También en la agenda»** (marcada por default) nace también su cita
  * de HOY (`enConsulta`: sin exigir correo/teléfono/WhatsApp y sin avisar al paciente, que está
  * enfrente), queda Agendada y se cobra al concluirla, como cualquier otra. Desmarcada (o sin permiso
- * de citas) es lo de antes: la visita sola.
+ * de citas) es lo de antes: la visita sola. La cita la crea `useCitaEnConsulta` (la misma que «Nueva
+ * Visita»).
  */
 export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinAgenda, onClose, onFallo }: {
   patientId: string;
@@ -41,30 +31,14 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
   onFallo: () => void;
 }) {
   const router = useRouter();
-  const { doctorProfile } = useDoctorProfile();
+  const c = useCitaEnConsulta(patientId, conAgenda);
   const [enAgenda, setEnAgenda] = useState(conAgenda);
-  const [servicios, setServicios] = useState<Servicio[] | null | 'error'>(null);
   const [servicioId, setServicioId] = useState(s.servicioId ?? '');
   const [hora, setHora] = useState(horaDeAhora);
-  const [paciente, setPaciente] = useState<{ firstName: string; lastName: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [trabajando, setTrabajando] = useState(false);
 
-  useEffect(() => {
-    if (!conAgenda) return;
-    let vigente = true;
-    authFetch('/api/doctor/services').then((r) => r.json())
-      .then((d) => { if (vigente) setServicios(d?.success ? d.data as Servicio[] : 'error'); })
-      .catch(() => { if (vigente) setServicios('error'); });
-    fetch(`/api/medical-records/patients/${patientId}`).then((r) => r.json())
-      .then((d) => { const p = d?.data; if (vigente && p?.firstName) setPaciente({ firstName: p.firstName, lastName: p.lastName ?? '' }); })
-      .catch(() => {});
-    return () => { vigente = false; };
-  }, [conAgenda, patientId]);
-
-  // El servicio guardado en la sesión puede ya no existir: entonces hay que elegir otro.
-  const servicioValido = Array.isArray(servicios) && servicios.some((x) => x.id === servicioId);
-  const listoParaAgenda = servicioValido && /^\d{2}:\d{2}$/.test(hora) && !!paciente && !!doctorProfile?.id;
+  const listoParaAgenda = c.listoPara(servicioId, hora);
 
   const confirmar = async () => {
     setError(null);
@@ -76,43 +50,18 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
     }
     if (!listoParaAgenda) return;
     setTrabajando(true);
-    let bookingId: string;
-    try {
-      const res = await authFetch(`${API_URL}/api/appointments/range-bookings/instant`, {
-        method: 'POST',
-        body: JSON.stringify({
-          doctorId: doctorProfile!.id,
-          date: getClinicDateString(),
-          startTime: hora,
-          serviceId: servicioId,
-          patientName: `${paciente!.firstName} ${paciente!.lastName}`.trim(),
-          patientFirstName: paciente!.firstName,
-          patientLastName: paciente!.lastName,
-          isFirstTime: false,
-          appointmentMode: 'PRESENCIAL',
-          patientId,
-          paraSesion: s.id,
-          enConsulta: true,
-        }),
-      });
-      const d = await res.json().catch(() => null);
-      if (!res.ok || !d?.success || !d?.data?.id) {
-        // Traslape, horario bloqueado…: se queda en el modal para cambiar la hora o desmarcar.
-        setError(d?.error || `No se pudo crear la cita (${res.status})`);
-        setTrabajando(false);
-        return;
-      }
-      bookingId = d.data.id;
-      if (d.sesionLigada?.ligada !== true) {
-        // La cita existe pero no quedó en la sesión: no se abre una visita que no sería de ella.
-        toast.error('La cita se creó, pero no quedó en la sesión: cancélala desde la agenda y vuelve a intentar.');
-        onFallo();
-        onClose();
-        return;
-      }
-    } catch {
-      setError('No se pudo crear la cita. Revisa tu conexión e intenta de nuevo.');
+    const r = await c.crear({ servicioId, hora, paraSesion: s.id });
+    if (!r.ok) {
+      // Traslape, horario bloqueado…: se queda en el modal para cambiar la hora o desmarcar.
+      setError(r.error);
       setTrabajando(false);
+      return;
+    }
+    if (!r.sesionLigada) {
+      // La cita existe pero no quedó en la sesión: no se abre una visita que no sería de ella.
+      toast.error('La cita se creó, pero no quedó en la sesión: cancélala desde la agenda y vuelve a intentar.');
+      onFallo();
+      onClose();
       return;
     }
     try {
@@ -120,7 +69,7 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
       const res = await fetch(`/api/medical-records/patients/${patientId}/visitas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId }),
+        body: JSON.stringify({ bookingId: r.bookingId }),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok || !d?.data?.id) throw new Error(d?.error);
@@ -132,7 +81,7 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
     }
   };
 
-  const elegido = Array.isArray(servicios) ? servicios.find((x) => x.id === servicioId) : undefined;
+  const elegido = Array.isArray(c.servicios) ? c.servicios.find((x) => x.id === servicioId) : undefined;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -152,40 +101,15 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
           </p>
 
           {conAgenda && (
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input type="checkbox" checked={enAgenda} onChange={(e) => setEnAgenda(e.target.checked)} className="mt-0.5" />
-              <span>
-                <span className="font-medium text-gray-900">También en la agenda</span>
-                <span className="block text-xs text-gray-500">
-                  Se crea su cita de hoy (sin avisarle al paciente) y se cobra al completarla, como cualquier otra.
-                </span>
-              </span>
-            </label>
+            <CasillaEnAgenda enAgenda={enAgenda} setEnAgenda={setEnAgenda} />
           )}
 
           {conAgenda && enAgenda && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Servicio</label>
-                <select value={servicioId} onChange={(e) => setServicioId(e.target.value)} disabled={!Array.isArray(servicios)} className={inputClass}>
-                  <option value="">
-                    {servicios === null ? 'Cargando servicios…' : servicios === 'error' ? 'No se pudieron cargar los servicios' : 'Elige un servicio…'}
-                  </option>
-                  {Array.isArray(servicios) && servicios.map((x) => (
-                    <option key={x.id} value={x.id}>{x.serviceName}{x.price != null ? ` · ${pesos(x.price)}` : ''}</option>
-                  ))}
-                </select>
-                {/* El precio de la cita es el de la SESIÓN si tiene uno propio (el servidor lo pone). */}
-                {elegido && s.precio != null && s.fuente === 'sesion' && s.precio !== elegido.price && (
-                  <p className="text-xs text-gray-500 mt-1">La cita toma el precio de la sesión: {pesos(s.precio)}.</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
-                <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} className={inputClass} />
-              </div>
-              {!paciente && <p className="text-xs text-gray-500">Cargando al paciente…</p>}
-            </div>
+            <CamposDeCita
+              c={c} servicioId={servicioId} setServicioId={setServicioId} hora={hora} setHora={setHora}
+              aviso={elegido && s.precio != null && s.fuente === 'sesion' && s.precio !== elegido.price
+                ? `La cita toma el precio de la sesión: ${pesos(s.precio)}.` : null}
+            />
           )}
 
           {!enAgenda && conAgenda && (
@@ -209,6 +133,51 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** La casilla «También en la agenda» (la misma en «Abrir visita hoy» y en «Nueva Visita»). */
+export function CasillaEnAgenda({ enAgenda, setEnAgenda }: { enAgenda: boolean; setEnAgenda: (v: boolean) => void }) {
+  return (
+    <label className="flex items-start gap-2 cursor-pointer">
+      <input type="checkbox" checked={enAgenda} onChange={(e) => setEnAgenda(e.target.checked)} className="mt-0.5" />
+      <span>
+        <span className="font-medium text-gray-900">También en la agenda</span>
+        <span className="block text-xs text-gray-500">
+          Se crea su cita de hoy (sin avisarle al paciente) y se cobra al completarla, como cualquier otra.
+        </span>
+      </span>
+    </label>
+  );
+}
+
+/** Servicio y hora de la cita de hoy. */
+export function CamposDeCita({ c, servicioId, setServicioId, hora, setHora, aviso }: {
+  c: ReturnType<typeof useCitaEnConsulta>;
+  servicioId: string; setServicioId: (v: string) => void;
+  hora: string; setHora: (v: string) => void;
+  aviso?: string | null;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Servicio</label>
+        <select value={servicioId} onChange={(e) => setServicioId(e.target.value)} disabled={!Array.isArray(c.servicios)} className={inputClass}>
+          <option value="">
+            {c.servicios === null ? 'Cargando servicios…' : c.servicios === 'error' ? 'No se pudieron cargar los servicios' : 'Elige un servicio…'}
+          </option>
+          {Array.isArray(c.servicios) && c.servicios.map((x) => (
+            <option key={x.id} value={x.id}>{x.serviceName}{x.price != null ? ` · ${pesos(x.price)}` : ''}</option>
+          ))}
+        </select>
+        {aviso && <p className="text-xs text-gray-500 mt-1">{aviso}</p>}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+        <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} className={inputClass} />
+      </div>
+      {!c.paciente && <p className="text-xs text-gray-500">Cargando al paciente…</p>}
     </div>
   );
 }

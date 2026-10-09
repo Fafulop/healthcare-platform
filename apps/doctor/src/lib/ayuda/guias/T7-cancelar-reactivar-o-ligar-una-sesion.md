@@ -9,7 +9,7 @@
 
 **Qué vas a ver:** la sesión cancelada se va al final, plegada en **«Ver canceladas (N)»**. La cuenta se recalcula sola.
 
-**Una cita que agendaste desde la agenda para este tratamiento:** dentro del tratamiento ya no se ligan citas. Entra al abrir su visita: **«Nueva Visita»** → esa cita → **«¿Es seguimiento?»** → **«Sesión siguiente de …»**.
+**Una cita que agendaste desde la agenda para este tratamiento:** dentro del tratamiento ya no se ligan citas. Entra el día de esa cita: **«Nueva Visita»** con esa fecha → **«¿Es seguimiento?»** → **«Sesión siguiente de …»**.
 
 **Video:** (pendiente)
 

@@ -1016,17 +1016,3 @@ export async function aplicarEnSesion(
   }
 }
 
-/**
- * G3 al DESLIGAR la cita B de la visita V: si una sesión guarda las dos, la visita y la cita
- * dejarían de ser la misma cosa dentro de la sesión (y al concluirse B nacería una 2ª visita para
- * esa sesión). Ambiguo cuál de las dos «es» de la sesión ⇒ 409: se desliga desde el tratamiento.
- */
-export async function exigirSinSesionAlDesligar(db: Db, doctorId: string, bookingId: string, visitaId: string) {
-  const s = await db.tratamientoSesion.findFirst({
-    where: { doctorId, bookingId, visitaId },
-    select: { id: true },
-  });
-  if (s) {
-    throw new AppError('Esta visita y su cita son una sesión de tratamiento: desliga la cita desde el tratamiento', 409);
-  }
-}

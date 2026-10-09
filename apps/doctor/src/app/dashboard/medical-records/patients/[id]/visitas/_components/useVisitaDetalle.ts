@@ -138,9 +138,6 @@ export function useVisitaDetalle() {
 
   const guardarFecha = (fecha: string) => escribir(() => patchVisita({ fecha }), 'Fecha actualizada', false);
 
-  const ligarCita = (bookingId: string | null) =>
-    escribir(() => patchVisita({ bookingId }), bookingId ? 'Cita ligada' : 'Cita desligada', true);
-
   /**
    * Mueve SÓLO la visita de una consulta: el PUT lleva únicamente `visitaId` (la ruta lo detecta y
    * no corre la edición completa, que borraba `followUpDate`). Sus fotos, recetas e informes se van
@@ -187,6 +184,6 @@ export function useVisitaDetalle() {
   return {
     patientId, visitaId, doctorId: session?.user?.doctorId ?? null, sessionStatus,
     estado, visita, patientName, otrasVisitas, sueltas, bookings, permisos, trabajando,
-    guardarComentario, guardarFecha, ligarCita, moverConsulta, traerConsulta, borrar,
+    guardarComentario, guardarFecha, moverConsulta, traerConsulta, borrar,
   };
 }

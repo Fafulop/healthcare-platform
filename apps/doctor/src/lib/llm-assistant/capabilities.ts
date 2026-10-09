@@ -192,10 +192,14 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             allowedIf:
               'Sola al completar una cita de un paciente con expediente (o al vincular el expediente ' +
               'a una cita ya completada). A mano: botón "Nueva Visita" en el perfil del paciente → ' +
-              '"¿De qué cita?" o "Sin cita" con su fecha → "Crear visita". Sin cita, la fecha es hoy o antes: ' +
-              'una visita sin cita no puede ser en el futuro (para otro día se agenda una cita).',
+              'Fecha (hoy o antes) → "Crear visita". Ya NO se elige ni se liga una cita a mano (visita y cita son el mismo ' +
+              'evento): si ese día el paciente tiene cita, el botón abre la visita de esa cita y no se crea otra; si no, ' +
+              'HOY con permiso de citas sale marcada "También en la agenda" (Servicio y Hora) → "Crear visita y agendar": ' +
+              'nace también su cita de hoy, sin pedir correo/teléfono ni avisar al paciente, y se cobra al completarla. ' +
+              'Una visita sin cita no puede ser en el futuro (para otro día se agenda una cita).',
             notes:
-              'Si la cita elegida ya tiene su visita, el botón dice "Abrir su visita" y no crea otra. ' +
+              'Una cita tiene a lo más una visita: completarla no crea una segunda. La cita de una visita no se ' +
+              'cambia ni se quita. ' +
               'Dentro de la visita: Plantillas ("Agregar plantilla"), Fotos y documentos ("Subir"), ' +
               'Notas ("Nueva nota"), Recetas ("Nueva receta"), informes y un Comentario.',
           },
@@ -250,7 +254,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             allowedIf:
               'Dentro del tratamiento NO se ligan citas ni visitas hechas en otro lado: las sesiones sólo se crean ' +
               '("Agendar", "Agregar sesión", "Abrir visita"). Una cita agendada desde la agenda entra al tratamiento al ' +
-              'abrir su visita: "Nueva Visita" → esa cita → "¿Es seguimiento?" → "Sesión siguiente de «X»".',
+              'abrir su visita el día de esa cita: "Nueva Visita" con esa fecha → "¿Es seguimiento?" → "Sesión siguiente de «X»".',
             notes:
               'No hay "Desligar": una sesión que no va a pasar se cancela ("⋯" → "Cancelar sesión") y una que cambia ' +
               'de día se reagenda ("Reagendar"; su visita, si ya se abrió, se va con la cita).',
