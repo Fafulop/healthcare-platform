@@ -16,6 +16,7 @@ import { validateRequestedLocation } from '@/lib/booking-location';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
 import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
+import { limpiarNombre } from '@/lib/nombre-paciente';
 
 export async function POST(request: Request) {
   try {
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
       date,           // "YYYY-MM-DD"
       startTime,      // "HH:MM"
       duration,       // 30 or 60
-      patientName,
+      patientName: patientNameRecibido,
       patientEmail,
       patientPhone,
       patientWhatsapp,
@@ -41,6 +42,9 @@ export async function POST(request: Request) {
       reagendaDe,
       patientId,
     } = body;
+    // N6 (2026-10-10): el nombre llega como se escribió (agente, página pública): se limpia UNA vez aquí
+    // y todo lo de abajo (la cita, SMS, correos, Calendar, bitácora) usa el limpio.
+    const patientName = limpiarNombre(patientNameRecibido);
 
     if (!doctorId || !date || !startTime || !duration || !patientName) {
       return NextResponse.json(

@@ -17,6 +17,7 @@ import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 import { validateRequestedLocation, inheritLocationFromRange } from '@/lib/booking-location';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
+import { limpiarNombre } from '@/lib/nombre-paciente';
 
 export async function POST(request: Request) {
   try {
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
       date,           // "YYYY-MM-DD"
       startTime,      // "HH:MM"
       serviceId,
-      patientName,
+      patientName: patientNameRecibido,
       // Opcionales: el split que el doctor capturó a mano. Solo los manda el modal del doctor;
       // el widget público y el agente mandan `patientName` a secas y estos quedan en NULL.
       patientFirstName,
@@ -56,6 +57,9 @@ export async function POST(request: Request) {
       // consultorios Y la cita cae fuera de todo rango.
       locationId,
     } = body;
+    // N6 (2026-10-10): el nombre llega como se escribió (agente, página pública): se limpia UNA vez aquí
+    // y todo lo de abajo (la cita, SMS, correos, Calendar, bitácora) usa el limpio.
+    const patientName = limpiarNombre(patientNameRecibido);
 
     if (!doctorId || !date || !startTime || !serviceId || !patientName) {
       return NextResponse.json(

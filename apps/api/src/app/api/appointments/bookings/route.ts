@@ -18,6 +18,7 @@ import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
+import { limpiarNombre } from '@/lib/nombre-paciente';
 
 // In-memory rate limiter for booking creation (per IP).
 // Prevents SMS/email bombing via rapid booking requests.
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       slotId,
-      patientName,
+      patientName: patientNameRecibido,
       patientEmail,
       patientPhone,
       patientWhatsapp,
@@ -86,6 +87,9 @@ export async function POST(request: Request) {
       reagendaDe,
       patientId,
     } = body;
+    // N6 (2026-10-10): el nombre llega como se escribió (agente, página pública): se limpia UNA vez aquí
+    // y todo lo de abajo (la cita, SMS, correos, Calendar, bitácora) usa el limpio.
+    const patientName = limpiarNombre(patientNameRecibido);
 
     // Validation — basic type and format checks on public input
     if (!slotId || typeof slotId !== 'string') {
