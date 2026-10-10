@@ -423,8 +423,10 @@ permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
   que falta pagar). Aparte dice lo **por cobrar** de sus citas agendadas (su precio) y cuántas citas
   completadas no tienen cobro registrado (cortesía o sin registrar): ésas no suman.
 - **Citas** — cada una con su cobro y su factura (Facturar, PDF/XML, borradores; arriba, «Nueva factura
-  manual»), y cada una con **«Abrir su visita»** y **«Acciones de la cita»**: la misma tarjeta de la
-  agenda (precio, confirmación, link de pago, factura, formulario, estado).
+  manual»), y cada una con **«Abrir su visita»** y **«Cobro y factura de la cita»**: lo de dinero de la
+  tarjeta de la agenda (precio, «¿Necesita factura?», **«Completar»** con la ventana del cobro, link de
+  pago y nota, factura). Lo demás de la cita (no asistió, cancelar, reagendar, confirmación, formulario)
+  está en su visita.
 - **Ventas** (con permiso de Ventas) — sus ventas, cada una con su visita si la tiene, y **«+ Nueva
   venta»**.
 

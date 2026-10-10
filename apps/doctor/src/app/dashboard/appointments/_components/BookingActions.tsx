@@ -392,6 +392,7 @@ export function StatusActions({
   sinEstado = false,
   sinCobro = false,
   sinFactura = false,
+  soloCobro = false,
 }: {
   booking: Booking;
   /** 10-PLAN P1: sin el grupo «Estado» — la tarjeta de la sesión ya trae esos botones a la vista. */
@@ -400,6 +401,9 @@ export function StatusActions({
   sinCobro?: boolean;
   /** …y sin `facturacion` no hay Factura. */
   sinFactura?: boolean;
+  /** «Cobros» del expediente: sólo lo de dinero — Cobro, Factura y, de Estado, sólo «Completar» (completar y
+   *  cobrar); sin el resto de Estado, Confirmación, Documentos ni Eliminar. */
+  soloCobro?: boolean;
   /**
    * "table" renders TWO <td> cells (gestión · comunicación/cobro) — ya no se usa en
    * la tabla, que ahora despliega las acciones en su propia fila con "expanded";
@@ -485,7 +489,7 @@ export function StatusActions({
     />
   );
 
-  const estadoGroup = showStatusGroup && !sinEstado && (
+  const estadoGroup = showStatusGroup && !sinEstado && (!soloCobro || booking.status === "CONFIRMED") && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Estado</span>
           {/* 09-PLAN L2: los MISMOS botones que la visita y la sesión del tratamiento. */}
@@ -497,6 +501,7 @@ export function StatusActions({
             onNoAsistio={() => onUpdateStatus(booking.id, "NO_SHOW")}
             onCancelar={() => onUpdateStatus(booking.id, "CANCELLED")}
             onReagendar={() => onReschedule(booking)}
+            soloCompletar={soloCobro}
           />
         </div>
       );
@@ -561,7 +566,7 @@ export function StatusActions({
     booking.meetLink ? ` Enlace de la videoconsulta: ${booking.meetLink}` : "",
   ].join("");
 
-  const comunicacionGroup = showCommsGroup && (
+  const comunicacionGroup = showCommsGroup && !soloCobro && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Confirmación cita</span>
           <div className="flex gap-1 flex-wrap">
@@ -680,7 +685,7 @@ export function StatusActions({
         </div>
       );
 
-  const documentosGroup = showDocsGroup && (
+  const documentosGroup = showDocsGroup && !soloCobro && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Documentos</span>
           <div className="flex gap-1 flex-wrap">
@@ -693,7 +698,7 @@ export function StatusActions({
         </div>
       );
 
-  const eliminarGroup = isTerminal && (
+  const eliminarGroup = isTerminal && !soloCobro && (
         <div className="pt-2 first:pt-0">
           <button
             onClick={() => onDeleteBooking(booking.id, booking.patientName)}

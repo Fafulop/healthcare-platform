@@ -15,6 +15,10 @@
  *   · `conNotas={false}` — la visita ya enseña las notas de la cita;
  *   · `sinEstado` — la tarjeta de la sesión ya trae Completar · No asistió · Cancelar · Reagendar a la
  *     vista; esto va plegado debajo («Más de la cita»);
+ *   · `compacta` — en un espacio ANCHO (la visita): precio · casilla · horario en un renglón y los grupos
+ *     en la rejilla de la fila desplegada de la tabla (`layout="expanded"`), en vez de todo apilado;
+ *   · `soloCobro` — la página «Cobros»: sólo precio, «¿Necesita factura?», «Completar» (completar y cobrar),
+ *     Cobro y Factura (sin horario, el resto de estado, confirmación, documentos ni eliminar);
  *   · `sinCobro` / `sinFactura` — los permisos del expediente (`flujo` / `facturacion`): sin ellos no se ve
  *     el precio ni el grupo Cobro / ni la casilla ni el grupo Factura (allá tampoco se ven sus insignias).
  */
@@ -54,7 +58,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 export function TarjetaDeCita({
-  booking, conExpediente = true, conNotas = true, sinEstado = false, sinCobro = false, sinFactura = false,
+  booking, conExpediente = true, conNotas = true, sinEstado = false, sinCobro = false, sinFactura = false, soloCobro = false, compacta = false,
   onUpdateStatus, onUpdateExtendedBlock, onUpdateFacturaSolicitada, onUpdatePatientLink,
   onUpdatePrice, onDeleteBooking, onOpenFormLinkModal, onDeleteFormLink, onSendEmail,
   onReschedule, onCompleteBooking,
@@ -65,7 +69,18 @@ export function TarjetaDeCita({
   sinEstado?: boolean;
   sinCobro?: boolean;
   sinFactura?: boolean;
+  soloCobro?: boolean;
+  compacta?: boolean;
 }) {
+  // El bloqueo del horario: sólo tiene sentido en una cita CONFIRMED (no hay agenda futura que ocupar en
+  // una terminal) — mismo gate que la tabla.
+  const verHorario = booking.status === "CONFIRMED" && !soloCobro;
+  const horario = verHorario && (
+    <div>
+      <SectionLabel>Horario</SectionLabel>
+      <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
+    </div>
+  );
   const contacto = resolverContacto(booking);
 
   return (
@@ -104,8 +119,8 @@ export function TarjetaDeCita({
           factura?"), y un encabezado "Factura" aquí chocaría con el grupo FACTURA que
           rinde `StatusActions` más abajo — los dos aparecen a la vez en cuanto la
           casilla se marca, y el modal es angosto: dos secciones con el mismo nombre. */}
-      {(!sinCobro || !sinFactura) && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      {(!sinCobro || !sinFactura || (compacta && verHorario)) && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           {!sinCobro && (
             <div>
               <SectionLabel>Precio</SectionLabel>
@@ -113,27 +128,23 @@ export function TarjetaDeCita({
             </div>
           )}
           {!sinFactura && <FacturaCheckbox booking={booking} onChange={onUpdateFacturaSolicitada} />}
+          {/* Compacta: el horario va en el MISMO renglón. */}
+          {compacta && horario}
         </div>
       )}
 
-      {/* Mismo gate que la tabla: el bloqueo sólo tiene sentido en una cita CONFIRMED
-          (no hay agenda futura que ocupar en una terminal). */}
-      {booking.status === "CONFIRMED" && (
-        <div>
-          <SectionLabel>Horario</SectionLabel>
-          <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
-        </div>
-      )}
+      {!compacta && horario}
 
-      {/* Los grupos de acciones, apilados: "card" (la pila del móvil) encaja en un espacio
-          angosto mejor que la rejilla de 3 columnas. */}
-      <div className="border-t border-gray-100 pt-3">
+      {/* Los grupos de acciones: apilados ("card", la pila del móvil) en un espacio angosto; en la
+          rejilla de la fila desplegada de la tabla ("expanded", que ya trae su borde) si es `compacta`. */}
+      <div className={compacta ? "" : "border-t border-gray-100 pt-3"}>
         <StatusActions
           booking={booking}
-          layout="card"
+          layout={compacta ? "expanded" : "card"}
           sinEstado={sinEstado}
           sinCobro={sinCobro}
           sinFactura={sinFactura}
+          soloCobro={soloCobro}
           onUpdateStatus={onUpdateStatus}
           onDeleteBooking={onDeleteBooking}
           onOpenFormLinkModal={onOpenFormLinkModal}

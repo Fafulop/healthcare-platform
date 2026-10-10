@@ -13,6 +13,7 @@ import { CalendarClock } from "lucide-react";
  */
 export function BotonesEstadoCita({
   status, puedeReagendar, onConfirmar, onCompletar, onNoAsistio, onCancelar, onReagendar, deshabilitado = false,
+  soloCompletar = false,
 }: {
   status: string;
   /** Agendada, o pendiente/agendada ya vencida (la regla de la agenda). */
@@ -23,8 +24,24 @@ export function BotonesEstadoCita({
   onCancelar: () => void;
   onReagendar?: () => void;
   deshabilitado?: boolean;
+  /** «Cobros» del expediente: sólo «Completar» (completar y cobrar); lo demás vive en la visita. */
+  soloCompletar?: boolean;
 }) {
   if (status !== "PENDING" && status !== "CONFIRMED") return null;
+  if (soloCompletar) {
+    // Una pendiente se confirma antes de completarse (VALID_TRANSITIONS): sin «Completar», nada.
+    if (status !== "CONFIRMED") return null;
+    return (
+      <div className="flex gap-1 flex-wrap">
+        <button
+          onClick={onCompletar} disabled={deshabilitado}
+          className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 font-medium disabled:opacity-50"
+        >
+          Completar
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="flex gap-1 flex-wrap">
       {status === "PENDING" && (

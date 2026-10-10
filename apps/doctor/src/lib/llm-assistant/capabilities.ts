@@ -325,8 +325,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           'ver lo que debe o pagó un paciente': {
             allowedIf:
               'Perfil del paciente → botón "Cobros": Totales (Registrado · Pagado · Pendiente; con permiso de Flujo), sus ' +
-              'citas (cada una con su cobro y factura: Facturar, PDF/XML, borradores) con "Abrir su visita" y "Acciones de la ' +
-              'cita" (la tarjeta de la agenda), y sus ventas (con permiso de Ventas).',
+              'citas (cada una con su cobro y factura: Facturar, PDF/XML, borradores) con "Abrir su visita" y "Cobro y factura de la ' +
+              'cita" (lo de dinero de la tarjeta de la agenda: precio, ¿Necesita factura?, "Completar" con su cobro, link de pago, factura), y sus ventas (con permiso de Ventas).',
             notes:
               'Registrado = cobros registrados de sus citas + sus ventas; Pendiente = lo registrado que falta pagar. Lo ' +
               'por cobrar de citas agendadas y las completadas sin cobro se dicen aparte y no suman.',

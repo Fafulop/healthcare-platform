@@ -263,7 +263,7 @@ export default function VisitaPage() {
               {verCitas && (citaDeAgenda ? (
                 <div className="mt-3 pt-3 border-t border-gray-100">
                   <TarjetaDeCita
-                    booking={citaDeAgenda} conExpediente={false} conNotas={false}
+                    booking={citaDeAgenda} conExpediente={false} conNotas={false} compacta
                     sinCobro={!verCobro} sinFactura={!verFactura} {...tarjeta.manejadores}
                   />
                 </div>

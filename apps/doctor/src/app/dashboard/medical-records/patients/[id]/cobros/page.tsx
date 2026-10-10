@@ -178,14 +178,14 @@ export default function CobrosPage() {
                     className="text-blue-700 hover:text-blue-900 flex items-center gap-1" aria-expanded={abierta === b.id}
                   >
                     {abierta === b.id ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                    Acciones de la cita
+                    Cobro y factura de la cita
                   </button>
                 )}
               </div>
               {abierta === b.id && cita && (
                 <div className="p-3 border border-gray-100 rounded-lg bg-gray-50/50">
                   <TarjetaDeCita
-                    booking={cita} conExpediente={false} conNotas={false}
+                    booking={cita} conExpediente={false} conNotas={false} soloCobro
                     sinCobro={!verCobro} sinFactura={!verFactura} {...tarjeta.manejadores}
                   />
                 </div>
