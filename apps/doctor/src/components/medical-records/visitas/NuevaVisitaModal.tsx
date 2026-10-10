@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, X } from 'lucide-react';
 import { getClinicDateString } from '@/lib/dates';
@@ -9,7 +9,7 @@ import type { PatientBooking } from '@/components/medical-records/CitaBadges';
 import { formatoFechaVisita, visitaHref, type VisitaResumen } from '@/lib/visitas-ui';
 import type { TratamientoResumen } from '@/lib/tratamientos-ui';
 import { CamposDeCita, CasillaEnAgenda } from '@/components/medical-records/tratamientos/AbrirVisitaHoyModal';
-import { horaDeAhora, useCitaEnConsulta } from './useCitaEnConsulta';
+import { horaDeAhora, useCitaEnConsulta, type Contacto } from './useCitaEnConsulta';
 
 interface Props {
   patientId: string;
@@ -71,16 +71,30 @@ export function NuevaVisitaModal({
 
   // HOY sin cita: «También en la agenda» (con permiso de citas). Marcada por default.
   const ofreceAgenda = listo && verCitas && fecha === hoy && !citaDelDia;
+  // Fecha FUTURA sin cita ese día (pedido del usuario 2026-10-10): la visita futura nace CON su cita —
+  // siempre (una visita futura sin cita no existe, 07-PLAN P2). Una cita normal: con el contacto que el
+  // doctor exige y su correo de confirmación. Requiere permiso de citas.
+  const esFutura = !!fecha && fecha > hoy;
+  const futuraConCita = listo && verCitas && esFutura && !citaDelDia;
   const c = useCitaEnConsulta(patientId, listo && verCitas);
   const [enAgenda, setEnAgenda] = useState(true);
   const [servicioId, setServicioId] = useState('');
   const [hora, setHora] = useState(horaDeAhora);
+  const [contacto, setContacto] = useState<Contacto>({ correo: '', telefono: '', whatsapp: '' });
   const [error, setError] = useState<string | null>(null);
   // Sin sesión de la que tomar el servicio: el primero de la lista, a la vista y cambiable.
   useEffect(() => {
     if (!servicioId && Array.isArray(c.servicios) && c.servicios.length) setServicioId(c.servicios[0].id);
   }, [c.servicios, servicioId]);
-  const conCita = ofreceAgenda && enAgenda;
+  // El contacto del expediente precarga el de la cita futura (una vez, al llegar).
+  const contactoCargado = useRef(false);
+  useEffect(() => {
+    if (contactoCargado.current || !c.paciente) return;
+    contactoCargado.current = true;
+    setContacto(c.contactoInicial);
+  }, [c.paciente, c.contactoInicial]);
+  const conCita = (ofreceAgenda && enAgenda) || futuraConCita;
+  const faltan = futuraConCita ? c.faltaContacto(contacto) : '';
 
   // Visitas que no son de NINGÚN tratamiento, del MISMO día o ANTERIORES (H-024). Las 20 más recientes.
   // (Sin la de la cita de ese día: una visita no es seguimiento de sí misma.)
@@ -151,8 +165,9 @@ export function NuevaVisitaModal({
       return;
     }
     if (!fecha) { toast.error('Elige la fecha de la visita'); return; }
-    // 07-PLAN P2 (el servidor también lo rechaza): sin cita, sólo hoy o antes.
-    if (!citaDelDia && fecha > hoy) {
+    // 07-PLAN P2 (el servidor también lo rechaza): sin cita, sólo hoy o antes. (Futura con permiso de
+    // citas → se agenda su cita: `futuraConCita`.)
+    if (!citaDelDia && fecha > hoy && !futuraConCita) {
       toast.error('Una visita sin cita no puede ser en el futuro: agenda una cita para ese día');
       return;
     }
@@ -173,10 +188,10 @@ export function NuevaVisitaModal({
         router.push(visitaHref(patientId, data.data.id));
         return;
       }
-      // 2) HOY con «También en la agenda»: primero su cita, luego la visita de esa cita.
+      // 2) HOY con «También en la agenda», o una fecha FUTURA: primero su cita, luego su visita.
       if (conCita) {
-        if (!c.listoPara(servicioId, hora)) { setGuardando(false); return; }
-        const r = await c.crear({ servicioId, hora });
+        if (!c.listoPara(servicioId, hora) || faltan) { setGuardando(false); return; }
+        const r = await c.crear({ servicioId, hora, ...(esFutura ? { fecha, contacto } : {}) });
         if (!r.ok) { setError(r.error); setGuardando(false); return; }
         // 08-PLAN F2: la cita ya nació con su visita: se abre ésa (con seguimiento, primero entra al
         // tratamiento). Con la API de antes no viene `visitaId`: se crea como antes.
@@ -216,6 +231,7 @@ export function NuevaVisitaModal({
   const textoBoton = visitaExistente ? 'Abrir su visita'
     : citaDelDia ? 'Abrir la visita de su cita'
     : guardando ? 'Creando…'
+    : futuraConCita ? 'Agendar cita y crear visita'
     : conCita ? 'Crear visita y agendar' : 'Crear visita';
 
   return (
@@ -249,12 +265,46 @@ export function NuevaVisitaModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
             <input
               type="date" value={fecha} onChange={(e) => setFecha(e.target.value)}
-              // 07-PLAN P2: sin cita, hasta hoy. Un día futuro es una CITA (se agenda).
-              max={hoy}
+              // Cualquier día: hoy o antes es una visita; un día FUTURO agenda su cita (la visita nace con ella).
               className={inputClass}
             />
-            {!citaDelDia && <p className="text-xs text-gray-500 mt-1">Hoy o antes. Para otro día, agenda una cita.</p>}
+            {!citaDelDia && (
+              <p className="text-xs text-gray-500 mt-1">
+                {esFutura
+                  ? 'Fecha futura: se agenda su cita y la visita nace con ella (le puedes subir cosas antes).'
+                  : 'Hoy o antes. Para un día futuro también: se agenda su cita.'}
+              </p>
+            )}
           </div>
+
+          {futuraConCita && (
+            <div className="space-y-3">
+              <CamposDeCita c={c} servicioId={servicioId} setServicioId={setServicioId} hora={hora} setHora={setHora} />
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  ['correo', 'Correo', c.requeridos.email],
+                  ['telefono', 'Teléfono', c.requeridos.phone],
+                  ['whatsapp', 'WhatsApp', c.requeridos.whatsapp],
+                ] as const).map(([k, etiqueta, req]) => (
+                  <div key={k}>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{etiqueta}{req ? ' *' : ''}</label>
+                    <input
+                      type={k === 'correo' ? 'email' : 'text'} value={contacto[k]}
+                      onChange={(e) => setContacto((x) => ({ ...x, [k]: e.target.value }))}
+                      className={inputClass}
+                    />
+                  </div>
+                ))}
+              </div>
+              {faltan && <p className="text-xs text-amber-700">Falta: {faltan}.</p>}
+              <p className="text-xs text-gray-500">Al paciente le llega el correo de confirmación de la cita, como al agendar en la agenda.</p>
+            </div>
+          )}
+          {listo && !verCitas && esFutura && !citaDelDia && (
+            <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Para un día futuro se agenda una cita, y no tienes permiso de citas.
+            </p>
+          )}
 
           {citaDelDia && (
             <p className="text-sm text-blue-800 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
@@ -317,7 +367,7 @@ export function NuevaVisitaModal({
           </button>
           <button
             onClick={confirmar}
-            disabled={guardando || cargando || fallo || (conCita && !c.listoPara(servicioId, hora))}
+            disabled={guardando || cargando || fallo || (conCita && (!c.listoPara(servicioId, hora) || !!faltan))}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5 font-medium"
           >
             {guardando && <Loader2 className="w-4 h-4 animate-spin" />}

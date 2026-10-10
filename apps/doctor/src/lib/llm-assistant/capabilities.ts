@@ -194,7 +194,9 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
               'antes de la consulta y se le pueden subir cosas; completar la cita no crea otra. Reagendar la mueve a la ' +
               'cita nueva; cancelar o "no asistió" borra la vacía y deja la que tiene algo; una cita cuya visita tiene ' +
               'algo no se puede eliminar. A mano: botón "Nueva Visita" en el perfil del paciente → ' +
-              'Fecha (hoy o antes) → "Crear visita". Ya NO se elige ni se liga una cita a mano (visita y cita son el mismo ' +
+              'Fecha (cualquier día) → "Crear visita". Un día FUTURO sin cita pide Servicio, Hora y contacto → ' +
+              '"Agendar cita y crear visita": agenda su cita (con correo de confirmación) y la visita nace con ella. ' +
+              'Ya NO se elige ni se liga una cita a mano (visita y cita son el mismo ' +
               'evento): si ese día el paciente tiene cita, el botón abre la visita de esa cita y no se crea otra; si no, ' +
               'HOY con permiso de citas sale marcada "También en la agenda" (Servicio y Hora) → "Crear visita y agendar": ' +
               'nace también su cita de hoy, sin pedir correo/teléfono ni avisar al paciente, y se cobra al completarla. ' +

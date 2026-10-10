@@ -436,9 +436,12 @@ documentos, notas, recetas e informes, la cita y un comentario.
   **cancela** o el paciente **no asistió**, la visita **vacía se borra** y la que **tiene algo** se
   queda. Una cita **sin expediente** (por ejemplo, la que el paciente agendó en tu página) recibe su
   visita cuando le vinculas el expediente.
-- **«Nueva Visita»** en el perfil: eliges la **Fecha** (hoy o antes: una visita sin cita no puede ser
-  en el futuro — para otro día, agenda una cita). Visita y cita son el mismo evento, así que **no se
-  liga una cita a mano**:
+- **«Nueva Visita»** en el perfil: eliges la **Fecha** — cualquier día. Visita y cita son el mismo
+  evento, así que **no se liga una cita a mano**:
+  - **Un día futuro** (sin cita ese día): eliges **Servicio**, **Hora** y el contacto del paciente
+    (viene el de su expediente) y picas **«Agendar cita y crear visita»**: se agenda su cita —con su
+    correo de confirmación, como en la agenda— y su visita nace con ella, lista para subirle cosas
+    antes de la consulta. Una visita futura sin cita no existe. Necesita permiso de citas.
   - Si ese día el paciente **tiene cita**, su visita es la de esa cita: el botón dice **«Abrir su
     visita»** (o **«Abrir la visita de su cita»** si aún no existe) y no se crea otra. Tampoco se puede
     crear una visita suelta ese día.
