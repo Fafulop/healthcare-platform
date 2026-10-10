@@ -437,7 +437,7 @@ documentos, notas, recetas e informes, la cita y un comentario.
   queda. Una cita **sin expediente** (por ejemplo, la que el paciente agendó en tu página) recibe su
   visita cuando le vinculas el expediente.
 - **«Nueva Visita»** en el perfil: eliges la **Fecha** — cualquier día. Visita y cita son el mismo
-  evento, así que **no se liga una cita a mano**:
+  evento: **toda visita lleva su cita** y **no se liga una cita a mano**:
   - **Un día futuro** (sin cita ese día): eliges **Servicio**, **Hora** y el contacto del paciente
     (viene el de su expediente) y picas **«Agendar cita y crear visita»**: se agenda su cita —con su
     correo de confirmación, como en la agenda— y su visita nace con ella, lista para subirle cosas
@@ -445,11 +445,15 @@ documentos, notas, recetas e informes, la cita y un comentario.
   - Si ese día el paciente **tiene cita**, su visita es la de esa cita: el botón dice **«Abrir su
     visita»** (o **«Abrir la visita de su cita»** si aún no existe) y no se crea otra. Tampoco se puede
     crear una visita suelta ese día.
-  - Si no, se crea la visita de ese día. **Hoy**, con permiso de citas, sale marcada **«También en la
-    agenda»**: eliges **Servicio** y **Hora** (la de ahora) y picas **«Crear visita y agendar»** — nace
-    también su cita de hoy, sin pedirle al paciente correo ni teléfono y sin avisarle (está contigo); se
-    cobra al completarla. Desmarcada, **«Crear visita»** crea sólo la visita.
-  Un ayudante sin permiso de citas crea la visita sin cita (y no puede el día de una cita del paciente).
+  - **Hoy**: eliges **Servicio** y **Hora** (la de ahora) y picas **«Crear visita y agendar»** — nace
+    su cita de hoy, sin pedirle al paciente correo ni teléfono y sin avisarle (está contigo), y la
+    visita con ella; se cobra al completarla.
+  - **Un día pasado**: eliges **Servicio** y **Hora** (vienen las 10:00) y picas **«Registrar cita y
+    crear visita»** — se registra su cita de ese día (sin avisarle a nadie) y enseguida se abre la
+    misma ventana **«Completar cita»** de la agenda para su cobro (monto y forma de pago; $0 =
+    cortesía). Si la cierras sin completar, la cita queda vencida y la completas desde la visita.
+  Sin permiso de citas (un ayudante) no se pueden crear visitas: las de las citas del paciente se abren
+  desde su tarjeta «Visitas».
   Si el paciente tiene tratamientos activos o visitas anteriores, también pregunta **«¿Es
   seguimiento?»**: **«Sesión siguiente de «(tratamiento)»»** (la visita llena la siguiente sesión
   libre o se agrega una al final; queda dentro del tratamiento y no en «Visitas») o **«Seguimiento de una visita anterior»** (se crea un tratamiento
@@ -461,9 +465,14 @@ documentos, notas, recetas e informes, la cita y un comentario.
 
 **La pantalla de la visita** (clic en «Visita del …»):
 
-- **Cita** — fecha, hora, servicio y si está pagada y facturada. La cita de una visita no se cambia
-  ni se quita (son el mismo evento). Sin cita, puedes corregir la **Fecha** (hoy o antes, y no el día
-  de una cita del paciente).
+- **Cita** — fecha, hora, servicio y si está pagada y facturada. Con permiso de citas, abajo están los
+  **mismos botones de la agenda**: **«Completar»** (la misma ventana que pide el monto y la forma de
+  pago), **«No asistió»**, **«Cancelar»** y **«Reagendar»** (te lleva a la agenda con la ventana de
+  reagendar abierta y, al terminar, te regresa a la visita, que se va con la cita nueva). Si cancelas
+  o marcas «No asistió» con la visita **vacía**, la visita se borra con la cita y vuelves al perfil del
+  paciente. La cita de una visita no se cambia por otra ni se quita (son el mismo evento). Las visitas **sin
+  cita** que quedaron de antes (ya no se crean) conservan su **Fecha** corregible (hoy o antes, y no
+  el día de una cita del paciente).
 - **Plantillas** («Agregar plantilla») · **Fotos y documentos** («Subir») · **Notas** («Nueva
   nota») · **Recetas** («Nueva receta») · **Comentario** («Guardar comentario»). Lo que agregas
   desde aquí queda en esta visita. Los **Informes médicos** se hacen desde su plantilla y aparecen
@@ -531,6 +540,10 @@ principal:
 
 - **«Agendar»** (sesiones sin fecha) — abre la fila de esa sesión: servicio, precio, fecha y hora,
   con si el horario está libre. Necesita permiso de citas y el tratamiento activo.
+- **Las acciones de su cita** — debajo de la cita de la sesión, con permiso de citas, los **mismos
+  botones de la agenda**: **«Completar»** (la misma ventana del cobro), **«No asistió»**,
+  **«Cancelar»** (cancela la **cita**: la sesión queda sin fecha, igual que si la cancelaras en la
+  agenda — para cancelar la sesión está «Cancelar sesión» en «⋯») y **«Reagendar»**.
 - **«Reagendar»** (sesiones con cita pendiente o confirmada) — eliges la fecha y hora nuevas (vienen
   el servicio y el precio de la sesión, o los de su cita si la sesión no tiene propios): se crea la
   cita nueva, la sesión pasa a ella y se cancela la anterior, como en la agenda. Al paciente le llega
@@ -538,17 +551,15 @@ principal:
   se cancela y la ventana te dice qué revisar. Si ya abriste su visita, **la visita se va con la
   cita**: toma la fecha nueva, y lo que tiene dentro (plantillas, notas, fotos, recetas, ventas)
   conserva su propia fecha.
-- **«Abrir visita»** — si ya tiene visita, la abre. Si aún no tiene, la crea: con la fecha de su cita
-  si tiene una vigente, o con la de **hoy** si no tiene (o su cita se canceló o el paciente no
-  asistió): dice **«Abrir visita hoy»** y abre una ventana, porque la sesión cuenta como atendida; esto
-  sólo en tratamientos activos. Si la sesión es otro día, agéndala primero. No aparece en sesiones
-  canceladas ni si la sesión tiene una cita que no puedes ver.
-  En esa ventana, **«También en la agenda»** (marcada) crea además su **cita de hoy**: eliges el
-  **Servicio** (viene el de la sesión) y la **Hora** (viene la de ahora) y picas **«Abrir visita y
-  agendar»**. La cita queda Agendada, no le llega ningún aviso al paciente (está contigo) y no te pide
-  su correo ni su teléfono; se cobra al **completarla**, como cualquier cita. Si esa hora choca con
-  otra cita, la ventana te lo dice: cambia la hora o desmarca la casilla. Desmarcada, sólo se abre la
-  visita — y esa sesión no se cobra desde la agenda. La casilla sale con permiso de citas.
+- **«Abrir visita»** — si ya tiene visita, la abre. Si aún no tiene, la crea con la fecha de su cita
+  si tiene una vigente. Si no tiene cita (o su cita se canceló o el paciente no asistió), dice
+  **«Abrir visita hoy»** y abre una ventana que crea su **cita de hoy** (toda visita lleva su cita):
+  eliges el **Servicio** (viene el de la sesión) y la **Hora** (viene la de ahora) y picas **«Abrir
+  visita y agendar»**. La cita queda Agendada, no le llega ningún aviso al paciente (está contigo) y no
+  te pide su correo ni su teléfono; se cobra al **completarla**, como cualquier cita. Si esa hora choca
+  con otra cita, la ventana te lo dice: cambia la hora. Necesita permiso de citas y el tratamiento
+  activo. Si la sesión es otro día, agéndala. No aparece en sesiones canceladas ni si la sesión tiene
+  una cita que no puedes ver.
 
 En el botón **«⋯»** de cada sesión, lo demás:
 
@@ -601,7 +612,9 @@ cobra al concluir su cita, como cualquier cita (también con link de pago). Las 
 quedaron «cubiertas por el paquete» ($0) se siguen viendo así en el perfil y en la visita.
 
 Del tratamiento completo: **«Editar»** (nombre, sesiones planeadas, notas), **«Terminar»**,
-**«Cancelar tratamiento»** y **«Reactivar»**. **«Borrar»** sólo funciona mientras ninguna sesión
+**«Cancelar tratamiento»** y **«Reactivar»**. Al cancelar te pregunta antes: las citas agendadas de
+sus sesiones **no se cancelan** (se quedan en la agenda y al paciente no le llega ningún aviso);
+cancélalas a mano, una por una, desde la agenda o desde cada sesión. **«Borrar»** sólo funciona mientras ninguna sesión
 tenga cita ni visita y no tenga pagos registrados; si no, cancélalo.
 
 En la **agenda**, una cita que es sesión de un tratamiento dice **«Sesión 3 de 6 — (nombre del

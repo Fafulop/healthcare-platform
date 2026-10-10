@@ -108,15 +108,22 @@ export async function POST(request: Request) {
     }
 
     // VISITAS 07-PLAN P3b / 08-PLAN F1 — `enConsulta` sólo vale para un DOCTOR autenticado (no admin ni
-    // público), para HOY en hora de la clínica y para un paciente CON expediente (una sesión de
-    // tratamiento, o la visita de hoy de «Nueva Visita»). Si no, 400: ignorarlo en silencio exigiría el
-    // contacto y avisaría al paciente, que es justo lo que pidió no hacer.
+    // público), para un paciente CON expediente (una sesión de tratamiento, o la visita de «Nueva
+    // Visita») y para HOY o ANTES en hora de la clínica (09-PLAN L3: toda visita lleva cita — la de un día
+    // pasado registra una consulta que ya ocurrió; no se le avisa a nadie). Un día futuro no: ésa es una
+    // cita normal, con su contacto y su aviso. Si no, 400: ignorarlo en silencio exigiría el contacto y
+    // avisaría al paciente, que es justo lo que pidió no hacer.
     const modoConsulta = enConsulta === true;
     if (modoConsulta) {
       const hoyClinica = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
-      if (role !== 'DOCTOR' || !authenticatedDoctorId || (!paraSesion && !patientId) || date !== hoyClinica) {
+      // Una fecha REAL (no «2026-02-45»: `new Date` la daría inválida y reventaría con 500) y no absurda.
+      const fechaValida = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+        && !isNaN(new Date(`${date}T12:00:00Z`).getTime())
+        && new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) === date
+        && date >= '2000-01-01' && date <= hoyClinica;
+      if (role !== 'DOCTOR' || !authenticatedDoctorId || (!paraSesion && !patientId) || !fechaValida) {
         return NextResponse.json(
-          { success: false, error: 'enConsulta sólo vale para un paciente con expediente, hoy, agendada por el doctor' },
+          { success: false, error: 'enConsulta sólo vale para un paciente con expediente, hoy o antes, agendada por el doctor' },
           { status: 400 }
         );
       }

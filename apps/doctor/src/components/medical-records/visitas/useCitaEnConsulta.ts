@@ -17,7 +17,7 @@ export function horaDeAhora() {
 
 export type ResultadoCitaEnConsulta =
   /** `visitaId`: 08-PLAN F2 — la visita que la cita trajo al nacer (ausente con la API de antes). */
-  | { ok: true; bookingId: string; sesionLigada: boolean; visitaId?: string }
+  | { ok: true; bookingId: string; sesionLigada: boolean; visitaId?: string; finalPrice?: number }
   | { ok: false; error: string };
 
 export interface Contacto { correo: string; telefono: string; whatsapp: string }
@@ -27,6 +27,7 @@ export interface Contacto { correo: string; telefono: string; whatsapp: string }
  * tratamiento: sus servicios, los datos del paciente y la creación por `range-bookings/instant`.
  *   · HOY (sin `fecha`, o `fecha` = hoy) → `enConsulta`: el paciente está enfrente — sin exigir
  *     correo/teléfono/WhatsApp y sin avisarle (ver la ruta). «Abrir visita hoy» y «Nueva Visita» hoy.
+ *   · Un día PASADO (09-PLAN L3, «Nueva Visita») → también `enConsulta`: ya ocurrió, no se le avisa.
  *   · Otro día (08-PLAN, «Nueva Visita» con fecha futura) → una cita NORMAL: con el contacto del
  *     paciente (el que el doctor exija, como en la agenda) y su correo de confirmación.
  * `activo` = cargar servicios, paciente y lo que el doctor exige (sólo si se va a ofrecer).
@@ -85,13 +86,13 @@ export function useCitaEnConsulta(patientId: string, activo: boolean) {
 
   const crear = async (args: {
     servicioId: string; hora: string; paraSesion?: string;
-    /** 'YYYY-MM-DD'. Ausente u hoy → `enConsulta`. Otro día → cita normal con `contacto`. */
+    /** 'YYYY-MM-DD'. Ausente, hoy o antes → `enConsulta`. Futuro → cita normal con `contacto`. */
     fecha?: string; contacto?: Contacto;
   }): Promise<ResultadoCitaEnConsulta> => {
     if (!paciente || !doctorProfile?.id) return { ok: false, error: 'Todavía se está cargando el paciente. Intenta de nuevo.' };
     const hoy = getClinicDateString();
     const fecha = args.fecha ?? hoy;
-    const enConsulta = fecha === hoy;
+    const enConsulta = fecha <= hoy;
     try {
       const res = await authFetch(`${API_URL}/api/appointments/range-bookings/instant`, {
         method: 'POST',
@@ -123,6 +124,7 @@ export function useCitaEnConsulta(patientId: string, activo: boolean) {
       }
       return {
         ok: true, bookingId: d.data.id, sesionLigada: d.sesionLigada?.ligada === true,
+        ...(typeof d.data.finalPrice === 'number' ? { finalPrice: d.data.finalPrice } : {}),
         ...(typeof d.visitaId === 'string' ? { visitaId: d.visitaId } : {}),
       };
     } catch {

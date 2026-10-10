@@ -194,16 +194,18 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
               'antes de la consulta y se le pueden subir cosas; completar la cita no crea otra. Reagendar la mueve a la ' +
               'cita nueva; cancelar o "no asistió" borra la vacía y deja la que tiene algo; una cita cuya visita tiene ' +
               'algo no se puede eliminar. A mano: botón "Nueva Visita" en el perfil del paciente → ' +
-              'Fecha (cualquier día) → "Crear visita". Un día FUTURO sin cita pide Servicio, Hora y contacto → ' +
-              '"Agendar cita y crear visita": agenda su cita (con correo de confirmación) y la visita nace con ella. ' +
-              'Ya NO se elige ni se liga una cita a mano (visita y cita son el mismo ' +
-              'evento): si ese día el paciente tiene cita, el botón abre la visita de esa cita y no se crea otra; si no, ' +
-              'HOY con permiso de citas sale marcada "También en la agenda" (Servicio y Hora) → "Crear visita y agendar": ' +
-              'nace también su cita de hoy, sin pedir correo/teléfono ni avisar al paciente, y se cobra al completarla. ' +
-              'Una visita sin cita no puede ser en el futuro (para otro día se agenda una cita).',
+              'Fecha (cualquier día). TODA visita lleva su cita (visita y cita son el mismo evento; ya no hay visitas ' +
+              'sin cita). Si ese día el paciente tiene cita, el botón abre la visita de esa cita y no se crea otra. Si ' +
+              'no: HOY → Servicio y Hora → "Crear visita y agendar" (su cita de hoy, sin pedir correo/teléfono ni avisar ' +
+              'al paciente; se cobra al completarla); un día PASADO → Servicio y Hora → "Registrar cita y crear visita" ' +
+              '(se registra su cita sin avisar y se abre "Completar cita" para su cobro; si se cierra, se completa desde ' +
+              'la visita); un día FUTURO → Servicio, Hora y contacto → "Agendar cita y crear visita" (con correo de ' +
+              'confirmación). Ya NO se elige ni se liga una cita a mano. Sin permiso de citas no se crean visitas.',
             notes:
               'Una cita tiene a lo más una visita: completarla no crea una segunda. La cita de una visita no se ' +
-              'cambia ni se quita. ' +
+              'cambia ni se quita. En la sección "Cita" de la visita (con permiso de citas) están los mismos botones ' +
+              'de la agenda: "Completar" (misma ventana de cobro), "No asistió", "Cancelar" y "Reagendar" (abre la ' +
+              'agenda para reagendar y regresa a la visita). Cancelar o "No asistió" con la visita vacía la borra. ' +
               'Dentro de la visita: Plantillas ("Agregar plantilla"), Fotos y documentos ("Subir"), ' +
               'Notas ("Nueva nota"), Recetas ("Nueva receta"), informes y un Comentario.',
           },
@@ -276,13 +278,26 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
 
           'abrir la visita de una sesión hoy': {
             allowedIf:
-              'En la sesión sin cita (o con su cita cancelada / no asistió): "Abrir visita hoy" → ventana con ' +
-              '"También en la agenda" (marcada): Servicio (el de la sesión) y Hora (ahora) → "Abrir visita y agendar". ' +
-              'Crea la visita de hoy Y su cita de hoy (Agendada), sin avisar al paciente ni pedir su correo/teléfono; ' +
-              'se cobra al completar la cita, como cualquier otra. Desmarcada: sólo la visita (esa sesión no se cobra desde la agenda).',
+              'En la sesión sin cita (o con su cita cancelada / no asistió): "Abrir visita hoy" → Servicio (el de la ' +
+              'sesión) y Hora (ahora) → "Abrir visita y agendar". Crea su cita de hoy (Agendada) y la visita con ella ' +
+              '(toda visita lleva cita), sin avisar al paciente ni pedir su correo/teléfono; se cobra al completar la cita.',
             blockedIf:
-              'La casilla necesita permiso de citas y el tratamiento activo. Si la hora choca con otra cita, la ventana ' +
-              'lo dice: otra hora o desmarcar. Una visita de otro día se agenda primero (cita), no se abre.',
+              'Necesita permiso de citas y el tratamiento activo. Si la hora choca con otra cita, la ventana lo dice: ' +
+              'otra hora. Una visita de otro día se agenda primero (cita), no se abre.',
+          },
+
+          'completar, no asistió o cancelar la cita de una sesión': {
+            allowedIf:
+              'En la tarjeta de la sesión, debajo de su cita (con permiso de citas): los mismos botones de la agenda — ' +
+              '"Completar" (misma ventana de cobro), "No asistió", "Cancelar" y "Reagendar".',
+            notes: '"Cancelar" ahí cancela la CITA (la sesión queda sin fecha); "⋯" → "Cancelar sesión" cancela la sesión.',
+          },
+
+          'cancelar el tratamiento': {
+            allowedIf: '"Cancelar tratamiento" arriba del tratamiento; pregunta antes. "Reactivar" lo deshace.',
+            notes:
+              'Sólo cambia su estado: las citas agendadas de sus sesiones NO se cancelan (siguen en la agenda y el ' +
+              'paciente no recibe aviso); se cancelan a mano, una por una, desde la agenda o desde cada sesión.',
           },
 
           'cancelar una sesión': {

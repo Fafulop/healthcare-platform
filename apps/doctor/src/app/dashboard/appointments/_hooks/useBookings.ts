@@ -4,38 +4,10 @@ import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { practiceConfirm } from "@/lib/practice-confirm";
 import { getLocalDateString, getClinicDateString, parseLocalDate } from "@/lib/dates";
+import { avisarLinksDesactivados, cambiarEstadoCita, completarCita } from "@/lib/citas/acciones-cita";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
-const NOMBRE_PROVEEDOR: Record<string, string> = { stripe: "Stripe", mercadopago: "Mercado Pago" };
-
-/**
- * H-010 / H-054: al concluir (con cobro), cancelar, marcar «No asistió» o eliminar, el servidor
- * apaga el link de pago vivo de la cita (`linksDesactivados` en la respuesta). Se le dice al doctor.
- * Si el proveedor no respondió, el link SIGUE activo: se dice dónde desactivarlo. (Y no se promete
- * «ya no puede pagarlo»: una ficha de OXXO generada antes todavía se puede pagar.)
- */
-function avisarLinksDesactivados(
-  links:
-    | { desactivados: string[]; fallidos: string[]; imposibles?: string[]; errorLectura?: boolean }
-    | undefined
-) {
-  if (!links) return;
-  const nombres = (ps: string[]) => ps.map((p) => NOMBRE_PROVEEDOR[p] ?? p).join(" y ");
-  if (links.fallidos.length > 0) {
-    toast.warning(`No se pudo desactivar el link de pago en ${nombres(links.fallidos)}: sigue activo. Desactívalo desde «Pagos».`);
-  }
-  if (links.imposibles && links.imposibles.length > 0) {
-    const q = nombres(links.imposibles);
-    toast.warning(`El link de pago de la cita sigue activo en ${q} y no podemos desactivarlo desde aquí: desactívalo desde tu cuenta de ${q}.`);
-  }
-  if (links.errorLectura) {
-    toast.warning("No pudimos revisar si la cita tenía un link de pago activo. Revísalo en «Pagos».");
-  }
-  if (links.desactivados.length > 0 && links.fallidos.length === 0 && !links.imposibles?.length) {
-    toast.success("Se desactivó el link de pago de la cita: ya no acepta pagos nuevos.");
-  }
-}
 
 export type SortColumn = "patient" | "date" | "status";
 export type SortDirection = "asc" | "desc";
@@ -202,6 +174,10 @@ export function defaultBookingFilterDate(): string {
 
 export function useBookings(doctorId: string | undefined) {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  // ¿Ya terminó la PRIMERA carga (bien o mal)? `[]` sola no distingue «sin citas» de «todavía no»: el
+  // «Reagendar» que llega desde una visita (09-PLAN L2) necesita saber si la cita de verdad no está.
+  const [bookingsCargadas, setBookingsCargadas] = useState(false);
+  const [bookingsFallo, setBookingsFallo] = useState(false);
   const [bookingsCollapsed, setBookingsCollapsed] = useState(false);
   const [bookingFilterDate, setBookingFilterDate] = useState<string>(defaultBookingFilterDate);
   const [bookingFilterPatient, setBookingFilterPatient] = useState<string>("");
@@ -227,45 +203,23 @@ export function useBookings(doctorId: string | undefined) {
       const data = await response.json();
       if (data.success) {
         setBookings(data.data);
+        setBookingsCargadas(true);
+        setBookingsFallo(false);
+      } else {
+        setBookingsFallo(true);
       }
     } catch (error) {
       console.error("Error fetching bookings:", error);
       toast.error("Error al cargar las citas");
+      setBookingsFallo(true);
     }
   }, [doctorId]);
 
   useEffect(() => { fetchBookings(); }, [fetchBookings]);
 
+  // 09-PLAN L2: la acción vive en `lib/citas/acciones-cita` (la visita y la sesión usan la misma).
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
-    if (
-      newStatus === "CANCELLED" &&
-      !await practiceConfirm("¿Estás seguro de que quieres cancelar esta cita?")
-    )
-      return;
-    // H-031: «No asistió» is final too (no way back) — it used to be a single click with no confirmation.
-    if (
-      newStatus === "NO_SHOW" &&
-      !await practiceConfirm("¿Marcar que el paciente no asistió? No se puede deshacer.")
-    )
-      return;
-
-    try {
-      const response = await authFetch(
-        `${API_URL}/api/appointments/bookings/${bookingId}`,
-        { method: "PATCH", body: JSON.stringify({ status: newStatus }) }
-      );
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success(data.message || "Estado actualizado exitosamente");
-        avisarLinksDesactivados(data.linksDesactivados);
-        fetchBookings();
-      } else {
-        toast.error(data.error || "Error al actualizar estado");
-      }
-    } catch {
-      toast.error("Error al actualizar estado");
-    }
+    if (await cambiarEstadoCita(bookingId, newStatus)) fetchBookings();
   };
 
   const updatePatientLink = async (
@@ -369,42 +323,8 @@ export function useBookings(doctorId: string | undefined) {
 
   const completeBooking = async (bookingId: string, price: number, formaDePago: string): Promise<{ ledgerEntryId?: number }> => {
     try {
-      // Mark COMPLETED + record income in ONE call. The income LedgerEntry is created by
-      // the API as an internal effect of the (citas-permitted) completion — NOT a separate
-      // flujo-gated POST — so it also works for secondary users without `flujo`
-      // (00-REQUISITOS §3.6). The server rebuilds concept/area/patient identity from the
-      // booking; the client only supplies the price + forma de pago the user entered.
-      const res = await authFetch(
-        `${API_URL}/api/appointments/bookings/${bookingId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            status: "COMPLETED",
-            income: { price, formaDePago },
-          }),
-        }
-      );
-      const data = await res.json();
-      if (!data.success) {
-        toast.error(data.error || "Error al completar la cita");
-        return {};
-      }
-      if (data.ledgerWarning) {
-        toast.error("Cita completada, pero hubo un error al crear el movimiento en Flujo de Dinero");
-      } else if (data.ledgerAlreadyExisted) {
-        // H2: a paid payment link already created this cita's income via webhook.
-        toast.success("Cita completada · el ingreso ya estaba registrado (pagado con link de pago)");
-      } else if (data.cobroRegistrado) {
-        toast.success("Cita completada · ingreso registrado en Flujo de Dinero");
-      } else {
-        // El servidor no registró cobro (monto 0).
-        toast.success("Cita completada · no se registró ningún ingreso");
-      }
-      avisarLinksDesactivados(data.linksDesactivados);
-      return { ledgerEntryId: data.ledgerEntryId };
-    } catch {
-      toast.error("Error al completar la cita");
-      return {};
+      const r = await completarCita(bookingId, price, formaDePago);
+      return r.ok ? { ledgerEntryId: r.ledgerEntryId } : {};
     } finally {
       fetchBookings();
     }
@@ -567,6 +487,8 @@ export function useBookings(doctorId: string | undefined) {
 
   return {
     bookings,
+    bookingsCargadas,
+    bookingsFallo,
     filteredBookings,
     bookingsCollapsed,
     setBookingsCollapsed,

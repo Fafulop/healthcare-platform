@@ -9,7 +9,6 @@ import { authFetch } from '@/lib/auth-fetch';
 import type { BookingPermisos } from '@/lib/booking-permisos';
 import type { PatientBooking } from '@/components/medical-records/CitaBadges';
 import { visitaHref, type VisitaResumen } from '@/lib/visitas-ui';
-import { getClinicDateString } from '@/lib/dates';
 import { etiquetaSesion, type SesionDeTratamiento, type TratamientoDetalle } from '@/lib/tratamientos-ui';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -113,19 +112,18 @@ export function useTratamientoDetalle() {
     escribir(() => enviar(`${urlT}/sesiones/${s.id}`, 'PATCH', body), ok);
 
   /**
-   * V4 — «Abrir visita» de una sesión que aún no tiene: con su cita (activa o concluida) la visita
-   * nace de ESA cita (fecha = la de la cita; el servidor la guarda en la sesión, G3); sin cita que
-   * cuente, nace HOY ligada a la sesión (`paraSesion`). Luego se navega a ella.
+   * V4 — «Abrir visita» de una sesión que aún no tiene, CON su cita vigente (activa o concluida): la
+   * visita nace de ESA cita (fecha = la de la cita; el servidor la guarda en la sesión, G3). Luego se
+   * navega a ella. (Sin cita que cuente ya no se abre aquí: «Abrir visita hoy» crea su cita, 09 L3.)
    */
   const abrirVisita = async (s: SesionDeTratamiento) => {
     // Una cita que no puedes ver (sin `status`) podría estar activa: no se adivina (el servidor daría 409).
     if (s.cita && !s.cita.status) { toast.error('Esta sesión tiene una cita que no puedes ver: ábrela desde la agenda'); return; }
     const citaVigente = s.cita && s.cita.status !== 'CANCELLED' && s.cita.status !== 'NO_SHOW';
+    if (!citaVigente) { toast.error('Toda visita lleva su cita: usa «Abrir visita hoy» o agenda la sesión'); return; }
     setTrabajando(true);
     try {
-      const d = await enviar(`${base}/visitas`, 'POST', citaVigente
-        ? { bookingId: s.cita!.id }
-        : { fecha: getClinicDateString(), paraSesion: s.id });
+      const d = await enviar(`${base}/visitas`, 'POST', { bookingId: s.cita!.id });
       router.push(visitaHref(patientId, d.data.id));
     } catch (err: any) {
       toast.error(err.message || 'No se pudo abrir la visita');

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 import { Loader2, CalendarPlus, Clock, CalendarCheck, AlertTriangle, Bell, BellOff, HelpCircle, SlidersHorizontal, ClipboardList, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
@@ -49,6 +49,7 @@ export default function AppointmentsPage() {
 
   const doctorId = session?.user?.doctorId as string | undefined;
   const { doctorProfile } = useDoctorProfile();
+  const router = useRouter();
 
   // Hooks
   const calendar = useCalendar();
@@ -210,6 +211,44 @@ export default function AppointmentsPage() {
     setGapPreset(null);
     setBookPatientModalOpen(true);
   }, []);
+
+  // VISITAS 09-PLAN L2 (nota N3) — «Reagendar» desde la visita llega aquí con
+  // `?reagendar=<cita>&volver=<visita>`: se abre ESTE mismo modal de reagendar (horario, avisos, el
+  // pago y la sesión que pasan a la cita nueva, cancelar la vieja) y al cerrarlo se regresa a la
+  // visita — que viajó con su cita. `volver` sólo se acepta dentro del dashboard.
+  const reagendarPedido = useRef<{ id: string; volver: string | null } | null>(null);
+  const volverTrasReagendar = useRef<string | null>(null);
+  // Lo que hace `onSuccess` tras reagendar (cancelar la vieja, avisar): se espera antes de regresar.
+  const despuesDeReagendar = useRef<Promise<void> | null>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const id = q.get("reagendar");
+    if (!id) return;
+    const volver = q.get("volver");
+    reagendarPedido.current = {
+      id, volver: volver && volver.startsWith("/dashboard/") ? volver : null,
+    };
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+  useEffect(() => {
+    const p = reagendarPedido.current;
+    if (!p) return;
+    const b = bookingsHook.bookings.find((x) => x.id === p.id);
+    if (!b) {
+      // Ya cargó y no está, o la carga FALLÓ (y eso no es «no existe»): se dice cuál y se regresa — no
+      // se queda esperando en silencio.
+      if (!bookingsHook.bookingsCargadas && !bookingsHook.bookingsFallo) return;
+      reagendarPedido.current = null;
+      toast.error(bookingsHook.bookingsFallo
+        ? "No se pudo cargar la agenda para reagendar la cita. Intenta de nuevo."
+        : "No se encontró esa cita en la agenda para reagendarla.");
+      if (p.volver) router.push(p.volver);
+      return;
+    }
+    reagendarPedido.current = null;
+    volverTrasReagendar.current = p.volver;
+    handleReschedule(b);
+  }, [bookingsHook.bookings, bookingsHook.bookingsCargadas, bookingsHook.bookingsFallo, handleReschedule, router]);
 
   const handleOpenFormLinkModal = useCallback((booking: Booking) => {
     setOpenBookingId(null);
@@ -527,7 +566,18 @@ export default function AppointmentsPage() {
 
       <BookPatientModal
         isOpen={bookPatientModalOpen}
-        onClose={() => { setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); setGapPreset(null); }}
+        onClose={() => {
+          setBookPatientModalOpen(false); rescheduleBookingRef.current = null; setRescheduleBooking(null); setGapPreset(null);
+          // 09-PLAN L2: se vino a reagendar desde una visita — de vuelta a ella (reagendada o no), pero
+          // DESPUÉS de cancelar la cita vieja (la visita ya está en la nueva; si no, se vería la vieja).
+          const volver = volverTrasReagendar.current;
+          volverTrasReagendar.current = null;
+          if (volver) {
+            const pendiente = despuesDeReagendar.current;
+            despuesDeReagendar.current = null;
+            (pendiente ?? Promise.resolve()).finally(() => router.push(volver));
+          }
+        }}
         doctorId={doctorId}
         clinicLocations={clinicLocations}
         clinicLocationsError={clinicLocationsError}
@@ -535,36 +585,40 @@ export default function AppointmentsPage() {
         doctorSlug={doctorProfile?.slug}
         preselectedDate={gapPreset?.date}
         preselectedTime={gapPreset?.startTime}
-        onSuccess={async (newBookingId, sesionReagendada) => {
-          const toCancel = rescheduleBookingRef.current;
-          if (toCancel) {
-            rescheduleBookingRef.current = null;
-            setRescheduleBooking(null);
-            let cancelada = false;
-            try {
-              const res = await authFetch(
-                `${API_URL}/api/appointments/bookings/${toCancel.id}`,
-                { method: "PATCH", body: JSON.stringify({ status: "CANCELLED" }) }
-              );
-              const data = await res.json();
-              cancelada = !!data.success;
-              if (!data.success) toast.error(NO_SE_CANCELO_LA_ANTERIOR);
-            } catch {
-              toast.error(NO_SE_CANCELO_LA_ANTERIOR);
+        onSuccess={(newBookingId, sesionReagendada) => {
+          const trabajo = (async () => {
+            const toCancel = rescheduleBookingRef.current;
+            if (toCancel) {
+              rescheduleBookingRef.current = null;
+              setRescheduleBooking(null);
+              let cancelada = false;
+              try {
+                const res = await authFetch(
+                  `${API_URL}/api/appointments/bookings/${toCancel.id}`,
+                  { method: "PATCH", body: JSON.stringify({ status: "CANCELLED" }) }
+                );
+                const data = await res.json();
+                cancelada = !!data.success;
+                if (!data.success) toast.error(NO_SE_CANCELO_LA_ANTERIOR);
+              } catch {
+                toast.error(NO_SE_CANCELO_LA_ANTERIOR);
+              }
+              // TRATAMIENTOS T4: el SERVIDOR ya pasó la sesión a la cita nueva al crearla
+              // (`reagendaDe`); aquí sólo se avisa. Que no se mueva (sesión cancelada, con visita) es
+              // un aviso, no un error: el reagendado sí quedó.
+              const sesion = textoDeSesionReagendada(sesionReagendada);
+              if (sesion) (sesion.ok ? toast.success : toast.warning)(sesion.texto);
+              if (!cancelada && sesionReagendada && 'movida' in sesionReagendada && sesionReagendada.movida) {
+                toast.warning("La sesión del tratamiento ya está en la cita nueva, pero la anterior no se canceló: cancélala desde la agenda.");
+              }
             }
-            // TRATAMIENTOS T4: el SERVIDOR ya pasó la sesión a la cita nueva al crearla
-            // (`reagendaDe`); aquí sólo se avisa. Que no se mueva (sesión cancelada, con visita) es
-            // un aviso, no un error: el reagendado sí quedó.
-            const sesion = textoDeSesionReagendada(sesionReagendada);
-            if (sesion) (sesion.ok ? toast.success : toast.warning)(sesion.texto);
-            if (!cancelada && sesionReagendada && 'movida' in sesionReagendada && sesionReagendada.movida) {
-              toast.warning("La sesión del tratamiento ya está en la cita nueva, pero la anterior no se canceló: cancélala desde la agenda.");
-            }
-          }
-          await onRefresh();
-          // Auto-send email is fire-and-forget on the API; re-fetch after a delay
-          // so confirmationEmailSentAt/meetLink are reflected in the UI
-          setTimeout(() => bookingsHook.fetchBookings(), 5000);
+            await onRefresh();
+            // Auto-send email is fire-and-forget on the API; re-fetch after a delay
+            // so confirmationEmailSentAt/meetLink are reflected in the UI
+            setTimeout(() => bookingsHook.fetchBookings(), 5000);
+          })().catch((err) => console.error("[reagendar] después de crear la cita nueva:", err));
+          // Sólo se guarda si hay a dónde regresar (vino de una visita): onClose la espera.
+          if (volverTrasReagendar.current) despuesDeReagendar.current = trabajo;
         }}
         rescheduleBooking={rescheduleBooking}
       />

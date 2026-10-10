@@ -18,6 +18,7 @@ import { dibujarResumenTratamiento, nombreArchivoResumen, type ResumenTratamient
 import { getClinicDateString } from '@/lib/dates';
 import { AgendarSesionesModal, type ModoAgendar } from '@/components/medical-records/tratamientos/AgendarSesionesModal';
 import { AbrirVisitaHoyModal } from '@/components/medical-records/tratamientos/AbrirVisitaHoyModal';
+import { useAccionesDeCita } from '@/components/citas/useAccionesDeCita';
 
 const inputClass = 'px-2 py-1.5 border border-gray-300 rounded-md text-sm';
 const botonTexto = 'text-sm text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 disabled:opacity-50';
@@ -115,7 +116,7 @@ export default function TratamientoPage() {
               {/* Desde CUALQUIER estado que no sea cancelado: es lo que el 409 de «Borrar» pide. */}
               {tratamiento.estado !== 'cancelado' && (
                 <button
-                  onClick={() => t.patchTratamiento({ estado: 'cancelado' }, 'Tratamiento cancelado')}
+                  onClick={pedirCancelarTratamiento}
                   disabled={t.trabajando} className={botonGris}
                 >Cancelar tratamiento</button>
               )}
@@ -231,6 +232,26 @@ export default function TratamientoPage() {
       )}
     </div>
   );
+
+  /**
+   * 09-PLAN L1 (nota N1) — cancelar el tratamiento sólo cambia su estado: las citas agendadas de sus
+   * sesiones SIGUEN en la agenda y el paciente no recibe aviso. Se dice antes, con cuántas son. (Una
+   * cita que no puedes ver cuenta si la sesión está «agendada»: el servidor ya lo resolvió.)
+   */
+  async function pedirCancelarTratamiento() {
+    const abiertas = (tratamiento?.sesiones ?? []).filter((s) => s.cita && (
+      s.cita.status ? s.cita.status === 'PENDING' || s.cita.status === 'CONFIRMED' : s.estado === 'agendada'
+    )).length;
+    const ok = await practiceConfirm(
+      abiertas > 0
+        ? `Tiene ${abiertas === 1 ? '1 cita agendada' : `${abiertas} citas agendadas`} y NO se ${abiertas === 1 ? 'cancela' : 'cancelan'}: `
+          + 'se quedan en la agenda y al paciente no le llega ningún aviso. Cancélalas a mano, una por una, '
+          + 'desde la agenda o desde cada sesión.'
+        : 'El tratamiento quedará como cancelado. Puedes reactivarlo después.',
+      '¿Cancelar el tratamiento?',
+    );
+    if (ok) await t.patchTratamiento({ estado: 'cancelado' }, 'Tratamiento cancelado');
+  }
 
   /**
    * G8: con cita ACTIVA a la vista hay TRES salidas (también la cita · sólo la sesión · nada) y un
@@ -461,18 +482,27 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
   const verFactura = t.permisos?.facturacion ?? false;
   const citaActiva = cita?.status === 'PENDING' || cita?.status === 'CONFIRMED';
   const citaVigente = !!cita?.status && cita.status !== 'CANCELLED' && cita.status !== 'NO_SHOW';
-  // «Abrir visita» la CREA si no hay: con su cita (necesita verla: `citas`) o, sin cita que cuente, hoy
-  // (eso sólo en un tratamiento activo: es atender una sesión nueva). Una cita que no puedes ver (sin
-  // `status`) podría estar activa: no se adivina.
+  // «Abrir visita» la CREA si no hay: con su cita (necesita verla: `citas`) o, sin cita que cuente, con
+  // su cita de HOY (09-PLAN L3: toda visita lleva cita — permiso de citas y tratamiento activo, lo mismo
+  // que agendar). Una cita que no puedes ver (sin `status`) podría estar activa: no se adivina.
   const puedeCrearVisita = !s.visita && !s.cancelada && (!cita || !!cita.status)
-    && (citaVigente || t.tratamiento?.estado === 'activo');
+    && (citaVigente || puedeAgendar);
   // V4 paso 2: con su visita abierta también — la visita (la de su cita) viaja a la cita nueva. Sólo
   // una visita que NO es de su cita (`visitaViaja` = false, veredicto del servidor) lo impide.
   const visitaNoEstorba = !s.visita || s.visitaViaja === true;
   const agendable = puedeAgendar && !s.cancelada && visitaNoEstorba && s.estado === 'por_agendar';
   const reagendable = puedeAgendar && !s.cancelada && visitaNoEstorba && citaActiva;
 
-  // 07-PLAN P3b: sin cita que cuente, «Abrir visita hoy» abre su modal (con «También en la agenda»).
+  // 09-PLAN L2 (nota N3) — las acciones de su cita, las MISMAS de la agenda y de la visita. Cancelar aquí
+  // es cancelar la CITA (la sesión queda por agendar, como al cancelarla en la agenda); «Cancelar sesión»
+  // del «⋯» es otra cosa. Reagendar es el de la sesión (respeta su servicio y precio).
+  const verCitas = t.permisos?.citas ?? false;
+  const acciones = useAccionesDeCita({
+    booking, patientName: t.patientName,
+    despues: async () => { await t.recargar(); },
+  });
+
+  // 07-PLAN P3b: sin cita que cuente, «Abrir visita hoy» abre su modal (crea su cita de hoy, 09 L3).
   const [abriendoHoy, setAbriendoHoy] = useState(false);
   const abrirVisitaNueva = async () => {
     if (!citaVigente) { setAbriendoHoy(true); return; }
@@ -536,6 +566,12 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
               {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} cubierta={booking.estadoPago === 'CUBIERTA'} />}
             </div>
           )}
+          {/* Reagendar: la regla de la SESIÓN (`reagendable`: también una cita pendiente a futuro). */}
+          {verCitas && booking && acciones.botones({
+            puedeReagendar: reagendable,
+            onReagendar: () => onAgendar({ tipo: 'reagendar', sesionId: s.id }),
+            deshabilitado: t.trabajando,
+          })}
           {s.notas && notas === null && <p className="text-sm text-gray-600 whitespace-pre-wrap">{s.notas}</p>}
         </div>
 
@@ -549,7 +585,9 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
               <CalendarDays className="w-4 h-4" />Agendar
             </button>
           )}
-          {reagendable && (
+          {/* «Reagendar» va con las demás acciones de la cita (09-PLAN L2). Sin poder verla (sin `citas`)
+              no se pinta aquella fila: aquí se queda el de antes. */}
+          {reagendable && !(verCitas && booking) && (
             <button
               onClick={() => onAgendar({ tipo: 'reagendar', sesionId: s.id })} disabled={t.trabajando}
               className="px-3 py-1.5 text-sm border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50 flex items-center gap-1"
@@ -620,12 +658,10 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
         </div>
       </div>
 
+      {acciones.modal}
       {abriendoHoy && (
         <AbrirVisitaHoyModal
           patientId={t.patientId} s={s} planeadas={planeadas}
-          // La casilla pide lo mismo que agendar: permiso de citas y tratamiento activo.
-          conAgenda={puedeAgendar}
-          onSinAgenda={() => t.abrirVisita(s)}
           onClose={() => setAbriendoHoy(false)}
           onFallo={() => { t.recargar(); }}
         />

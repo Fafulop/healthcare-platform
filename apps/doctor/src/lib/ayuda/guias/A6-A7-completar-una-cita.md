@@ -4,7 +4,7 @@
 
 **Pasos**
 1. Abre la cita (clic en su fila o en el calendario).
-2. Grupo **ESTADO → «Completar»**.
+2. Grupo **ESTADO → «Completar»**. (Los mismos botones están en la sección **«Cita»** de su visita y en la tarjeta de la sesión de un tratamiento.)
 3. En **«Completar cita»**:
    - **Monto cobrado (MXN):** viene el precio del servicio (si no tiene precio: el monto de su link de pago, o vacío); cámbialo si cobraste otra cosa.
    - **Forma de pago:** «Efectivo» · «Transferencia» · «Tarjeta» · «Cheque» · «Depósito».

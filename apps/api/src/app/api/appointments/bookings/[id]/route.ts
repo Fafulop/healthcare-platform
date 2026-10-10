@@ -554,7 +554,15 @@ export async function PATCH(
       // Send cancellation email to patient (fire-and-forget)
       const destinatarioCancelacion =
         currentBooking.patient?.email?.trim() || currentBooking.patientEmail?.trim() || '';
-      if (newStatus === 'CANCELLED' && destinatarioCancelacion) {
+      // VISITAS 09-PLAN L3 (revisión): una cita de un día que YA PASÓ no se le «cancela» al paciente por
+      // correo — no hay nada que avisarle, y desde 09 L3 una visita de un día pasado registra su cita sin
+      // que el paciente se entere (cancelarla le mandaría un correo de una cita que nunca supo que existía).
+      // ⚠️ La cita de HOY creada «en consulta» (P3b) tampoco se le avisó y SÍ recibe este correo si se
+      // cancela el mismo día: arreglarlo pide guardar que no se avisó (columna nueva) — pendiente en
+      // VISITAS/SESSION-REFRESCO, notas para un lote.
+      const hoyClinica = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
+      const citaYaPaso = !!bookingDateStr && bookingDateStr < hoyClinica;
+      if (newStatus === 'CANCELLED' && destinatarioCancelacion && !citaYaPaso) {
         (async () => {
           try {
             const doctor = await prisma.doctor.findUnique({

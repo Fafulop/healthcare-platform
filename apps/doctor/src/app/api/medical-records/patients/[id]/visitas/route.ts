@@ -3,8 +3,8 @@ import { prisma } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { AppError, handleApiError } from '@/lib/api-error-handler';
 import {
-  bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, rechazarSiHayCitaEseDia,
-  rechazarVisitaFuturaSinCita, unicaPorCita, validarCitaParaVisita,
+  bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, unicaPorCita,
+  validarCitaParaVisita,
 } from '@/lib/visitas';
 import {
   aplicarEnSesion, auditarCambioDeSesion, auditarSeguimiento, parseSeguimiento, sesionAlLigarCitaAVisita,
@@ -66,11 +66,12 @@ export async function GET(
   }
 }
 
-// POST /api/medical-records/patients/:id/visitas — visita MANUAL
-// Body: { fecha?: 'YYYY-MM-DD', comentario?: string, bookingId?: string,
+// POST /api/medical-records/patients/:id/visitas — abrir la visita de UNA CITA
+// Body: { bookingId: string, comentario?: string,
 //         seguimiento?: { tratamientoId } | { visitaId } }  ← T7 «Es seguimiento de…» (DISEÑO §7)
-// `fecha` es requerida SIN cita. Con cita, el día de la cita manda (y ligar exige `citas`).
-// Una `fecha` que venga mal formada es 400 siempre, aunque venga cita.
+// 09-PLAN L3 (nota N2, 2026-10-10): TODA visita lleva su cita — sin `bookingId`, 400. (Casi siempre la
+// visita ya nació al agendar, 08 F2; esto queda para la cita que todavía no tiene.) El día de la cita
+// manda y ligarla exige `citas`. Una `fecha` que venga mal formada es 400 siempre.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -100,22 +101,12 @@ export async function POST(
       bookingId = body.bookingId as string;
       if (fechaCita) fecha = fechaCita;
     }
-    if (!fecha) throw new AppError('fecha es requerida (YYYY-MM-DD)', 400);
-    // 07-PLAN P2: sin cita, sólo hoy o antes (también con `paraSesion` y con seguimiento). Con cita
-    // sí puede ser futura: es abrir la visita antes (V4, decisión 4).
+    // 09-PLAN L3: ya no hay visitas sueltas nuevas (ni la de una sesión sin cita, `paraSesion`).
     if (!bookingId) {
-      rechazarVisitaFuturaSinCita(fecha);
-      // 08-PLAN F1: el día de una cita, la visita es la de la cita (no una suelta).
-      await rechazarSiHayCitaEseDia(ctx.doctorId, patientId, fecha);
+      throw new AppError('Toda visita lleva su cita: agenda la cita y su visita nace con ella', 400);
     }
+    if (!fecha) throw new AppError('fecha es requerida (YYYY-MM-DD)', 400);
     const seguimiento = parseSeguimiento(body.seguimiento);
-    // TRATAMIENTOS v2 · V4 — «Abrir visita» de una sesión SIN cita: la visita nace ligada a ESA sesión
-    // en la misma transacción (con cita no hace falta: `bookingId` ya la liga, G3). Excluyente con cita
-    // y con «Es seguimiento».
-    const paraSesion = typeof body.paraSesion === 'string' && body.paraSesion ? body.paraSesion : null;
-    if (paraSesion && (bookingId || seguimiento)) {
-      throw new AppError('paraSesion no se combina con cita ni con seguimiento', 400);
-    }
 
     // Tratamientos G3: si la cita es de una sesión, la sesión guarda esta visita (P2 revisado).
     // Se lee dentro de la tx para que un choque con otra petición salga como lo que es.
@@ -123,9 +114,7 @@ export async function POST(
     // dos cosas, o ninguna (un 409 del seguimiento no deja una visita suelta).
     const { visita, enSesion, seguimientoHecho } = await prisma
       .$transaction(async (tx) => {
-        const cambio = bookingId
-          ? await sesionAlLigarCitaAVisita(tx, ctx.doctorId, patientId, bookingId, null)
-          : null;
+        const cambio = await sesionAlLigarCitaAVisita(tx, ctx.doctorId, patientId, bookingId!, null);
         if (cambio && seguimiento) {
           throw new AppError('Esta cita ya es de una sesión de tratamiento: la visita entra sola a ese tratamiento', 409);
         }
@@ -134,28 +123,6 @@ export async function POST(
           select: { id: true, fecha: true, comentario: true, origen: true, bookingId: true, createdAt: true, updatedAt: true },
         });
         if (cambio) await aplicarEnSesion(tx, cambio, bookingId!, v.id);
-        if (paraSesion) {
-          // Escritura condicionada: sólo una sesión de ESTE paciente, de un tratamiento ACTIVO (atender
-          // una sesión nueva, como agendarla), no cancelada, SIN visita y SIN cita que cuente — la misma
-          // regla que `estadoDeSesion`: cita cancelada/no asistió, de otro paciente o de ninguno (`not`
-          // no casa NULL, por eso va aparte). Si no casa, 409 y la visita no nace (rollback).
-          const { count } = await tx.tratamientoSesion.updateMany({
-            where: {
-              id: paraSesion, doctorId: ctx.doctorId, patientId, cancelada: false, visitaId: null,
-              tratamiento: { estado: 'activo' },
-              OR: [
-                { bookingId: null },
-                { booking: { status: { in: ['CANCELLED', 'NO_SHOW'] } } },
-                { booking: { patientId: { not: patientId } } },
-                { booking: { patientId: null } },
-              ],
-            },
-            data: { visitaId: v.id },
-          });
-          if (count === 0) {
-            throw new AppError('Esa sesión ya tiene visita o cita, se canceló, o su tratamiento no está activo: recarga el tratamiento', 409);
-          }
-        }
         const hecho = seguimiento
           ? await unirComoSeguimiento(tx, ctx.doctorId, patientId, seguimiento, { id: v.id, bookingId, fecha: v.fecha })
           : null;
@@ -169,21 +136,11 @@ export async function POST(
       changes: {
         fecha: diaISO(visita.fecha), bookingId, conComentario: !!comentario,
         ...(enSesion ? { sesionDeTratamiento: enSesion.sesionId } : {}),
-        ...(paraSesion ? { sesionDeTratamiento: paraSesion, abiertaDesdeSesion: true } : {}),
         ...(seguimientoHecho ? { seguimiento: { tratamientoId: seguimientoHecho.tratamientoId, numero: seguimientoHecho.numero } } : {}),
       },
       request,
     });
     if (enSesion) await auditarCambioDeSesion(ctx, request, patientId, enSesion, bookingId!, visita.id);
-    if (paraSesion) {
-      // El vínculo se audita también bajo la SESIÓN (como `link_sesion_visita` del camino con cita).
-      await logAudit({
-        patientId, doctorId: ctx.doctorId, userId: ctx.userId, userRole: ctx.role,
-        action: 'link_sesion_visita', resourceType: 'tratamiento_sesion', resourceId: paraSesion,
-        changes: { visitaId: { to: visita.id }, motivo: 'visita abierta desde la sesión' },
-        request,
-      });
-    }
     if (seguimientoHecho) await auditarSeguimiento(ctx, request, patientId, seguimientoHecho, visita.id);
 
     return NextResponse.json(

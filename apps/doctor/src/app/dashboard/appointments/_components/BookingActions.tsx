@@ -15,7 +15,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Loader2, Pencil, Clock, UserSquare2, X, CheckCircle, Send, CalendarClock,
+  Loader2, Pencil, Clock, UserSquare2, X, CheckCircle, Send,
   Video, ExternalLink, AlertCircle, MessageCircle,
 } from "lucide-react";
 import { InlinePatientSearch } from "./InlinePatientSearch";
@@ -23,12 +23,13 @@ import { CreatePatientFromBookingModal } from "./CreatePatientFromBookingModal";
 import { FormularioStatusButton } from "./FormularioStatusButton";
 import { FiscalFormButton } from "./FiscalFormButton";
 import { PaymentLinkButton } from "@/components/payments/PaymentLinkButton";
-import { CompleteBookingModal } from "./CompleteBookingModal";
+import { CompleteBookingModal } from "@/components/citas/CompleteBookingModal";
 import { formatLocalDate } from "@/lib/dates";
 import { waNumber } from "@/lib/whatsapp";
 import { resolverContacto, telefonoWhatsApp } from "@/lib/booking-contact";
 import type { Booking } from "../_hooks/useBookings";
 import { NotaCitaButton } from "@/components/citas/NotaCitaButton";
+import { BotonesEstadoCita, citaReagendable } from "@/components/citas/BotonesEstadoCita";
 
 /**
  * Envuelve los controles que viven en la fila COLAPSADA (precio, expediente) para
@@ -411,12 +412,8 @@ export function StatusActions({
 
   const bookingDate = (booking.slot?.date ?? booking.date ?? "").split("T")[0];
   const endTime = booking.slot?.endTime ?? booking.endTime;
-  const nowMx = new Date().toLocaleString("sv-SE", { timeZone: "America/Mexico_City" });
-  const isVencida =
-    (booking.status === "PENDING" || booking.status === "CONFIRMED") &&
-    !!bookingDate && !!endTime &&
-    `${bookingDate} ${endTime}:00` < nowMx;
-  const canReschedule = booking.status === "CONFIRMED" || isVencida;
+  // La regla vive con los botones (09-PLAN L2): la visita y la sesión la usan igual.
+  const canReschedule = citaReagendable(booking.status, bookingDate, endTime);
 
   const handleSendEmail = async () => {
     setIsSendingEmail(true);
@@ -482,49 +479,16 @@ export function StatusActions({
   const estadoGroup = showStatusGroup && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Estado</span>
-          <div className="flex gap-1 flex-wrap">
-            {booking.status === "PENDING" && (
-              <button
-                onClick={() => onUpdateStatus(booking.id, "CONFIRMED")}
-                className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
-              >
-                Confirmar
-              </button>
-            )}
-            {/* H-070: a Pendiente can only be confirmed or cancelled (the server's VALID_TRANSITIONS); these
-                two used to show anyway and fail with «transición no permitida». */}
-            {booking.status === "CONFIRMED" && (
-              <>
-                <button
-                  onClick={() => setCompleteModalOpen(true)}
-                  className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 font-medium"
-                >
-                  Completar
-                </button>
-                <button
-                  onClick={() => onUpdateStatus(booking.id, "NO_SHOW")}
-                  className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
-                >
-                  No asistió
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => onUpdateStatus(booking.id, "CANCELLED")}
-              className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
-            >
-              Cancelar
-            </button>
-            {canReschedule && (
-              <button
-                onClick={() => onReschedule(booking)}
-                className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1"
-              >
-                <CalendarClock className="w-3 h-3" />
-                Reagendar
-              </button>
-            )}
-          </div>
+          {/* 09-PLAN L2: los MISMOS botones que la visita y la sesión del tratamiento. */}
+          <BotonesEstadoCita
+            status={booking.status}
+            puedeReagendar={canReschedule}
+            onConfirmar={() => onUpdateStatus(booking.id, "CONFIRMED")}
+            onCompletar={() => setCompleteModalOpen(true)}
+            onNoAsistio={() => onUpdateStatus(booking.id, "NO_SHOW")}
+            onCancelar={() => onUpdateStatus(booking.id, "CANCELLED")}
+            onReagendar={() => onReschedule(booking)}
+          />
         </div>
       );
 

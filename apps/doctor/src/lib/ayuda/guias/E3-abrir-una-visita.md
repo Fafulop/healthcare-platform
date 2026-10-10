@@ -6,9 +6,9 @@
 
 **Pasos — abrirla tú**
 1. Perfil del paciente → **«Nueva Visita»**.
-2. Elige la **Fecha** (cualquier día). Si ese día el paciente **tiene cita**, el botón abre **la visita de esa cita** (no se crea otra). Si no: **hoy** sale marcada **«También en la agenda»** (elige **Servicio** y **Hora**; se crea también su cita sin avisarle al paciente; desmárcala si no quieres cita); **un día futuro** pide **Servicio**, **Hora** y contacto y se agenda su cita (con su correo de confirmación) — la visita nace con ella.
+2. Elige la **Fecha** (cualquier día). **Toda visita lleva su cita.** Si ese día el paciente **tiene cita**, el botón abre **la visita de esa cita** (no se crea otra). Si no: **hoy** elige **Servicio** y **Hora** y se crea su cita sin avisarle al paciente; **un día pasado** igual, y enseguida se abre **«Completar cita»** para su cobro; **un día futuro** pide **Servicio**, **Hora** y contacto y se agenda su cita (con su correo de confirmación). La visita nace con su cita. Sin permiso de citas no se pueden crear visitas.
 3. Si te pregunta **«¿Es seguimiento?»**, deja «No» para una visita suelta. Si eliges una **visita anterior** (sólo salen las del mismo día o antes), se crea un tratamiento «Seguimiento del …» con las dos, y las dos dejan de verse en «Visitas» (están dentro del tratamiento).
-4. **«Crear visita»** (o **«Crear visita y agendar»** con la casilla, **«Agendar cita y crear visita»** en un día futuro, **«Abrir su visita»** si ese día tiene cita).
+4. **«Crear visita y agendar»** (hoy), **«Registrar cita y crear visita»** (un día pasado), **«Agendar cita y crear visita»** (un día futuro) o **«Abrir su visita»** si ese día tiene cita.
 
 **Qué vas a ver:** «Visita del …» con sus secciones: Cita · Plantillas · Fotos y documentos · Notas · Recetas · Ventas · Comentario.
 

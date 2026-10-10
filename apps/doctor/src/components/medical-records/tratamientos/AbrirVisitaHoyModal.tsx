@@ -11,28 +11,23 @@ import { horaDeAhora, useCitaEnConsulta } from '@/components/medical-records/vis
 const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent';
 
 /**
- * VISITAS 07-PLAN P3b — «Abrir visita hoy» de una sesión SIN cita que cuente. Visita y cita son el
- * espejo del mismo evento: con **«También en la agenda»** (marcada por default) nace también su cita
- * de HOY (`enConsulta`: sin exigir correo/teléfono/WhatsApp y sin avisar al paciente, que está
- * enfrente), queda Agendada y se cobra al concluirla, como cualquier otra. Desmarcada (o sin permiso
- * de citas) es lo de antes: la visita sola. La cita la crea `useCitaEnConsulta` (la misma que «Nueva
- * Visita»).
+ * VISITAS 07-PLAN P3b → 09-PLAN L3 — «Abrir visita hoy» de una sesión SIN cita que cuente. Visita y cita
+ * son el mismo evento y TODA visita lleva su cita (nota N2, 2026-10-10): nace su cita de HOY
+ * (`enConsulta`: sin exigir correo/teléfono/WhatsApp y sin avisar al paciente, que está enfrente),
+ * Agendada, que se cobra al completarla como cualquier otra; la visita nace con ella. Ya no hay casilla
+ * «También en la agenda» ni visita sola. Sólo se abre con permiso de citas y el tratamiento activo (lo
+ * decide la tarjeta de la sesión). La cita la crea `useCitaEnConsulta` (la misma que «Nueva Visita»).
  */
-export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinAgenda, onClose, onFallo }: {
+export function AbrirVisitaHoyModal({ patientId, s, planeadas, onClose, onFallo }: {
   patientId: string;
   s: SesionDeTratamiento;
   planeadas: number | null;
-  /** ¿Se ofrece la casilla? Permiso de `citas` y tratamiento activo. */
-  conAgenda: boolean;
-  /** Lo de antes: la visita sola (`paraSesion`). La crea y navega el hook del tratamiento. */
-  onSinAgenda: () => Promise<void>;
   onClose: () => void;
   /** Algo quedó a medias (la cita sí, la visita no): re-leer el tratamiento. */
   onFallo: () => void;
 }) {
   const router = useRouter();
-  const c = useCitaEnConsulta(patientId, conAgenda);
-  const [enAgenda, setEnAgenda] = useState(conAgenda);
+  const c = useCitaEnConsulta(patientId, true);
   const [servicioId, setServicioId] = useState(s.servicioId ?? '');
   const [hora, setHora] = useState(horaDeAhora);
   const [error, setError] = useState<string | null>(null);
@@ -42,17 +37,11 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
 
   const confirmar = async () => {
     setError(null);
-    if (!enAgenda) {
-      setTrabajando(true);
-      await onSinAgenda();
-      setTrabajando(false);
-      return;
-    }
     if (!listoParaAgenda) return;
     setTrabajando(true);
     const r = await c.crear({ servicioId, hora, paraSesion: s.id });
     if (!r.ok) {
-      // Traslape, horario bloqueado…: se queda en el modal para cambiar la hora o desmarcar.
+      // Traslape, horario bloqueado…: se queda en el modal para cambiar la hora.
       setError(r.error);
       setTrabajando(false);
       return;
@@ -97,26 +86,15 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
 
         <div className="px-5 py-4 space-y-4 text-sm">
           <p className="text-gray-700">
-            La visita queda con fecha de <strong>hoy</strong>
-            {enAgenda ? ' y la sesión cuenta como atendida al completar su cita.' : ' y la sesión cuenta como atendida.'}
-            {' '}Si la sesión es otro día, mejor agéndala.
+            Se agenda su cita de <strong>hoy</strong> (sin avisarle al paciente: está contigo) y la visita nace con
+            ella; la sesión se cobra al completar la cita. Si la sesión es otro día, mejor agéndala.
           </p>
 
-          {conAgenda && (
-            <CasillaEnAgenda enAgenda={enAgenda} setEnAgenda={setEnAgenda} />
-          )}
-
-          {conAgenda && enAgenda && (
-            <CamposDeCita
-              c={c} servicioId={servicioId} setServicioId={setServicioId} hora={hora} setHora={setHora}
-              aviso={elegido && s.precio != null && s.fuente === 'sesion' && s.precio !== elegido.price
-                ? `La cita toma el precio de la sesión: ${pesos(s.precio)}.` : null}
-            />
-          )}
-
-          {!enAgenda && conAgenda && (
-            <p className="text-xs text-amber-700">Sin cita: esta sesión no se cobra desde la agenda.</p>
-          )}
+          <CamposDeCita
+            c={c} servicioId={servicioId} setServicioId={setServicioId} hora={hora} setHora={setHora}
+            aviso={elegido && s.precio != null && s.fuente === 'sesion' && s.precio !== elegido.price
+              ? `La cita toma el precio de la sesión: ${pesos(s.precio)}.` : null}
+          />
 
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
         </div>
@@ -127,11 +105,11 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
           </button>
           <button
             onClick={confirmar}
-            disabled={trabajando || (enAgenda && !listoParaAgenda)}
+            disabled={trabajando || !listoParaAgenda}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5 font-medium"
           >
             {trabajando && <Loader2 className="w-4 h-4 animate-spin" />}
-            {enAgenda ? 'Abrir visita y agendar' : 'Abrir visita'}
+            Abrir visita y agendar
           </button>
         </div>
       </div>
@@ -139,22 +117,7 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
   );
 }
 
-/** La casilla «También en la agenda» (la misma en «Abrir visita hoy» y en «Nueva Visita»). */
-export function CasillaEnAgenda({ enAgenda, setEnAgenda }: { enAgenda: boolean; setEnAgenda: (v: boolean) => void }) {
-  return (
-    <label className="flex items-start gap-2 cursor-pointer">
-      <input type="checkbox" checked={enAgenda} onChange={(e) => setEnAgenda(e.target.checked)} className="mt-0.5" />
-      <span>
-        <span className="font-medium text-gray-900">También en la agenda</span>
-        <span className="block text-xs text-gray-500">
-          Se crea su cita de hoy (sin avisarle al paciente) y se cobra al completarla, como cualquier otra.
-        </span>
-      </span>
-    </label>
-  );
-}
-
-/** Servicio y hora de la cita de hoy. */
+/** Servicio y hora de la cita (la de hoy aquí; la de cualquier día en «Nueva Visita»). */
 export function CamposDeCita({ c, servicioId, setServicioId, hora, setHora, aviso }: {
   c: ReturnType<typeof useCitaEnConsulta>;
   servicioId: string; setServicioId: (v: string) => void;

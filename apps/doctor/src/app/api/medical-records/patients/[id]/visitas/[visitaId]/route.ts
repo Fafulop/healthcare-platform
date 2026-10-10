@@ -129,7 +129,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const bookingFinal = visita.bookingId;
     // 08-PLAN F1 (2026-10-09): ya NO se liga ni se desliga una cita a mano — visita y cita son el
-    // mismo evento: la de una cita nace con ella; una suelta crea su cita («También en la agenda»).
+    // mismo evento: la de una cita nace con ella, y desde 09-PLAN L3 toda visita nueva lleva su cita.
     // Re-enviar la MISMA cita (un formulario que manda todo) no es ligar: se ignora.
     if (body.bookingId !== undefined && body.bookingId !== visita.bookingId) {
       throw new AppError('Ya no se liga ni se desliga una cita a una visita', 400);

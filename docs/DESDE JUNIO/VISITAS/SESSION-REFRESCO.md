@@ -5,6 +5,46 @@
 > paso en `02-PLAN-fase-1.md` (§4 backfill, §5.1 D1, §5.2 D2, §5.3 D3, §5.4 D4). Este doc NO repite eso:
 > lo señala.
 
+## 📝 NOTAS PARA UN LOTE (el usuario las va juntando; NO se hacen sueltas — se hacen juntas cuando haya varias)
+
+> **2026-10-10: N1 · N2 · N3 ESCRITAS (un solo commit, sin push aún)** — cómo, en `09-PLAN-lote-N1-N3.md`.
+> Type-check doctor + api y `pnpm gates` en verde; review hecho. Falta: OK del usuario → push → prueba en prod
+> (la lista de prueba está al final del 09-PLAN).
+
+- [ ] **N1 (2026-10-10) — «Cancelar tratamiento» avisa que sus citas siguen vivas.** Hoy el botón hace un
+  PATCH directo (sin modal): sólo cambia el estado + bitácora; las citas agendadas de sus sesiones se
+  quedan en la agenda, AGENDADAS y sin avisar al paciente. Pedido: un modal de confirmación que diga que
+  las citas abiertas NO se cancelan y hay que cancelarlas a mano, una por una. (Ofrecer «cancelar también
+  las N citas» quedó como idea aparte, no pedida.)
+- [ ] **N2 (2026-10-10) — TODA visita lleva cita (sin excepciones).** Revierte la flexibilidad que el
+  usuario pidió en 07-PLAN («visitas que nunca tengan cita en la agenda»). Hoy: HOY la cita es opcional
+  (casilla «También en la agenda»), FUTURO la exige, PASADO no la ofrece (visita sola). Por decidir al
+  planearlo: (a) un día PASADO — ¿se crea una cita en el pasado y con qué estado (¿COMPLETADA? ¿genera
+  cobro/ingreso?) y sin avisar al paciente; (b) quien NO tiene permiso de citas (ayudante) — hoy crea
+  visitas sueltas; ¿deja de poder?; (c) las visitas sueltas que YA existen (se quedan como están);
+  (d) «Abrir visita hoy» del tratamiento y «Agendar seguimiento» ya crean cita — revisar que no quede
+  otro camino (API `POST visitas` sin cita, el asistente del «?»/manual que lo describen).
+  **Decidido 2026-10-10 (el usuario aceptó las recomendaciones):** (a) día pasado → cita creada ya
+  COMPLETADA, sin avisar al paciente y sin pedir cobro al crearla (queda «Sin cobro registrado» y se
+  cobra desde la cita como cualquier otra) — *propuesta de Claude, confirmarla al planear*; (b) sin
+  permiso de citas → ya no crea visitas, sólo abre las de las citas — *propuesta, confirmarla al
+  planear*; (c) las sueltas que ya existen se quedan como están; (d) cerrar todos los caminos sin cita,
+  incluida la API, y actualizar manual + guía E3 + `capabilities.ts` en el mismo commit.
+  (2026-10-10: el usuario confirmó también (a) y (b) — ya no son propuestas.)
+- [ ] **N4 (2026-10-10, hallado en la revisión de 09) — La cita de HOY «en consulta» recibe correo de
+  cancelación.** «Nueva Visita» hoy / «Abrir visita hoy» crean la cita sin avisar al paciente; si se cancela
+  ESE MISMO DÍA, `bookings/[id]` PATCH le manda el correo de cancelación de una cita que nunca supo que
+  existía (las de un día pasado ya no: 09 L3). Arreglo de raíz: guardar en la cita que no se avisó
+  (columna nueva → SQL manual, no `db push`) y saltar el correo con eso, no con la fecha.
+- [ ] **N3 (2026-10-10) — Las acciones de la cita también desde la visita y desde la sesión.** En la
+  página de la visita y en la tarjeta de cada sesión del tratamiento: **Completar · No asistió ·
+  Cancelar · Reagendar**, como en la fila de la agenda (`/dashboard/appointments`). Deben ser LAS MISMAS
+  (mismo componente/mismo flujo, no una copia): completar pide el cobro y registra el ingreso igual que
+  en la agenda, cancelar avisa igual, etc. Hoy: la visita no tiene ninguna; la sesión sólo tiene
+  «Reagendar» y «Cancelar sesión» (que ofrece cancelar también la cita). Al planear: buscar el
+  componente de acciones de la agenda y si se puede montar fuera de la tabla; permisos (`citas`,
+  `flujo` para el cobro); y que tras cada acción se refresque el estado de la visita/sesión.
+
 ## 🆕 2026-10-09 (tarde) — PLAN 08 «la cita nace con su visita» ESCRITO, esperando OK
 
 `08-PLAN-cita-nace-con-visita.md`: ya no se liga cita↔visita a mano; toda cita con expediente nace con su

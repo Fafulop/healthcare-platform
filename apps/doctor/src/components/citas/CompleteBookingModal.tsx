@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, CheckCircle, Loader2, Banknote, CreditCard, FileText, Building2, Receipt } from "lucide-react";
-import type { Booking } from "../_hooks/useBookings";
+import type { PatientBooking } from "@/components/medical-records/CitaBadges";
 
 /**
  * COMPLETAR ≠ FACTURAR (2026-08-13). Este modal ya NO emite CFDIs.
@@ -17,8 +17,49 @@ import type { Booking } from "../_hooks/useBookings";
  * Lo que SÍ se queda aquí es la INFORMACIÓN: si la cita ya tiene factura, se
  * dice (abajo) para que nadie intente emitir otra por fuera.
  */
+/** Lo que el modal lee de un link de pago. */
+interface LinkParaCompletar { status: string; isActive: boolean; paidAt: string | null; amount: string | number }
+
+/**
+ * Lo que este modal de verdad lee de la cita (09-PLAN L2): la agenda le pasa su `Booking` tal cual (lo
+ * cumple), y la visita y la sesión del tratamiento lo arman de su `PatientBooking` con
+ * `citaParaCompletarDe` — el MISMO modal en las tres pantallas.
+ */
+export interface CitaParaCompletar {
+  patientName: string;
+  serviceName?: string | null;
+  finalPrice: number;
+  ingreso?: { formaDePago: string | null; amount: number } | null;
+  paymentLink?: LinkParaCompletar | null;
+  mpPaymentPreference?: LinkParaCompletar | null;
+  facturada?: boolean;
+  /** Sin permiso de `flujo` no viaja el cobro de la cita: no se sabe si ya se pagó (el servidor sí). */
+  cobroOculto?: boolean;
+}
+
+/**
+ * La cita del expediente (`GET …/patients/[id]/bookings`) en la forma del modal. Sin permiso de `flujo`
+ * no viajan precio, ingreso ni links: el monto arranca vacío y, si ya había ingreso, el servidor lo
+ * detecta y no cobra dos veces (lo dice el aviso al completar).
+ */
+export function citaParaCompletarDe(b: PatientBooking, patientName: string): CitaParaCompletar {
+  // `estadoPago` sólo viaja con `flujo` (lo arma el servidor con ingreso + links). Sin él, `ledgerEntryId`
+  // puede venir (lo ve `facturacion`) pero NO su monto: armar `ingreso` diría «$0 recibidos».
+  const conFlujo = b.estadoPago !== undefined;
+  return {
+    patientName,
+    serviceName: b.serviceName,
+    finalPrice: Number(b.finalPrice ?? 0) || 0,
+    ingreso: conFlujo && b.ledgerEntryId != null ? { formaDePago: b.formaDePago ?? null, amount: Number(b.amount ?? 0) } : null,
+    paymentLink: b.stripeLink ?? null,
+    mpPaymentPreference: b.mpLink ?? null,
+    facturada: b.facturada,
+    cobroOculto: !conFlujo,
+  };
+}
+
 interface Props {
-  booking: Booking;
+  booking: CitaParaCompletar;
   onClose: () => void;
   onConfirm: (price: number, formaDePago: string) => Promise<{ ledgerEntryId?: number }>;
 }
@@ -214,6 +255,14 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
             </div>
           </div>
 
+          {/* Sin permiso de Flujo no se ve si ya se cobró: se dice, en vez de insinuar que no (revisión 09). */}
+          {booking.cobroOculto && (
+            <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded px-2 py-1.5">
+              No puedes ver el cobro de esta cita (es del permiso de Flujo de Dinero). Si ya se pagó, completarla no la
+              cobra dos veces: se queda lo que se pagó.
+            </p>
+          )}
+
           {/* Forma de pago — no aplica a una cortesía ($0): no entra dinero. */}
           {!cortesia && (
           <div>
@@ -260,7 +309,9 @@ export function CompleteBookingModal({ booking, onClose, onConfirm }: Props) {
             <p className="text-xs text-gray-400">
               {cortesia
                 ? "Cortesía: no se registra ningún ingreso en Flujo de Dinero."
-                : "Se registrará un ingreso en Flujo de Dinero automáticamente."}
+                : booking.cobroOculto
+                  ? "Si no se había cobrado, se registrará un ingreso en Flujo de Dinero."
+                  : "Se registrará un ingreso en Flujo de Dinero automáticamente."}
             </p>
           )}
 

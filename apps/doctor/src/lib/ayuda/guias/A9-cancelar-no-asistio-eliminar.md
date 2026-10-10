@@ -11,7 +11,7 @@
 1. En la tabla, filtro **«Más estados…» → «Todos los estados»** para verla.
 2. Abre la cita → **«Eliminar»** → **«Confirmar»**.
 
-**Qué vas a ver:** «Cancelar» → estado **«CANCELADA»**, el horario vuelve a quedar libre y el paciente recibe un correo de cancelación. «No asistió» → **«NO ASISTIÓ»**, sin aviso al paciente. «Eliminar» → «Cita eliminada exitosamente»; la cita desaparece y en tu actividad reciente queda «Cita eliminada».
+**Qué vas a ver:** «Cancelar» → estado **«CANCELADA»**, el horario vuelve a quedar libre y el paciente recibe un correo de cancelación (no si la cita era de un día que ya pasó). «No asistió» → **«NO ASISTIÓ»**, sin aviso al paciente. «Eliminar» → «Cita eliminada exitosamente»; la cita desaparece y en tu actividad reciente queda «Cita eliminada».
 
 **Tu dinero:** cancelar y no asistió no registran nada. **Eliminar una cita cobrada no borra su ingreso**: se queda en Flujo de Dinero.
 

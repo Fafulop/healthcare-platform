@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   AlertCircle, ArrowLeft, CalendarDays, FileText, Image as ImageIcon, ListChecks, Loader2, NotebookPen, Pill, Plus, ShoppingCart, Trash2,
 } from 'lucide-react';
@@ -17,6 +18,9 @@ import { getClinicDateString } from '@/lib/dates';
 import { etiquetaSesion, tratamientoHref, tratamientosUiActiva } from '@/lib/tratamientos-ui';
 import { useVisitaDetalle, type ConsultaDeVisita } from '../_components/useVisitaDetalle';
 import { AgendarSeguimiento } from '@/components/medical-records/tratamientos/AgendarSeguimiento';
+import { citaReagendable } from '@/components/citas/BotonesEstadoCita';
+import { useAccionesDeCita } from '@/components/citas/useAccionesDeCita';
+import { toast } from '@/lib/practice-toast';
 
 // Los `origen` que existen: D1 ('cita') y la API de D2 ('manual'). 'backfill' lo admite la BD (CHECK)
 // para el script `scripts/visitas/backfill-visitas.cjs`, que se DESCARTÓ el 2026-09-29 y nunca corrió:
@@ -72,6 +76,21 @@ export default function VisitaPage() {
   const v = useVisitaDetalle();
   const { patientId, visitaId, visita } = v;
   const pacienteHref = `/dashboard/medical-records/patients/${patientId}`;
+  const router = useRouter();
+  // 09-PLAN L2 (nota N3) — las acciones de la cita, las MISMAS de la agenda. Cancelar / No asistió con la
+  // visita vacía: el servidor la borra con la cita (08 F2) — se vuelve al paciente en vez de enseñar
+  // «esta visita no existe». (Hook arriba de los `return` tempranos: la cita se busca aquí.)
+  const booking = v.visita?.cita && v.bookings ? v.bookings.find((b) => b.id === v.visita!.cita!.id) : undefined;
+  const acciones = useAccionesDeCita({
+    booking,
+    patientName: v.patientName,
+    despues: async () => {
+      if (await v.recargarCita() === 'no-existe') {
+        toast.success('La visita estaba vacía: se borró junto con la cita.');
+        router.push(pacienteHref);
+      }
+    },
+  });
 
   const [comentario, setComentario] = useState('');
   const [fecha, setFecha] = useState('');
@@ -125,7 +144,14 @@ export default function VisitaPage() {
   const verCitas = v.permisos?.citas ?? false;
   const verCobro = v.permisos?.flujo ?? false;
   const verFactura = v.permisos?.facturacion ?? false;
-  const booking = cita && v.bookings ? v.bookings.find((b) => b.id === cita.id) : undefined;
+
+  // Reagendar = el modal de la agenda (con el horario, los avisos y el traslado de pago/sesión que ya
+  // hace); al terminar regresa aquí — la visita viaja con su cita.
+  const reagendar = () => {
+    if (!booking) return;
+    const volver = `${pacienteHref}/visitas/${visitaId}`;
+    router.push(`/dashboard/appointments?reagendar=${encodeURIComponent(booking.id)}&volver=${encodeURIComponent(volver)}`);
+  };
   // «Nueva venta» lleva el servicio de la cita de esta visita (y si ya tiene cobro en Flujo) para que
   // la venta AVISE si se le agrega ese mismo servicio: se cobraría dos veces (el cobro de la cita ya
   // lo cuenta). Sólo un aviso — el servidor no lo usa para nada.
@@ -205,7 +231,7 @@ export default function VisitaPage() {
         </div>
       </div>
 
-      {/* La cita: fecha, hora y cobro son de la AGENDA; aquí sólo se leen. */}
+      {/* La cita: fecha, hora y cobro son de la AGENDA. Sus acciones de estado son las de la agenda (09 L2). */}
       <Seccion icon={<CalendarDays className="w-5 h-5 text-teal-600" />} titulo="Cita">
         {cita ? (
           cita.status ? (
@@ -234,6 +260,11 @@ export default function VisitaPage() {
                 </div>
               )}
               {/* 08-PLAN F1: la cita ya no se desliga (ni se liga otra): visita y cita son el mismo evento. */}
+              {verCitas && booking && acciones.botones({
+                puedeReagendar: citaReagendable(booking.status, booking.date, booking.endTime),
+                onReagendar: reagendar,
+              })}
+              {acciones.modal}
             </div>
           ) : (
             // Sin permiso de `citas` sólo llega el id: HAY cita, no se puede ver.

@@ -78,15 +78,18 @@ export function useVisitaDetalle() {
   const [permisos, setPermisos] = useState<BookingPermisos | null>(null);
   const [trabajando, setTrabajando] = useState(false);
 
-  const cargarDetalle = useCallback(async () => {
+  // Devuelve el estado al que llegó (09-PLAN L2: tras cancelar la cita, «no-existe» = se borró vacía).
+  const cargarDetalle = useCallback(async (): Promise<Estado> => {
     try {
       const res = await fetch(`${base}/visitas/${visitaId}`);
-      if (res.status === 404) { setEstado('no-existe'); return; }
+      if (res.status === 404) { setEstado('no-existe'); return 'no-existe'; }
       const d = await json(res);
       setVisita(d.data);
       setEstado('ok');
+      return 'ok';
     } catch {
       setEstado('error');
+      return 'error';
     }
   }, [base, visitaId]);
 
@@ -185,5 +188,7 @@ export function useVisitaDetalle() {
     patientId, visitaId, doctorId: session?.user?.doctorId ?? null, sessionStatus,
     estado, visita, patientName, otrasVisitas, sueltas, bookings, permisos, trabajando,
     guardarComentario, guardarFecha, moverConsulta, traerConsulta, borrar,
+    // 09-PLAN L2: tras completar / no asistió / confirmar la cita desde aquí — su estado y su cobro.
+    recargarCita: async () => (await Promise.all([cargarDetalle(), cargarCitas()]))[0],
   };
 }
