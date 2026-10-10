@@ -322,6 +322,16 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             blockedIf: 'Alguna sesión tiene cita o visita, o hay pagos del tratamiento: se usa "Cancelar tratamiento".',
           },
 
+          'ver lo que debe o pagó un paciente': {
+            allowedIf:
+              'Perfil del paciente → botón "Cobros": Totales (Registrado · Pagado · Pendiente; con permiso de Flujo), sus ' +
+              'citas (como "Citas e Ingresos": Facturar, PDF/XML, borradores) con "Abrir su visita" y "Acciones de la ' +
+              'cita" (la tarjeta de la agenda), y sus ventas (con permiso de Ventas).',
+            notes:
+              'Registrado = cobros registrados de sus citas + sus ventas; Pendiente = lo registrado que falta pagar. Lo ' +
+              'por cobrar de citas agendadas y las completadas sin cobro se dicen aparte y no suman.',
+          },
+
           'cobrar un tratamiento': {
             allowedIf:
               'Ya no hay precio de paquete: cada sesión tiene su servicio y su precio ("⋯" → "Servicio y precio"), y se ' +

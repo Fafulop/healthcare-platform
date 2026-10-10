@@ -415,6 +415,17 @@ permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
   «Agregar» o «Editar».
 - **Citas e Ingresos** — sus citas, con si están pagadas y facturadas.
 
+**«Cobros»** (botón arriba, junto a «Notas») — el estado de cuenta del paciente en su propia página:
+- **Totales** (con permiso de Flujo de Dinero): **Registrado** (los cobros de sus citas —lo que se
+  registró al completarlas o al pagar su link— y sus ventas), **Pagado** y **Pendiente** (lo registrado
+  que falta pagar). Aparte dice lo **por cobrar** de sus citas agendadas (su precio) y cuántas citas
+  completadas no tienen cobro registrado (cortesía o sin registrar): ésas no suman.
+- **Citas** — las mismas de «Citas e Ingresos» (Facturar, PDF/XML, borradores, «Nueva factura
+  manual»), cada una con **«Abrir su visita»** y **«Acciones de la cita»**: la misma tarjeta de la
+  agenda (precio, confirmación, link de pago, factura, formulario, estado).
+- **Ventas** (con permiso de Ventas) — sus ventas, cada una con su visita si la tiene, y **«+ Nueva
+  venta»**.
+
 En **Visitas** sólo salen las visitas que **no** son de un tratamiento. Las que son sesión de un
 tratamiento se abren desde el tratamiento (tarjeta **Tratamientos**); abajo de la lista dice cuántas son.
 
@@ -826,7 +837,8 @@ ya está lleno, te avisa cuántos lugares incluye y no lo reactiva.
 
 ### Facturar desde el expediente
 
-Sección **«Citas e Ingresos»** del perfil. Cada cita muestra si está pagada y si está facturada.
+Sección **«Citas e Ingresos»** del perfil (y la página **«Cobros»**, que trae lo mismo). Cada cita
+muestra si está pagada y si está facturada.
 
 - **«Facturar»** aparece cuando la cita ya tiene ingreso registrado (se completó con precio, o
   se pagó con link) y el paciente tiene sus **datos fiscales completos**.
