@@ -2,7 +2,7 @@
 
 // La cita de un paciente tal como la manda `GET /api/medical-records/patients/[id]/bookings`, y los
 // chips que la pintan. Salieron de la página del paciente (VISITAS D4) para que la visita pinte el
-// MISMO veredicto que «Citas e Ingresos» y no uno propio.
+// MISMO veredicto que la página «Cobros» y no uno propio.
 
 export interface BookingCfdi {
   id: number;

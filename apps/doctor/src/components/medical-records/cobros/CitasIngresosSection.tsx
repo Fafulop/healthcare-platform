@@ -4,9 +4,9 @@
  * «Citas e Ingresos»: cada cita del paciente con su cobro y su factura (Facturar con sus datos fiscales,
  * PDF/XML del CFDI, los borradores del asistente) y «Nueva factura manual».
  *
- * VISITAS 10-PLAN P2: vivía dentro del perfil del paciente (`patients/[id]/page.tsx`). Se movió aquí SIN
- * cambiarle nada para que la página «Cobros» del expediente la use (y el perfil, hasta P3). Lo único nuevo:
- * `extraPorCita` (al pie de cada cita) y `titulo`.
+ * VISITAS 10-PLAN P2/P3: vivía dentro del perfil del paciente (`patients/[id]/page.tsx`). Se movió aquí SIN
+ * cambiarle nada y desde P3 sólo la usa la página «Cobros» (el perfil enseña `ResumenCobros`). Lo único
+ * nuevo: `extraPorCita` (al pie de cada cita), `titulo` y `datosFiscalesHref`.
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
@@ -56,7 +56,7 @@ interface CfdiDraft {
  *  DENTRO de la tarjeta de su cita, no flotando encima de la lista: un borrador
  *  siempre cuelga de un ingreso (`ledgerEntryId`), o sea de una cita concreta,
  *  y suelto arriba no se sabía de cuál. */
-function useCfdiDrafts(patientId: string, bookingEntryIds: Set<number>, enabled: boolean) {
+export function useCfdiDrafts(patientId: string, bookingEntryIds: Set<number>, enabled: boolean) {
   const [drafts, setDrafts] = useState<CfdiDraft[]>([]);
 
   const fetchDrafts = useCallback(async () => {
@@ -166,7 +166,9 @@ function CfdiDraftRow({
   );
 }
 
-export function CitasIngresosSection({ bookings, permisos, estado, patient, extraPorCita, titulo = 'Citas e Ingresos', datosFiscalesHref = '#datos-fiscales' }: CitasIngresosSectionProps) {
+export function CitasIngresosSection({ bookings, permisos, estado, patient, extraPorCita, titulo = 'Citas', datosFiscalesHref }: CitasIngresosSectionProps) {
+  // Los datos fiscales se capturan en el PERFIL (su tarjeta), no aquí.
+  const hrefDatosFiscales = datosFiscalesHref ?? `/dashboard/medical-records/patients/${patient.id}#datos-fiscales`;
   const router = useRouter();
   // Qué bloques se pintan: lo decide el SERVIDOR (y además no manda lo que no se
   // puede ver). Mientras no llegan los permisos, CERRADO: sin esto un member sin
@@ -459,7 +461,7 @@ export function CitasIngresosSection({ bookings, permisos, estado, patient, extr
                              fiscales" y ahí se acababa. */
                           <span className="text-xs text-gray-500">
                             Faltan datos fiscales —{' '}
-                            <a href={datosFiscalesHref} className="text-blue-600 hover:underline">captúralos</a>
+                            <a href={hrefDatosFiscales} className="text-blue-600 hover:underline">captúralos</a>
                           </span>
                         )}
                       </div>

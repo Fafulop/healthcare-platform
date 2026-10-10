@@ -13,6 +13,7 @@ import type { BookingPermisos } from '@/lib/booking-permisos';
 import { usePermissions } from '@/lib/permissions-client';
 import { authFetch } from '@/lib/auth-fetch';
 import { visitaHref } from '@/lib/visitas-ui';
+import { calcularCuenta } from '@/components/medical-records/cobros/cuenta';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 const pesos = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -29,7 +30,7 @@ const VENTA_PAGO: Record<string, string> = { PENDING: 'Pendiente', PARTIAL: 'Pag
  *   · Totales (con `flujo`): lo REGISTRADO (ingresos de sus citas + sus ventas), lo pagado y lo que se debe
  *     de eso; aparte, lo que está por cobrar de las citas agendadas (su precio de lista). No se adivina: una
  *     cita completada SIN ingreso (cortesía, o sin registrar) no suma — se cuenta y se dice.
- *   · Las citas: «Citas e Ingresos» (la misma sección que tenía el perfil: Facturar, CFDI, borradores),
+ *   · Las citas: `CitasIngresosSection` (la que estuvo en el perfil hasta P3: Facturar, CFDI, borradores),
  *     cada una con su visita y la tarjeta completa de la cita (la de la agenda) plegada.
  *   · Las ventas (con `ventas`), cada una con su visita.
  */
@@ -87,40 +88,8 @@ export default function CobrosPage() {
     return () => { vigente = false; };
   }, [puedeVentas, patientId]);
 
-  // Regla 0: si está pagada lo decide el SERVIDOR (`estadoPago`, el mismo veredicto del chip de cada cita —
-  // ingreso + links juntos), no los campos sueltos: un ingreso marcado pagado sin `amountPaid`, o un link
-  // pagado cuyo ingreso no se escribió, decían «pendiente» al lado de un chip «Pagado». Lo pendiente se
-  // suma RENGLÓN por renglón: lo de más en uno no tapa lo que se debe en otro.
-  const totales = useMemo(() => {
-    let registrado = 0, pagado = 0, pendiente = 0, porCobrar = 0, completadasSinCobro = 0;
-    const sumar = (monto: number, pagadoAqui: number) => {
-      registrado += monto; pagado += pagadoAqui; pendiente += Math.max(0, monto - pagadoAqui);
-    };
-    for (const b of bookings) {
-      if (b.status === 'CANCELLED' || b.estadoPago === 'CUBIERTA') continue;
-      const montoLink = Number(b.stripeLink?.status === 'PAID' ? b.stripeLink.amount : b.mpLink?.status === 'PAID' ? b.mpLink.amount : 0);
-      if (b.ledgerEntryId != null && b.amount != null) {
-        const monto = Number(b.amount);
-        sumar(monto, b.estadoPago === 'PAGADO' ? monto : b.estadoPago === 'PARCIAL' ? Number(b.amountPaid ?? 0) : 0);
-      } else if (b.estadoPago === 'PAGADO') {
-        // Pagada por link SIN ingreso escrito: cuenta lo que se pagó.
-        const monto = montoLink || Number(b.finalPrice ?? 0);
-        sumar(monto, monto);
-      } else if (b.status === 'PENDING' || b.status === 'CONFIRMED') {
-        porCobrar += Number(b.finalPrice ?? 0);
-      } else if (b.status === 'COMPLETED') {
-        completadasSinCobro += 1;
-      }
-    }
-    if (Array.isArray(ventas)) {
-      for (const v of ventas) {
-        if (v.status === 'CANCELLED') continue;
-        const monto = Number(v.total);
-        sumar(monto, v.paymentStatus === 'PAID' ? monto : v.paymentStatus === 'PARTIAL' ? Number(v.amountPaid ?? 0) : 0);
-      }
-    }
-    return { registrado, pagado, pendiente, porCobrar, completadasSinCobro };
-  }, [bookings, ventas]);
+  // La regla vive en `cobros/cuenta.ts`: la misma que el resumen del perfil (si no, se contradecían).
+  const totales = useMemo(() => calcularCuenta(bookings, Array.isArray(ventas) ? ventas : null), [bookings, ventas]);
 
   if (sessionStatus === 'loading' || loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;

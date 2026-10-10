@@ -278,8 +278,8 @@ Después puedes copiar el link o mandarlo por WhatsApp, y cuando el paciente pag
    grupo **«Factura»**.
 2. **«Facturación»** crea un formulario para que el paciente capture sus **datos fiscales**. Lo
    copias o lo mandas por WhatsApp. Cuando el paciente lo llena, el botón dice «Datos fiscales».
-3. La factura se emite desde el **expediente del paciente**, sección «Citas e Ingresos», botón
-   «Facturar» (ver [Facturar desde el expediente](#facturar-desde-el-expediente)).
+3. La factura se emite desde el **expediente del paciente**, página **«Cobros»** (botón «Cobros» de su
+   perfil), botón «Facturar» (ver [Facturar desde el expediente](#facturar-desde-el-expediente)).
 
 **Facturas al mes según tu plan:** Gratis 5 (al llegar ya no deja timbrar otra hasta el día 1; con el plan Pro tienes 25), Pro 25 incluidas (puedes seguir timbrando; las de más se contarán como extra). Cuentan las facturas de ingreso del mes, **canceladas incluidas**; los complementos de pago y las notas de crédito no cuentan. Arriba de Facturación ves «Facturas este mes: N de M».
 
@@ -413,15 +413,17 @@ permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
   «Regenerar Resumen». **Depende de tu plan.**
 - **Datos Fiscales** — RFC, Código Postal Fiscal, Razón Social, Régimen Fiscal, Uso CFDI.
   «Agregar» o «Editar».
-- **Citas e Ingresos** — sus citas, con si están pagadas y facturadas.
+- **Cobros** — lo pendiente de pago y lo por cobrar de sus citas (con permiso de Flujo de Dinero),
+  cuántas citas están listas para facturar y los borradores de factura del asistente (con permiso de
+  Facturación), **«Nueva factura manual»** y **«Ver»**, que abre la página «Cobros».
 
 **«Cobros»** (botón arriba, junto a «Notas») — el estado de cuenta del paciente en su propia página:
 - **Totales** (con permiso de Flujo de Dinero): **Registrado** (los cobros de sus citas —lo que se
   registró al completarlas o al pagar su link— y sus ventas), **Pagado** y **Pendiente** (lo registrado
   que falta pagar). Aparte dice lo **por cobrar** de sus citas agendadas (su precio) y cuántas citas
   completadas no tienen cobro registrado (cortesía o sin registrar): ésas no suman.
-- **Citas** — las mismas de «Citas e Ingresos» (Facturar, PDF/XML, borradores, «Nueva factura
-  manual»), cada una con **«Abrir su visita»** y **«Acciones de la cita»**: la misma tarjeta de la
+- **Citas** — cada una con su cobro y su factura (Facturar, PDF/XML, borradores; arriba, «Nueva factura
+  manual»), y cada una con **«Abrir su visita»** y **«Acciones de la cita»**: la misma tarjeta de la
   agenda (precio, confirmación, link de pago, factura, formulario, estado).
 - **Ventas** (con permiso de Ventas) — sus ventas, cada una con su visita si la tiene, y **«+ Nueva
   venta»**.
@@ -429,7 +431,7 @@ permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
 En **Visitas** sólo salen las visitas que **no** son de un tratamiento. Las que son sesión de un
 tratamiento se abren desde el tratamiento (tarjeta **Tratamientos**); abajo de la lista dice cuántas son.
 
-Visitas, Consultas sin visita, Formularios, Notas Recientes y Citas e Ingresos enseñan sólo las
+Visitas, Consultas sin visita, Formularios, Notas Recientes y las citas de «Cobros» enseñan sólo las
 **3 más recientes**; Tratamientos enseña **3, los activos primero**. El botón **«Ver N más»** debajo
 abre los demás y «Ver menos» los vuelve a cerrar.
 
@@ -837,12 +839,12 @@ ya está lleno, te avisa cuántos lugares incluye y no lo reactiva.
 
 ### Facturar desde el expediente
 
-Sección **«Citas e Ingresos»** del perfil (y la página **«Cobros»**, que trae lo mismo). Cada cita
-muestra si está pagada y si está facturada.
+Página **«Cobros»** del expediente (botón «Cobros» del perfil). Cada cita muestra si está pagada y si
+está facturada.
 
 - **«Facturar»** aparece cuando la cita ya tiene ingreso registrado (se completó con precio, o
   se pagó con link) y el paciente tiene sus **datos fiscales completos**.
-- Si faltan, dice **«Faltan datos fiscales»**: captúralos en Datos Fiscales o pídeselos al
+- Si faltan, dice **«Faltan datos fiscales»**: captúralos en Datos Fiscales (en su perfil) o pídeselos al
   paciente con el formulario desde la cita (ver [Facturar una cita](#facturar-una-cita)).
 - Ya facturada: «Facturado · Folio N» y los archivos PDF y XML para descargar.
 - Para una factura que **no viene de una cita** (insumos, un saldo aparte), usa el botón de

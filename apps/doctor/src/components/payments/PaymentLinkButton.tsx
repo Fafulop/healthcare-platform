@@ -1,7 +1,7 @@
 'use client';
 
 // Botón de link de pago LIGADO a una cita — reusable en /appointments (celda de acciones)
-// y en el expediente (sección "Citas e Ingresos"). Estados:
+// y en el expediente (página «Cobros»). Estados:
 //   · link pagado   → chip verde "Pagado"
 //   · link activo   → chip "Link enviado" + Copiar + WhatsApp
 //   · sin link      → botón "Link de pago" → modal (proveedor + monto) → crea con bookingId

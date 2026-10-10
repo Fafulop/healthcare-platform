@@ -6,7 +6,7 @@
 1. En la fila de la cita marca **«¿Necesita factura?»**. Aparece el grupo **FACTURA**.
 2. **«Facturación»** → se crea el enlace: **«Copiar»** o **«WhatsApp»** para mandarlo.
 
-**Qué vas a ver:** «Enlace de datos fiscales creado» y el botón dice **«Esperando datos»**. Cuando el paciente los captura, dice **«Datos fiscales»**. La factura se emite desde el expediente, «Citas e Ingresos».
+**Qué vas a ver:** «Enlace de datos fiscales creado» y el botón dice **«Esperando datos»**. Cuando el paciente los captura, dice **«Datos fiscales»**. La factura se emite desde el expediente, página «Cobros».
 
 **Video:** (pendiente)
 

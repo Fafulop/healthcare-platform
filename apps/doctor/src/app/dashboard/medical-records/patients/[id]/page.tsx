@@ -24,7 +24,8 @@ import { usePermissions } from '@/lib/permissions-client';
 import type { BookingPermisos } from '@/lib/booking-permisos';
 import { getClinicDateString } from '@/lib/dates';
 import type { PatientBooking } from '@/components/medical-records/CitaBadges';
-import { CitasIngresosSection, type BookingsEstado } from '@/components/medical-records/cobros/CitasIngresosSection';
+import type { BookingsEstado } from '@/components/medical-records/cobros/CitasIngresosSection';
+import { ResumenCobros } from '@/components/medical-records/cobros/ResumenCobros';
 
 interface RecentNote {
   id: string;
@@ -154,7 +155,7 @@ function DatosFiscalesCard({ patient, patientId, onUpdate }: DatosFiscalesCardPr
   const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent";
 
   return (
-    // `id` + `scroll-mt-4`: las tarjetas de cita enlazan aquí con #datos-fiscales
+    // `id` + `scroll-mt-4`: las tarjetas de cita (página «Cobros») enlazan aquí con …/patients/<id>#datos-fiscales
     // cuando faltan datos del receptor para poder facturar.
     <div id="datos-fiscales" className="bg-white rounded-lg shadow p-6 scroll-mt-4">
       <div className="flex items-center justify-between mb-4">
@@ -594,12 +595,12 @@ export default function PatientProfilePage() {
       </div>
 
       {/* Main Content — 3/5 · 2/5 instead of the old 2/3 · 1/3: the right column
-          now carries Datos Fiscales + Citas e Ingresos and needed the room. */}
+          now carries Datos Fiscales + the Cobros summary (10-PLAN P3) and needed the room. */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left Column — también va PRIMERA en móvil. El `order-1` de la
             derecha tenía sentido cuando esa columna era "Información Rápida"
             (una tarjeta corta de resumen); ahora carga Resumen + Datos
-            Fiscales + Citas e Ingresos, y en un teléfono eso dejaba el
+            Fiscales + el resumen de Cobros, y en un teléfono eso dejaba el
             expediente clínico debajo de todo el ledger de cobros. */}
         <div className="lg:col-span-3 space-y-6">
           {/* Contact Information */}
@@ -920,13 +921,13 @@ export default function PatientProfilePage() {
               that NEED fiscal capture — chicken-and-egg the user hit live. */}
           <DatosFiscalesCard patient={patient} patientId={patient.id} onUpdate={refreshPatient} />
 
-          {/* Citas e Ingresos — moved here from the bottom of the left column so
-              it sits with the fiscal data it feeds (emitir factura reads the RFC). */}
-          <CitasIngresosSection
+          {/* 10-PLAN P3 — «Citas e Ingresos» se mudó a la página «Cobros» (citas con su cobro y factura,
+              totales, ventas). Aquí queda un resumen con la entrada y «Nueva factura manual». */}
+          <ResumenCobros
+            patientId={patient.id}
             bookings={patientBookings}
             permisos={bookingPermisos}
             estado={bookingsEstado}
-            patient={patient}
           />
         </div>
       </div>
