@@ -7,6 +7,7 @@ import {
 } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { logPatientUpdated, logPatientArchived } from '@/lib/activity-logger';
+import { limpiarNombrePropio } from '@/lib/patient-name';
 import { handleApiError } from '@/lib/api-error-handler';
 
 // GET /api/medical-records/patients/:id
@@ -162,8 +163,9 @@ export async function PUT(
         where: { id: patientId },
         data: {
           internalId,
-          firstName: body.firstName,
-          lastName: body.lastName,
+          // Limpios (ver `limpiarNombrePropio`); uno que quede vacío no borra el que había.
+          firstName: limpiarNombrePropio(body.firstName) || undefined,
+          lastName: limpiarNombrePropio(body.lastName) || undefined,
           dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
           sex: body.sex,
           email: body.email,
