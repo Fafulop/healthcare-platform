@@ -49,7 +49,10 @@ export function useCitaEnConsulta(patientId: string, activo: boolean) {
       .then((d) => {
         const p = d?.data;
         if (!vigente || !p?.firstName) return;
-        setPaciente({ firstName: p.firstName, lastName: p.lastName ?? '' });
+        // Limpio: un espacio sobrante en el expediente («Nombre ») dejaba «Nombre  Prueba» en la cita, y el
+        // filtro de la agenda ya no la encontraba por su nombre completo.
+        const limpio = (x: unknown) => (typeof x === 'string' ? x.replace(/\s+/g, ' ').trim() : '');
+        setPaciente({ firstName: limpio(p.firstName), lastName: limpio(p.lastName) });
         setContactoInicial({ correo: p.email ?? '', telefono: p.phone ?? '', whatsapp: p.phone ?? '' });
       })
       .catch(() => {});
@@ -97,7 +100,7 @@ export function useCitaEnConsulta(patientId: string, activo: boolean) {
           date: fecha,
           startTime: args.hora,
           serviceId: args.servicioId,
-          patientName: `${paciente.firstName} ${paciente.lastName}`.trim(),
+          patientName: [paciente.firstName, paciente.lastName].filter(Boolean).join(' '),
           patientFirstName: paciente.firstName,
           patientLastName: paciente.lastName,
           isFirstTime: false,

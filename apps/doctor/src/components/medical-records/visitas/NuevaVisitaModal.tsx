@@ -82,6 +82,16 @@ export function NuevaVisitaModal({
   const [hora, setHora] = useState(horaDeAhora);
   const [contacto, setContacto] = useState<Contacto>({ correo: '', telefono: '', whatsapp: '' });
   const [error, setError] = useState<string | null>(null);
+  // Un error de la cita («ese horario ya está ocupado») habla de la fecha/hora/servicio de ENTONCES:
+  // al cambiar cualquiera de los tres ya no aplica.
+  useEffect(() => { setError(null); }, [fecha, hora, servicioId]);
+  // Hora por omisión: HOY la de ahora (el paciente está enfrente); otro día las 10:00, no la hora del
+  // reloj (a la 1 a. m. proponía 01:07). Sólo mientras el doctor no la haya escrito él.
+  const horaTocada = useRef(false);
+  const cambiarHora = (h: string) => { horaTocada.current = true; setHora(h); };
+  useEffect(() => {
+    if (!horaTocada.current) setHora(esFutura ? '10:00' : horaDeAhora());
+  }, [esFutura]);
   // Sin sesión de la que tomar el servicio: el primero de la lista, a la vista y cambiable.
   useEffect(() => {
     if (!servicioId && Array.isArray(c.servicios) && c.servicios.length) setServicioId(c.servicios[0].id);
@@ -279,7 +289,7 @@ export function NuevaVisitaModal({
 
           {futuraConCita && (
             <div className="space-y-3">
-              <CamposDeCita c={c} servicioId={servicioId} setServicioId={setServicioId} hora={hora} setHora={setHora} />
+              <CamposDeCita c={c} servicioId={servicioId} setServicioId={setServicioId} hora={hora} setHora={cambiarHora} />
               <div className="grid grid-cols-3 gap-2">
                 {([
                   ['correo', 'Correo', c.requeridos.email],
@@ -318,7 +328,7 @@ export function NuevaVisitaModal({
             <>
               <CasillaEnAgenda enAgenda={enAgenda} setEnAgenda={setEnAgenda} />
               {enAgenda && (
-                <CamposDeCita c={c} servicioId={servicioId} setServicioId={setServicioId} hora={hora} setHora={setHora} />
+                <CamposDeCita c={c} servicioId={servicioId} setServicioId={setServicioId} hora={hora} setHora={cambiarHora} />
               )}
             </>
           )}
