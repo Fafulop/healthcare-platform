@@ -195,8 +195,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
               'cita nueva; cancelar o "no asistió" borra la vacía y deja la que tiene algo; una cita cuya visita tiene ' +
               'algo no se puede eliminar. A mano: botón "Nueva Visita" en el perfil del paciente → ' +
               'Fecha (cualquier día). TODA visita lleva su cita (visita y cita son el mismo evento; ya no hay visitas ' +
-              'sin cita). Si ese día el paciente tiene cita, el botón abre la visita de esa cita y no se crea otra. Si ' +
-              'no: HOY → Servicio y Hora → "Crear visita y agendar" (su cita de hoy, sin pedir correo/teléfono ni avisar ' +
+              'sin cita). Si ese día el paciente ya tiene cita, sale un AVISO con "Abrir su visita" (no impide crear ' +
+              'otra: otra consulta ese día = otra hora; si choca con otra cita, se dice). HOY → Servicio y Hora → "Crear visita y agendar" (su cita de hoy, sin pedir correo/teléfono ni avisar ' +
               'al paciente; se cobra al completarla); un día PASADO → Servicio y Hora → "Registrar cita y crear visita" ' +
               '(se registra su cita sin avisar y se abre "Completar cita" para su cobro; si se cierra, se completa desde ' +
               'la visita); un día FUTURO → Servicio, Hora y contacto → "Agendar cita y crear visita" (con correo de ' +
@@ -252,7 +252,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
               'sesión libre de ese tratamiento activo, o agrega una) o "Seguimiento de una visita anterior" (crea un ' +
               'tratamiento "Seguimiento del <fecha>" con las dos visitas; el nombre se cambia en "Editar").',
             blockedIf:
-              'No aparece si la cita elegida ya es sesión de un tratamiento (la visita entra sola). Un tratamiento ' +
+              'Con "Abrir su visita" (aviso de una cita de ese día) no se aplica si esa visita ya es de un tratamiento ' +
+              '(la de una sesión): se abre y se avisa. Una visita no puede ser seguimiento de sí misma. Un tratamiento ' +
               'terminado o cancelado no recibe seguimientos: hay que reactivarlo primero.',
           },
 
@@ -260,7 +261,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             allowedIf:
               'Dentro del tratamiento NO se ligan citas ni visitas hechas en otro lado: las sesiones sólo se crean ' +
               '("Agendar", "Agregar sesión", "Abrir visita"). Una cita agendada desde la agenda entra al tratamiento al ' +
-              'abrir su visita el día de esa cita: "Nueva Visita" con esa fecha → "¿Es seguimiento?" → "Sesión siguiente de «X»".',
+              'abrir su visita el día de esa cita: "Nueva Visita" con esa fecha → "¿Es seguimiento?" → "Sesión siguiente de «X»" ' +
+              '→ en el aviso de esa cita, "Abrir su visita".',
             notes:
               'No hay "Desligar": una sesión que no va a pasar se cancela ("⋯" → "Cancelar sesión") y una que cambia ' +
               'de día se reagenda ("Reagendar"; su visita, si ya se abrió, se va con la cita).',

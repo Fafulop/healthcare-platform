@@ -6,9 +6,9 @@
 
 **Pasos — abrirla tú**
 1. Perfil del paciente → **«Nueva Visita»**.
-2. Elige la **Fecha** (cualquier día). **Toda visita lleva su cita.** Si ese día el paciente **tiene cita**, el botón abre **la visita de esa cita** (no se crea otra). Si no: **hoy** elige **Servicio** y **Hora** y se crea su cita sin avisarle al paciente; **un día pasado** igual, y enseguida se abre **«Completar cita»** para su cobro; **un día futuro** pide **Servicio**, **Hora** y contacto y se agenda su cita (con su correo de confirmación). La visita nace con su cita. Sin permiso de citas no se pueden crear visitas.
+2. Elige la **Fecha** (cualquier día). **Toda visita lleva su cita.** Si ese día el paciente **ya tiene cita**, sale un aviso con **«Abrir su visita»** (por si venías a esa); si es otra consulta ese día, sigue y elige otra hora. **Hoy** elige **Servicio** y **Hora** y se crea su cita sin avisarle al paciente; **un día pasado** igual, y enseguida se abre **«Completar cita»** para su cobro; **un día futuro** pide **Servicio**, **Hora** y contacto y se agenda su cita (con su correo de confirmación). La visita nace con su cita. Sin permiso de citas no se pueden crear visitas.
 3. Si te pregunta **«¿Es seguimiento?»**, deja «No» para una visita suelta. Si eliges una **visita anterior** (sólo salen las del mismo día o antes), se crea un tratamiento «Seguimiento del …» con las dos, y las dos dejan de verse en «Visitas» (están dentro del tratamiento).
-4. **«Crear visita y agendar»** (hoy), **«Registrar cita y crear visita»** (un día pasado), **«Agendar cita y crear visita»** (un día futuro) o **«Abrir su visita»** si ese día tiene cita.
+4. **«Crear visita y agendar»** (hoy), **«Registrar cita y crear visita»** (un día pasado), **«Agendar cita y crear visita»** (un día futuro), **«Crear otra cita y visita»** si ese día ya tiene cita — o, en el aviso, **«Abrir su visita»** para abrir la de la cita que ya tenía.
 
 **Qué vas a ver:** «Visita del …» con sus secciones: Cita · Plantillas · Fotos y documentos · Notas · Recetas · Ventas · Comentario.
 

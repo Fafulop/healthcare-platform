@@ -438,13 +438,13 @@ documentos, notas, recetas e informes, la cita y un comentario.
   visita cuando le vinculas el expediente.
 - **«Nueva Visita»** en el perfil: eliges la **Fecha** — cualquier día. Visita y cita son el mismo
   evento: **toda visita lleva su cita** y **no se liga una cita a mano**:
-  - **Un día futuro** (sin cita ese día): eliges **Servicio**, **Hora** y el contacto del paciente
+  - **Un día futuro**: eliges **Servicio**, **Hora** y el contacto del paciente
     (viene el de su expediente) y picas **«Agendar cita y crear visita»**: se agenda su cita —con su
     correo de confirmación, como en la agenda— y su visita nace con ella, lista para subirle cosas
     antes de la consulta. Una visita futura sin cita no existe. Necesita permiso de citas.
-  - Si ese día el paciente **tiene cita**, su visita es la de esa cita: el botón dice **«Abrir su
-    visita»** (o **«Abrir la visita de su cita»** si aún no existe) y no se crea otra. Tampoco se puede
-    crear una visita suelta ese día.
+  - Si ese día el paciente **ya tiene cita**, sale un aviso con su hora y **«Abrir su visita»** (un
+    clic, por si venías a esa). No estorba: si es **otra consulta ese mismo día**, eliges otra hora y se
+    crea su cita y su visita; si la hora choca con otra cita, el formulario te lo dice.
   - **Hoy**: eliges **Servicio** y **Hora** (la de ahora) y picas **«Crear visita y agendar»** — nace
     su cita de hoy, sin pedirle al paciente correo ni teléfono y sin avisarle (está contigo), y la
     visita con ella; se cobra al completarla.
@@ -459,8 +459,10 @@ documentos, notas, recetas e informes, la cita y un comentario.
   libre o se agrega una al final; queda dentro del tratamiento y no en «Visitas») o **«Seguimiento de una visita anterior»** (se crea un tratamiento
   **«Seguimiento del 12 sep»** con esa visita y la nueva; le cambias el nombre en «Editar»; las dos
   visitas pasan al tratamiento y dejan de verse en «Visitas»). Sólo se ofrecen visitas del mismo día o
-  anteriores a la nueva: una visita no puede ser seguimiento de una posterior. Si la
-  cita de ese día ya es sesión de un tratamiento no pregunta: la visita entra sola. Un tratamiento
+  anteriores a la nueva: una visita no puede ser seguimiento de una posterior. Si ese día ya hay
+  cita, el botón dice **«Crear otra cita y visita»**. Con **«Abrir su visita»** (en el aviso) el
+  seguimiento elegido se aplica a la visita de esa cita — salvo que ya sea de un tratamiento (la de
+  una sesión): entonces sólo se abre y te avisa. Un tratamiento
   terminado o cancelado no recibe seguimientos: reactívalo primero.
 
 **La pantalla de la visita** (clic en «Visita del …»):
@@ -575,8 +577,8 @@ En el botón **«⋯»** de cada sesión, lo demás:
 Dentro del tratamiento las sesiones sólo se **crean** (agendar, agregar, abrir visita): no se le
 pegan citas ni visitas hechas en otro lado. No hay «Desligar»: una sesión que no va a pasar se
 **cancela**, y una que cambia de día se **reagenda**. Si agendaste desde la agenda una cita que es
-de este tratamiento, entra el día de esa cita: **«Nueva Visita»** con esa fecha → **«¿Es
-seguimiento?»** → **«Sesión siguiente de …»**.
+de este tratamiento, entra el día de esa cita: **«Nueva Visita»** con esa fecha → en **«¿Es
+seguimiento?»** elige **«Sesión siguiente de …»** → en el aviso de esa cita, **«Abrir su visita»**.
 
 - **«Agregar sesión»** (arriba de las sesiones) abre la fila de la siguiente: servicio, precio, fecha
   y hora, o **«Agendar después»**. Pica **«Agregar y agendar»** (o **«Agregar sesión»** si la dejas
