@@ -1003,7 +1003,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
-          error: 'La visita de esta cita tiene contenido clínico (plantillas, notas, recetas, fotos o ventas): la cita no se borra, para no dejar esa visita sin su cita.',
+          error: 'La visita de esta cita tiene contenido (plantillas, notas, recetas, fotos, ventas o un comentario): la cita no se borra, para no dejar esa visita sin su cita.',
         },
         { status: 409 }
       );

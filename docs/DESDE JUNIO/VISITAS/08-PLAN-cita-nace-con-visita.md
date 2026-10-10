@@ -18,6 +18,20 @@
 > citas — se reparan solas al confirmar/concluir (sin escritura en prod). Terminales no regresan
 > (`VALID_TRANSITIONS`): el hueco «reactivar» no existe.
 >
+> **F2 + F3 EN PROD `7fab4163` + `607ddddf` (api Y doctor SUCCESS) y PROBADOS en Chrome + BD
+> (2026-10-09/10, dr-prueba, «Nombre Prueba»):** A) cita del 12 oct desde la agenda SIN expediente →
+> al ligarle el expediente nació su visita (`cmv1n934…`, origen `cita`); la tarjeta mostró «PRÓXIMAS ·
+> Próxima · 12 de octubre de 2026 · 11:00». B) comentario guardado en esa visita ANTES de la cita.
+> C) «Reagendar» al 13 oct → la MISMA visita pasó a la cita nueva con su comentario y fecha 13 oct; la
+> del 12 quedó CANCELLED sin visita; bitácora «su cita se reagendó». D) cancelar la del 13 → la visita
+> con comentario SE QUEDÓ. E) «Eliminar» esa cita cancelada → 409 «La visita de esta cita tiene
+> contenido…», nada borrado. F) cita del 14 oct agendada CON expediente → su visita nació AL AGENDAR
+> (`cmv1neukj…`); cancelarla vacía → la visita SE BORRÓ. Hallado y arreglado (sin commit aún): la
+> visita de una cita CANCELADA futura salía en «Próximas» (ahora va con las demás, etiqueta «cita
+> cancelada»); el 409 no nombraba el comentario. Visto, no arreglado: el buscador de expediente de la
+> fila no encuentra «Nombre Prueba» completo (sólo una palabra). Datos de prueba que QUEDAN: citas
+> canceladas del 12, 13 y 14 oct y la visita del 13 (con el comentario de prueba).
+>
 > **F3 (2026-10-09): escrito, sin commit.** Tarjeta «Visitas»: las futuras en un bloque «Próximas»
 > arriba («Próxima · 15 oct 2026 · 10:00», la más cercana primero); la de una cita cancelada / no
 > asistió (sólo se queda si tiene algo) lleva la etiqueta «cita cancelada» / «no asistió». **Cambio

@@ -205,7 +205,7 @@ Si la cita tiene expediente, en su perfil aparece su **visita** (ver [Visitas](#
 - **«No asistió»** pide confirmación y marca la cita así, sin avisar al paciente. No se puede deshacer.
 - **«Eliminar»** sólo aparece en citas finales, pide confirmación y **no se puede deshacer**. Si la
   cita tenía un cobro, el ingreso **se queda** en Flujo de Dinero; en tu actividad reciente queda
-  «Cita eliminada». Si su **visita tiene algo** (plantillas, notas, recetas, fotos o ventas), la cita
+  «Cita eliminada». Si su **visita tiene algo** (plantillas, notas, recetas, fotos, ventas o un comentario), la cita
   **no se borra** (la visita se quedaría sin su cita); si la visita está vacía, se borra con ella.
 
 En los tres casos, si la cita tenía un **link de pago sin pagar, se desactiva**: ya no acepta pagos

@@ -35,9 +35,16 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
   // 08-PLAN F3: la visita nace con su cita (F2), así que hay visitas FUTURAS. Van aparte, arriba, la
   // más cercana primero: «Próxima · 15 oct · 10:00». Las de hoy y antes, como siempre.
   const hoy = getClinicDateString();
-  const proximas = sueltas.filter((v) => v.fecha.slice(0, 10) > hoy)
+  // Una cita cancelada / no asistió no es «próxima» aunque su día no haya llegado: su visita (que sólo
+  // se queda si tiene algo) va con las demás, con su etiqueta.
+  const citaCaida = (v: VisitaResumen) => {
+    const st = v.cita ? citaPorId.get(v.cita.id)?.status : undefined;
+    return st === 'CANCELLED' || st === 'NO_SHOW';
+  };
+  const esProxima = (v: VisitaResumen) => v.fecha.slice(0, 10) > hoy && !citaCaida(v);
+  const proximas = sueltas.filter(esProxima)
     .sort((a, b) => `${a.fecha} ${a.cita?.horaInicio ?? ''}`.localeCompare(`${b.fecha} ${b.cita?.horaInicio ?? ''}`));
-  const pasadas = sueltas.filter((v) => v.fecha.slice(0, 10) <= hoy);
+  const pasadas = sueltas.filter((v) => !esProxima(v));
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
