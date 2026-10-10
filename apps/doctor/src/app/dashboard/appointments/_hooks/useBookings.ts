@@ -172,7 +172,12 @@ export function defaultBookingFilterDate(): string {
   return getClinicDateString();
 }
 
-export function useBookings(doctorId: string | undefined) {
+/**
+ * `patientId` (VISITAS 10-PLAN P1): sólo las citas de ese paciente — la visita, la sesión del tratamiento
+ * y «Cobros» del expediente pintan la MISMA tarjeta de la agenda con estos MISMOS manejadores.
+ */
+export function useBookings(doctorId: string | undefined, opts: { patientId?: string } = {}) {
+  const { patientId } = opts;
   const [bookings, setBookings] = useState<Booking[]>([]);
   // ¿Ya terminó la PRIMERA carga (bien o mal)? `[]` sola no distingue «sin citas» de «todavía no»: el
   // «Reagendar» que llega desde una visita (09-PLAN L2) necesita saber si la cita de verdad no está.
@@ -198,7 +203,7 @@ export function useBookings(doctorId: string | undefined) {
     if (!doctorId) return;
     try {
       const response = await authFetch(
-        `${API_URL}/api/appointments/bookings?doctorId=${doctorId}`
+        `${API_URL}/api/appointments/bookings?doctorId=${doctorId}${patientId ? `&patientId=${encodeURIComponent(patientId)}` : ""}`
       );
       const data = await response.json();
       if (data.success) {
@@ -213,7 +218,7 @@ export function useBookings(doctorId: string | undefined) {
       toast.error("Error al cargar las citas");
       setBookingsFallo(true);
     }
-  }, [doctorId]);
+  }, [doctorId, patientId]);
 
   useEffect(() => { fetchBookings(); }, [fetchBookings]);
 

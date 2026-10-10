@@ -389,8 +389,17 @@ export function StatusActions({
   onReschedule,
   onCompleteBooking,
   layout = "card",
+  sinEstado = false,
+  sinCobro = false,
+  sinFactura = false,
 }: {
   booking: Booking;
+  /** 10-PLAN P1: sin el grupo «Estado» — la tarjeta de la sesión ya trae esos botones a la vista. */
+  sinEstado?: boolean;
+  /** 10-PLAN P1: fuera de la agenda se respetan los permisos del expediente: sin `flujo` no hay Cobro… */
+  sinCobro?: boolean;
+  /** …y sin `facturacion` no hay Factura. */
+  sinFactura?: boolean;
   /**
    * "table" renders TWO <td> cells (gestión · comunicación/cobro) — ya no se usa en
    * la tabla, que ahora despliega las acciones en su propia fila con "expanded";
@@ -476,7 +485,7 @@ export function StatusActions({
     />
   );
 
-  const estadoGroup = showStatusGroup && (
+  const estadoGroup = showStatusGroup && !sinEstado && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Estado</span>
           {/* 09-PLAN L2: los MISMOS botones que la visita y la sesión del tratamiento. */}
@@ -614,7 +623,7 @@ export function StatusActions({
         </div>
       );
 
-  const cobroGroup = showCobroGroup && (
+  const cobroGroup = showCobroGroup && !sinCobro && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Cobro</span>
           {/* Mismo respaldo que el envío y la fila: si el correo/teléfono solo viven en
@@ -662,7 +671,7 @@ export function StatusActions({
   // El botón sigue llamándose "Facturación" a propósito: el prompt del agente lo nombra así
   // ("el camino es el formulario fiscal al paciente — desde la cita, botón Facturación",
   // modules/facturas.ts). Renombrarlo exige editar el prompt ⇒ suite completa de 81 casos.
-  const facturaGroup = showFacturaGroup && (
+  const facturaGroup = showFacturaGroup && !sinFactura && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Factura</span>
           <div className="flex gap-1 flex-wrap">

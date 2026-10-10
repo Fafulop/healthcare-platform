@@ -203,9 +203,11 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
               'confirmación). Ya NO se elige ni se liga una cita a mano. Sin permiso de citas no se crean visitas.',
             notes:
               'Una cita tiene a lo más una visita: completarla no crea una segunda. La cita de una visita no se ' +
-              'cambia ni se quita. En la sección "Cita" de la visita (con permiso de citas) están los mismos botones ' +
-              'de la agenda: "Completar" (misma ventana de cobro), "No asistió", "Cancelar" y "Reagendar" (abre la ' +
-              'agenda para reagendar y regresa a la visita). Cancelar o "No asistió" con la visita vacía la borra. ' +
+              'cambia ni se quita. En la sección "Cita" de la visita (con permiso de citas) está la MISMA tarjeta de la ' +
+              'cita que en la agenda: precio, "¿Necesita factura?", bloqueo, ESTADO ("Completar" con la ventana de cobro, ' +
+              '"No asistió", "Cancelar", "Reagendar" — abre la agenda y regresa a la visita), CONFIRMACIÓN CITA (correo / ' +
+              'WhatsApp), COBRO ("Link de pago", nota), FACTURA (datos fiscales) y DOCUMENTOS (formulario pre-consulta). ' +
+              'Cancelar, "No asistió" o eliminar la cita con la visita vacía la borra. ' +
               'Dentro de la visita: Plantillas ("Agregar plantilla"), Fotos y documentos ("Subir"), ' +
               'Notas ("Nueva nota"), Recetas ("Nueva receta"), informes y un Comentario.',
           },
@@ -291,7 +293,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           'completar, no asistió o cancelar la cita de una sesión': {
             allowedIf:
               'En la tarjeta de la sesión, debajo de su cita (con permiso de citas): los mismos botones de la agenda — ' +
-              '"Completar" (misma ventana de cobro), "No asistió", "Cancelar" y "Reagendar".',
+              '"Completar" (misma ventana de cobro), "No asistió", "Cancelar" y "Reagendar". Lo demás de la tarjeta de la ' +
+              'cita (precio, "¿Necesita factura?", confirmación, link de pago, factura, formulario) en "Más de la cita".',
             notes: '"Cancelar" ahí cancela la CITA (la sesión queda sin fecha); "⋯" → "Cancelar sesión" cancela la sesión.',
           },
 

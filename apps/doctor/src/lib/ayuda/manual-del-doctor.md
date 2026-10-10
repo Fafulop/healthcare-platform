@@ -467,12 +467,16 @@ documentos, notas, recetas e informes, la cita y un comentario.
 
 **La pantalla de la visita** (clic en «Visita del …»):
 
-- **Cita** — fecha, hora, servicio y si está pagada y facturada. Con permiso de citas, abajo están los
-  **mismos botones de la agenda**: **«Completar»** (la misma ventana que pide el monto y la forma de
-  pago), **«No asistió»**, **«Cancelar»** y **«Reagendar»** (te lleva a la agenda con la ventana de
-  reagendar abierta y, al terminar, te regresa a la visita, que se va con la cita nueva). Si cancelas
-  o marcas «No asistió» con la visita **vacía**, la visita se borra con la cita y vuelves al perfil del
-  paciente. La cita de una visita no se cambia por otra ni se quita (son el mismo evento). Las visitas **sin
+- **Cita** — fecha, hora, servicio y si está pagada y facturada. Con permiso de citas, abajo está **la
+  misma tarjeta de la cita que en la agenda**: el **precio** (clic para cambiarlo), **«¿Necesita
+  factura?»**, el **bloqueo** del horario, **ESTADO** (**«Completar»** con la misma ventana del cobro,
+  **«No asistió»**, **«Cancelar»**, **«Reagendar»** — te lleva a la agenda con la ventana de reagendar
+  abierta y al terminar te regresa a la visita, que se va con la cita nueva), **CONFIRMACIÓN CITA**
+  (enviar la confirmación por correo o por WhatsApp), **COBRO** (**«Link de pago»** y la nota del
+  cobro), **FACTURA** (con la casilla marcada: pedirle sus datos fiscales) y **DOCUMENTOS** (el
+  formulario pre-consulta). El precio y COBRO piden permiso de Flujo de Dinero; la casilla y FACTURA, el de
+  Facturación. Si cancelas, marcas «No asistió» o eliminas la cita con la visita
+  **vacía**, la visita se borra con la cita y vuelves al perfil del paciente. La cita de una visita no se cambia por otra ni se quita (son el mismo evento). Las visitas **sin
   cita** que quedaron de antes (ya no se crean) conservan su **Fecha** corregible (hoy o antes, y no
   el día de una cita del paciente).
 - **Plantillas** («Agregar plantilla») · **Fotos y documentos** («Subir») · **Notas** («Nueva
@@ -545,7 +549,9 @@ principal:
 - **Las acciones de su cita** — debajo de la cita de la sesión, con permiso de citas, los **mismos
   botones de la agenda**: **«Completar»** (la misma ventana del cobro), **«No asistió»**,
   **«Cancelar»** (cancela la **cita**: la sesión queda sin fecha, igual que si la cancelaras en la
-  agenda — para cancelar la sesión está «Cancelar sesión» en «⋯») y **«Reagendar»**.
+  agenda — para cancelar la sesión está «Cancelar sesión» en «⋯») y **«Reagendar»**. Lo demás de la
+  tarjeta de la cita (precio, «¿Necesita factura?», confirmación, link de pago, factura, formulario)
+  está plegado en **«Más de la cita»**.
 - **«Reagendar»** (sesiones con cita pendiente o confirmada) — eliges la fecha y hora nuevas (vienen
   el servicio y el precio de la sesión, o los de su cita si la sesión no tiene propios): se crea la
   cita nueva, la sesión pasa a ella y se cancela la anterior, como en la agenda. Al paciente le llega

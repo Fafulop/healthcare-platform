@@ -542,6 +542,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const requestedDoctorId = searchParams.get('doctorId');
     const patientEmail = searchParams.get('patientEmail');
+    // VISITAS 10-PLAN P1: la visita, la sesión y «Cobros» del expediente piden sólo las citas de UN
+    // paciente — la misma cita completa que pinta la agenda. Va DENTRO del alcance del doctor (abajo).
+    const patientId = searchParams.get('patientId');
     const status = searchParams.get('status');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
@@ -580,6 +583,10 @@ export async function GET(request: Request) {
 
     if (patientEmail) {
       where.patientEmail = patientEmail;
+    }
+
+    if (patientId) {
+      where.patientId = patientId;
     }
 
     if (status) {

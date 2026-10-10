@@ -25,19 +25,11 @@
  */
 
 import { X, MapPin } from "lucide-react";
-import { NotasCita, tieneNotas } from "@/components/citas/NotasCita";
 import { formatLocalDate } from "@/lib/dates";
-import { resolverContacto } from "@/lib/booking-contact";
 import { resolveBookingTime } from "../_lib/event-model";
 import { BookingStatusBadge } from "./BookingStatusBadge";
 import { SesionDeLaCita } from "@/components/medical-records/tratamientos/SesionDeLaCita";
-import {
-  StatusActions,
-  ExpedienteCell,
-  PriceCell,
-  FacturaCheckbox,
-  ExtendedBlockControl,
-} from "./BookingActions";
+import { TarjetaDeCita } from "./TarjetaDeCita";
 import type { Booking } from "../_hooks/useBookings";
 
 interface Props {
@@ -57,15 +49,6 @@ interface Props {
   onCompleteBooking: (id: string, price: number, formaDePago: string) => Promise<{ ledgerEntryId?: number }>;
 }
 
-/** Etiqueta de una sección del cuerpo — mismo tono que los rótulos de `StatusActions`. */
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-      {children}
-    </span>
-  );
-}
-
 export function BookingDetailModal({
   booking, onClose, getStatusColor,
   onUpdateStatus, onUpdateExtendedBlock, onUpdateFacturaSolicitada, onUpdatePatientLink,
@@ -75,7 +58,6 @@ export function BookingDetailModal({
   // Fecha/hora por el resolvedor compartido: las citas tienen DOS formas (con `slot` y
   // libres) y derivarlo aquí a mano es cómo una vista pierde citas en silencio.
   const tiempo = resolveBookingTime(booking);
-  const contacto = resolverContacto(booking);
 
   return (
     // El scroll vive en el FONDO, no en el panel. Con `overflow-y-auto` en el panel, la
@@ -151,71 +133,22 @@ export function BookingDetailModal({
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
-          {/* Expediente · contacto. El contacto sale de `resolverContacto`, o sea el
-              EXPEDIENTE manda y la copia de la cita es el respaldo (decisión #30) — la
-              misma función que usan la fila, el link de pago y el botón fiscal. */}
-          <div>
-            <SectionLabel>Expediente</SectionLabel>
-            <ExpedienteCell booking={booking} onUpdatePatientLink={onUpdatePatientLink} />
-            {(contacto.phone || contacto.email) && (
-              <div className="mt-1.5 flex flex-col gap-0.5 text-xs text-gray-500">
-                {contacto.phone && <span>{contacto.phone}</span>}
-                {contacto.email && <span className="break-all">{contacto.email}</span>}
-              </div>
-            )}
-          </div>
-
-          {/* Notas de la cita — lo que el doctor escribió al agendarla. Van ARRIBA de
-              precio/factura porque son contexto clínico ("seguimiento Wegovy"), no un
-              dato administrativo, y hasta hoy no se veían en NINGUNA pantalla.
-              `trim()`: en prod hay 29 citas con notes = "", y una sección vacía se lee
-              como un error de carga. */}
-          {tieneNotas(booking.notes) && (
-            <div>
-              <SectionLabel>Notas</SectionLabel>
-              {/* Ya hay rótulo (SectionLabel), así que el bloque va sin su etiqueta. */}
-              <NotasCita notes={booking.notes} conEtiqueta={false} recortable={false} />
-            </div>
-          )}
-
-          {/* Precio y la casilla, juntos como en la columna PRECIO de la tabla.
-              La casilla va SIN rótulo, igual que allá: ya se rotula a sí misma ("¿Necesita
-              factura?"), y un encabezado "Factura" aquí chocaría con el grupo FACTURA que
-              rinde `StatusActions` más abajo — los dos aparecen a la vez en cuanto la
-              casilla se marca, y el modal es angosto: dos secciones con el mismo nombre. */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <div>
-              <SectionLabel>Precio</SectionLabel>
-              <PriceCell booking={booking} onUpdatePrice={onUpdatePrice} />
-            </div>
-            <FacturaCheckbox booking={booking} onChange={onUpdateFacturaSolicitada} />
-          </div>
-
-          {/* Mismo gate que la tabla: el bloqueo sólo tiene sentido en una cita CONFIRMED
-              (no hay agenda futura que ocupar en una terminal). */}
-          {booking.status === "CONFIRMED" && (
-            <div>
-              <SectionLabel>Horario</SectionLabel>
-              <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
-            </div>
-          )}
-
-          {/* Los 6 grupos de acciones, apilados: el modal es angosto, así que "card"
-              (la pila del móvil) encaja mejor que la rejilla de 3 columnas. */}
-          <div className="border-t border-gray-100 pt-3">
-            <StatusActions
-              booking={booking}
-              layout="card"
-              onUpdateStatus={onUpdateStatus}
-              onDeleteBooking={onDeleteBooking}
-              onOpenFormLinkModal={onOpenFormLinkModal}
-              onDeleteFormLink={onDeleteFormLink}
-              onSendEmail={onSendEmail}
-              onReschedule={onReschedule}
-              onCompleteBooking={onCompleteBooking}
-            />
-          </div>
+        <div className="p-5">
+          {/* El cuerpo es `TarjetaDeCita` (10-PLAN P1): el mismo que pintan la visita y la sesión. */}
+          <TarjetaDeCita
+            booking={booking}
+            onUpdateStatus={onUpdateStatus}
+            onUpdateExtendedBlock={onUpdateExtendedBlock}
+            onUpdateFacturaSolicitada={onUpdateFacturaSolicitada}
+            onUpdatePatientLink={onUpdatePatientLink}
+            onUpdatePrice={onUpdatePrice}
+            onDeleteBooking={onDeleteBooking}
+            onOpenFormLinkModal={onOpenFormLinkModal}
+            onDeleteFormLink={onDeleteFormLink}
+            onSendEmail={onSendEmail}
+            onReschedule={onReschedule}
+            onCompleteBooking={onCompleteBooking}
+          />
         </div>
       </div>
       </div>

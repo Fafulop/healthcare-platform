@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { usePermissions } from '@/lib/permissions-client';
-import { NotaCitaButton } from '@/components/citas/NotaCitaButton';
 import { ENCOUNTER_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS } from '@/components/medical-records/EncounterCard';
 import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical-records/CitaBadges';
 import { NotasCita } from '@/components/citas/NotasCita';
@@ -18,9 +17,10 @@ import { getClinicDateString } from '@/lib/dates';
 import { etiquetaSesion, tratamientoHref, tratamientosUiActiva } from '@/lib/tratamientos-ui';
 import { useVisitaDetalle, type ConsultaDeVisita } from '../_components/useVisitaDetalle';
 import { AgendarSeguimiento } from '@/components/medical-records/tratamientos/AgendarSeguimiento';
-import { citaReagendable } from '@/components/citas/BotonesEstadoCita';
-import { useAccionesDeCita } from '@/components/citas/useAccionesDeCita';
+import { useTarjetaDeCita } from '@/components/citas/useTarjetaDeCita';
+import { TarjetaDeCita } from '@/app/dashboard/appointments/_components/TarjetaDeCita';
 import { toast } from '@/lib/practice-toast';
+import { NotaCitaButton } from '@/components/citas/NotaCitaButton';
 
 // Los `origen` que existen: D1 ('cita') y la API de D2 ('manual'). 'backfill' lo admite la BD (CHECK)
 // para el script `scripts/visitas/backfill-visitas.cjs`, que se DESCARTÓ el 2026-09-29 y nunca corrió:
@@ -77,13 +77,16 @@ export default function VisitaPage() {
   const { patientId, visitaId, visita } = v;
   const pacienteHref = `/dashboard/medical-records/patients/${patientId}`;
   const router = useRouter();
-  // 09-PLAN L2 (nota N3) — las acciones de la cita, las MISMAS de la agenda. Cancelar / No asistió con la
-  // visita vacía: el servidor la borra con la cita (08 F2) — se vuelve al paciente en vez de enseñar
-  // «esta visita no existe». (Hook arriba de los `return` tempranos: la cita se busca aquí.)
+  // 10-PLAN P1 — la tarjeta COMPLETA de la cita, la de la agenda (estado, confirmación, cobro, factura,
+  // formulario, precio). Cancelar / No asistió / Eliminar con la visita vacía: el servidor la borra con la
+  // cita (08 F2) — se vuelve al paciente en vez de enseñar «esta visita no existe». (Hooks arriba de los
+  // `return` tempranos.)
   const booking = v.visita?.cita && v.bookings ? v.bookings.find((b) => b.id === v.visita!.cita!.id) : undefined;
-  const acciones = useAccionesDeCita({
-    booking,
-    patientName: v.patientName,
+  const tarjeta = useTarjetaDeCita({
+    // Sin permiso de `citas` no se pinta la tarjeta: tampoco se piden las citas.
+    doctorId: v.permisos?.citas ? v.doctorId : null,
+    patientId,
+    volverA: `${pacienteHref}/visitas/${visitaId}`,
     despues: async () => {
       if (await v.recargarCita() === 'no-existe') {
         toast.success('La visita estaba vacía: se borró junto con la cita.');
@@ -91,6 +94,7 @@ export default function VisitaPage() {
       }
     },
   });
+  const citaDeAgenda = tarjeta.porId(v.visita?.cita?.id);
 
   const [comentario, setComentario] = useState('');
   const [fecha, setFecha] = useState('');
@@ -145,13 +149,6 @@ export default function VisitaPage() {
   const verCobro = v.permisos?.flujo ?? false;
   const verFactura = v.permisos?.facturacion ?? false;
 
-  // Reagendar = el modal de la agenda (con el horario, los avisos y el traslado de pago/sesión que ya
-  // hace); al terminar regresa aquí — la visita viaja con su cita.
-  const reagendar = () => {
-    if (!booking) return;
-    const volver = `${pacienteHref}/visitas/${visitaId}`;
-    router.push(`/dashboard/appointments?reagendar=${encodeURIComponent(booking.id)}&volver=${encodeURIComponent(volver)}`);
-  };
   // «Nueva venta» lleva el servicio de la cita de esta visita (y si ya tiene cobro en Flujo) para que
   // la venta AVISE si se le agrega ese mismo servicio: se cobraría dos veces (el cobro de la cita ya
   // lo cuenta). Sólo un aviso — el servidor no lo usa para nada.
@@ -250,21 +247,35 @@ export default function VisitaPage() {
               {booking && (verCobro || verFactura) && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {verCobro && <PagoBadge estadoPago={booking.estadoPago ?? 'SIN_REGISTRO'} metodoPago={booking.metodoPago ?? null} />}
-                  {/* VENTAS PACIENTE paso 4: la nota (PDF bajo demanda) sólo si HAY movimiento en Flujo
-                      (`ledgerEntryId`) — `estadoPago` dice «Pagado» también con un link pagado SIN
-                      movimiento — y no en una sesión cubierta por el paquete ($0, sin nota). */}
-                  {verCobro && booking.ledgerEntryId != null && booking.estadoPago !== 'CUBIERTA' && (
+                  {/* La nota (PDF) va en «Cobro» de la tarjeta de abajo (10-PLAN P1) — salvo en una cita
+                      cancelada / no asistió: ahí la tarjeta no enseña Cobro (sin link vivo), y una cobrada
+                      seguiría necesitando su nota. */}
+                  {verCobro && booking.ledgerEntryId != null && booking.estadoPago !== 'CUBIERTA'
+                    && (booking.status === 'CANCELLED' || booking.status === 'NO_SHOW') && (
                     <NotaCitaButton bookingId={booking.id} />
                   )}
                   {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} cubierta={booking.estadoPago === 'CUBIERTA'} />}
                 </div>
               )}
               {/* 08-PLAN F1: la cita ya no se desliga (ni se liga otra): visita y cita son el mismo evento. */}
-              {verCitas && booking && acciones.botones({
-                puedeReagendar: citaReagendable(booking.status, booking.date, booking.endTime),
-                onReagendar: reagendar,
-              })}
-              {acciones.modal}
+              {/* 10-PLAN P1: la tarjeta de la agenda (sin «Expediente»: el paciente ES éste; sin notas: ya
+                  van arriba). */}
+              {verCitas && (citaDeAgenda ? (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <TarjetaDeCita
+                    booking={citaDeAgenda} conExpediente={false} conNotas={false}
+                    sinCobro={!verCobro} sinFactura={!verFactura} {...tarjeta.manejadores}
+                  />
+                </div>
+              ) : (
+                // Sin la cita de la agenda no hay tarjeta: se dice (cargando / falló), no se calla.
+                <p className="text-xs text-gray-500 mt-3">
+                  {tarjeta.fallo
+                    ? 'No se pudieron cargar las acciones de la cita. Recarga la página o ábrela desde la agenda.'
+                    : 'Cargando las acciones de la cita…'}
+                </p>
+              ))}
+              {tarjeta.modalFormulario}
             </div>
           ) : (
             // Sin permiso de `citas` sólo llega el id: HAY cita, no se puede ver.
