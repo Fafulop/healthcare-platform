@@ -27,18 +27,24 @@ export async function GET(request: NextRequest) {
     // nombre (InlinePatientSearch, StandaloneFormularioModal) y meterle el correo cambiaría lo
     // que esos dos ya devuelven hoy.
     const email = (searchParams.get('email') || '').trim();
+    // Por PALABRAS: cada una tiene que estar en el nombre, el apellido o el ID. Antes el texto
+    // ENTERO se buscaba dentro de un solo campo, así que «Nombre Prueba» (nombre + apellido) no
+    // encontraba a nadie. Con una sola palabra es exactamente lo de antes.
+    const palabras = search.trim().split(/\s+/).filter(Boolean);
 
     const patients = await prisma.patient.findMany({
       where: {
         doctorId,
         status,
         ...(email ? { email: { equals: email, mode: 'insensitive' as const } } : {}),
-        ...(search ? {
-          OR: [
-            { firstName: { contains: search, mode: 'insensitive' } },
-            { lastName: { contains: search, mode: 'insensitive' } },
-            { internalId: { contains: search, mode: 'insensitive' } },
-          ]
+        ...(palabras.length ? {
+          AND: palabras.map((p) => ({
+            OR: [
+              { firstName: { contains: p, mode: 'insensitive' as const } },
+              { lastName: { contains: p, mode: 'insensitive' as const } },
+              { internalId: { contains: p, mode: 'insensitive' as const } },
+            ],
+          })),
         } : {})
       },
       orderBy: { lastVisitDate: 'desc' },

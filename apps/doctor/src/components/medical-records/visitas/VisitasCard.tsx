@@ -21,6 +21,15 @@ interface Props {
   onNuevaVisita: () => void;
 }
 
+/**
+ * Lo que tiene la visita, en un renglón: «2 plantillas · 1 receta · comentario». El comentario cuenta
+ * (es contenido: con él, cancelar la cita NO borra la visita y la cita no se elimina — 08-PLAN F2);
+ * antes la tarjeta decía «Vacía» de una visita con sólo comentario. '' = vacía.
+ */
+const contenidoDe = (v: VisitaResumen) =>
+  [totalHijos(v.conteo) > 0 ? describirConteo(v.conteo) : '', v.comentario?.trim() ? 'comentario' : '']
+    .filter(Boolean).join(' · ');
+
 /** VISITAS D4 — reemplaza «Historial de Consultas» en la página del paciente. */
 export function VisitasCard({ patientId, estado, visitas, bookings, permisos, onNuevaVisita }: Props) {
   const verCobro = permisos?.flujo ?? false;
@@ -76,7 +85,7 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Próximas</p>
               <ListaColapsable className="space-y-2">
                 {proximas.map((v) => {
-                  const vacia = totalHijos(v.conteo) === 0;
+                  const vacia = !contenidoDe(v);
                   return (
                     <Link
                       key={v.id}
@@ -90,7 +99,7 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
                         </p>
                         {v.cita?.servicio && <p className="text-xs text-gray-500 mt-0.5">{v.cita.servicio}</p>}
                         {/* Se le puede subir algo antes de la consulta (F2): si ya tiene, se dice. */}
-                        {!vacia && <p className="text-sm text-gray-600 mt-1">{describirConteo(v.conteo)}</p>}
+                        {!vacia && <p className="text-sm text-gray-600 mt-1">{contenidoDe(v)}</p>}
                       </div>
                       <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
                     </Link>
@@ -102,7 +111,7 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
           {pasadas.length > 0 ? (
             <ListaColapsable className="space-y-2">
               {pasadas.map((v) => {
-                const vacia = totalHijos(v.conteo) === 0;
+                const vacia = !contenidoDe(v);
                 const b = v.cita ? citaPorId.get(v.cita.id) : undefined;
                 const hora = v.cita?.horaInicio;
                 return (
@@ -144,7 +153,7 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
                         </p>
                       )}
                       <p className={`text-sm mt-1 ${vacia ? 'text-gray-400 italic' : 'text-gray-600'}`}>
-                        {vacia ? 'Vacía' : describirConteo(v.conteo)}
+                        {vacia ? 'Vacía' : contenidoDe(v)}
                       </p>
                       {b && (verCobro || verFactura) && (
                         <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
