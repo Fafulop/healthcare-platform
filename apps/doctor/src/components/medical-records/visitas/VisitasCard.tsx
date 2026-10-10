@@ -8,6 +8,7 @@ import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
 import { tieneNotas } from '@/components/citas/NotasCita';
 import type { BookingPermisos } from '@/lib/booking-permisos';
 import { describirConteo, formatoFechaVisita, totalHijos, visitaHref, type VisitaResumen } from '@/lib/visitas-ui';
+import { getClinicDateString } from '@/lib/dates';
 import type { EstadoCarga } from './useVisitasDelPaciente';
 
 interface Props {
@@ -31,6 +32,12 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
   // la lista (¿Es seguimiento?, selectores de fotos/recetas) la siguen necesitando completa.
   const sueltas = visitas.filter((v) => !v.sesion);
   const deTratamientos = visitas.length - sueltas.length;
+  // 08-PLAN F3: la visita nace con su cita (F2), así que hay visitas FUTURAS. Van aparte, arriba, la
+  // más cercana primero: «Próxima · 15 oct · 10:00». Las de hoy y antes, como siempre.
+  const hoy = getClinicDateString();
+  const proximas = sueltas.filter((v) => v.fecha.slice(0, 10) > hoy)
+    .sort((a, b) => `${a.fecha} ${a.cita?.horaInicio ?? ''}`.localeCompare(`${b.fecha} ${b.cita?.horaInicio ?? ''}`));
+  const pasadas = sueltas.filter((v) => v.fecha.slice(0, 10) <= hoy);
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -57,9 +64,37 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
         </div>
       ) : (
         <>
-          {sueltas.length > 0 ? (
+          {proximas.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Próximas</p>
+              <ListaColapsable className="space-y-2">
+                {proximas.map((v) => {
+                  const vacia = totalHijos(v.conteo) === 0;
+                  return (
+                    <Link
+                      key={v.id}
+                      href={visitaHref(patientId, v.id)}
+                      className="flex items-center justify-between gap-3 p-3 border border-blue-100 bg-blue-50/40 rounded-lg transition-all hover:border-blue-300 hover:shadow-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900">
+                          Próxima · {formatoFechaVisita(v.fecha, { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {v.cita?.horaInicio && <span className="font-normal text-gray-500"> · {v.cita.horaInicio}</span>}
+                        </p>
+                        {v.cita?.servicio && <p className="text-xs text-gray-500 mt-0.5">{v.cita.servicio}</p>}
+                        {/* Se le puede subir algo antes de la consulta (F2): si ya tiene, se dice. */}
+                        {!vacia && <p className="text-sm text-gray-600 mt-1">{describirConteo(v.conteo)}</p>}
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-300 shrink-0" />
+                    </Link>
+                  );
+                })}
+              </ListaColapsable>
+            </div>
+          )}
+          {pasadas.length > 0 ? (
             <ListaColapsable className="space-y-2">
-              {sueltas.map((v) => {
+              {pasadas.map((v) => {
                 const vacia = totalHijos(v.conteo) === 0;
                 const b = v.cita ? citaPorId.get(v.cita.id) : undefined;
                 const hora = v.cita?.horaInicio;
@@ -75,6 +110,12 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
                       <p className={`font-medium ${vacia ? 'text-gray-500' : 'text-gray-900'}`}>
                         Visita del {formatoFechaVisita(v.fecha, { day: 'numeric', month: 'long', year: 'numeric' })}
                         {hora && <span className="font-normal text-gray-500"> · {hora}</span>}
+                        {/* 08-PLAN F2: la de una cita cancelada / no asistió sólo se queda si tiene algo. */}
+                        {(b?.status === 'CANCELLED' || b?.status === 'NO_SHOW') && (
+                          <span className="ml-2 text-xs font-normal px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                            {b.status === 'CANCELLED' ? 'cita cancelada' : 'no asistió'}
+                          </span>
+                        )}
                       </p>
                       {v.cita?.servicio && <p className="text-xs text-gray-500 mt-0.5">{v.cita.servicio}</p>}
                       {/* T7: la serie a la que pertenece (sin link: la fila entera ya es un link). */}
@@ -110,7 +151,7 @@ export function VisitasCard({ patientId, estado, visitas, bookings, permisos, on
                 );
               })}
             </ListaColapsable>
-          ) : (
+          ) : proximas.length > 0 ? null : (
             <div className="text-center py-6 text-gray-500">
               <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
               {/* Con visitas de tratamientos SÍ hay visitas: decir «no hay» sería falso. */}

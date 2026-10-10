@@ -308,7 +308,8 @@ export async function armarExportacion(doctorId: string): Promise<Exportacion> {
     || horaDeVisita(a).localeCompare(horaDeVisita(b))
     || a.createdAt.getTime() - b.createdAt.getTime());
   const ORIGEN: Record<string, string> = {
-    cita: 'Se abrió al concluir la cita',
+    // 08-PLAN F2: nace con su cita (las de antes de 2026-10-09 nacieron al concluirla).
+    cita: 'La visita de su cita',
     manual: 'Abierta a mano',
     backfill: 'Creada a partir de una consulta anterior',
   };

@@ -1,7 +1,29 @@
 # 08 — PLAN: la cita nace con su visita, y ya no se liga nada a mano
 
-> **Estado (2026-10-09): plan APROBADO. F1 escrito y revisado, esperando OK de commit.** F2 y F3 sin
-> empezar.
+> **Estado (2026-10-09): F1 EN PROD `c14c1739` (api Y doctor SUCCESS).** Visto en Chrome SIN crear
+> nada («Nombre Prueba»): hoy (cita completada 16:39) «Nueva Visita» sólo ofrece «Abrir su visita» con
+> el aviso «Ese día tiene cita…»; el 1 oct (sin cita) ofrece «Crear visita» + «¿Es seguimiento?» sin la
+> casilla (no es hoy); la página de una visita sin cita ya no tiene «Ligar» ni «Desligar». No visto: la
+> casilla «También en la agenda» de «Nueva Visita» (ese paciente tiene cita hoy; es el mismo componente
+> que P3b, probado de punta a punta).
+>
+> **F2 (2026-10-09): escrito, revisado inline; esperando `/code-review ultra` (el usuario) y OK de
+> commit.** `syncVisitaForBooking` reconcilia en alta (4 rutas, vía `lib/visita-de-cita.ts`, AL FINAL
+> tras la sesión) y en todo cambio de estado; `visitaVacia` cuenta también VENTAS (la regla vieja no:
+> el smoke encontró una visita sin hijos pero con 1 venta que se habría borrado);
+> `moverVisitaAlReagendar` para toda cita; DELETE → 409 si la visita tiene algo (vacía se borra en la
+> misma tx); `visitaId` en la respuesta de las altas (P3b y «Nueva Visita» la abren); PATCH de visitas
+> acepta `seguimiento` para una visita YA existente (sin eso, «¿Es seguimiento?» se perdía para las
+> visitas de cita). Smoke SÓLO LECTURA 17/17. **Cambio sobre el plan:** sin pase único para las 7
+> citas — se reparan solas al confirmar/concluir (sin escritura en prod). Terminales no regresan
+> (`VALID_TRANSITIONS`): el hueco «reactivar» no existe.
+>
+> **F3 (2026-10-09): escrito, sin commit.** Tarjeta «Visitas»: las futuras en un bloque «Próximas»
+> arriba («Próxima · 15 oct 2026 · 10:00», la más cercana primero); la de una cita cancelada / no
+> asistió (sólo se queda si tiene algo) lleva la etiqueta «cita cancelada» / «no asistió». **Cambio
+> sobre el plan:** la exportación NO salta las vacías (no carga ventas: una visita con sólo una venta
+> desaparecería del archivo; y una vacía es un registro verdadero que su columna «Contenido» ya dice
+> vacía) — sólo se corrigió su «Origen» («La visita de su cita»).
 >
 > F1 tocó TAMBIÉN apps/api (dos líneas): `enConsulta` ahora vale con `patientId` aunque no haya sesión
 > (lo necesita «También en la agenda» de «Nueva Visita») ⇒ el push despliega api Y doctor. Candado del
