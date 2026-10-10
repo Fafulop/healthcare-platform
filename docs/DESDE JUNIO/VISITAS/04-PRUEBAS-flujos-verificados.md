@@ -244,6 +244,42 @@ Tratamiento de la corrida del 2026-10-01: «PRUEBA MANO» `cmuq0namj0001n20tts5k
   primera libre de un tratamiento planeado; una sesión cuya cita se canceló cuenta como libre; cancelado → 409; visita de uno cancelado → 409; las lecturas
   nuevas (`sesionesDeVisitas`, `esSesion`) corren.
 
+### F14 — «Nueva Visita» en un día que YA tiene cita (`9da53037`, 2026-10-10)
+
+Desde `9da53037` la cita del día ya no bloquea: siempre se crea una cita nueva con su visita (otra hora =
+otra consulta), y las citas de ese día salen como AVISO con «Abrir su visita». Toda visita lleva cita
+(09-PLAN L3). Probado en prod (Chrome + BD) con «Nombre Prueba» (`cmv1fk7kj005lo10tey3hsn4r`) salvo el
+caso 10 (QA C4 Calendario).
+
+| # | Caso | Qué debe pasar | Resultado 2026-10-10 |
+|---|---|---|---|
+| 1 | Día con cita | Aviso «Ese día ya tiene cita (hora · servicio) · Abrir su visita» DEBAJO de «¿Es seguimiento?»; botón **«Crear otra cita y visita»** | ✅ pantalla |
+| 2 | «Abrir su visita» sin seguimiento | Abre la visita que ya existe; no crea nada | ✅ pantalla + BD |
+| 3 | Otra cita ese día a hora libre | Cita + visita nuevas (día pasado: se abre «Completar cita»; al cerrarlo, aviso «quedó sin completar») | ✅ pantalla + BD (5 y 27 oct) |
+| 4 | Hora que choca con una cita **agendada** | Error «Este horario se traslapa… (10:00–10:45)»; nada se crea | ✅ pantalla + BD |
+| 5 | Primera cita de un día futuro libre | «Agendar cita y crear visita» → visita con cita Agendada (paciente sin correo: no se manda nada) | ✅ pantalla + BD |
+| 6 | Seguimiento elegido + «Abrir su visita» en una visita normal | Entra al tratamiento: «Sesión 3 — Seguimiento del 1 oct» + toast «Esta visita es la sesión 3…» | ✅ pantalla + BD |
+| 7 | Seguimiento elegido + «Abrir su visita» en la visita de una SESIÓN | Se abre sin moverla + aviso «Esa visita ya es de un tratamiento…» | ✅ pantalla + BD (9 oct) |
+| 8 | Seguimiento = esa misma visita | Se abre sin cambiarla + aviso «Una visita no puede ser seguimiento de sí misma…» | ✅ pantalla + BD |
+| 9 | Dos citas el mismo día | Dos renglones en el aviso, cada uno con su «Abrir su visita» | ✅ pantalla (5 y 27 oct) |
+| 10 | Cita vieja (antes del 9 oct) SIN visita | «Abrir su visita» la crea (de ESA cita) | ✅ pantalla + BD (QA C4 Calendario, 7 oct) |
+| 11 | Ayudante SIN permiso de citas | Sin aviso ni forma de crear; el mensaje manda a la tarjeta «Visitas» | ⏳ sin probar (ver §4) |
+
+**Hallazgos (ninguno dañino):**
+- **Una cita COMPLETADA no aparta su horario** (como en la agenda: sólo bloquean las pendientes y
+  agendadas, `apps/api/src/lib/booking-overlap.ts`, más los bloqueos de horario). Por eso dos citas pueden
+  quedar a la misma hora si la otra está completada, cancelada o no asistió. Una cita viva nunca se
+  traslapa (caso 4). La primera prueba del caso 4 contra una cita completada creó una cita de más — no era
+  un bug, era la prueba mal elegida: choca contra una AGENDADA.
+- **El aviso no dice el estado**: dos citas a la misma hora (una completada, una agendada) se ven iguales.
+  Cosmético; agregar «· Completada / · Agendada» sería una línea.
+- **Un paciente archivado acepta «Nueva Visita»** (QA C4 Calendario). Ya era así; no daña datos.
+
+**Limpieza (hecha):** las 3 citas de prueba se cancelaron desde su visita (la visita vacía se borra con
+la cita); la visita creada en el caso 10 se borró con «Borrar visita» (estaba vacía). En «Seguimiento del
+1 oct» la sesión 3 quedó otra vez «sin fecha» (su cita cancelada), como antes de la prueba. Las visitas del
+5 y 9 oct quedaron sin cambios (verificado en la BD).
+
 ### Flujos probados antes (con su evidencia en otro doc)
 
 - **T3** (crear tratamiento, ligar cita/visita, cancelar sesión con sus 3 salidas, borrar con 409):
@@ -258,6 +294,7 @@ Tratamiento de la corrida del 2026-10-01: «PRUEBA MANO» `cmuq0namj0001n20tts5k
 | Que los correos (resumen de T5, aviso de reagendar) LLEGARON y su redacción | apps/api no registra los envíos de correo; la UI sólo dice que se mandó | El usuario revisa la bandeja de `quebradita.a@gmail.com` |
 | El asistente: completar una sesión cubierta y el barrido «qué falta facturar» con pagos de paquete | Sólo probe + type-check; un contrato con un LLM no se verifica leyendo el código | Pedirle al asistente que complete la sesión 2 y que diga qué falta facturar de pepit perez |
 | Un ayudante SIN `flujo` | No hay sesión de ayudante en ese Chrome | No debe ver «Paquete», ni el precio en «Editar», y la ruta de pago debe dar 403 |
+| F14 caso 11: un ayudante SIN permiso de `citas` en «Nueva Visita» | No hay sesión de ayudante en ese Chrome | No ve el aviso ni puede crear; el mensaje dice que las visitas de sus citas se abren desde «Visitas» |
 
 ## 5. Trampas que ya se pisaron
 
