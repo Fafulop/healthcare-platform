@@ -23,16 +23,6 @@
  * Vive aquí junto a `partirNombreDeCita` porque son las dos mitades de la misma regla —
  * juntar para guardar en la cita, separar para nacer el expediente.
  */
-/**
- * Un nombre o apellido del EXPEDIENTE, limpio: sin espacios en los extremos ni dobles por dentro.
- * Un tercio de los expedientes nacía con un espacio al final («FRANCISCO ») — autocompletar o
- * copiar/pegar — y el nombre de la cita armado con él salía «FRANCISCO  ROJAS» (2026-10-10). Se limpia
- * al GUARDAR (alta y edición), no en cada lugar que los junta. Lo que no es texto pasa tal cual.
- */
-export function limpiarNombrePropio<T>(v: T): T | string {
-  return typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : v;
-}
-
 export function nombreCompleto(f: { patientFirstName: string; patientLastName: string }): string {
   return `${f.patientFirstName.trim()} ${f.patientLastName.trim()}`.trim();
 }

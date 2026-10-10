@@ -31,6 +31,7 @@ import {
   SI_NO_MAP,
   type ImportColumn,
 } from './patient-import';
+import { limpiarNombre } from './nombres';
 
 export type IssueLevel = 'error' | 'warning';
 
@@ -164,7 +165,8 @@ function validateCell(
   const push = (level: IssueLevel, code: string, message: string) =>
     ctx.issues.push({ sheet: ctx.sheet, row: ctx.row, column: col.key, level, code, message });
 
-  const s = norm(raw);
+  // Nombre y apellidos con LA regla de nombres (`limpiarNombre`): también los espacios dobles de dentro.
+  const s = col.field === 'firstName' || col.field === 'lastName' ? (limpiarNombre(norm(raw)) as string) : norm(raw);
 
   if (s === '') {
     if (col.required) {

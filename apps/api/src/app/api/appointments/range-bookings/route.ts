@@ -19,7 +19,7 @@ import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
 import { visitaDeCitaNueva } from '@/lib/visita-de-cita';
-import { limpiarNombre } from '@/lib/nombre-paciente';
+import { limpiarNombre } from '@healthcare/database';
 
 export async function POST(request: Request) {
   try {

@@ -17,7 +17,7 @@ import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 import { validateRequestedLocation, inheritLocationFromRange } from '@/lib/booking-location';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
-import { limpiarNombre } from '@/lib/nombre-paciente';
+import { limpiarNombre } from '@healthcare/database';
 
 export async function POST(request: Request) {
   try {
@@ -278,8 +278,8 @@ export async function POST(request: Request) {
             // Se guardan solo si vienen como texto con contenido: un "" del formulario debe
             // quedar en NULL, no en cadena vacía — el consumidor usa `?? split(patientName)`
             // y una cadena vacía pasaría el ?? y dejaría el campo del expediente en blanco.
-            patientFirstName: typeof patientFirstName === 'string' && patientFirstName.trim() ? patientFirstName.trim() : null,
-            patientLastName:  typeof patientLastName  === 'string' && patientLastName.trim()  ? patientLastName.trim()  : null,
+            patientFirstName: typeof patientFirstName === 'string' && limpiarNombre(patientFirstName) ? limpiarNombre(patientFirstName) : null,
+            patientLastName:  typeof patientLastName  === 'string' && limpiarNombre(patientLastName)  ? limpiarNombre(patientLastName)  : null,
             // En consulta (P3b) el contacto puede no venir, y las columnas son NOT NULL: '' (como lo
             // manda el formulario cuando el doctor no lo exige).
             patientEmail: modoConsulta ? (patientEmail ?? '') : patientEmail,

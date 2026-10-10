@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
 import { randomBytes } from 'crypto';
+import { limpiarNombre } from '@healthcare/database';
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const patientName: string | undefined = body.patientName?.trim() || undefined;
+    const patientName: string | undefined = (limpiarNombre(body.patientName) as string | undefined) || undefined;
 
     const token = randomBytes(20).toString('hex'); // 40-char hex token
 

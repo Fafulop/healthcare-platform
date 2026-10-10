@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
+import { limpiarNombre } from '@healthcare/database';
 
 // GET - Verify review token (booking-based or standalone)
 export async function GET(request: Request) {
@@ -143,7 +144,7 @@ export async function POST(request: Request) {
           data: {
             doctorId: booking.doctorId,
             bookingId: booking.id,
-            patientName: patientName?.trim() || null,
+            patientName: (limpiarNombre(patientName) as string | undefined) || null,
             rating,
             comment: comment.trim(),
             approved: true,
@@ -191,7 +192,7 @@ export async function POST(request: Request) {
       prisma.review.create({
         data: {
           doctorId: reviewLink.doctorId,
-          patientName: patientName?.trim() || reviewLink.patientName || null,
+          patientName: (limpiarNombre(patientName) as string | undefined) || reviewLink.patientName || null,
           rating,
           comment: comment.trim(),
           approved: true,

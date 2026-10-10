@@ -6,7 +6,7 @@ import {
 } from '@healthcare/database';
 import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { logPatientCreated } from '@/lib/activity-logger';
-import { limpiarNombrePropio } from '@/lib/patient-name';
+import { limpiarNombre } from '@healthcare/database';
 import {
   handleApiError,
   validateRequired,
@@ -93,9 +93,9 @@ export async function POST(request: NextRequest) {
   try {
     const { doctorId, userId, role } = await requireDoctorAuth(request);
     const body = await request.json();
-    // Nombre y apellidos limpios ANTES de validar: «   » cuenta como vacío (ver `limpiarNombrePropio`).
-    body.firstName = limpiarNombrePropio(body.firstName);
-    body.lastName = limpiarNombrePropio(body.lastName);
+    // Nombre y apellidos limpios ANTES de validar: «   » cuenta como vacío (ver `limpiarNombre`).
+    body.firstName = limpiarNombre(body.firstName);
+    body.lastName = limpiarNombre(body.lastName);
 
     // Validate required fields
     validateRequired(body, ['firstName', 'lastName', 'dateOfBirth', 'sex']);

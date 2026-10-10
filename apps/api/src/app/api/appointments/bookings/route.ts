@@ -18,7 +18,7 @@ import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
-import { limpiarNombre } from '@/lib/nombre-paciente';
+import { limpiarNombre } from '@healthcare/database';
 
 // In-memory rate limiter for booking creation (per IP).
 // Prevents SMS/email bombing via rapid booking requests.

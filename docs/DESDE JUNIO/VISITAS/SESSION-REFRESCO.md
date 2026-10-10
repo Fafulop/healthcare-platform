@@ -7,16 +7,20 @@
 
 ## 📝 NOTAS PARA UN LOTE (el usuario las va juntando; NO se hacen sueltas — se hacen juntas cuando haya varias)
 
-> **2026-10-10: N1 · N2 · N3 ESCRITAS (un solo commit, sin push aún)** — cómo, en `09-PLAN-lote-N1-N3.md`.
-> Type-check doctor + api y `pnpm gates` en verde; review hecho. Falta: OK del usuario → push → prueba en prod
-> (la lista de prueba está al final del 09-PLAN).
+> **2026-10-10: N1 · N2 · N3 EN PROD `e73db5c4` (api y doctor) y PROBADAS en Chrome + BD** (dr-prueba,
+> «Nombre Prueba»): API sin `bookingId` → 400 · día pasado (5 oct) → cita sin aviso + «Completar cita» ($0
+> cortesía) → COMPLETED, 0 ingresos · hoy → visita con los 4 botones; «Reagendar» abrió el modal de la agenda
+> y al cerrarlo volvió a la visita; «No asistió» vacía → visita borrada y de vuelta al paciente · tarjeta de
+> sesión con los 4 botones; su «Cancelar» canceló la cita (sesión por agendar, visita vacía borrada) ·
+> «Cancelar tratamiento» dice «Tiene 1 cita agendada y NO se cancela…» · «Abrir visita hoy» ya sin casilla.
+> Dos revisiones de código antes del push (la 2ª encontró 2 bugs en los arreglos de la 1ª). Quedan N4 y N5.
 
-- [ ] **N1 (2026-10-10) — «Cancelar tratamiento» avisa que sus citas siguen vivas.** Hoy el botón hace un
+- [x] **N1 (2026-10-10) — «Cancelar tratamiento» avisa que sus citas siguen vivas.** Hoy el botón hace un
   PATCH directo (sin modal): sólo cambia el estado + bitácora; las citas agendadas de sus sesiones se
   quedan en la agenda, AGENDADAS y sin avisar al paciente. Pedido: un modal de confirmación que diga que
   las citas abiertas NO se cancelan y hay que cancelarlas a mano, una por una. (Ofrecer «cancelar también
   las N citas» quedó como idea aparte, no pedida.)
-- [ ] **N2 (2026-10-10) — TODA visita lleva cita (sin excepciones).** Revierte la flexibilidad que el
+- [x] **N2 (2026-10-10) — TODA visita lleva cita (sin excepciones).** Revierte la flexibilidad que el
   usuario pidió en 07-PLAN («visitas que nunca tengan cita en la agenda»). Hoy: HOY la cita es opcional
   (casilla «También en la agenda»), FUTURO la exige, PASADO no la ofrece (visita sola). Por decidir al
   planearlo: (a) un día PASADO — ¿se crea una cita en el pasado y con qué estado (¿COMPLETADA? ¿genera
@@ -36,7 +40,24 @@
   ESE MISMO DÍA, `bookings/[id]` PATCH le manda el correo de cancelación de una cita que nunca supo que
   existía (las de un día pasado ya no: 09 L3). Arreglo de raíz: guardar en la cita que no se avisó
   (columna nueva → SQL manual, no `db push`) y saltar el correo con eso, no con la fecha.
-- [ ] **N3 (2026-10-10) — Las acciones de la cita también desde la visita y desde la sesión.** En la
+- [x] **N5 — RESUELTO 2026-10-10 de raíz:** el expediente se guarda limpio (alta y edición, `dd93ad45`,
+  `limpiarNombrePropio`) y se limpiaron en prod 150 pacientes + 87 citas en una transacción, con una fila de
+  bitácora por paciente (`user_id 'sistema'`, `SYSTEM`, motivo «limpieza de espacios en el nombre»). Ojo: la
+  1ª pasada usó `regexp_replace(btrim(x))` y un apellido con « 	» al final quedó con espacio — el orden
+  correcto es `btrim(regexp_replace(x))` (2ª pasada, 1 paciente). Visto al limpiar: un doctor tiene dos
+  «Ana María Padilla Ramírez» (1955-07-08) que sólo se distinguían por un espacio — duplicado real.
+- [x] **N6 + «nombres limpios» (2026-10-10) — análisis COMPLETO tras 3 parches a medias.** Regla única:
+  `limpiarNombre` (`@healthcare/database`, colapsar y LUEGO recortar) en los 6 PUNTOS DE ENTRADA de texto
+  libre: alta/edición del expediente · importación de Excel · creación de la cita (nombre completo en las 4
+  rutas + nombre/apellidos separados) · reseña y su link · movimiento manual de Flujo. Las COPIAS (form
+  links, contraparte del ingreso al completar, ventas, Calendar/correos/SMS) salen de una fuente limpia.
+  Fuera A PROPÓSITO: razón social y nombres de CFDI (legales, del SAT). Guardia:
+  `scripts/qa/verificar-nombres.cjs` (9 columnas; sale 1 si hay sucias → un camino nuevo no usa la regla).
+- (histórico) **N5 (2026-10-10, visto en la prueba de 09) — «Agregar sesión» del tratamiento guarda «Nombre  Prueba».**
+  El arreglo del doble espacio (`af0fe2a5`) sólo cubrió `useCitaEnConsulta`; las filas de sesiones
+  (`FilasDeSesiones`) arman el nombre de la cita por su cuenta con el expediente sin limpiar. Mejor: limpiar
+  en UN lugar (el servidor al crear la cita, o el expediente al guardarse) en vez de en cada camino.
+- [x] **N3 (2026-10-10) — Las acciones de la cita también desde la visita y desde la sesión.** En la
   página de la visita y en la tarjeta de cada sesión del tratamiento: **Completar · No asistió ·
   Cancelar · Reagendar**, como en la fila de la agenda (`/dashboard/appointments`). Deben ser LAS MISMAS
   (mismo componente/mismo flujo, no una copia): completar pide el cobro y registra el ingreso igual que

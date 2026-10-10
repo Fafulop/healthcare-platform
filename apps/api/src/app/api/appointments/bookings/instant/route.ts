@@ -16,7 +16,7 @@ import { validateRequestedLocation } from '@/lib/booking-location';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
 import { sendPatientSMS, sendDoctorSMS, isSMSEnabled } from '@/lib/sms';
 import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
-import { limpiarNombre } from '@/lib/nombre-paciente';
+import { limpiarNombre } from '@healthcare/database';
 
 export async function POST(request: Request) {
   try {

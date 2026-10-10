@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 import { generateLedgerInternalId, getDefaultArea, parsePagination, buildPaginationMeta } from '@/lib/practice-utils';
+import { limpiarNombre } from '@healthcare/database';
 
 // GET /api/practice-management/ledger
 // Get all ledger entries for authenticated doctor with optional filtering
@@ -358,7 +359,7 @@ export async function POST(request: NextRequest) {
         ...(finalServiceName ? { serviceName: finalServiceName } : {}),
         ...(patientId ? { patientId: String(patientId) } : {}),
         ...(counterpartyRfc ? { counterpartyRfc: String(counterpartyRfc).trim().toUpperCase().slice(0, 13) } : {}),
-        ...(counterpartyName ? { counterpartyName: String(counterpartyName).trim().slice(0, 300) } : {}),
+        ...(counterpartyName ? { counterpartyName: (limpiarNombre(String(counterpartyName)) as string).slice(0, 300) } : {}),
       },
       include: {
         attachments: true,
