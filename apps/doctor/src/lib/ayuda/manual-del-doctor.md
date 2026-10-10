@@ -205,7 +205,8 @@ Si la cita tiene expediente, en su perfil aparece su **visita** (ver [Visitas](#
 - **«No asistió»** pide confirmación y marca la cita así, sin avisar al paciente. No se puede deshacer.
 - **«Eliminar»** sólo aparece en citas finales, pide confirmación y **no se puede deshacer**. Si la
   cita tenía un cobro, el ingreso **se queda** en Flujo de Dinero; en tu actividad reciente queda
-  «Cita eliminada».
+  «Cita eliminada». Si su **visita tiene algo** (plantillas, notas, recetas, fotos o ventas), la cita
+  **no se borra** (la visita se quedaría sin su cita); si la visita está vacía, se borra con ella.
 
 En los tres casos, si la cita tenía un **link de pago sin pagar, se desactiva**: ya no acepta pagos
 nuevos. Si no se pudo desactivar en Stripe o Mercado Pago, la agenda te avisa que el link sigue
@@ -428,9 +429,13 @@ documentos, notas, recetas e informes, la cita y un comentario.
 
 **Cómo nace una visita:**
 
-- **Sola, al completar una cita** de un paciente con expediente: aparece «Visita del …» vacía, con
-  la fecha, hora y cobro de la cita. Si el expediente se vincula a la cita **después** de
-  completarla, la visita aparece al vincularlo.
+- **Sola, al agendar una cita** de un paciente con expediente: la cita y su visita son el mismo
+  evento, así que la visita existe **desde que se agenda** («Visita del …», con la fecha, hora y cobro
+  de la cita) y puedes subirle cosas **antes** de la consulta. Completar la cita la cobra como
+  siempre (no crea otra visita). Si la cita se **reagenda**, su visita se va con la cita nueva. Si se
+  **cancela** o el paciente **no asistió**, la visita **vacía se borra** y la que **tiene algo** se
+  queda. Una cita **sin expediente** (por ejemplo, la que el paciente agendó en tu página) recibe su
+  visita cuando le vinculas el expediente.
 - **«Nueva Visita»** en el perfil: eliges la **Fecha** (hoy o antes: una visita sin cita no puede ser
   en el futuro — para otro día, agenda una cita). Visita y cita son el mismo evento, así que **no se
   liga una cita a mano**:

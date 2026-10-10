@@ -83,10 +83,16 @@ export function NuevaVisitaModal({
   const conCita = ofreceAgenda && enAgenda;
 
   // Visitas que no son de NINGÚN tratamiento, del MISMO día o ANTERIORES (H-024). Las 20 más recientes.
+  // (Sin la de la cita de ese día: una visita no es seguimiento de sí misma.)
   const visitasSueltas = useMemo(
-    () => (fecha ? visitas.filter((v) => !v.sesion && v.fecha.slice(0, 10) <= fecha).slice(0, 20) : []),
-    [visitas, fecha],
+    () => (fecha
+      ? visitas.filter((v) => !v.sesion && v.fecha.slice(0, 10) <= fecha && v.id !== visitaExistente).slice(0, 20)
+      : []),
+    [visitas, fecha, visitaExistente],
   );
+  // 08-PLAN F2: la visita de la cita ya existe (nace al agendar). Si aún no es de un tratamiento, también
+  // puede marcarse como seguimiento (PATCH `seguimiento`).
+  const existenteEnTratamiento = !!visitas.find((v) => v.id === visitaExistente)?.sesion;
   // Si al cambiar la fecha la visita elegida queda fuera (posterior), la elección vale «No».
   const seguimientoEf =
     seguimiento.startsWith('v:') && !visitasSueltas.some((v) => `v:${v.id}` === seguimiento) ? '' : seguimiento;
@@ -94,7 +100,7 @@ export function NuevaVisitaModal({
     setSeguimiento((s) => (s.startsWith('v:') ? '' : s));
   }, [fecha]);
   // La cita de una sesión ya lleva su visita al tratamiento: ahí no se pregunta (el servidor diría 409).
-  const ofrecerSeguimiento = listo && !visitaExistente && !citaEsSesion && (activos.length > 0 || visitasSueltas.length > 0);
+  const ofrecerSeguimiento = listo && !existenteEnTratamiento && !citaEsSesion && (activos.length > 0 || visitasSueltas.length > 0);
   const cuerpoSeguimiento = ofrecerSeguimiento && seguimientoEf
     ? { seguimiento: seguimientoEf.startsWith('t:') ? { tratamientoId: seguimientoEf.slice(2) } : { visitaId: seguimientoEf.slice(2) } }
     : {};
@@ -117,10 +123,31 @@ export function NuevaVisitaModal({
       : `Esta visita es la sesión ${seg.numero} de su tratamiento`);
   };
 
+  /** 08-PLAN F2 — abre una visita que YA existe; si se eligió seguimiento, primero la mete al tratamiento. */
+  const abrirExistente = async (visitaId: string) => {
+    if (cuerpoSeguimiento.seguimiento) {
+      const res = await fetch(`/api/medical-records/patients/${patientId}/visitas/${visitaId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seguimiento: cuerpoSeguimiento.seguimiento }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || 'No se pudo marcar como seguimiento');
+      avisarSeguimiento(data?.data?.seguimiento);
+    }
+    router.push(visitaHref(patientId, visitaId));
+  };
+
   const confirmar = async () => {
     setError(null);
     if (visitaExistente) {
-      router.push(visitaHref(patientId, visitaExistente));
+      setGuardando(true);
+      try {
+        await abrirExistente(visitaExistente);
+      } catch (err: any) {
+        toast.error(err.message || 'No se pudo abrir la visita');
+        setGuardando(false);
+      }
       return;
     }
     if (!fecha) { toast.error('Elige la fecha de la visita'); return; }
@@ -151,6 +178,17 @@ export function NuevaVisitaModal({
         if (!c.listoPara(servicioId, hora)) { setGuardando(false); return; }
         const r = await c.crear({ servicioId, hora });
         if (!r.ok) { setError(r.error); setGuardando(false); return; }
+        // 08-PLAN F2: la cita ya nació con su visita: se abre ésa (con seguimiento, primero entra al
+        // tratamiento). Con la API de antes no viene `visitaId`: se crea como antes.
+        if (r.visitaId) {
+          try {
+            await abrirExistente(r.visitaId);
+          } catch (err: any) {
+            toast.error(`La cita y su visita se crearon, pero no se marcó como seguimiento (${err.message}). Hazlo desde Nueva Visita.`);
+            router.push(visitaHref(patientId, r.visitaId));
+          }
+          return;
+        }
         const { res, data } = await crearVisita({ bookingId: r.bookingId });
         if (!res.ok || !data?.data?.id) {
           toast.error('La cita se creó, pero la visita no: ábrela desde la cita (Nueva Visita la ofrece).');

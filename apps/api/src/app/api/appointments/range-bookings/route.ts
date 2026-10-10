@@ -18,6 +18,7 @@ import { sendBookingConfirmationEmail } from '@/lib/send-confirmation-email';
 import { timeToMinutes, minutesToTime } from '@/lib/availability-calculator';
 import { lockBookingDay, findBookingOverlap } from '@/lib/booking-overlap';
 import { validatePatientLink, patientLinkGoneResponse } from '@/lib/patient-link';
+import { visitaDeCitaNueva } from '@/lib/visita-de-cita';
 
 export async function POST(request: Request) {
   try {
@@ -447,11 +448,18 @@ export async function POST(request: Request) {
       finalPrice,
     });
 
+    // 08-PLAN F2: la cita nace con su visita, si tiene expediente (la pública no lo trae: nace al
+    // ligarlo). Aquí no hay reagendado. Falla abierto.
+    const visitaId = await visitaDeCitaNueva({
+      bookingId: booking.id, doctorId, callerDoctorId, role: callerRole,
+    });
+
     return NextResponse.json(
       {
         success: true,
         message: autoConfirm ? 'Cita creada y confirmada exitosamente' : 'Reserva creada exitosamente',
         data: bookingWithDoctor,
+        ...(visitaId ? { visitaId } : {}),
       },
       { status: 201 }
     );

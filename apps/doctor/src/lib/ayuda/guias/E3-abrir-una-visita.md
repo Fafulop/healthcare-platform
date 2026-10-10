@@ -2,7 +2,7 @@
 
 **Para qué:** juntar en un solo lugar lo de un día con el paciente: plantillas, fotos, notas, recetas y ventas.
 
-**Cuándo se abre sola:** al **completar una cita** de un paciente con expediente.
+**Cuándo se abre sola:** al **agendar una cita** de un paciente con expediente — existe desde ese momento y le puedes subir cosas antes de la consulta. Si la cita se reagenda, la visita se va con ella; si se cancela vacía, se borra.
 
 **Pasos — abrirla tú**
 1. Perfil del paciente → **«Nueva Visita»**.

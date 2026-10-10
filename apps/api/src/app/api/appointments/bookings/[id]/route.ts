@@ -3,7 +3,7 @@
 // DELETE /api/appointments/bookings/[id] - Delete booking record
 
 import { NextResponse } from 'next/server';
-import { prisma, syncVisitaForBooking } from '@healthcare/database';
+import { prisma, syncVisitaForBooking, visitaVacia } from '@healthcare/database';
 import { sendPatientSMS, isSMSEnabled } from '@/lib/sms';
 import { validateAuthToken, AuthError } from '@/lib/auth';
 import {
@@ -213,8 +213,8 @@ export async function PATCH(
         }
       })().catch((err) => console.error('[ledger] patient backfill failed:', err));
 
-      // VISITAS D1b: re-ligar / desligar el expediente reconcilia la visita de la cita (sólo
-      // actúa si la cita ya está concluida, o si colgaba una visita de otro paciente). Falla
+      // VISITAS D1b → 08-PLAN F2: re-ligar / desligar el expediente reconcilia la visita de la cita
+      // (una cita viva o concluida recién ligada RECIBE su visita; una de otro paciente se suelta). Falla
       // ABIERTO: ligar el expediente nunca depende de la visita. En transacción: soltar/borrar la
       // visita vieja y crear la nueva van juntos o no va ninguno. Corre aunque el paciente no
       // cambie: re-enviar el mismo id REPARA una visita que falló al concluir.
@@ -675,23 +675,23 @@ export async function PATCH(
       // cubre los tres caminos que concluyen (agenda, agente, chat de citas). Falla ABIERTO:
       // concluir una cita nunca depende del expediente. `fechaHint` sale de `currentBooking`
       // (leído ANTES del update): en un slot privado el slot ya se borró arriba.
+      // 08-PLAN F2: en TODO estado terminal, no sólo al concluir — cancelada / no asistió borra la
+      // visita VACÍA y conserva la que tiene contenido (`syncVisitaForBooking`). Falla abierto igual.
       let visitaId: string | undefined;
       let visitaWarning = false;
-      if (newStatus === 'COMPLETED') {
-        try {
-          const r = await prisma.$transaction((tx) => syncVisitaForBooking(tx, currentBooking.id, {
-            fechaHint: currentBooking.slot?.date ?? currentBooking.date ?? null,
-            ...(callerUserId && callerRole ? { quien: { userId: callerUserId, userRole: callerRole } } : {}),
-          }));
-          if (r.status === 'created' || r.status === 'updated') visitaId = r.visitaId;
-          else if (r.status === 'no_fecha' || r.status === 'booking_not_found') {
-            console.warn(`[visitas] cita ${currentBooking.id} concluida SIN visita: ${r.status}`);
-            visitaWarning = true;
-          }
-        } catch (err) {
-          console.error('[visitas] visita creation failed (booking completed anyway):', err);
+      try {
+        const r = await prisma.$transaction((tx) => syncVisitaForBooking(tx, currentBooking.id, {
+          fechaHint: currentBooking.slot?.date ?? currentBooking.date ?? null,
+          ...(callerUserId && callerRole ? { quien: { userId: callerUserId, userRole: callerRole } } : {}),
+        }));
+        if (r.status === 'created' || r.status === 'updated') visitaId = r.visitaId;
+        else if (newStatus === 'COMPLETED' && (r.status === 'no_fecha' || r.status === 'booking_not_found')) {
+          console.warn(`[visitas] cita ${currentBooking.id} concluida SIN visita: ${r.status}`);
           visitaWarning = true;
         }
+      } catch (err) {
+        console.error(`[visitas] reconciling the visita failed (status ${newStatus} saved anyway):`, err);
+        if (newStatus === 'COMPLETED') visitaWarning = true;
       }
 
       // ── H-010 / H-054: a cita that ended takes its LIVE payment link down with it ──────────
@@ -766,6 +766,11 @@ export async function PATCH(
         },
       },
     });
+
+    // 08-PLAN F2: la visita ya nació con la cita; esto REPARA si su creación falló (falla abierto).
+    await prisma.$transaction((tx) => syncVisitaForBooking(tx, id, {
+      ...(callerUserId && callerRole ? { quien: { userId: callerUserId, userRole: callerRole } } : {}),
+    })).catch((err) => console.error('[visitas] reconciling the visita failed (status saved anyway):', err));
 
     // Freeform bookings (slotId=null): skip slot-dependent work but still send email, SMS, log, GCal.
     // Range-based public bookings are created as PENDING and confirmed here by the doctor.
@@ -988,6 +993,25 @@ export async function DELETE(
       );
     }
 
+    // VISITAS 08-PLAN F2: la cita y su visita son el mismo evento. Borrar la cita dejaba su visita SIN
+    // cita (la FK pone `booking_id` en NULL) — a veces en el futuro. Con contenido clínico → 409: la
+    // cita se queda (la UI sólo ofrece «Eliminar» en citas terminadas). Vacía → se borra con la cita.
+    const visitaDeLaCita = await prisma.visita.findUnique({
+      where: { bookingId: id }, select: { id: true, comentario: true },
+    });
+    if (visitaDeLaCita && !(await visitaVacia(prisma, visitaDeLaCita))) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'La visita de esta cita tiene contenido clínico (plantillas, notas, recetas, fotos o ventas): la cita no se borra, para no dejar esa visita sin su cita.',
+        },
+        { status: 409 }
+      );
+    }
+    const borrarVisitaVacia = visitaDeLaCita
+      ? [prisma.visita.deleteMany({ where: { id: visitaDeLaCita.id, bookingId: id } })]
+      : [];
+
     // H-010 / H-054: a deleted cita's live link would stay payable with NO cita behind it (its
     // booking_id goes NULL). Read them now (the delete nulls booking_id); turn them off only once
     // the delete succeeded — a failed delete must not leave a live cita with a dead link.
@@ -1009,12 +1033,14 @@ export async function DELETE(
       }).catch((err) => console.error('[GCal sync] getCalendarTokens (booking DELETE):', err));
     }
 
+    // (08-PLAN F2: la visita vacía de la cita se borra en la MISMA transacción que la cita.)
     if (!booking.slotId) {
       // Freeform booking (legacy) — just delete the record, nothing else to clean up.
-      await prisma.booking.delete({ where: { id } });
+      await prisma.$transaction([...borrarVisitaVacia, prisma.booking.delete({ where: { id } })]);
     } else if (slot?.isPublic === false) {
       // Gap A: private slot — delete booking first (satisfies FK), then delete the now-orphaned slot.
       await prisma.$transaction([
+        ...borrarVisitaVacia,
         prisma.booking.delete({ where: { id } }),
         prisma.appointmentSlot.delete({ where: { id: slot.id } }),
       ]);
@@ -1022,6 +1048,7 @@ export async function DELETE(
       // Regular public slot — delete booking record; slot stays available for new bookings.
       // Clear the stale GCal event ID from the slot if it had one.
       await prisma.$transaction([
+        ...borrarVisitaVacia,
         prisma.booking.delete({ where: { id } }),
         ...(slot?.googleEventId
           ? [prisma.appointmentSlot.update({ where: { id: booking.slotId }, data: { googleEventId: null } })]

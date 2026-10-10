@@ -16,7 +16,8 @@ export function horaDeAhora() {
 }
 
 export type ResultadoCitaEnConsulta =
-  | { ok: true; bookingId: string; sesionLigada: boolean }
+  /** `visitaId`: 08-PLAN F2 — la visita que la cita trajo al nacer (ausente con la API de antes). */
+  | { ok: true; bookingId: string; sesionLigada: boolean; visitaId?: string }
   | { ok: false; error: string };
 
 /**
@@ -73,7 +74,10 @@ export function useCitaEnConsulta(patientId: string, activo: boolean) {
         // Traslape, horario bloqueado…: lo dice la ruta.
         return { ok: false, error: d?.error || `No se pudo crear la cita (${res.status})` };
       }
-      return { ok: true, bookingId: d.data.id, sesionLigada: d.sesionLigada?.ligada === true };
+      return {
+        ok: true, bookingId: d.data.id, sesionLigada: d.sesionLigada?.ligada === true,
+        ...(typeof d.visitaId === 'string' ? { visitaId: d.visitaId } : {}),
+      };
     } catch {
       return { ok: false, error: 'No se pudo crear la cita. Revisa tu conexión e intenta de nuevo.' };
     }

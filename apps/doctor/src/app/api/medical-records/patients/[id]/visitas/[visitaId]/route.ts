@@ -6,7 +6,7 @@ import {
   bloquesDeCita, contarHijos, diaISO, diasDeCitas, leerBody, parseComentario, parseFecha, rechazarSiHayCitaEseDia,
   rechazarVisitaFuturaSinCita, totalHijos,
 } from '@/lib/visitas';
-import { sesionDeVisita } from '@/lib/tratamientos';
+import { auditarSeguimiento, parseSeguimiento, sesionDeVisita, unirComoSeguimiento } from '@/lib/tratamientos';
 
 // VISITAS D2 — docs/DESDE JUNIO/VISITAS/02-PLAN-fase-1.md §5.2. Permiso: `expedientes` (heredado).
 
@@ -95,6 +95,31 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const visita = await cargarVisita(ctx.doctorId, patientId, visitaId);
     if (!visita) {
       return NextResponse.json({ error: 'Visita not found' }, { status: 404 });
+    }
+
+    // 08-PLAN F2 — «¿Es seguimiento?» para una visita que YA existe (la de una cita nace al agendarla):
+    // la misma regla que al crearla (`unirComoSeguimiento`). Sólo si aún no es de un tratamiento (por sí
+    // o por su cita). Va sola: no se mezcla con fecha ni comentario.
+    if (body.seguimiento !== undefined) {
+      const seguimiento = parseSeguimiento(body.seguimiento);
+      if (!seguimiento) throw new AppError('seguimiento inválido', 400);
+      if (await sesionDeVisita(ctx.doctorId, patientId, visitaId, visita.bookingId)) {
+        throw new AppError('Esta visita ya es de un tratamiento', 409);
+      }
+      const hecho = await prisma.$transaction((tx) => unirComoSeguimiento(
+        tx, ctx.doctorId, patientId, seguimiento,
+        { id: visitaId, bookingId: visita.bookingId, fecha: visita.fecha },
+      ));
+      await auditarSeguimiento(ctx, request, patientId, hecho, visitaId);
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: visitaId,
+          seguimiento: {
+            tratamientoId: hecho.tratamientoId, numero: hecho.numero, tratamientoCreado: hecho.creado?.nombre ?? null,
+          },
+        },
+      });
     }
 
     const data: Prisma.VisitaUncheckedUpdateInput = {};

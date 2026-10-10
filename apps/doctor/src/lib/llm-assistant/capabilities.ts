@@ -185,13 +185,15 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
 
       'Visita': {
         states:
-          'Vacía o con contenido. Origen: se abrió sola al completar una cita | abierta a mano.',
+          'Vacía o con contenido. Origen: es la visita de su cita (nace al agendarla) | abierta a mano.',
         actions: {
 
           crear: {
             allowedIf:
-              'Sola al completar una cita de un paciente con expediente (o al vincular el expediente ' +
-              'a una cita ya completada). A mano: botón "Nueva Visita" en el perfil del paciente → ' +
+              'Sola AL AGENDAR una cita de un paciente con expediente (o al vincularle el expediente): existe desde ' +
+              'antes de la consulta y se le pueden subir cosas; completar la cita no crea otra. Reagendar la mueve a la ' +
+              'cita nueva; cancelar o "no asistió" borra la vacía y deja la que tiene algo; una cita cuya visita tiene ' +
+              'algo no se puede eliminar. A mano: botón "Nueva Visita" en el perfil del paciente → ' +
               'Fecha (hoy o antes) → "Crear visita". Ya NO se elige ni se liga una cita a mano (visita y cita son el mismo ' +
               'evento): si ese día el paciente tiene cita, el botón abre la visita de esa cita y no se crea otra; si no, ' +
               'HOY con permiso de citas sale marcada "También en la agenda" (Servicio y Hora) → "Crear visita y agendar": ' +

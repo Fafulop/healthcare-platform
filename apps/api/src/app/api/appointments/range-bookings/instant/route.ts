@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server';
 import { prisma, doctorCongelado, precioParaCitaDeSesion } from '@healthcare/database';
 import { validateAuthToken } from '@/lib/auth';
 import { ligarSesionAlAgendar, sesionAlReagendar, pagoYFacturaAlReagendar } from '@/lib/reagendar-sesion';
+import { visitaDeCitaNueva } from '@/lib/visita-de-cita';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
@@ -424,6 +425,13 @@ export async function POST(request: Request) {
       bookingId: booking.id, userId, role,
     });
 
+    // 08-PLAN F2: la cita nace con su visita — AL FINAL, después de que la sesión (si la hay) trajo la
+    // suya. Falla abierto. `visitaId` va en la respuesta: «Abrir visita hoy» y «Nueva Visita» la abren.
+    const visitaId = await visitaDeCitaNueva({
+      bookingId: booking.id, doctorId: booking.doctorId, reagendaDe, isRescheduled,
+      callerDoctorId: authenticatedDoctorId, userId, role,
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -431,6 +439,7 @@ export async function POST(request: Request) {
         ...(sesionReagendada ? { sesionReagendada } : {}),
         ...(facturaReagendada ? { facturaReagendada } : {}),
         ...(sesionLigada ? { sesionLigada } : {}),
+        ...(visitaId ? { visitaId } : {}),
         data: {
           id: booking.id,
           confirmationCode,

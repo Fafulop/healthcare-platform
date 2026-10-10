@@ -15,6 +15,8 @@
 
 **Tu dinero:** cancelar y no asistió no registran nada. **Eliminar una cita cobrada no borra su ingreso**: se queda en Flujo de Dinero.
 
+**Su visita:** cada cita tiene su visita. Al cancelar o marcar «No asistió», la visita **vacía se borra** y la que **tiene algo** (plantillas, notas, recetas, fotos o ventas) **se queda** en el expediente. Una cita cuya visita tiene algo **no se puede eliminar**.
+
 **Si algo sale mal:** Completada, No asistió y Cancelada son finales; no hay vuelta atrás. Eliminar no se puede deshacer.
 
 **Video:** (pendiente)

@@ -22,7 +22,8 @@ import { AgendarSeguimiento } from '@/components/medical-records/tratamientos/Ag
 // para el script `scripts/visitas/backfill-visitas.cjs`, que se DESCARTÓ el 2026-09-29 y nunca corrió:
 // hoy no hay ni una visita 'backfill'. El texto queda por si alguna vez se corre.
 const ORIGEN_TEXTO: Record<string, string> = {
-  cita: 'Se abrió sola al concluir la cita.',
+  // 08-PLAN F2: nace con su cita (antes, al concluirla).
+  cita: 'Es la visita de su cita.',
   manual: 'Abierta a mano.',
   backfill: 'Creada a partir de una consulta registrada antes de que existieran las visitas.',
 };

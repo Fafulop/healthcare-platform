@@ -64,8 +64,10 @@ export function AbrirVisitaHoyModal({ patientId, s, planeadas, conAgenda, onSinA
       onClose();
       return;
     }
+    // 08-PLAN F2: la cita ya NACIÓ con su visita (y la sesión la guardó): se abre ésa.
+    if (r.visitaId) { router.push(visitaHref(patientId, r.visitaId)); return; }
     try {
-      // La sesión ya tiene esta cita: la visita de la cita entra sola a la sesión (G3).
+      // API de antes (o la visita no nació): se crea la de la cita; entra sola a la sesión (G3).
       const res = await fetch(`/api/medical-records/patients/${patientId}/visitas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -11,6 +11,7 @@ import {
 import { sendNewBookingTelegram, isTelegramConfigured } from '@/lib/telegram';
 import { validateAuthToken } from '@/lib/auth';
 import { sesionAlReagendar, pagoYFacturaAlReagendar } from '@/lib/reagendar-sesion';
+import { visitaDeCitaNueva } from '@/lib/visita-de-cita';
 import { logBookingCreated } from '@/lib/activity-logger';
 import { createSlotEvent, updateSlotEvent } from '@/lib/google-calendar';
 import { getCalendarTokens, generateConfirmationCode, generateReviewToken } from '@/lib/appointments-utils';
@@ -497,6 +498,13 @@ export async function POST(request: Request) {
       bookingId: booking.id, role: callerRole,
     });
 
+    // 08-PLAN F2: la cita nace con su visita (al final, tras la sesión). Sin expediente (la pública)
+    // no hay visita: nace al ligarlo. Falla abierto.
+    const visitaId = await visitaDeCitaNueva({
+      bookingId: booking.id, doctorId: slot.doctorId, reagendaDe, isRescheduled,
+      callerDoctorId, userId: callerUserId, role: callerRole,
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -504,6 +512,7 @@ export async function POST(request: Request) {
         message: 'Booking created successfully',
         ...(sesionReagendada ? { sesionReagendada } : {}),
         ...(facturaReagendada ? { facturaReagendada } : {}),
+        ...(visitaId ? { visitaId } : {}),
       },
       { status: 201 }
     );
