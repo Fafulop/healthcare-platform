@@ -18,7 +18,8 @@ Pedido del usuario (2026-10-10), en sus palabras resumidas:
 | P1 tarjeta completa en visita y sesión | `0dd5839a` | ✅ visita de pepit perez (16 oct): precio, «¿Necesita factura?» (la insignia de arriba y el grupo FACTURA se actualizan juntos; se desmarcó después), CONFIRMACIÓN, «Link de pago», «Crear formulario» abre «Formulario Pre-Cita» (se cerró sin generar); sesión 3 de «k»: «Más de la cita» sin ESTADO; el modal del calendario igual que antes |
 | P2 página «Cobros» | `e3e8b539` | ✅ pepit perez: Registrado $816 · Pagado $700 · Pendiente $116 · por cobrar $8,100 — IGUAL al cálculo aparte en la BD (citas 0+200+500 pagadas, venta VTA-2026-009 $116 pendiente, 9 agendadas = $8,100); «Acciones de la cita» abre la tarjeta; ventas con su visita |
 | P3 resumen en el perfil | `510ab770` | ✅ «Citas e Ingresos» ya no está; resumen: pendiente de sus citas $0, por cobrar $9,000 (una cita nueva de $900 creada en paralelo, verificada en la BD), «1 cita lista para facturar» = la del 15 oct ($500, casilla marcada, sin factura) |
-| P4 un solo precio por sesión | — | pendiente |
+| P4 un solo precio por sesión | `781cf26c` | ✅ «k» (pepit perez): sesiones 1 y 2 (sin fecha) ofrecen «Servicio y precio»; 3 y 4 (cita viva) ya no y dicen «$900 (de su cita)». En prod 0 sesiones tenían precios distintos (ningún total cambió) |
+| Ajustes tras P3 | `3d1fd5ce` | ✅ «Cobros»: «Cobro y factura de la cita» sólo con precio · casilla · «Completar» (abre «Completar cita» con $900) · Cobro · Factura; visita: tarjeta compacta (precio · casilla · horario en un renglón, grupos en rejilla) |
 
 Revisiones: P1 (10 hallazgos; permisos de Cobro/Factura, insignias viejas, botones que desaparecían…), P2 (10; el veredicto de pago debe ser el del servidor, pendiente por renglón…), P3 (9; una sola regla `cobros/cuenta.ts` para perfil y Cobros, borradores del asistente visibles…). Todo arreglado antes de cada push.
 
