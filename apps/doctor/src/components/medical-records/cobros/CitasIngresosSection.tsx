@@ -2,7 +2,7 @@
 
 /**
  * «Citas e Ingresos»: cada cita del paciente con su cobro y su factura (Facturar con sus datos fiscales,
- * PDF/XML del CFDI, los borradores del asistente) y «Nueva factura manual».
+ * PDF/XML del CFDI, los borradores del asistente). (Sin «Nueva factura manual» desde 2026-10-12.)
  *
  * VISITAS 10-PLAN P2/P3: vivía dentro del perfil del paciente (`patients/[id]/page.tsx`). Se movió aquí SIN
  * cambiarle nada y desde P3 sólo la usa la página «Cobros» (el perfil enseña `ResumenCobros`). Lo único
@@ -248,19 +248,9 @@ export function CitasIngresosSection({ bookings, permisos, estado, patient, extr
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      {/* Factura que NO nace de una cita (insumos, quirófano, un saldo aparte).
-          Va ARRIBA y a lo ancho: es la acción de entrada de la sección, no un
-          accesorio del encabezado. Lleva al form con este paciente ya elegido
-          como receptor — sus datos fiscales los deriva el servidor. */}
-      {verFactura && (
-        <Link
-          href={`/dashboard/facturacion?patient=${patient.id}`}
-          className="w-full mb-4 px-4 py-3 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
-        >
-          <Receipt className="w-4 h-4" /> Nueva factura manual
-        </Link>
-      )}
-
+      {/* (2026-10-12, decisión del usuario: ya no está «Nueva factura manual» aquí — era un atajo a
+          Facturación con el paciente ya elegido; la factura manual se hace en Facturación y se ve abajo, en
+          «Otras facturas del paciente».) */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
           <CalendarDays className="w-5 h-5" />

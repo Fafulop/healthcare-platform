@@ -165,7 +165,8 @@ function FacturacionPageInner() {
   // (N conceptos with flags; receiver derived FRESH server-side). Wins over
   // ledgerData when both are present (09-DISENO §7.3).
   const draftIdParam = parseInt(searchParams.get("draft") || "0") || 0;
-  // Money-model #5: ?patient=<id> (expediente "Nueva factura" button) preselects
+  // Money-model #5: ?patient=<id> preselects (el botón «Nueva factura manual» del expediente se quitó el
+  // 2026-10-12; se conserva para enlaces viejos / marcadores)
   // the receptor dropdown — receiver is derived server-side, nothing else prefilled.
   const patientParam = searchParams.get("patient") || "";
   const [draftData, setDraftData] = useState<DraftPrefill | null>(null);

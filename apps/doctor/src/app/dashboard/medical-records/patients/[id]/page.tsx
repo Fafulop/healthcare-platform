@@ -568,6 +568,14 @@ export default function PatientProfilePage() {
               <Wallet className="w-4 h-4 flex-shrink-0" />
               <span>Cobros</span>
             </Link>
+            {/* 2026-10-12 — todas sus plantillas (en visitas, en sesiones o sin visita), como un libro. */}
+            <Link
+              href={`/dashboard/medical-records/patients/${patient.id}/plantillas`}
+              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 text-sm transition-colors"
+            >
+              <FileText className="w-4 h-4 flex-shrink-0" />
+              <span>Plantillas</span>
+            </Link>
 
             <div className="w-px h-6 bg-gray-200 hidden sm:block" />
             {/* An archived record offers «Reactivar» instead; an «Inactivo» one (only the assistant sets
@@ -933,7 +941,7 @@ export default function PatientProfilePage() {
           <DatosFiscalesCard patient={patient} patientId={patient.id} onUpdate={refreshPatient} />
 
           {/* 10-PLAN P3 — «Citas e Ingresos» se mudó a la página «Cobros» (citas con su cobro y factura,
-              totales, ventas). Aquí queda un resumen con la entrada y «Nueva factura manual». */}
+              totales, ventas). Aquí queda un resumen con la entrada (la factura manual se hace en Facturación desde 2026-10-12). */}
           <ResumenCobros
             patientId={patient.id}
             bookings={patientBookings}

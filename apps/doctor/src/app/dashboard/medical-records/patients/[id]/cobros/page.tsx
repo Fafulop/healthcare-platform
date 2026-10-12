@@ -15,6 +15,7 @@ import { usePermissions } from '@/lib/permissions-client';
 import { authFetch } from '@/lib/auth-fetch';
 import { visitaHref } from '@/lib/visitas-ui';
 import { calcularCuenta } from '@/components/medical-records/cobros/cuenta';
+import { OtrasFacturas } from '@/components/medical-records/cobros/OtrasFacturas';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 const pesos = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -199,6 +200,9 @@ export default function CobrosPage() {
           );
         }}
       />
+
+      {/* Las facturas que NO son de una cita (manual, de venta, de tratamiento): sólo lectura. Con permiso de Facturación. */}
+      {verFactura && <OtrasFacturas patientId={patientId} />}
       {tarjeta.modalFormulario}
 
       {/* Las ventas del paciente (las mismas de la página Ventas). */}

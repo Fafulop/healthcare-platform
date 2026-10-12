@@ -38,16 +38,19 @@ export default function NewEncounterPage() {
     templateConfig,
     handleSubmit,
     visitaId,
+    sinVisita,
     fechaVisita,
     errorVisita,
   } = useNewEncounterPage();
   // VISITAS D4 — desde una visita se vuelve a ELLA, y el título dice qué se está haciendo.
   const volverHref = visitaId
     ? visitaHref(patientId, visitaId)
+    : sinVisita
+    ? `/dashboard/medical-records/patients/${patientId}/plantillas`
     : `/dashboard/medical-records/patients/${patientId}`;
 
   // Sin `?visitaId=` el hook manda al perfil («Nueva Visita»): no se pinta el formulario mientras.
-  if (sessionStatus === 'loading' || !visitaId) {
+  if (sessionStatus === 'loading' || (!visitaId && !sinVisita)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -77,11 +80,11 @@ export default function NewEncounterPage() {
           className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
         >
           <ArrowLeft className="w-5 h-5" />
-          {visitaId ? 'Volver a la Visita' : 'Volver al Paciente'}
+          {visitaId ? 'Volver a la Visita' : sinVisita ? 'Volver a Plantillas' : 'Volver al Paciente'}
         </Link>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{visitaId ? 'Agregar plantilla' : 'Nueva Consulta'}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{visitaId ? 'Agregar plantilla' : sinVisita ? 'Nueva plantilla sin visita' : 'Nueva Consulta'}</h1>
             {patientName && (
               <p className="text-base font-medium text-gray-700 mt-1">{patientName}</p>
             )}
@@ -90,7 +93,9 @@ export default function NewEncounterPage() {
                 ? fechaVisita
                   ? `Visita del ${formatoFechaVisita(fechaVisita, { day: 'numeric', month: 'long', year: 'numeric' })}`
                   : 'Cargando la visita…'
-                : 'Registre los detalles de la consulta'}
+                : sinVisita
+                  ? 'No queda en ninguna visita: la encuentras en «Plantillas» del paciente.'
+                  : 'Registre los detalles de la consulta'}
             </p>
             {errorVisita && (
               <p className="text-sm text-red-700 mt-1">No se pudo cargar la visita. Recarga la página para intentar de nuevo.</p>
@@ -142,8 +147,8 @@ export default function NewEncounterPage() {
         patientId={patientId}
         initialData={voiceInitialData}
         onSubmit={handleSubmit}
-        submitLabel={visitaId ? 'Guardar en la visita' : 'Crear Consulta'}
-        cancelHref={visitaId ? volverHref : undefined}
+        submitLabel={visitaId ? 'Guardar en la visita' : sinVisita ? 'Guardar plantilla' : 'Crear Consulta'}
+        cancelHref={visitaId || sinVisita ? volverHref : undefined}
         fechaInicial={fechaVisita ?? undefined}
         templateConfig={templateConfig}
         selectedTemplate={selectedTemplate}

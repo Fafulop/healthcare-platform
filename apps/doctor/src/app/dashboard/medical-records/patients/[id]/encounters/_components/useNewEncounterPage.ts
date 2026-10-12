@@ -48,12 +48,14 @@ export function useNewEncounterPage() {
   // DENTRO de esa visita, EMPEZANDO con la fecha de la visita (editable, DISEÑO §3), y al guardar
   // se vuelve a ella.
   const visitaId = searchParams.get('visitaId');
-  // Sin visita (por URL o un enlace viejo) ya no se crea una consulta suelta con fecha editable:
-  // toda consulta nace en una visita. Se manda al perfil con el modal «Nueva Visita» abierto
-  // (`?nuevaVisita=1`, que el perfil abre una vez y quita). Limpieza de VISITAS 2026-10-01.
+  // Sin visita (por URL o un enlace viejo) no se crea una consulta suelta: se manda al perfil con el modal
+  // «Nueva Visita» abierto (`?nuevaVisita=1`). Limpieza de VISITAS 2026-10-01. EXCEPCIÓN (pedido del
+  // usuario 2026-10-12): desde la página «Plantillas» del paciente, `?sinVisita=1` crea una plantilla
+  // HUÉRFANA a propósito (con fecha editable, empezando hoy) y al guardar se vuelve a esa página.
+  const sinVisita = !visitaId && searchParams.get('sinVisita') === '1';
   useEffect(() => {
-    if (!visitaId) router.replace(`/dashboard/medical-records/patients/${patientId}?nuevaVisita=1`);
-  }, [visitaId, patientId, router]);
+    if (!visitaId && !sinVisita) router.replace(`/dashboard/medical-records/patients/${patientId}?nuevaVisita=1`);
+  }, [visitaId, sinVisita, patientId, router]);
   const [fechaVisita, setFechaVisita] = useState<string | null>(null);
   const [errorVisita, setErrorVisita] = useState(false);
 
@@ -325,7 +327,9 @@ export function useNewEncounterPage() {
     router.push(
       visitaId
         ? visitaHref(patientId, visitaId)
-        : `/dashboard/medical-records/patients/${patientId}/encounters/${data.data.id}`
+        : sinVisita
+          ? `/dashboard/medical-records/patients/${patientId}/plantillas`
+          : `/dashboard/medical-records/patients/${patientId}/encounters/${data.data.id}`
     );
   };
 
@@ -364,6 +368,7 @@ export function useNewEncounterPage() {
     handleSubmit,
     // Visita (D4)
     visitaId,
+    sinVisita,
     fechaVisita,
     errorVisita,
   };

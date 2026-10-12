@@ -406,7 +406,7 @@ También puedes crear el expediente **desde una cita**: «+ Crear expediente» (
 ### El perfil del paciente
 
 Botones de arriba: «Nueva Visita» · «Recetas» · «Informe» · «Línea de Tiempo» ·
-«Docs y Galería» · «Notas» · «Archivar».
+«Docs y Galería» · «Notas» · «Cobros» · «Plantillas» · «Archivar».
 
 **Columna izquierda:** Información de Contacto (con «Editar» para cambiar sus datos; la **flecha**
 de abajo abre su Contacto de Emergencia y sus Notas Generales — sin ninguno de los dos no hay
@@ -427,7 +427,8 @@ permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
 - **Cobros** — **Cobrado**, **Por cobrar · próximas citas** y **Por cobrar · citas pasadas sin
   completar** de sus citas (con permiso de Flujo de Dinero; los mismos números que la página «Cobros»,
   aquí sin ventas), cuántas citas están listas para facturar y los borradores de factura del asistente (con permiso de
-  Facturación), **«Nueva factura manual»** y **«Ver»**, que abre la página «Cobros».
+  Facturación) y **«Ver»**, que abre la página «Cobros». (La factura manual —la que no es de una cita— se
+  hace en **Facturación**.)
 
 **«Cobros»** (botón arriba, junto a «Notas») — el estado de cuenta del paciente en su propia página:
 - **Totales** (con permiso de Flujo de Dinero), tres números:
@@ -441,13 +442,22 @@ permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
   venta — p. ej. un ingreso que marcaste «pendiente» en Flujo de Dinero; completar desde la cita lo
   registra pagado) y cuántas citas completadas no tienen cobro registrado (cortesía o sin registrar):
   ésas no suman.
-- **Citas** — cada una con su cobro y su factura (Facturar, PDF/XML, borradores; arriba, «Nueva factura
-  manual»), y cada una con **«Abrir su visita»** y **«Cobro y factura de la cita»**: lo de dinero de la
+- **Citas** — cada una con su cobro y su factura (Facturar, PDF/XML, borradores), y cada una con **«Abrir su visita»** y **«Cobro y factura de la cita»**: lo de dinero de la
   tarjeta de la agenda (precio, «¿Necesita factura?», **«Completar»** con la ventana del cobro, link de
   pago y nota, factura). Lo demás de la cita (no asistió, cancelar, reagendar, confirmación, formulario)
   está en su visita.
+- **Otras facturas del paciente** (con permiso de Facturación; sólo si hay — o un aviso si no se pudieron
+  cargar) — las facturas de ingreso que **no son de una cita**: una factura manual hecha en Facturación,
+  la de una venta o la de un tratamiento, con su PDF y XML. Salen las ligadas a un cobro del paciente o
+  emitidas a **su RFC** (no las notas de crédito ni los complementos de pago). Sólo lectura.
 - **Ventas** (con permiso de Ventas) — sus ventas, cada una con su visita si la tiene, y **«+ Nueva
   venta»**.
+
+**«Plantillas»** (botón arriba, junto a «Cobros») — **todas** las plantillas llenadas del paciente en una
+lista, la más reciente primero, con su fecha, su estado y **dónde vive**: su visita («Visita del …»), la
+sesión de un tratamiento («Sesión 2 de 4 — …») o **«Sin visita»**. Clic en una para abrirla. **«Nueva
+plantilla sin visita»** crea una que no queda en ninguna visita (es el único lugar que lo permite; dentro
+de una visita se agrega con «Agregar plantilla»).
 
 En **Visitas** sólo salen las visitas que **no** son de un tratamiento. Las que son sesión de un
 tratamiento se abren desde el tratamiento (tarjeta **Tratamientos**); abajo de la lista dice cuántas son.
@@ -544,8 +554,9 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
   nueva como sesión 2 (le cambias el nombre en «Editar»). Al paciente le llega el correo de la cita como
   a cualquier cita agendada.
 
-**Consultas sin visita** — las registradas fuera de una visita (por ejemplo, las de antes de que
-existieran las visitas). Se ven en su propia tarjeta; desde cualquier visita puedes traerlas
+**Consultas sin visita** — las registradas fuera de una visita: las de antes de que existieran las
+visitas, o las que creas a propósito en **«Plantillas» → «Nueva plantilla sin visita»**. Se ven en su
+propia tarjeta (y en «Plantillas», con «Sin visita»); desde cualquier visita puedes traerlas
 («Traerla aquí…»).
 
 ### Tratamientos

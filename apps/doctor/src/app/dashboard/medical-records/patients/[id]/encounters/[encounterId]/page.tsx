@@ -5,6 +5,7 @@ import { ArrowLeft, Edit, Calendar, MapPin, FileText, Loader2, ClipboardList, St
 import { sinValor, tieneValores, textoDeValor } from '@/lib/campo-archivo';
 import { PdfSettingsDialog } from '@/components/medical-records/PdfSettingsDialog';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { formatDateLong, formatDateTime } from '@/lib/practice-utils';
 import { getEncounterTypeLabel } from '../_components/encounter-types';
 import { EncounterVitalsCard } from '../_components/EncounterVitalsCard';
@@ -32,6 +33,7 @@ export default function EncounterDetailPage() {
     handleDelete,
     setExportingPDF,
   } = useEncounterDetail();
+  const desdePlantillas = useSearchParams().get('desde') === 'plantillas';
 
   if (sessionStatus === 'loading' || loading) {
     return (
@@ -64,12 +66,13 @@ export default function EncounterDetailPage() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-4">
+        {/* Desde «Plantillas» se regresa a esa lista (2026-10-12). */}
         <Link
-          href={`/dashboard/medical-records/patients/${patientId}`}
+          href={desdePlantillas ? `/dashboard/medical-records/patients/${patientId}/plantillas` : `/dashboard/medical-records/patients/${patientId}`}
           className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-3"
         >
           <ArrowLeft className="w-4 h-4" />
-          Volver al Paciente
+          {desdePlantillas ? 'Volver a Plantillas' : 'Volver al Paciente'}
         </Link>
 
         <div className="flex items-center justify-between">

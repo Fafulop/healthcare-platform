@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Receipt, Wallet } from 'lucide-react';
+import { ChevronRight, Wallet } from 'lucide-react';
 import type { PatientBooking } from '@/components/medical-records/CitaBadges';
 import type { BookingPermisos } from '@/lib/booking-permisos';
 import { useCfdiDrafts, type BookingsEstado } from './CitasIngresosSection';
@@ -35,15 +35,8 @@ export function ResumenCobros({ patientId, bookings, permisos, estado }: {
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      {/* La acción de entrada de la sección vieja se queda en el perfil: es la más usada. */}
-      {verFactura && (
-        <Link
-          href={`/dashboard/facturacion?patient=${patientId}`}
-          className="w-full mb-4 px-4 py-3 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
-        >
-          <Receipt className="w-4 h-4" /> Nueva factura manual
-        </Link>
-      )}
+      {/* (2026-10-12, decisión del usuario: ya no está «Nueva factura manual» — la factura manual se hace en
+          Facturación; las que no son de una cita se ven en «Cobros», «Otras facturas del paciente».) */}
       <Link href={href} className="flex items-center justify-between gap-2 group">
         <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
           <Wallet className="w-5 h-5 text-teal-600" /> Cobros
