@@ -170,8 +170,7 @@ Al abrir una cita, las acciones vienen en grupos. Qué grupos aparecen depende d
 |---|---|---|---|---|---|
 | **Estado** (Confirmar, Completar, No asistió, Cancelar, Reagendar) | ✓ | ✓ | ✓ | — | — |
 | **Confirmación cita** (correo, WhatsApp, Meet) | — | ✓ | ✓ | — | — |
-| **Cobro** (link de pago) | ✓ | ✓ | ✓ | ✓ | sólo si ya hay un link activo o pagado |
-| **Factura** (con «¿Necesita factura?» marcada) | ✓ | ✓ | ✓ | ✓ | — |
+| **Cobro y factura** (link de pago y su nota, y —con la casilla marcada— pedir los datos fiscales; en la visita, «Cobros» y la ventana del calendario también el precio y «¿Necesita factura?», que en la tabla de la agenda están en su columna PRECIO) | ✓ | ✓ | ✓ | ✓ | el link, sólo si ya hay uno activo o pagado |
 | **Documentos** (formulario pre-consulta) | — | ✓ | ✓ | sólo si el paciente ya lo contestó | — |
 | **Eliminar** | — | — | — | ✓ | ✓ |
 
@@ -249,15 +248,14 @@ En una cita Agendada, el grupo **«Confirmación cita»** tiene:
 **Telemedicina:** al enviarse la confirmación (sola o con el botón) se crea la videollamada de **Google Meet** y el
 enlace va en el correo. Reenviar manda el mismo enlace, no crea otro.
 
-### Bloqueo extendido
+### Hora de inicio y de fin
 
-Una cita Agendada ocupa en tu agenda lo que dura el servicio. Si necesitas más tiempo (por
-ejemplo, para notas), abre la cita y en **«Bloqueo: 10:00–10:30 · Editar»** cambia la hora de
-fin. Esa hora queda ocupada y nadie más puede agendar en ella.
+Cada cita dice su hora de inicio y de fin (ej. «13:15–14:00»): ocupa en tu agenda lo que dura el
+servicio. (El «Bloqueo extendido» para apartar más tiempo está apagado por ahora.)
 
 ### Cobrar una cita
 
-Grupo **«Cobro»** → **«Link de pago»**: eliges el proveedor (Stripe o Mercado Pago) y el monto.
+Grupo **«Cobro y factura»** → **«Link de pago»**: eliges el proveedor (Stripe o Mercado Pago) y el monto.
 Después puedes copiar el link o mandarlo por WhatsApp, y cuando el paciente paga la cita muestra
 «Pagado».
 
@@ -274,8 +272,8 @@ Después puedes copiar el link o mandarlo por WhatsApp, y cuando el paciente pag
 
 ### Facturar una cita
 
-1. Marca **«¿Necesita factura?»** en la cita (se puede desde la fila, sin abrirla). Aparece el
-   grupo **«Factura»**.
+1. Marca **«¿Necesita factura?»** en la cita (se puede desde la fila, sin abrirla). En el grupo
+   **«Cobro y factura»** aparece **«Facturación»**.
 2. **«Facturación»** crea un formulario para que el paciente capture sus **datos fiscales**. Lo
    copias o lo mandas por WhatsApp. Cuando el paciente lo llena, el botón dice «Datos fiscales».
 3. La factura se emite desde el **expediente del paciente**, página **«Cobros»** (botón «Cobros» de su
@@ -483,14 +481,13 @@ documentos, notas, recetas e informes, la cita y un comentario.
 **La pantalla de la visita** (clic en «Visita del …»):
 
 - **Cita** — fecha, hora, servicio y si está pagada y facturada. Con permiso de citas, abajo está **la
-  misma tarjeta de la cita que en la agenda**: el **precio** (clic para cambiarlo), **«¿Necesita
-  factura?»**, el **bloqueo** del horario, **ESTADO** (**«Completar»** con la misma ventana del cobro,
-  **«No asistió»**, **«Cancelar»**, **«Reagendar»** — te lleva a la agenda con la ventana de reagendar
-  abierta y al terminar te regresa a la visita, que se va con la cita nueva), **CONFIRMACIÓN CITA**
-  (enviar la confirmación por correo o por WhatsApp), **COBRO** (**«Link de pago»** y la nota del
-  cobro), **FACTURA** (con la casilla marcada: pedirle sus datos fiscales) y **DOCUMENTOS** (el
-  formulario pre-consulta). El precio y COBRO piden permiso de Flujo de Dinero; la casilla y FACTURA, el de
-  Facturación. Si cancelas, marcas «No asistió» o eliminas la cita con la visita
+  misma tarjeta de la cita que en la agenda**: **ESTADO** (**«Completar»** con la misma ventana del
+  cobro, **«No asistió»**, **«Cancelar»**, **«Reagendar»** — te lleva a la agenda con la ventana de
+  reagendar abierta y al terminar te regresa a la visita, que se va con la cita nueva), **COBRO Y
+  FACTURA** (el **precio** —clic para cambiarlo—, **«¿Necesita factura?»**, **«Link de pago»** y la
+  nota del cobro y, con la casilla marcada, pedirle sus datos fiscales), **CONFIRMACIÓN CITA** (por
+  correo o por WhatsApp) y **DOCUMENTOS** (el formulario pre-consulta). El precio y el cobro piden
+  permiso de Flujo de Dinero; la casilla y los datos fiscales, el de Facturación. Si cancelas, marcas «No asistió» o eliminas la cita con la visita
   **vacía**, la visita se borra con la cita y vuelves al perfil del paciente. La cita de una visita no se cambia por otra ni se quita (son el mismo evento). Las visitas **sin
   cita** que quedaron de antes (ya no se crean) conservan su **Fecha** corregible (hoy o antes, y no
   el día de una cita del paciente).

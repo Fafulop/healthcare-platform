@@ -12,6 +12,7 @@ import {
   FacturaCheckbox,
   PriceCell,
   ExtendedBlockControl,
+  MOSTRAR_BLOQUEO,
   ExpedienteCell,
   StatusActions,
 } from "./BookingActions";
@@ -311,7 +312,7 @@ export function BookingsSection({
                         {startTime && ` · ${startTime}`}
                         {endTime && `–${endTime}`}
                       </p>
-                      {isExpanded && booking.status === "CONFIRMED" && (
+                      {MOSTRAR_BLOQUEO && isExpanded && booking.status === "CONFIRMED" && (
                         <StopClick className="mb-2">
                           <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
                         </StopClick>
@@ -477,12 +478,16 @@ export function BookingsSection({
                           </td>
                           <td className="py-3 px-3 text-gray-600 align-top">
                             <p>{formatLocalDate(bookingDate, { month: "short", day: "numeric", year: "numeric" })}</p>
-                            <p className="text-xs">{booking.slot?.startTime ?? booking.startTime ?? ""}</p>
+                            {/* Inicio y FIN (2026-10-12): con el bloqueo oculto, el fin era invisible en la tabla. */}
+                            <p className="text-xs">
+                              {booking.slot?.startTime ?? booking.startTime ?? ""}
+                              {(booking.slot?.endTime ?? booking.endTime) && `–${booking.slot?.endTime ?? booking.endTime}`}
+                            </p>
                             {/* El bloqueo es un hecho de TIEMPO: vive bajo la fecha/hora que
                                 modifica, no en un grupo de acciones aparte. Solo al expandir,
                                 para no volver a llenar la fila colapsada. StopClick porque la
                                 fila entera es el toggle. */}
-                            {isExpanded && booking.status === "CONFIRMED" && (
+                            {MOSTRAR_BLOQUEO && isExpanded && booking.status === "CONFIRMED" && (
                               <StopClick className="mt-1.5">
                                 <ExtendedBlockControl booking={booking} onUpdate={onUpdateExtendedBlock} />
                               </StopClick>

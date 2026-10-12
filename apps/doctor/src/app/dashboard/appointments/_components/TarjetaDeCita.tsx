@@ -1,8 +1,10 @@
 "use client";
 
 /**
- * El CUERPO de la tarjeta de UNA cita: expediente · notas · precio + «¿Necesita factura?» · horario ·
- * los grupos de `StatusActions` (Estado · Confirmación · Cobro · Factura · Documentos · Eliminar).
+ * El CUERPO de la tarjeta de UNA cita: expediente · notas · (horario, oculto por ahora: `MOSTRAR_BLOQUEO`)
+ * · los grupos de `StatusActions` (Estado · Cobro y factura · Confirmación · Documentos · Eliminar). El
+ * precio y «¿Necesita factura?» van DENTRO de «Cobro y factura», junto al link de pago y los datos
+ * fiscales (2026-10-12).
  *
  * VISITAS 10-PLAN P1: vivía dentro de `BookingDetailModal` (el modal del calendario). Se sacó aquí SIN
  * cambiarle nada para que la visita, la tarjeta de la sesión del tratamiento y «Cobros» del expediente
@@ -15,12 +17,12 @@
  *   · `conNotas={false}` — la visita ya enseña las notas de la cita;
  *   · `sinEstado` — la tarjeta de la sesión ya trae Completar · No asistió · Cancelar · Reagendar a la
  *     vista; esto va plegado debajo («Más de la cita»);
- *   · `compacta` — en un espacio ANCHO (la visita): precio · casilla · horario en un renglón y los grupos
- *     en la rejilla de la fila desplegada de la tabla (`layout="expanded"`), en vez de todo apilado;
- *   · `soloCobro` — la página «Cobros»: sólo precio, «¿Necesita factura?», «Completar» (completar y cobrar),
- *     Cobro y Factura (sin horario, el resto de estado, confirmación, documentos ni eliminar);
+ *   · `compacta` — en un espacio ANCHO (la visita): los grupos en la rejilla de la fila desplegada de la
+ *     tabla (`layout="expanded"`), en vez de todo apilado;
+ *   · `soloCobro` — la página «Cobros»: «Cobro y factura» primero y, de Estado, sólo «Completar» (sin el
+ *     resto de estado, confirmación, documentos ni eliminar);
  *   · `sinCobro` / `sinFactura` — los permisos del expediente (`flujo` / `facturacion`): sin ellos no se ve
- *     el precio ni el grupo Cobro / ni la casilla ni el grupo Factura (allá tampoco se ven sus insignias).
+ *     el precio ni el link de pago / ni la casilla ni los datos fiscales (allá tampoco se ven sus insignias).
  */
 
 import { NotasCita, tieneNotas } from "@/components/citas/NotasCita";
@@ -28,9 +30,8 @@ import { resolverContacto } from "@/lib/booking-contact";
 import {
   StatusActions,
   ExpedienteCell,
-  PriceCell,
-  FacturaCheckbox,
   ExtendedBlockControl,
+  MOSTRAR_BLOQUEO,
 } from "./BookingActions";
 import type { Booking } from "../_hooks/useBookings";
 
@@ -74,7 +75,7 @@ export function TarjetaDeCita({
 }) {
   // El bloqueo del horario: sólo tiene sentido en una cita CONFIRMED (no hay agenda futura que ocupar en
   // una terminal) — mismo gate que la tabla.
-  const verHorario = booking.status === "CONFIRMED" && !soloCobro;
+  const verHorario = MOSTRAR_BLOQUEO && booking.status === "CONFIRMED" && !soloCobro;
   const horario = verHorario && (
     <div>
       <SectionLabel>Horario</SectionLabel>
@@ -114,26 +115,10 @@ export function TarjetaDeCita({
         </div>
       )}
 
-      {/* Precio y la casilla, juntos como en la columna PRECIO de la tabla.
-          La casilla va SIN rótulo, igual que allá: ya se rotula a sí misma ("¿Necesita
-          factura?"), y un encabezado "Factura" aquí chocaría con el grupo FACTURA que
-          rinde `StatusActions` más abajo — los dos aparecen a la vez en cuanto la
-          casilla se marca, y el modal es angosto: dos secciones con el mismo nombre. */}
-      {(!sinCobro || !sinFactura || (compacta && verHorario)) && (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          {!sinCobro && (
-            <div>
-              <SectionLabel>Precio</SectionLabel>
-              <PriceCell booking={booking} onUpdatePrice={onUpdatePrice} />
-            </div>
-          )}
-          {!sinFactura && <FacturaCheckbox booking={booking} onChange={onUpdateFacturaSolicitada} />}
-          {/* Compacta: el horario va en el MISMO renglón. */}
-          {compacta && horario}
-        </div>
-      )}
-
-      {!compacta && horario}
+      {/* Precio y «¿Necesita factura?» van DENTRO del grupo «Cobro y factura» de `StatusActions`, junto al
+          link de pago y los datos fiscales (2026-10-12). El bloqueo del horario: oculto por ahora
+          (`MOSTRAR_BLOQUEO`). */}
+      {horario}
 
       {/* Los grupos de acciones: apilados ("card", la pila del móvil) en un espacio angosto; en la
           rejilla de la fila desplegada de la tabla ("expanded", que ya trae su borde) si es `compacta`. */}
@@ -145,6 +130,8 @@ export function TarjetaDeCita({
           sinCobro={sinCobro}
           sinFactura={sinFactura}
           soloCobro={soloCobro}
+          onUpdatePrice={onUpdatePrice}
+          onUpdateFacturaSolicitada={onUpdateFacturaSolicitada}
           onUpdateStatus={onUpdateStatus}
           onDeleteBooking={onDeleteBooking}
           onOpenFormLinkModal={onOpenFormLinkModal}

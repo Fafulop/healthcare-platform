@@ -5,7 +5,7 @@
 **Antes de empezar:** tener conectado **Stripe** o **Mercado Pago** en **«Pagos»**, y que la cita tenga **expediente vinculado** (si no, el botón dice «Requiere expediente»).
 
 **Pasos**
-1. Abre la cita → grupo **COBRO → «Link de pago»**.
+1. Abre la cita → grupo **COBRO Y FACTURA → «Link de pago»**.
 2. Elige **Proveedor** («Mercado Pago» o «Stripe») y revisa el **Monto (MXN)**.
 3. **«Crear link de pago»**.
 4. Ahora el grupo dice **«Link enviado»** con **«Copiar»** y **«WhatsApp»**: mándaselo al paciente.

@@ -1,7 +1,7 @@
 # Descargar la nota de venta de una cita cobrada
 
 **Pasos**
-1. Abre una cita ya cobrada → grupo **COBRO → «Nota»**.
+1. Abre una cita ya cobrada → grupo **COBRO Y FACTURA → «Nota»**.
 2. Se abre **«Nota de venta · ING-…»** con la vista previa → **«Descargar»**.
 
 **Qué vas a ver:** una hoja con tu nombre y cédulas, folio, paciente, fecha, «Pago: Pagada» y el concepto con su importe.

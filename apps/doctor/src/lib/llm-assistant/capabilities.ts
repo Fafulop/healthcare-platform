@@ -204,9 +204,9 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             notes:
               'Una cita tiene a lo más una visita: completarla no crea una segunda. La cita de una visita no se ' +
               'cambia ni se quita. En la sección "Cita" de la visita (con permiso de citas) está la MISMA tarjeta de la ' +
-              'cita que en la agenda: precio, "¿Necesita factura?", bloqueo, ESTADO ("Completar" con la ventana de cobro, ' +
-              '"No asistió", "Cancelar", "Reagendar" — abre la agenda y regresa a la visita), CONFIRMACIÓN CITA (correo / ' +
-              'WhatsApp), COBRO ("Link de pago", nota), FACTURA (datos fiscales) y DOCUMENTOS (formulario pre-consulta). ' +
+              'cita que en la agenda: ESTADO ("Completar" con la ventana de cobro, "No asistió", "Cancelar", "Reagendar" — ' +
+              'abre la agenda y regresa a la visita), COBRO Y FACTURA (precio, "¿Necesita factura?", "Link de pago" y su ' +
+              'nota, datos fiscales), CONFIRMACIÓN CITA (correo / WhatsApp) y DOCUMENTOS (formulario pre-consulta). ' +
               'Cancelar, "No asistió" o eliminar la cita con la visita vacía la borra. ' +
               'Dentro de la visita: Plantillas ("Agregar plantilla"), Fotos y documentos ("Subir"), ' +
               'Notas ("Nueva nota"), Recetas ("Nueva receta"), informes y un Comentario.',

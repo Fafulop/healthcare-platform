@@ -67,7 +67,7 @@ export function FacturaCheckbox({
             ? "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100"
             : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
         }`}
-        title="Al marcarla aparece el grupo Factura para pedirle los datos fiscales al paciente"
+        title="Al marcarla aparece «Facturación» (en Cobro y factura) para pedirle los datos fiscales al paciente"
       >
         <input
           type="checkbox"
@@ -169,6 +169,15 @@ function timeToMins(time: string): number {
   return h * 60 + m;
 }
 
+/**
+ * «Bloqueo: 10:00–10:45 · Editar» (cuánto tiempo aparta la cita en la agenda). OCULTO por ahora (decisión
+ * del usuario 2026-10-12): sirve sobre todo con el portal público de citas, que no se usa todavía. El
+ * código se queda; para volver a enseñarlo en las tres pantallas basta con poner esto en `true`.
+ * (Al ocultarlo había 2 citas vivas con bloqueo a la medida, las dos ya pasadas: ninguna futura aparta
+ * tiempo de más sin que se vea.)
+ */
+export const MOSTRAR_BLOQUEO = false;
+
 export function ExtendedBlockControl({
   booking,
   onUpdate,
@@ -210,8 +219,8 @@ export function ExtendedBlockControl({
     setEditing(false);
   };
 
-  // Bail-out moved below the hooks — see the note above.
-  if (!rawStartTime) return null;
+  // Bail-out moved below the hooks — see the note above. (También el interruptor `MOSTRAR_BLOQUEO`.)
+  if (!MOSTRAR_BLOQUEO || !rawStartTime) return null;
   const startTime = rawStartTime;
 
   const isCustom = booking.extendedBlockMinutes != null && booking.extendedBlockMinutes !== slotDuration;
@@ -393,8 +402,14 @@ export function StatusActions({
   sinCobro = false,
   sinFactura = false,
   soloCobro = false,
+  onUpdatePrice,
+  onUpdateFacturaSolicitada,
 }: {
   booking: Booking;
+  /** Con estos dos, el grupo «Cobro y factura» trae también el PRECIO y «¿Necesita factura?» (la visita,
+   *  «Cobros», el modal del calendario). La tabla no los pasa: los enseña en su columna PRECIO. */
+  onUpdatePrice?: (id: string, price: number) => Promise<void>;
+  onUpdateFacturaSolicitada?: (id: string, value: boolean) => void;
   /** 10-PLAN P1: sin el grupo «Estado» — la tarjeta de la sesión ya trae esos botones a la vista. */
   sinEstado?: boolean;
   /** 10-PLAN P1: fuera de la agenda se respetan los permisos del expediente: sin `flujo` no hay Cobro… */
@@ -628,12 +643,39 @@ export function StatusActions({
         </div>
       );
 
-  const cobroGroup = showCobroGroup && !sinCobro && (
+  // COBRO Y FACTURA — todo lo de dinero JUNTO (decisión del usuario 2026-10-12): precio, «¿Necesita
+  // factura?», el link de pago (y la nota, ya cobrada) y el formulario de datos fiscales (con la casilla).
+  // Antes eran tres lugares (precio y casilla aparte, el grupo COBRO y el grupo FACTURA).
+  // FACTURA sigue el mismo patrón de estados que el cobro, un paso después en la misma cadena:
+  //   Cobro:   Requiere expediente · Link de pago · Link enviado + compartir · Pagado
+  //   Factura: Requiere expediente · Facturación  · Formulario creado + compartir · Datos fiscales
+  // El botón sigue llamándose "Facturación" a propósito: el prompt del agente lo nombra así
+  // ("el camino es el formulario fiscal al paciente — desde la cita, botón Facturación",
+  // modules/facturas.ts). Renombrarlo exige editar el prompt ⇒ suite completa de 81 casos.
+  const conPrecio = !!onUpdatePrice && !sinCobro;
+  const conCasilla = !!onUpdateFacturaSolicitada && !sinFactura;
+  const verLink = showCobroGroup && !sinCobro;
+  const verFiscal = showFacturaGroup && !sinFactura;
+  const cobroGroup = (conPrecio || conCasilla || verLink || verFiscal) && (
         <div className="pt-2 first:pt-0">
-          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Cobro</span>
+          {/* Sin nada de cobro a la vista (sólo permiso de Facturación) el encabezado no promete «Cobro». */}
+          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+            {conPrecio || verLink ? "Cobro y factura" : "Factura"}
+          </span>
           {/* Mismo respaldo que el envío y la fila: si el correo/teléfono solo viven en
               el expediente, el link de pago debe poder pre-llenarlos igual. */}
-          <div className="flex gap-1 flex-wrap items-center">
+          <div className="flex gap-x-2 gap-y-1.5 flex-wrap items-center">
+          {/* El rótulo del precio SIEMPRE visible: el del grupo se esconde en el teléfono y el lápiz de
+              PriceCell sólo sale al pasar el ratón — un «$900» suelto no decía qué era ni que se edita. */}
+          {conPrecio && (
+            <span className="inline-flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Precio</span>
+              <PriceCell booking={booking} onUpdatePrice={onUpdatePrice!} />
+            </span>
+          )}
+          {conCasilla && <FacturaCheckbox booking={booking} onChange={onUpdateFacturaSolicitada!} />}
+          {verLink && (
+          <>
           {/* VENTAS PACIENTE paso 4: la nota de la cita = su COBRO como PDF, bajo `flujo`. Se ofrece
               cuando HAY cobro con monto (`ingreso`, el mismo dato que usa la agenda) — también una
               cita pagada por link antes de concluirse; no en una sesión cubierta ($0). */}
@@ -666,21 +708,9 @@ export function StatusActions({
             } : null}
           />
           )}
-          </div>
-        </div>
-      );
-
-  // FACTURA — mismo patrón de estados que Cobro, un paso después en la misma cadena:
-  //   Cobro:   Requiere expediente · Link de pago · Link enviado + compartir · Pagado
-  //   Factura: Requiere expediente · Facturación  · Formulario creado + compartir · Datos fiscales
-  // El botón sigue llamándose "Facturación" a propósito: el prompt del agente lo nombra así
-  // ("el camino es el formulario fiscal al paciente — desde la cita, botón Facturación",
-  // modules/facturas.ts). Renombrarlo exige editar el prompt ⇒ suite completa de 81 casos.
-  const facturaGroup = showFacturaGroup && !sinFactura && (
-        <div className="pt-2 first:pt-0">
-          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Factura</span>
-          <div className="flex gap-1 flex-wrap">
-            <FiscalFormButton booking={booking} />
+          </>
+          )}
+          {verFiscal && <FiscalFormButton booking={booking} />}
           </div>
         </div>
       );
@@ -721,10 +751,14 @@ export function StatusActions({
             el 2º y 3º de la fila superior quedarían 8px más abajo. Aquí se normaliza. */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 border-t border-gray-200 pt-3 [&>div]:pt-0">
           {estadoGroup}
-          {comunicacionGroup}
           {cobroGroup}
-          {facturaGroup}
-          {documentosGroup}
+          {/* Confirmación y documentos comparten columna: son lo que se le MANDA al paciente. */}
+          {(comunicacionGroup || documentosGroup) && (
+            <div className="flex flex-col gap-3 [&>div]:pt-0">
+              {comunicacionGroup}
+              {documentosGroup}
+            </div>
+          )}
           {eliminarGroup}
         </div>
       </>
@@ -748,7 +782,6 @@ export function StatusActions({
           <div className="flex flex-col gap-2 divide-y divide-gray-100">
             {comunicacionGroup}
             {cobroGroup}
-            {facturaGroup}
           </div>
         </td>
       </>
@@ -760,10 +793,9 @@ export function StatusActions({
     <>
       {modal}
       <div className="flex flex-col gap-2 divide-y divide-gray-100">
-        {estadoGroup}
+        {/* «Cobros» del expediente: primero el dinero, luego «Completar». */}
+        {soloCobro ? <>{cobroGroup}{estadoGroup}</> : <>{estadoGroup}{cobroGroup}</>}
         {comunicacionGroup}
-        {cobroGroup}
-        {facturaGroup}
         {documentosGroup}
         {eliminarGroup}
       </div>

@@ -1,6 +1,6 @@
-# Reenviar la confirmación y apartar más tiempo
+# Reenviar la confirmación
 
-**Para qué:** volver a mandar la confirmación al paciente, o bloquear más minutos después de una cita.
+**Para qué:** volver a mandar la confirmación al paciente. (Bloquear más minutos después de una cita está apagado por ahora.)
 
 **Pasos — confirmación**
 1. Abre la cita (clic en su fila).
@@ -9,11 +9,9 @@
    - **«Confirmación por WhatsApp»** → abre WhatsApp con el mensaje listo; tú lo envías.
    - **«Entrar a Meet»** — sólo telemedicina.
 
-**Pasos — bloqueo extendido**
-1. En la cita, junto a **«Bloqueo: 10:30–11:00»**, aprieta **«Editar»**.
-2. Escribe la nueva hora de fin en **«Bloquear hasta:»** → **«OK»**.
+**Bloqueo extendido:** apagado por ahora (2026-10-12). La cita ocupa lo que dura su servicio y dice su hora de inicio y de fin (ej. «10:30–11:00»).
 
-**Qué vas a ver:** un aviso «Correo de confirmación enviado a …». El bloqueo muestra la nueva hora (ej. «10:30–11:15») y ese tiempo queda ocupado en tu agenda.
+**Qué vas a ver:** un aviso «Correo de confirmación enviado a …».
 
 **Si algo sale mal:** si dice **«Necesita correo» / «Necesita WhatsApp»**, falta ese dato del paciente: captúralo en su expediente.
 
