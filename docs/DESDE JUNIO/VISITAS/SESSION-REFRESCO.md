@@ -66,32 +66,50 @@
   componente de acciones de la agenda y si se puede montar fuera de la tabla; permisos (`citas`,
   `flujo` para el cobro); y que tras cada acción se refresque el estado de la visita/sesión.
 
-### Lote 2026-10-12 (pendientes — el usuario las va dando al recorrer la UI; NO se hacen todavía)
+### Lote 2026-10-12 — N7–N13 HECHAS y EN PROD el mismo día (4 commits, cada uno con code review y prueba en Chrome)
 
-- [ ] **N7 (2026-10-12) — La receta ya NO se liga a una consulta.** Toda receta vive DENTRO de una visita;
+> `12f26950` N8 «Receta» + N13a frase de datos fiscales + N10 releer al regresar a la pestaña ·
+> `c6ad949c` N7/N9 sin ligar a consulta (los viejos se quedan) · `1da37d28` N12 el formulario en su visita
+> (viaja al reagendar, también en sesiones) · `b2637034` N11/N13b formulario, link de pago y datos fiscales
+> en un clic (correo desde el Gmail del doctor / WhatsApp), Mercado Pago por omisión.
+> **Probado de verdad (2026-10-12)** en «nigs ni» (dr-prueba, con correo y WhatsApp del usuario): «Reenviar
+> formulario por correo» y «Link de pago por correo» LLEGARON al buzón del usuario (texto, botón y enlace
+> bien); WhatsApp abrió a su número con el mensaje y el link de Mercado Pago; el link de prueba de $900 se
+> desactivó después en «Pagos». Ojo al probar: un clic por SCRIPT no cuenta como gesto del usuario y el
+> navegador bloquea la ventana de WhatsApp (sale el aviso) — hay que dar clic de verdad.
+> **Pendiente:** (1) «Pagos» usa `confirm()` NATIVO en 2 lugares (desactivar link, desconectar Mercado Pago):
+> distinto al resto de la app y congela las pruebas en Chrome; (2) evals del agente: el prompt de facturas ya nombra
+> los botones nuevos pero NO se corrieron (proyecto del agente en pausa, decisión del usuario); (3) review
+> saltado a propósito: manejo de tokens de Gmail duplicado de send-email, la regla de vencimiento del
+> formulario en 3 lugares, un enlace local viejo en caso raro; (4) decidido: un formulario CONTESTADO no
+> salva a la visita vacía de una cita cancelada (las respuestas siguen en «Formularios» del perfil);
+> (5) visto: una cita futura ya completada sigue saliendo en «Próximas» de la tarjeta Visitas; (6) N4 sigue.
+
+
+- [x] **N7 (2026-10-12) — La receta ya NO se liga a una consulta.** Toda receta vive DENTRO de una visita;
   la que se crea fuera de una visita (se puede) queda **huérfana** y está bien — «para mantenerlo
   simple». Hoy el formulario de receta deja elegir consulta (`prescriptions/_components/useNewPrescriptionForm.ts`
   manda `encounterId`; el manual dice «Receta: sólo en Borrador y sin consulta vinculada»). Al planear:
   quitar el selector de consulta; el campo en la API (`POST/PUT` de recetas); manual, guías y
   `capabilities.ts` en el mismo commit. **Decidido 2026-10-12: las recetas que YA tienen `encounterId` se
   quedan como están** (no se migran ni se mueven).
-- [ ] **N8 (2026-10-12) — «Prescripción» → «Receta» en toda la UI**, de la forma más sencilla (sólo los
+- [x] **N8 (2026-10-12) — «Prescripción» → «Receta» en toda la UI**, de la forma más sencilla (sólo los
   textos que ve el doctor, NO rutas `/prescriptions` ni modelos). Vistos: «Prescripción Médica», «Nueva
   Prescripción», «Prescripciones», «Volver a Prescripciones», «Nueva Prescripción (Voz)», «Cancelar
   Prescripción», «Fecha de Prescripción», «Editar Prescripción» (páginas `prescriptions/*`,
   `PrescriptionCard`, `TimelineView`, el asistente de voz). Al planear: grep de TODO «Prescrip» visible
   (también toasts, PDF, asistente de voz y del «?») y el manual (hoy dice «Cancelar Prescripción»).
-- [ ] **N9 (2026-10-12) — Fotos y documentos (subir imágenes, videos…): misma regla que N7.** Viven
+- [x] **N9 (2026-10-12) — Fotos y documentos (subir imágenes, videos…): misma regla que N7.** Viven
   dentro de una visita o huérfanos; ya no se ligan a una consulta (`MediaUploader` manda `encounterId` y
   tiene `consultasElegibles`). **Decidido 2026-10-12: los que ya están ligados a una consulta se quedan
   como están**, igual que en N7.
-- [ ] **N10 (2026-10-12, hallado con el usuario) — Una pantalla abierta no se entera de cambios hechos en
+- [x] **N10 (2026-10-12, hallado con el usuario) — Una pantalla abierta no se entera de cambios hechos en
   otra.** La agenda, «Cobros», la visita y el perfil cargan sus citas UNA vez al abrir; si la casilla
   «¿Necesita factura?» (o cualquier cosa de la cita) cambia en otra pestaña, la abierta sigue enseñando lo
   viejo hasta recargar (el usuario vio la casilla marcada en el calendario y desmarcada en «Cobros»: la
   pestaña del calendario se había cargado entre dos cambios). Propuesta (sin OK todavía): volver a leer las
   citas al regresar a la pestaña (`visibilitychange`), en esas 4 pantallas.
-- [ ] **N11 (2026-10-12) — «Formulario» y «Link de pago» deben funcionar como «Confirmación cita».** El
+- [x] **N11 (2026-10-12) — «Formulario» y «Link de pago» deben funcionar como «Confirmación cita».** El
   modelo bueno es Confirmación: con correo y/o WhatsApp es UN botón — clic y se manda el correo, o se abre
   WhatsApp con el mensaje. Hoy los otros dos son de varios pasos: **Formulario** = «Crear formulario» →
   ventana → elegir PLANTILLA → «Generar» → «Copiar» / «WhatsApp» (sin correo) (`PreAppointmentFormModal`);
@@ -102,13 +120,13 @@
   proveedor = el que tenga conectado (¿y si tiene los dos?). Aplica a la tarjeta en las 3 pantallas
   (agenda, visita, «Cobros»). Regla del usuario: una acción, un resultado (memoria
   `feedback_una_accion_un_resultado`).
-- [ ] **N12 (2026-10-12) — El formulario que el paciente devuelve se adjunta a la VISITA de esa cita.**
+- [x] **N12 (2026-10-12) — El formulario que el paciente devuelve se adjunta a la VISITA de esa cita.**
   Hoy al contestarse queda ligado a la CITA (`AppointmentFormLink.bookingId`) y al PACIENTE (tarjeta
   «Formularios» del perfil), pero la página de la visita NO lo muestra. Como cita↔visita es 1:1, la visita
   ya lo puede encontrar por su cita. Al planear: ¿se muestra en la visita leyendo por la cita (sin columna
   nueva) o se guarda `visitaId`? ¿sigue saliendo también en «Formularios» del perfil? ¿qué pasa si la cita
   se reagenda (la visita viaja con la cita: el formulario debería ir con ella)?
-- [ ] **N13 (2026-10-12) — Datos fiscales en la tarjeta (con «¿Necesita factura?» marcada).** (a) Si el
+- [x] **N13 (2026-10-12) — Datos fiscales en la tarjeta (con «¿Necesita factura?» marcada).** (a) Si el
   paciente YA tiene datos fiscales: en vez del chip «✓ Datos fiscales», un TEXTO claro tipo «Ya contamos con
   sus datos fiscales: puedes facturar cuando quieras». (b) Si NO los tiene: botones y disparadores como los
   de Confirmación (correo / WhatsApp en un clic) en vez de «Facturación» → enlace → «Copiar» / «WhatsApp»
