@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { usePermissions } from "@/lib/permissions-client";
 import Link from "next/link";
 import {
   Loader2, Pencil, Clock, UserSquare2, X, CheckCircle, Send,
@@ -67,7 +68,7 @@ export function FacturaCheckbox({
             ? "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100"
             : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
         }`}
-        title="Al marcarla aparece «Facturación» (en Cobro y factura) para pedirle los datos fiscales al paciente"
+        title="Al marcarla aparece «Pedir datos fiscales por correo / por WhatsApp» (en Cobro y factura)"
       >
         <input
           type="checkbox"
@@ -441,6 +442,7 @@ export function StatusActions({
 }) {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const { can: puedeEnviar } = usePermissions();
   const isTerminal = ["CANCELLED", "COMPLETED", "NO_SHOW"].includes(booking.status);
 
   const bookingDate = (booking.slot?.date ?? booking.date ?? "").split("T")[0];
@@ -486,8 +488,10 @@ export function StatusActions({
   // completar significa "ya vi al paciente", no "se cerró el papeleo" (bitácora #29).
   const showFacturaGroup = !!booking.facturaSolicitada && (!isTerminal || isCompleted);
   // Documentos se queda SOLO con el formulario clínico.
+  // Completada: sólo si ya hay formulario (recibido o pendiente) — crear uno ya no se puede y el grupo
+  // quedaba con su título y nada abajo.
   const showDocsGroup =
-    showFormularioButton && (booking.status === "CONFIRMED" || isCompleted);
+    showFormularioButton && (booking.status === "CONFIRMED" || (isCompleted && !!booking.formLink));
   // Cobro: citas activas y COMPLETADAS siempre; canceladas/no-asistió solo con link PAGADO o
   // ACTIVO (un link viejo desactivado y no pagado NO debe reabrir el botón de crear sobre una
   // cita que nunca ocurrió). Ese guard se conserva tal cual para esos dos estados.
@@ -578,6 +582,10 @@ export function StatusActions({
       </span>
     );
 
+  // N11/N13 (2026-10-12): formulario, link de pago y datos fiscales se mandan como la confirmación —
+  // mismo destinatario, mismos avisos de «Necesita correo / WhatsApp».
+  const contactoEnvio = { email: emailDestino, wa: waDestino, falta: faltaContacto };
+
   const mensajeWhatsApp = [
     `Hola ${booking.patientName}, te confirmamos tu cita`,
     bookingDate ? ` el ${formatLocalDate(bookingDate, { weekday: "long", day: "numeric", month: "long" })}` : "",
@@ -652,15 +660,16 @@ export function StatusActions({
   // factura?», el link de pago (y la nota, ya cobrada) y el formulario de datos fiscales (con la casilla).
   // Antes eran tres lugares (precio y casilla aparte, el grupo COBRO y el grupo FACTURA).
   // FACTURA sigue el mismo patrón de estados que el cobro, un paso después en la misma cadena:
-  //   Cobro:   Requiere expediente · Link de pago · Link enviado + compartir · Pagado
-  //   Factura: Requiere expediente · Facturación  · Formulario creado + compartir · Datos fiscales
-  // El botón sigue llamándose "Facturación" a propósito: el prompt del agente lo nombra así
-  // ("el camino es el formulario fiscal al paciente — desde la cita, botón Facturación",
-  // modules/facturas.ts). Renombrarlo exige editar el prompt ⇒ suite completa de 81 casos.
+  //   Cobro:   Requiere expediente · Link de pago por correo/WhatsApp · Link activo + reenviar · Pagado
+  //   Factura: Requiere expediente · Pedir datos fiscales por correo/WhatsApp · Esperando datos + reenviar · Ya contamos con sus datos
+  // N11/N13 (2026-10-12): link de pago y datos fiscales se mandan como la confirmación («… por correo»
+  // / «… por WhatsApp»). El prompt del agente (modules/facturas.ts) nombra esos botones: van juntos.
   const conPrecio = !!onUpdatePrice && !sinCobro;
   const conCasilla = !!onUpdateFacturaSolicitada && !sinFactura;
-  const verLink = showCobroGroup && !sinCobro;
-  const verFiscal = showFacturaGroup && !sinFactura;
+  // Mandar el link / pedir datos fiscales usan rutas de Pagos / Facturación: sin ese permiso no se ofrecen
+  // (en la agenda nadie pasa sinCobro/sinFactura; el servidor contestaba 403 — code review N11).
+  const verLink = showCobroGroup && !sinCobro && puedeEnviar('pagos');
+  const verFiscal = showFacturaGroup && !sinFactura && puedeEnviar('facturacion');
   const cobroGroup = (conPrecio || conCasilla || verLink || verFiscal) && (
         <div className="pt-2 first:pt-0">
           {/* Sin nada de cobro a la vista (sólo permiso de Facturación) el encabezado no promete «Cobro». */}
@@ -692,9 +701,8 @@ export function StatusActions({
             bookingId={booking.id}
             patientId={booking.patientId}
             patientName={booking.patientName}
-            patientPhone={resolverContacto(booking).phone || null}
-            patientWhatsapp={booking.patientWhatsapp}
             patientEmail={resolverContacto(booking).email || undefined}
+            contacto={contactoEnvio}
             defaultAmount={booking.finalPrice}
             defaultDescription={booking.serviceName ? `${booking.serviceName} - ${booking.patientName}` : `Consulta - ${booking.patientName}`}
             stripeLink={booking.paymentLink ? {
@@ -715,7 +723,7 @@ export function StatusActions({
           )}
           </>
           )}
-          {verFiscal && <FiscalFormButton booking={booking} />}
+          {verFiscal && <FiscalFormButton booking={booking} contacto={contactoEnvio} />}
           </div>
         </div>
       );
@@ -726,6 +734,7 @@ export function StatusActions({
           <div className="flex gap-1 flex-wrap">
             <FormularioStatusButton
               booking={booking}
+              contacto={contactoEnvio}
               onCreateForm={() => onOpenFormLinkModal(booking)}
               onDeleteForm={() => onDeleteFormLink(booking.id)}
             />

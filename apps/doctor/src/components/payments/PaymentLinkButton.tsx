@@ -1,17 +1,27 @@
 'use client';
 
-// Botón de link de pago LIGADO a una cita — reusable en /appointments (celda de acciones)
-// y en el expediente (página «Cobros»). Estados:
+// Link de pago LIGADO a una cita (tarjeta de la cita: agenda, visita, «Cobros»). Estados:
 //   · link pagado   → chip verde "Pagado"
-//   · link activo   → chip "Link enviado" + Copiar + WhatsApp
-//   · sin link      → botón "Link de pago" → modal (proveedor + monto) → crea con bookingId
+//   · link activo   → chip "Link enviado" + Reenviar por correo / WhatsApp + Copiar
+//   · sin link      → «Link de pago por correo» / «por WhatsApp»: UN clic crea el link y lo manda
+//
+// N11 (2026-10-12, decisión del usuario): funciona como «Confirmación cita». Antes era una ventana
+// (proveedor + monto) → crear → copiar / compartir. Ahora, sin preguntar:
+//   · monto = el PRECIO de la cita (si hace falta otro, se cambia el precio, que está al lado);
+//   · proveedor = el conectado; con los dos, Mercado Pago (acepta OXXO y SPEI — decisión del usuario).
 
-import { useState, useEffect, useCallback } from 'react';
-import { Link2, Loader2, Copy, Check, MessageCircle, CreditCard, X } from 'lucide-react';
+import { useState } from 'react';
+import { Link2, Copy, Check, CreditCard } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
+import {
+  BotonesDeEnvio, abrirWhatsAppTrasCrear, enviarEnlacePorCorreo, type ContactoEnvio,
+} from '@/components/citas/enviar-enlace';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+// Los límites que ya pedía la ventana (y el proveedor).
+const MONTO_MIN = 10;
+const MONTO_MAX = 100000;
 
 export interface BookingPaymentLinkInfo {
   status: string; // PENDING | PAID | ...
@@ -26,10 +36,9 @@ interface Props {
   /** Linked expediente id — creating a link REQUIRES one (server enforces it too) */
   patientId?: string | null;
   patientName: string;
-  patientPhone?: string | null;
-  patientWhatsapp?: string | null;
   patientEmail?: string | null;
-  defaultAmount?: number | null;
+  contacto: ContactoEnvio;
+  defaultAmount?: number | string | null;
   defaultDescription?: string | null;
   stripeLink?: BookingPaymentLinkInfo | null;
   mpLink?: BookingPaymentLinkInfo | null;
@@ -38,23 +47,34 @@ interface Props {
 
 type Provider = 'stripe' | 'mercadopago';
 
+/**
+ * El proveedor por omisión: Mercado Pago si está conectado, si no Stripe; 'ninguno' = ninguno conectado.
+ * Si NO se pudo revisar alguno → 'no-se-sabe': decir «no tienes» sería afirmar algo falso, y caer a
+ * Stripe porque falló Mercado Pago rompería la regla del usuario (MP si está).
+ */
+async function proveedorConectado(): Promise<Provider | 'ninguno' | 'no-se-sabe'> {
+  const leer = (u: string) => authFetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const [s, m] = await Promise.all([
+    leer(`${API_URL}/api/stripe/connect/status`),
+    leer(`${API_URL}/api/mercadopago/connect/status`),
+  ]);
+  // Mismos campos que leía la ventana de antes (nivel raíz, no `data`). Decide la lectura que CONTESTA:
+  // con Mercado Pago conectado no importa si Stripe falló; sin saber de Mercado Pago no se cae a Stripe.
+  if (m?.connected === true) return 'mercadopago';
+  if (!m) return 'no-se-sabe';
+  if (s?.chargesEnabled === true) return 'stripe';
+  if (!s) return 'no-se-sabe';
+  return 'ninguno';
+}
+
 export function PaymentLinkButton({
-  bookingId,
-  patientId,
-  patientName,
-  patientPhone,
-  patientWhatsapp,
-  patientEmail,
-  defaultAmount,
-  defaultDescription,
-  stripeLink,
-  mpLink,
-  onCreated,
+  bookingId, patientId, patientName, patientEmail, contacto, defaultAmount, defaultDescription,
+  stripeLink, mpLink, onCreated,
 }: Props) {
-  const [modalOpen, setModalOpen] = useState(false);
-  // Link created in this session (server data won't have it until refetch)
+  // Link creado aquí (los datos del servidor no lo traen hasta releer)
   const [freshLink, setFreshLink] = useState<{ url: string; amount: number } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [ocupado, setOcupado] = useState(false);
 
   const paidLink =
     stripeLink?.status === 'PAID' ? stripeLink
@@ -65,23 +85,68 @@ export function PaymentLinkButton({
     : stripeLink?.isActive && stripeLink.status !== 'PAID' ? stripeLink
     : mpLink?.isActive && mpLink.status !== 'PAID' ? mpLink
     : null;
+  const monto = defaultAmount != null ? Number(defaultAmount) : 0;
+  const montoValido = monto >= MONTO_MIN && monto <= MONTO_MAX;
 
-  const shareUrl = activeLink?.url ?? '';
-  const shareAmount = activeLink?.amount != null ? Number(activeLink.amount) : null;
+  /** El link: el activo, o lo crea con el precio de la cita y el proveedor conectado. */
+  async function conseguirUrl(): Promise<string | null> {
+    if (activeLink) return activeLink.url;
+    const provider = await proveedorConectado();
+    if (provider === 'no-se-sabe') {
+      toast.error('No se pudo revisar tu cuenta de Mercado Pago / Stripe. Intenta de nuevo.');
+      return null;
+    }
+    if (provider === 'ninguno') {
+      toast.error('No tienes Mercado Pago ni Stripe conectado: conéctalo en «Pagos» para crear links de pago.');
+      return null;
+    }
+    try {
+      const description = defaultDescription || `Consulta - ${patientName}`;
+      const res = await authFetch(
+        provider === 'stripe' ? `${API_URL}/api/stripe/payment-links` : `${API_URL}/api/mercadopago/preferences`,
+        {
+          method: 'POST',
+          body: JSON.stringify(provider === 'stripe'
+            ? { amount: monto, description, bookingId }
+            : { amount: monto, description, bookingId, ...(patientEmail ? { patientEmail } : {}) }),
+        },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.url) {
+        setFreshLink({ url: json.url, amount: monto });
+        onCreated?.();
+        return json.url as string;
+      }
+      toast.error(json.error || 'Error al crear el link de pago');
+      return null;
+    } catch {
+      toast.error('Error de conexión');
+      return null;
+    }
+  }
 
-  function handleCopy() {
-    navigator.clipboard.writeText(shareUrl);
+  async function porCorreo() {
+    setOcupado(true);
+    if (await conseguirUrl()) await enviarEnlacePorCorreo(bookingId, 'pago');
+    setOcupado(false);
+  }
+
+  async function porWhatsApp() {
+    setOcupado(true);
+    const cuanto = activeLink?.amount != null ? Number(activeLink.amount) : monto;
+    await abrirWhatsAppTrasCrear(
+      contacto.wa, conseguirUrl,
+      (url) => `Hola ${patientName}, te envío tu link de pago${cuanto ? ` por $${cuanto.toLocaleString('es-MX')} MXN` : ''}: ${url}`,
+    );
+    setOcupado(false);
+  }
+
+  function copiar() {
+    if (!activeLink) return;
+    navigator.clipboard.writeText(activeLink.url);
     setCopied(true);
     toast.success('Link de pago copiado');
     setTimeout(() => setCopied(false), 2000);
-  }
-
-  function handleWhatsApp() {
-    const montoTxt = shareAmount ? ` por $${shareAmount.toLocaleString('es-MX')} MXN` : '';
-    const message = `Hola ${patientName}, te envío tu link de pago${montoTxt}: ${shareUrl}`;
-    const phone = patientWhatsapp || patientPhone;
-    const cleanPhone = phone?.replace(/\D/g, '') || '';
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
   }
 
   // Paid
@@ -96,30 +161,26 @@ export function PaymentLinkButton({
     );
   }
 
-  // Active pending link — share actions
+  // Active pending link — reenviar
   if (activeLink) {
     return (
       <div className="flex items-center gap-1 flex-wrap">
         <span className="text-xs px-2 py-1 rounded bg-sky-50 text-sky-700 border border-sky-200 flex items-center gap-1">
-          <Link2 className="w-3 h-3" /> Link enviado
+          {/* «activo», no «enviado»: existe aunque el correo haya fallado (eso lo dice el aviso). */}
+          <Link2 className="w-3 h-3" /> Link activo
         </span>
+        <BotonesDeEnvio
+          contacto={contacto} ocupado={ocupado} onCorreo={porCorreo} onWhatsApp={porWhatsApp}
+          correo="Reenviar link por correo" whatsapp="Reenviar por WhatsApp"
+        />
         <button
-          onClick={handleCopy}
+          onClick={copiar}
           className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1"
           title="Copiar link de pago"
         >
           {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
           {copied ? 'Copiado' : 'Copiar'}
         </button>
-        {(patientWhatsapp || patientPhone) && (
-          <button
-            onClick={handleWhatsApp}
-            className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 flex items-center gap-1"
-            title="Enviar por WhatsApp"
-          >
-            <MessageCircle className="w-3 h-3" /> WhatsApp
-          </button>
-        )}
       </div>
     );
   }
@@ -136,211 +197,24 @@ export function PaymentLinkButton({
       </span>
     );
   }
-
-  return (
-    <>
-      <button
-        onClick={() => setModalOpen(true)}
-        className="text-xs px-2 py-1 rounded bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 flex items-center gap-1"
-        title="Crear link de pago para esta cita (Stripe o Mercado Pago)"
+  // El monto es el precio de la cita: sin uno válido no hay link (se DICE qué hacer).
+  if (!montoValido) {
+    return (
+      <span
+        className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-500 border border-gray-200 flex items-center gap-1"
+        title={`El link de pago se crea por el precio de la cita (entre $${MONTO_MIN} y $${MONTO_MAX.toLocaleString('es-MX')} MXN)`}
       >
-        <CreditCard className="w-3 h-3" /> Link de pago
-      </button>
-      {modalOpen && (
-        <PaymentLinkModal
-          bookingId={bookingId}
-          patientName={patientName}
-          patientEmail={patientEmail}
-          defaultAmount={defaultAmount}
-          defaultDescription={defaultDescription}
-          onClose={() => setModalOpen(false)}
-          onCreated={(url, amount) => {
-            setFreshLink({ url, amount });
-            setModalOpen(false);
-            onCreated?.();
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-// ── Modal ──
-
-function PaymentLinkModal({
-  bookingId,
-  patientName,
-  patientEmail,
-  defaultAmount,
-  defaultDescription,
-  onClose,
-  onCreated,
-}: {
-  bookingId: string;
-  patientName: string;
-  patientEmail?: string | null;
-  defaultAmount?: number | null;
-  defaultDescription?: string | null;
-  onClose: () => void;
-  onCreated: (url: string, amount: number) => void;
-}) {
-  const [loadingStatus, setLoadingStatus] = useState(true);
-  const [stripeAvailable, setStripeAvailable] = useState(false);
-  const [mpAvailable, setMpAvailable] = useState(false);
-  const [provider, setProvider] = useState<Provider | null>(null);
-  const [amount, setAmount] = useState<string>(
-    defaultAmount && defaultAmount > 0 ? String(defaultAmount) : ''
-  );
-  const [creating, setCreating] = useState(false);
-
-  const fetchStatuses = useCallback(async () => {
-    setLoadingStatus(true);
-    const [stripeRes, mpRes] = await Promise.allSettled([
-      authFetch(`${API_URL}/api/stripe/connect/status`).then((r) => r.json()),
-      authFetch(`${API_URL}/api/mercadopago/connect/status`).then((r) => r.json()),
-    ]);
-    const stripeOk = stripeRes.status === 'fulfilled' && stripeRes.value?.chargesEnabled === true;
-    const mpOk = mpRes.status === 'fulfilled' && mpRes.value?.connected === true;
-    setStripeAvailable(stripeOk);
-    setMpAvailable(mpOk);
-    setProvider(mpOk ? 'mercadopago' : stripeOk ? 'stripe' : null);
-    setLoadingStatus(false);
-  }, []);
-
-  useEffect(() => {
-    fetchStatuses();
-  }, [fetchStatuses]);
-
-  async function handleCreate() {
-    const parsedAmount = parseFloat(amount);
-    if (!parsedAmount || parsedAmount < 10 || parsedAmount > 100000) {
-      toast.error('El monto debe ser entre $10 y $100,000 MXN');
-      return;
-    }
-    if (!provider) return;
-
-    setCreating(true);
-    try {
-      const description = defaultDescription || `Consulta - ${patientName}`;
-      const endpoint =
-        provider === 'stripe'
-          ? `${API_URL}/api/stripe/payment-links`
-          : `${API_URL}/api/mercadopago/preferences`;
-      const body =
-        provider === 'stripe'
-          ? { amount: parsedAmount, description, bookingId }
-          : { amount: parsedAmount, description, bookingId, ...(patientEmail ? { patientEmail } : {}) };
-
-      const res = await authFetch(endpoint, { method: 'POST', body: JSON.stringify(body) });
-      const json = await res.json().catch(() => ({}));
-
-      if (res.ok && json.url) {
-        toast.success('Link de pago creado');
-        onCreated(json.url, parsedAmount);
-      } else {
-        toast.error(json.error || 'Error al crear el link de pago');
-      }
-    } catch {
-      toast.error('Error de conexión');
-    } finally {
-      setCreating(false);
-    }
+        <CreditCard className="w-3 h-3" /> Ponle precio a la cita para mandar el link de pago
+      </span>
+    );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-sky-600" />
-            Link de pago · {patientName}
-          </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {loadingStatus ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-          </div>
-        ) : !stripeAvailable && !mpAvailable ? (
-          <div className="text-sm text-gray-600 space-y-3">
-            <p>No tienes ningún proveedor de pagos configurado.</p>
-            <a
-              href="/dashboard/pagos"
-              className="inline-block text-xs px-3 py-1.5 rounded bg-sky-600 text-white hover:bg-sky-700"
-            >
-              Configurar en Pagos
-            </a>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Provider */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">Proveedor</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setProvider('mercadopago')}
-                  disabled={!mpAvailable}
-                  className={`flex-1 text-xs px-3 py-2 rounded-lg border transition-colors ${
-                    provider === 'mercadopago'
-                      ? 'border-sky-400 bg-sky-50 text-sky-700 font-medium'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  } disabled:opacity-40 disabled:cursor-not-allowed`}
-                  title={mpAvailable ? undefined : 'Mercado Pago no está conectado'}
-                >
-                  Mercado Pago
-                </button>
-                <button
-                  onClick={() => setProvider('stripe')}
-                  disabled={!stripeAvailable}
-                  className={`flex-1 text-xs px-3 py-2 rounded-lg border transition-colors ${
-                    provider === 'stripe'
-                      ? 'border-purple-400 bg-purple-50 text-purple-700 font-medium'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  } disabled:opacity-40 disabled:cursor-not-allowed`}
-                  title={stripeAvailable ? undefined : 'Stripe no está configurado'}
-                >
-                  Stripe
-                </button>
-              </div>
-            </div>
-
-            {/* Amount */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">Monto (MXN)</label>
-              <input
-                type="number"
-                min={10}
-                max={100000}
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-200"
-              />
-            </div>
-
-            <button
-              onClick={handleCreate}
-              disabled={creating || !provider || !amount}
-              className="w-full text-sm px-3 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {creating ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Creando...
-                </>
-              ) : (
-                'Crear link de pago'
-              )}
-            </button>
-          </div>
-        )}
-      </div>
+    <div className="flex items-center gap-1 flex-wrap">
+      <BotonesDeEnvio
+        contacto={contacto} ocupado={ocupado} onCorreo={porCorreo} onWhatsApp={porWhatsApp}
+        correo="Link de pago por correo" whatsapp="Link de pago por WhatsApp"
+      />
     </div>
   );
 }

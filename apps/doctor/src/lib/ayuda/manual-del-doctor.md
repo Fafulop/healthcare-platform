@@ -258,9 +258,14 @@ servicio. (El «Bloqueo extendido» para apartar más tiempo está apagado por a
 
 ### Cobrar una cita
 
-Grupo **«Cobro y factura»** → **«Link de pago»**: eliges el proveedor (Stripe o Mercado Pago) y el monto.
-Después puedes copiar el link o mandarlo por WhatsApp, y cuando el paciente paga la cita muestra
-«Pagado».
+Grupo **«Cobro y factura»** → **«Link de pago por correo»** o **«Link de pago por WhatsApp»**: un clic
+crea el link **por el precio de la cita** y se lo manda al paciente (el correo sale de tu Gmail, como la
+confirmación; WhatsApp se abre con el mensaje listo). Si necesitas otro monto, cambia antes el precio de
+la cita (está al lado). Con Mercado Pago y Stripe conectados, usa **Mercado Pago**. Después dice «Link
+activo» con «Reenviar link por correo», «Reenviar por WhatsApp» y «Copiar», y cuando el paciente paga
+la cita muestra «Pagado».
+
+- Sin precio en la cita dice «Ponle precio a la cita para mandar el link de pago».
 
 - Necesitas tener conectado Stripe o Mercado Pago en **Pagos**.
 - La cita necesita **expediente vinculado**; si no, el botón dice «Requiere expediente» (ver
@@ -276,10 +281,11 @@ Después puedes copiar el link o mandarlo por WhatsApp, y cuando el paciente pag
 ### Facturar una cita
 
 1. Marca **«¿Necesita factura?»** en la cita (se puede desde la fila, sin abrirla). En el grupo
-   **«Cobro y factura»** aparece **«Facturación»**.
-2. **«Facturación»** crea un formulario para que el paciente capture sus **datos fiscales**. Lo
-   copias o lo mandas por WhatsApp. Cuando el paciente lo llena, en su lugar dice «Ya contamos con sus
-   datos fiscales para facturarle.»
+   **«Cobro y factura»** aparecen **«Pedir datos fiscales por correo»** y **«Pedir datos fiscales por
+   WhatsApp»**.
+2. Un clic le manda al paciente el formulario para que capture sus **datos fiscales** (si ya tenía uno
+   pendiente, se reenvía ése). Mientras no contesta dice «Esperando datos», con «Reenviar…» y «Copiar».
+   Cuando lo llena, en su lugar dice «Ya contamos con sus datos fiscales para facturarle.»
 3. La factura se emite desde el **expediente del paciente**, página **«Cobros»** (botón «Cobros» de su
    perfil), botón «Facturar» (ver [Facturar desde el expediente](#facturar-desde-el-expediente)).
 
@@ -306,8 +312,11 @@ Para que el paciente conteste preguntas antes de la cita:
 
 1. Necesitas una **plantilla** con «Usar como formulario pre-cita» marcado (ver
    [Plantillas](#plantillas)). Si no tienes, el modal te ofrece «Crear plantilla pre-cita →».
-2. En una cita Agendada, grupo «Documentos» → **«Crear formulario»**.
-3. Elige la plantilla → «Generar enlace». Cópialo o mándalo por WhatsApp.
+2. En una cita Agendada, grupo «Documentos» → **«Formulario por correo»** o **«Formulario por
+   WhatsApp»**: un clic lo crea con tu plantilla pre-cita y se lo manda al paciente. Si tienes **más de
+   una** plantilla pre-cita, se abre la ventana para elegirla («Generar enlace») y ahí lo copias o lo
+   mandas por WhatsApp. Mientras no contesta dice «Esperando respuesta», con «Reenviar…» y, en la
+   flecha, «Copiar enlace» y «Quitar formulario».
 4. Cuando el paciente lo contesta, el botón dice **«Formulario recibido»** y abre sus
    respuestas. También quedan en el expediente, sección «Formularios».
 
@@ -494,7 +503,7 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
   misma tarjeta de la cita que en la agenda**: **ESTADO** (**«Completar»** con la misma ventana del
   cobro, **«No asistió»**, **«Cancelar cita»**, **«Reagendar»** — te lleva a la agenda con la ventana de
   reagendar abierta y al terminar te regresa a la visita, que se va con la cita nueva), **COBRO Y
-  FACTURA** (el **precio** —clic para cambiarlo—, **«¿Necesita factura?»**, **«Link de pago»** y la
+  FACTURA** (el **precio** —clic para cambiarlo—, **«¿Necesita factura?»**, **«Link de pago por correo / por WhatsApp»** y la
   nota del cobro y, con la casilla marcada, pedirle sus datos fiscales), **CONFIRMACIÓN CITA** (por
   correo o por WhatsApp) y **DOCUMENTOS** (el formulario pre-consulta). El precio y el cobro piden
   permiso de Flujo de Dinero; la casilla y los datos fiscales, el de Facturación. Si cancelas, marcas «No asistió» o eliminas la cita con la visita

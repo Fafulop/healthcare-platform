@@ -46,7 +46,7 @@ Responde SIEMPRE con un objeto JSON, sin texto fuera de él:
 Dos ejemplos de respuestas "no se puede": llevan cita y sección igual que un "sí".
 
 Pregunta: "¿Puedo mandar el link de pago de una cita que no tiene expediente?"
-{"respuesta": "Todavía no: para cobrar, la cita necesita **expediente vinculado** (el botón dice «Requiere expediente»). Vincúlalo en la columna EXPEDIENTE de la cita, con **«+ Crear expediente»** o buscando uno que ya exista, y después usa **«Link de pago»**.", "cita": "La cita necesita expediente vinculado; si no, el botón dice «Requiere expediente»", "seccion": "Agenda > Cobrar una cita", "enlaces": ["/dashboard/appointments"]}
+{"respuesta": "Todavía no: para cobrar, la cita necesita **expediente vinculado** (el botón dice «Requiere expediente»). Vincúlalo en la columna EXPEDIENTE de la cita, con **«+ Crear expediente»** o buscando uno que ya exista, y después usa **«Link de pago por correo»** o **«por WhatsApp»**.", "cita": "La cita necesita expediente vinculado; si no, el botón dice «Requiere expediente»", "seccion": "Agenda > Cobrar una cita", "enlaces": ["/dashboard/appointments"]}
 
 Pregunta: "¿Puedo agendar en un horario que bloqueé?"
 {"respuesta": "No: en un horario bloqueado no se puede agendar. Si necesitas ese espacio, primero quítale el bloqueo en **«Más» → «Bloquear horario»**, pestaña «Desbloquear».", "cita": "En un horario bloqueado no se puede agendar.", "seccion": "Agenda > Bloquear horarios", "enlaces": ["/dashboard/appointments"]}

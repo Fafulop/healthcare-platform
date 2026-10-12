@@ -61,6 +61,13 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   // VENTAS PACIENTE paso 4 — the cita's «Nota de venta» shows its CHARGE (folio ING-…, amount, forma
   // de pago): money, so `flujo` like the charge itself — not `citas`. Specific beats `appointments`.
   { prefix: 'appointments/bookings/*/nota', key: 'flujo' },
+  // N11 (2026-10-12) — mandar el link de pago por correo = los links de pago (Pagos), como crearlo. Los
+  // otros dos (formulario, datos fiscales) son de la cita: `appointments` → citas.
+  { prefix: 'appointments/bookings/*/enviar-enlace/pago', key: 'pagos' },
+  // Datos fiscales = Facturación, como la casilla y el botón en la tarjeta (code review N13: el servidor
+  // dejaba a un ayudante con citas pero sin Facturación pedirlos).
+  { prefix: 'appointments/bookings/*/enviar-enlace/fiscal', key: 'facturacion' },
+  { prefix: 'appointments/fiscal-form-link', key: 'facturacion' },
   { prefix: 'appointments', key: 'citas' },
   { prefix: 'calendar', key: 'citas' },
   { prefix: 'doctors/*/availability', key: 'citas' },

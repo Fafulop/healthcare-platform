@@ -672,3 +672,102 @@ function buildTreatmentScheduleHtml(data: TreatmentScheduleEmailData): string {
 </body>
 </html>`;
 }
+
+// ─── Enlaces que se le mandan al paciente desde la cita (N11/N13, 2026-10-12) ─────────────────
+// Formulario pre-consulta · link de pago · datos fiscales: un clic en la tarjeta de la cita y el correo
+// sale desde el Gmail del doctor, como la confirmación. El ENLACE lo busca el servidor (nunca viene del
+// cliente). Textos para el paciente: revisados con el usuario antes de publicarse.
+
+export type TipoEnlace = 'formulario' | 'pago' | 'fiscal';
+
+export interface EnlaceEmailData {
+  tipo: TipoEnlace;
+  patientName: string;
+  patientEmail: string;
+  doctorName: string;
+  url: string;
+  /** «martes 20 de octubre» — la fecha de la cita, si la tiene (formulario y pago). */
+  fechaCita?: string | null;
+  /** Monto del link de pago, en MXN. */
+  monto?: number | null;
+}
+
+const TEXTO_ENLACE: Record<TipoEnlace, { asunto: (d: EnlaceEmailData) => string; titulo: string; color: string; parrafo: (d: EnlaceEmailData) => string; boton: string }> = {
+  formulario: {
+    asunto: (d) => `Formulario antes de tu consulta – ${d.doctorName}`,
+    titulo: 'Formulario antes de tu consulta',
+    color: '#7c3aed',
+    parrafo: (d) => `${escapeHtml(d.doctorName)} te pide llenar este formulario antes de tu cita${d.fechaCita ? ` del <strong>${escapeHtml(d.fechaCita)}</strong>` : ''}. Te toma unos minutos y ayuda a aprovechar mejor la consulta.`,
+    boton: 'Llenar el formulario',
+  },
+  pago: {
+    asunto: (d) => `Tu link de pago – ${d.doctorName}`,
+    titulo: 'Tu link de pago',
+    color: '#0284c7',
+    parrafo: (d) => `Aquí está el link para pagar tu consulta${d.fechaCita ? ` del <strong>${escapeHtml(d.fechaCita)}</strong>` : ''} con ${escapeHtml(d.doctorName)}${d.monto ? ` por <strong>$${d.monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN</strong>` : ''}.`,
+    boton: 'Pagar',
+  },
+  fiscal: {
+    asunto: (d) => `Tus datos para la factura – ${d.doctorName}`,
+    titulo: 'Tus datos para la factura',
+    color: '#0f766e',
+    parrafo: (d) => `Para emitir tu factura, ${escapeHtml(d.doctorName)} necesita tus datos fiscales. Captúralos en este enlace; sólo se piden una vez.`,
+    boton: 'Capturar mis datos fiscales',
+  },
+};
+
+function buildEnlaceEmailHtml(d: EnlaceEmailData): string {
+  const t = TEXTO_ENLACE[d.tipo];
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 16px;">
+  <tr>
+    <td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:${t.color};padding:32px 40px;text-align:center;">
+            <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">tusalud.pro</p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">${t.titulo}</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 40px 12px;">
+            <p style="margin:0 0 8px;color:#1a1a2e;font-size:16px;">Hola <strong>${escapeHtml(d.patientName)}</strong>,</p>
+            <p style="margin:0;color:#555;font-size:14px;line-height:1.6;">${t.parrafo(d)}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 40px 32px;text-align:center;">
+            <a href="${escapeHtml(d.url)}" style="display:inline-block;background:${t.color};color:#ffffff;font-size:15px;font-weight:700;padding:13px 28px;border-radius:8px;text-decoration:none;">${t.boton}</a>
+            <p style="margin:14px 0 0;color:#888;font-size:11px;word-break:break-all;">Si el botón no abre, copia este enlace: ${escapeHtml(d.url)}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f8faff;padding:24px 40px;border-top:1px solid #e5ecf5;text-align:center;">
+            <p style="margin:0;color:#888;font-size:13px;">Si tienes alguna pregunta, responde este correo.</p>
+            <p style="margin:10px 0 0;color:#bbb;font-size:11px;">tusalud.pro · Plataforma de salud digital en México</p>
+            <p style="margin:8px 0 0;font-size:11px;color:#bbb;">Tus datos son tratados conforme a nuestro <a href="https://tusalud.pro/privacidad" style="color:#93c5fd;text-decoration:none;">Aviso de Privacidad</a> · <a href="mailto:privacidad@tusalud.pro" style="color:#93c5fd;text-decoration:none;">privacidad@tusalud.pro</a></p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+}
+
+export async function sendEnlaceEmail(
+  data: EnlaceEmailData,
+  accessToken: string,
+  refreshToken: string | null,
+  fromName: string,
+  fromEmail: string,
+): Promise<void> {
+  const auth = buildAuthedClient(accessToken, refreshToken);
+  const gmail = google.gmail({ version: 'v1', auth });
+  const raw = createRawMessage(`${fromName} <${fromEmail}>`, data.patientEmail, TEXTO_ENLACE[data.tipo].asunto(data), buildEnlaceEmailHtml(data));
+  await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
+}
