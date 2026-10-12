@@ -47,7 +47,6 @@ Cada receta en la lista muestra:
 | Fecha de Expiración | No | Hasta cuándo es válida |
 | Diagnóstico | No | Ej: "Infección respiratoria aguda" |
 | Notas Clínicas | No | Instrucciones generales |
-| Vincular a Consulta | No | Seleccionar consulta relacionada del paciente |
 
 ### Sección: Información del Doctor
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { CATEGORIAS_MEDIA, etiquetaCategoriaMedia, etiquetaTipoMedia } from '@/lib/media-etiquetas';
-import { useState, useEffect } from 'react';
+import { useState} from 'react';
 import { X, Edit2, Save, Trash2, Download, Link2 } from 'lucide-react';
 import { practiceConfirm } from '@/lib/practice-confirm';
 import { formatLocalDate } from '@/lib/dates';
@@ -49,27 +49,17 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
   const [editedCategory, setEditedCategory] = useState(media.category || '');
   const [editedBodyArea, setEditedBodyArea] = useState(media.bodyArea || '');
   const [editedEncounterId, setEditedEncounterId] = useState(media.encounterId || '');
-  const [encounters, setEncounters] = useState<{ id: string; encounterDate: string; chiefComplaint: string; templateId?: string | null; template?: { name: string } | null; visitaId?: string | null }[]>([]);
   const [editedVisitaId, setEditedVisitaId] = useState(media.visitaId || '');
 
-  // VISITAS D5b — la visita de un archivo con plantilla ES la de su plantilla (D3; otra → 409). La
-  // regla se cuida en los DOS cambios, a la vista del doctor (nunca en un efecto que suelte algo
-  // en silencio): elegir plantilla trae su visita; elegir otra visita suelta la plantilla ajena.
+  // VISITAS D5b + N9 (2026-10-12) — ya no se elige consulta. Un archivo de antes con consulta está en
+  // la visita de SU consulta (D3), que es `media.visitaId`: moverlo a otra visita la suelta; regresar a
+  // la suya la conserva. Sin lista que esperar (antes se pedían las consultas y, si llegaban tarde,
+  // ir y volver de visita soltaba el vínculo para siempre — el servidor ya no deja volver a ligarlo).
   const conVisitas = !!visitasUi && visitasUi.estado === 'ok';
-  const consultasOfrecidas = conVisitas
-    ? visitasUi!.consultas.filter((c) => (c.visitaId ?? '') === editedVisitaId)
-    : encounters;
-  const visitaDeConsulta = (id: string) =>
-    (visitasUi?.consultas.find((c) => c.id === id) ?? encounters.find((e) => e.id === id))?.visitaId ?? '';
-  const elegirConsulta = (id: string) => {
-    setEditedEncounterId(id);
-    if (id) setEditedVisitaId(visitaDeConsulta(id));
-  };
   const elegirVisita = (id: string) => {
     setEditedVisitaId(id);
-    if (editedEncounterId && visitaDeConsulta(editedEncounterId) !== id) setEditedEncounterId('');
+    if (media.encounterId) setEditedEncounterId(id === (media.visitaId ?? '') ? media.encounterId : '');
   };
-  const [loadingEncounters, setLoadingEncounters] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const captureDate = new Date(media.captureDate);
@@ -80,21 +70,6 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
     hour: '2-digit',
     minute: '2-digit'
   });
-
-  // Fetch encounters when entering edit mode
-  useEffect(() => {
-    if (!isEditing) return;
-    setLoadingEncounters(true);
-    fetch(`/api/medical-records/patients/${patientId}/encounters`)
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setEncounters(data.data);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoadingEncounters(false));
-  }, [isEditing, patientId]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -346,39 +321,28 @@ export function MediaViewer({ media, patientId, onClose, onDelete, onUpdate, vis
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <span className="flex items-center gap-1">
-                    <Link2 className="w-3.5 h-3.5" />
-                    Consulta Vinculada
-                  </span>
-                </label>
-                {isEditing ? (
-                  <select
-                    value={editedEncounterId}
-                    onChange={(e) => elegirConsulta(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    disabled={loadingEncounters}
-                  >
-                    <option value="">Sin vincular</option>
-                    {consultasOfrecidas.map(enc => (
-                      <option key={enc.id} value={enc.id}>
-                        {formatLocalDate(enc.encounterDate, { year: 'numeric', month: 'short', day: 'numeric' })} – {tituloDePlantilla(enc, 'Sin motivo')}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
+              {/* N9 (2026-10-12): un archivo ya NO se liga a una consulta (vive en su visita o queda
+                  huérfano). Sólo los que YA tenían una la enseñan, de lectura; se suelta sola si el
+                  archivo pasa a otra visita (la consulta es de la suya — D3). */}
+              {media.encounterId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <span className="flex items-center gap-1">
+                      <Link2 className="w-3.5 h-3.5" />
+                      Consulta Vinculada
+                    </span>
+                  </label>
                   <p className="text-sm text-gray-900">
-                    {media.encounter
-                      // `formatLocalDate`, no `new Date(...)`: la fecha de la consulta se guarda a
-                      // medianoche UTC y leída como timestamp se pintaba un día ANTES en México.
-                      ? `${formatLocalDate(media.encounter.encounterDate, { year: 'numeric', month: 'short', day: 'numeric' })} – ${tituloDePlantilla(media.encounter, 'Sin motivo')}`
-                      : media.encounterId
-                        ? 'Vinculado a consulta'
-                        : 'Sin vincular'}
+                    {isEditing && !editedEncounterId
+                      ? 'Se desvincula al guardar (el archivo pasa a otra visita)'
+                      : media.encounter
+                        // `formatLocalDate`, no `new Date(...)`: la fecha de la consulta se guarda a
+                        // medianoche UTC y leída como timestamp se pintaba un día ANTES en México.
+                        ? `${formatLocalDate(media.encounter.encounterDate, { year: 'numeric', month: 'short', day: 'numeric' })} – ${tituloDePlantilla(media.encounter, 'Sin motivo')}`
+                        : 'Vinculado a consulta'}
                   </p>
-                )}
-              </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

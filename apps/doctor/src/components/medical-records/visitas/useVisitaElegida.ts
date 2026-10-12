@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getClinicDateString } from '@/lib/dates';
 import { visitaSugerida } from '@/lib/visitas-ui';
 import { useVisitasDelPaciente } from './useVisitasDelPaciente';
@@ -13,8 +13,7 @@ import { useVisitasDelPaciente } from './useVisitasDelPaciente';
  * La sugerencia (`visitaSugerida`, últimos 7 días) se pone UNA vez, cuando llegan las visitas, y
  * sólo si el doctor no eligió ya algo: la carga tarda y no puede pisar lo que escogió a mano.
  *
- * `consultas` = las plantillas de la visita elegida (o las sueltas, con «Ninguna»): una foto o
- * receta con plantilla queda en la visita de SU plantilla (D3), así que ofrecer otra daría 409.
+ * (Ya no devuelve `consultas`: recetas y archivos ya no se ligan a una consulta — N7/N9, 2026-10-12.)
  */
 export function useVisitaElegida(patientId: string, activo: boolean) {
   const lista = useVisitasDelPaciente(patientId, activo);
@@ -33,10 +32,6 @@ export function useVisitaElegida(patientId: string, activo: boolean) {
     setElegida(id);
   };
 
-  const consultas = useMemo(
-    () => lista.consultas.filter((c) => (c.visitaId ?? '') === elegida),
-    [lista.consultas, elegida],
-  );
 
-  return { estado: lista.estado, visitas: lista.visitas, elegida, elegir, consultas };
+  return { estado: lista.estado, visitas: lista.visitas, elegida, elegir };
 }

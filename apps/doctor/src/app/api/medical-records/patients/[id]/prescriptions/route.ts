@@ -141,23 +141,15 @@ export async function POST(
       );
     }
 
-    // If encounterId provided, verify it exists and belongs to this patient
+    // N7 (2026-10-12): una receta ya NO se liga a una consulta — vive en su visita o queda huérfana.
+    // Las que ya tienen una se quedan como están; lo que se rechaza es ligar una NUEVA.
     if (body.encounterId) {
-      const encounter = await prisma.clinicalEncounter.findFirst({
-        where: {
-          id: body.encounterId,
-          patientId,
-          doctorId,
-        },
-      });
-
-      if (!encounter) {
-        return NextResponse.json(
-          { error: 'Encounter not found or access denied' },
-          { status: 404 }
-        );
-      }
+      return NextResponse.json(
+        { error: 'Una receta ya no se liga a una consulta: se crea dentro de su visita.' },
+        { status: 400 }
+      );
     }
+
 
     // Doctor credentials snapshot ([{titulo, cedula}] from the profile's
     // receta identity) — copied at creation for legal integrity, same as
@@ -216,7 +208,7 @@ export async function POST(
     // VISITAS D3: with a consultation the visit is DERIVED from it (a mismatching visitaId → 409);
     // without one, the visitaId sent (same patient). lib/visitas.ts resolverVisitaDeHijo.
     const visitaId = await resolverVisitaDeHijo(doctorId, patientId, {
-      visitaId: body.visitaId, encounterId: body.encounterId || null, encounterCambio: true,
+      visitaId: body.visitaId, encounterId: null, encounterCambio: false,
     });
 
     // Create prescription with draft status
@@ -224,7 +216,7 @@ export async function POST(
       data: {
         patientId,
         doctorId,
-        encounterId: body.encounterId || null,
+        encounterId: null,
         visitaId: visitaId ?? null,
         templateId: body.templateId || null,
         customData: body.templateId ? body.customData : undefined,

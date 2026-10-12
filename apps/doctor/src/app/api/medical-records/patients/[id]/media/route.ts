@@ -134,28 +134,20 @@ export async function POST(
       );
     }
 
-    // If encounterId is provided, verify it exists and belongs to this patient
+    // N9 (2026-10-12): un archivo ya NO se liga a una consulta — vive en su visita o queda huérfano.
+    // Los que ya tienen consulta se quedan como están; lo que se rechaza es ligar una NUEVA.
     if (body.encounterId) {
-      const encounter = await prisma.clinicalEncounter.findFirst({
-        where: {
-          id: body.encounterId,
-          patientId,
-          doctorId
-        }
-      });
-
-      if (!encounter) {
-        return NextResponse.json(
-          { error: 'Encounter not found or does not belong to this patient' },
-          { status: 404 }
-        );
-      }
+      return NextResponse.json(
+        { error: 'Un archivo ya no se liga a una consulta: se sube dentro de su visita.' },
+        { status: 400 }
+      );
     }
+
 
     // VISITAS D3: with a consultation the visit is DERIVED from it (a mismatching visitaId → 409);
     // without one, the visitaId sent (same patient). lib/visitas.ts resolverVisitaDeHijo.
     const visitaId = await resolverVisitaDeHijo(doctorId, patientId, {
-      visitaId: body.visitaId, encounterId: body.encounterId || null, encounterCambio: true,
+      visitaId: body.visitaId, encounterId: null, encounterCambio: false,
     });
 
     // Create media record
@@ -163,7 +155,7 @@ export async function POST(
       data: {
         patientId,
         doctorId,
-        encounterId: body.encounterId || null,
+        encounterId: null,
         visitaId: visitaId ?? null,
         mediaType: body.mediaType,
         fileName: body.fileName,

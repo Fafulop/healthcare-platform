@@ -106,12 +106,6 @@ export default function MediaUploadPage({ params }: { params: Promise<{ id: stri
         selectorDeVisita={elegirVisita ? (
           <SelectorDeVisita visitas={visita.visitas} estado={visita.estado} value={visita.elegida} onChange={visita.elegir} />
         ) : undefined}
-        // Mientras CARGAN, ninguna consulta: ofrecer las de siempre dejaba elegir una que el
-        // uploader soltaba en silencio al llegar las visitas (code review de D5). Si FALLAN, las de
-        // siempre: con una, el archivo queda en la visita de ESA consulta (el servidor la deriva).
-        consultasElegibles={!elegirVisita ? undefined
-          : visita.estado === 'ok' ? visita.consultas
-          : visita.estado === 'cargando' ? [] : undefined}
         onUploadComplete={handleUploadComplete}
         onCancel={handleCancel}
       />

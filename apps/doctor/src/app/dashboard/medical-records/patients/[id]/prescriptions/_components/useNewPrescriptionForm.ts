@@ -24,15 +24,6 @@ interface Patient {
   internalId: string;
 }
 
-interface Encounter {
-  id: string;
-  encounterDate: string;
-  encounterType: string;
-  chiefComplaint: string;
-  templateId?: string | null;
-  template?: { name: string } | null;
-}
-
 export function useNewPrescriptionForm() {
   const params = useParams();
   const router = useRouter();
@@ -71,8 +62,6 @@ export function useNewPrescriptionForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loadingPatient, setLoadingPatient] = useState(true);
-  const [encounters, setEncounters] = useState<Encounter[]>([]);
-  const [selectedEncounterId, setSelectedEncounterId] = useState<string>('');
 
   // Voice recording modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -329,18 +318,8 @@ export function useNewPrescriptionForm() {
     fetchPatient();
   }, [patientId]);
 
-  // D5: al cambiar de visita, la consulta elegida puede ya no ser suya → se suelta (si no, 409).
-  // Mientras las visitas CARGAN no se ofrece ninguna consulta: ofrecer las de siempre dejaba elegir
-  // una que, al llegar las visitas (con «Ninguna» aún puesta), este mismo efecto soltaba en
-  // silencio (code review de D5). Si FALLAN, las de siempre: con una, la receta queda en la visita
-  // de ESA consulta, que el servidor deriva sin preguntar.
-  const filtrarPorVisita = elegirVisita && visita.estado === 'ok';
-  const consultasCargando = elegirVisita && visita.estado === 'cargando';
-  useEffect(() => {
-    if (filtrarPorVisita && selectedEncounterId && !visita.consultas.some((e) => e.id === selectedEncounterId)) {
-      setSelectedEncounterId('');
-    }
-  }, [filtrarPorVisita, visita.consultas, selectedEncounterId]);
+  // N7 (2026-10-12): la receta ya NO se liga a una consulta — vive en su visita o queda huérfana. Las que
+  // ya tienen consulta se quedan como están (eso se cuida al editar y en el servidor).
 
   const fetchPatient = async () => {
     try {
@@ -348,15 +327,6 @@ export function useNewPrescriptionForm() {
       if (!res.ok) throw new Error('Error al cargar paciente');
       const data = await res.json();
       setPatient(data.data);
-      if (visitaId) {
-        // `patient.encounters` trae sólo las últimas 5: las de la visita se piden completas.
-        const re = await fetch(`/api/medical-records/patients/${patientId}/encounters`);
-        if (!re.ok) throw new Error('Error al cargar las consultas de la visita');
-        const de = await re.json();
-        setEncounters(((de.data || []) as (Encounter & { visitaId?: string | null })[]).filter((e) => e.visitaId === visitaId));
-      } else {
-        setEncounters(data.data.encounters || []);
-      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -438,7 +408,6 @@ export function useNewPrescriptionForm() {
         doctorFullName,
         doctorLicense,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-        encounterId: selectedEncounterId || null,
         ...((visitaId || (elegirVisita && visita.elegida)) && { visitaId: visitaId || visita.elegida }),
         ...(doctorCredentials.length > 0 ? { doctorCredentials } : {}),
         ...(isTemplateMode ? { templateId: selectedTemplate.id, customData } : {}),
@@ -555,7 +524,6 @@ export function useNewPrescriptionForm() {
     // Data
     patient,
     doctorProfile,
-    encounters: filtrarPorVisita ? visita.consultas : consultasCargando ? [] : encounters,
     // D5
     elegirVisita,
     visita,
@@ -575,7 +543,6 @@ export function useNewPrescriptionForm() {
     medications, setMedications,
     imagingStudies, setImagingStudies,
     labStudies, setLabStudies,
-    selectedEncounterId, setSelectedEncounterId,
     // Receta templates
     recetaTemplates,
     selectedTemplateId,

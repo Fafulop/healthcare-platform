@@ -1,41 +1,28 @@
 'use client';
 
 import { CATEGORIAS_MEDIA } from '@/lib/media-etiquetas';
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useRef, type ReactNode } from 'react';
 import { Upload, X, Image as ImageIcon, Video, Mic, FileText, Loader2 } from 'lucide-react';
 import { useUploadThing } from '@/lib/uploadthing';
 import { SUFIJO_CAMBIA_DE_PLAN } from '@healthcare/database';
 import { VerPlanesLink } from '@/components/layout/VerPlanesLink';
 
-import { formatLocalDate as formatDateString } from '@/lib/dates';
-import { tituloDePlantilla } from '@/lib/titulo-plantilla';
 
+/**
+ * N9 (2026-10-12): un archivo ya NO se liga a una consulta — vive en su visita o queda huérfano («para
+ * mantenerlo simple»). Los que ya tienen consulta se quedan como están.
+ */
 interface MediaUploaderProps {
   patientId: string;
-  encounterId?: string;
-  /** VISITAS D4 — subir DENTRO de una visita. Las consultas que se ofrecen son sólo las de esa
-   *  visita: la de un archivo con consulta ES la de su consulta, y otra daría 409 (D3). */
+  /** VISITAS D4 — subir DENTRO de una visita. */
   visitaId?: string;
-  /** VISITAS D5 — subir desde Docs y Galería: el selector «¿A qué visita pertenece?» (se pinta
-   *  arriba de «Vincular a Consulta») y las plantillas de la visita elegida. Con ellas el uploader
-   *  no pide sus consultas: ofrece éstas. */
+  /** VISITAS D5 — subir desde Docs y Galería: el selector «¿A qué visita pertenece?». */
   selectorDeVisita?: ReactNode;
-  consultasElegibles?: Encounter[];
   onUploadComplete?: (mediaId: string) => void;
   onCancel?: () => void;
 }
 
 type MediaType = 'image' | 'video' | 'audio' | 'document';
-
-interface Encounter {
-  id: string;
-  encounterDate: string;
-  encounterType: string;
-  chiefComplaint: string;
-  templateId?: string | null;
-  template?: { name: string } | null;
-  visitaId?: string | null;
-}
 
 
 const BODY_AREAS = [
@@ -54,15 +41,13 @@ const BODY_AREAS = [
   'Pie Izquierdo',
 ];
 
-export function MediaUploader({ patientId, encounterId: propEncounterId, visitaId, selectorDeVisita, consultasElegibles, onUploadComplete, onCancel }: MediaUploaderProps) {
+export function MediaUploader({ patientId, visitaId, selectorDeVisita, onUploadComplete, onCancel }: MediaUploaderProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [mediaType, setMediaType] = useState<MediaType>('image');
   const [category, setCategory] = useState('');
   const [bodyArea, setBodyArea] = useState('');
   const [description, setDescription] = useState('');
   const [doctorNotes, setDoctorNotes] = useState('');
-  const [selectedEncounterId, setSelectedEncounterId] = useState<string>(propEncounterId || '');
-  const [encounters, setEncounters] = useState<Encounter[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,35 +65,6 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, visitaI
   const { startUpload: uploadVideos } = useUploadThing('medicalVideos', alRechazar);
   const { startUpload: uploadAudio } = useUploadThing('medicalAudio', alRechazar);
   const { startUpload: uploadDocuments } = useUploadThing('medicalDocuments', alRechazar);
-
-  // Fetch patient encounters for linking (D5: con `consultasElegibles`, las da la página).
-  const usaElegibles = consultasElegibles !== undefined;
-  useEffect(() => {
-    if (usaElegibles) return;
-    const fetchEncounters = async () => {
-      try {
-        const response = await fetch(`/api/medical-records/patients/${patientId}/encounters`);
-        if (response.ok) {
-          const data = await response.json();
-          const todas: Encounter[] = data.data || [];
-          setEncounters(visitaId ? todas.filter((e) => e.visitaId === visitaId) : todas);
-        }
-      } catch (error) {
-        console.error('Failed to fetch encounters:', error);
-      }
-    };
-
-    fetchEncounters();
-  }, [patientId, visitaId, usaElegibles]);
-
-  const consultasOfrecidas = consultasElegibles ?? encounters;
-  // Al cambiar de visita, la plantilla elegida puede ya no ser suya: se suelta (si no, el servidor
-  // contestaría 409 — la visita de un archivo con plantilla ES la de su plantilla).
-  useEffect(() => {
-    if (consultasElegibles && selectedEncounterId && !consultasElegibles.some((e) => e.id === selectedEncounterId)) {
-      setSelectedEncounterId('');
-    }
-  }, [consultasElegibles, selectedEncounterId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -169,7 +125,6 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, visitaI
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            encounterId: selectedEncounterId || null,
             ...(visitaId && { visitaId }),
             mediaType,
             fileName: file.name,
@@ -359,31 +314,6 @@ export function MediaUploader({ patientId, encounterId: propEncounterId, visitaI
         </div>
 
         {selectorDeVisita}
-
-        {/* Link to Encounter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Vincular a Consulta (Opcional)
-          </label>
-          <select
-            value={selectedEncounterId}
-            onChange={(e) => setSelectedEncounterId(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2"
-            disabled={isUploading || propEncounterId !== undefined}
-          >
-            <option value="">Ninguna consulta seleccionada</option>
-            {consultasOfrecidas.map(encounter => (
-              <option key={encounter.id} value={encounter.id}>
-                {formatDateString(encounter.encounterDate)} - {tituloDePlantilla(encounter)}
-              </option>
-            ))}
-          </select>
-          {propEncounterId && (
-            <p className="text-xs text-gray-500 mt-1">
-              Los medios se vincularán a la consulta actual
-            </p>
-          )}
-        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -141,6 +141,15 @@ export async function PUT(
       );
     }
 
+    // N7 (2026-10-12): una receta ya NO se liga a una consulta — vive en su visita o queda huérfana.
+    // Las que ya tienen una se quedan como están; lo que se rechaza es ligar una NUEVA.
+    if (body.encounterId && body.encounterId !== existingPrescription.encounterId) {
+      return NextResponse.json(
+        { error: 'Una receta ya no se liga a una consulta: vive en su visita.' },
+        { status: 400 }
+      );
+    }
+
     // If encounterId is being updated, verify it exists and belongs to this patient
     if (body.encounterId) {
       const encounter = await prisma.clinicalEncounter.findFirst({

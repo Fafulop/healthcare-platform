@@ -118,6 +118,15 @@ export async function PUT(
       );
     }
 
+    // N9 (2026-10-12): un archivo ya NO se liga a una consulta — vive en su visita o queda huérfano.
+    // Los que ya tienen consulta se quedan como están; lo que se rechaza es ligar una NUEVA.
+    if (body.encounterId && body.encounterId !== existingMedia.encounterId) {
+      return NextResponse.json(
+        { error: 'Un archivo ya no se liga a una consulta: vive en su visita.' },
+        { status: 400 }
+      );
+    }
+
     // If encounterId is being updated, verify it exists and belongs to this patient
     if (body.encounterId) {
       const encounter = await prisma.clinicalEncounter.findFirst({

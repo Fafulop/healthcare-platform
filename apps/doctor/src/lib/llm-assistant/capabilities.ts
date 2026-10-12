@@ -229,7 +229,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           'cambiar de visita una foto, nota o receta': {
             allowedIf:
               'Foto: en su visor, editar → "¿A qué visita pertenece?". Nota: selector "Visita:" arriba del editor. ' +
-              'Receta: sólo en Borrador y sin consulta vinculada, desde "Editar".',
+              'Receta: sólo en Borrador y sin consulta vinculada (sólo las de antes la tienen: ya no se liga), desde "Editar".',
             blockedIf: 'Receta emitida, o receta vinculada a una consulta (va con la visita de esa consulta).',
           },
 
@@ -443,7 +443,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             notes:
               'Límites de tamaño: imágenes 10MB, videos 100MB, audio 20MB. ' +
               'Tipos aceptados: image/*, video/*, audio/*. ' +
-              'Campos opcionales: categoría, área del cuerpo, descripción, notas clínicas, consulta vinculada.',
+              'Campos opcionales: categoría, área del cuerpo, descripción, notas clínicas, la visita. Ya NO se liga a una ' +
+              'consulta (los archivos de antes que la tienen la conservan).',
           },
 
           editar: {

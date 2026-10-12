@@ -96,7 +96,7 @@ La galería muestra todos los archivos del paciente:
 | Organizar en carpetas | ❌ Solo orden por fecha |
 | Agregar descripciones a archivos | ❌ Sin campo de descripción |
 | Etiquetar archivos | ❌ Sin sistema de etiquetas |
-| Vincular archivos a una consulta específica | ❌ No vinculado a consultas |
+| Vincular archivos a una consulta específica | ❌ Ya no: el archivo vive en su VISITA (los de antes pueden conservar su «Consulta Vinculada») |
 | Compartir archivos externamente | ❌ Sin función de compartir |
 | Subir videos | ❌ Solo imágenes y PDF |
 | Subir Word/Excel | ❌ Solo JPG, PNG, GIF, PDF |
@@ -121,4 +121,4 @@ Sí, los archivos están asociados al expediente del paciente y solo son accesib
 Sí, la galería funciona en dispositivos móviles.
 
 **¿Los archivos multimedia están vinculados a las consultas?**
-No. Los archivos se almacenan a nivel del paciente, no de la consulta. Para asociar un estudio a una consulta, el médico debe hacerlo manualmente en las notas de la consulta.
+No. Un archivo vive en su VISITA (se elige «¿A qué visita pertenece?» al subirlo) o queda sin visita; ya no se liga a una consulta. Los archivos de antes que estaban ligados a una consulta la conservan y la muestran como «Consulta Vinculada».

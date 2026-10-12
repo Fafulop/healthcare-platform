@@ -11,8 +11,6 @@ import {
 } from '@/components/voice-assistant';
 import { PrescriptionChatPanel } from '@/components/medical-records/PrescriptionChatPanel';
 import { DynamicFieldRenderer } from '@/components/medical-records/DynamicFieldRenderer';
-import { formatLocalDate as formatDateString } from '@/lib/dates';
-import { tituloDePlantilla } from '@/lib/titulo-plantilla';
 import { useNewPrescriptionForm } from '../_components/useNewPrescriptionForm';
 import { visitaHref } from '@/lib/visitas-ui';
 import { SelectorDeVisita } from '@/components/medical-records/visitas/SelectorDeVisita';
@@ -25,7 +23,6 @@ export default function NewPrescriptionPage() {
     aiAllowed,
     patient,
     doctorProfile,
-    encounters,
     loading,
     loadingPatient,
     error,
@@ -39,7 +36,6 @@ export default function NewPrescriptionPage() {
     medications, setMedications,
     imagingStudies, setImagingStudies,
     labStudies, setLabStudies,
-    selectedEncounterId, setSelectedEncounterId,
     recetaTemplates,
     selectedTemplateId,
     handleTemplateSelect,
@@ -225,24 +221,6 @@ export default function NewPrescriptionPage() {
           {elegirVisita && (
             <SelectorDeVisita visitas={visita.visitas} estado={visita.estado} value={visita.elegida} onChange={visita.elegir} />
           )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Vincular a Consulta (Opcional)
-            </label>
-            <select
-              value={selectedEncounterId}
-              onChange={(e) => setSelectedEncounterId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Ninguna consulta seleccionada</option>
-              {encounters.map(encounter => (
-                <option key={encounter.id} value={encounter.id}>
-                  {formatDateString(encounter.encounterDate)} - {tituloDePlantilla(encounter)}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {/* Doctor Info — from the saved receta identity when configured */}

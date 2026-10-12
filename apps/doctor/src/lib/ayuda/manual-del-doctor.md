@@ -692,9 +692,9 @@ firma) y la fecha de la consulta.
 1. **«Tipo de Receta»:** «Receta estándar (medicamentos y estudios)» o una de tus plantillas de
    receta.
 2. Diagnóstico, Notas Clínicas, Fecha de Expiración, **«¿A qué visita pertenece?»** (sugiere la
-   visita más reciente de los últimos 7 días; «Ninguna» la deja sin visita) y, si quieres,
-   «Vincular a Consulta» (sólo ofrece las de esa visita). Desde el «Nueva receta» de una visita
-   no pregunta: queda en ella.
+   visita más reciente de los últimos 7 días; «Ninguna» la deja sin visita). La receta ya **no se
+   liga a una consulta**: vive en su visita (o sin visita). Las de antes que tienen consulta la
+   conservan. Desde el «Nueva receta» de una visita no pregunta: queda en ella.
 3. Medicamentos, estudios de imagen y de laboratorio (receta estándar).
 4. **«Guardar como Borrador»** o **«Guardar y Emitir».**
 
@@ -769,12 +769,13 @@ notas. **«Exportar PDF»** genera la historia clínica completa.
 Puedes ponerle «Categoría» (Herida, Rayos X, Dermatología, Cardiología, Resultado de
 Laboratorio, Procedimiento, Consulta, Otro), «Área del Cuerpo», «Descripción», «Notas del
 Doctor (Privadas)», **«¿A qué visita pertenece?»** (sugiere la más reciente de los últimos 7
-días) y vincularlo a una consulta de esa visita. El espacio de almacenamiento **depende de tu
-plan**.
+días). Ya **no se liga a una consulta**: vive en su visita (o sin visita); los de antes que tienen
+consulta la conservan (se ve en el archivo, «Consulta Vinculada»). El espacio de almacenamiento
+**depende de tu plan**.
 
 Al abrir un archivo ves su **Visita**. Para cambiarla, el lápiz (editar) → «¿A qué visita
-pertenece?» → guardar. Si el archivo está vinculado a una consulta de otra visita, se desvincula
-de ella al moverlo; elegir una consulta pone el archivo en la visita de esa consulta.
+pertenece?» → guardar. Si es de los de antes que están vinculados a una consulta, al moverlo a
+otra visita se desvincula de ella (y ya no se vuelve a vincular).
 
 ### Notas del paciente
 
