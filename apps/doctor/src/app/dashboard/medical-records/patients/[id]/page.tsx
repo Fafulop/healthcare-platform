@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useAlVolverALaPestana } from '@/lib/use-al-volver-a-la-pestana';
 import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Archive, NotebookPen, ClipboardList, CheckCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp, ArchiveRestore, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -358,6 +359,26 @@ export default function PatientProfilePage() {
   const { can, loading: permsLoading } = usePermissions();
   const aiAllowed = !permsLoading && can('ia');
 
+  // Las citas del paciente (cobro, factura, visitas). Función aparte para releerlas al regresar a la
+  // pestaña (N10, 2026-10-12): lo cambiado en otra pestaña no se veía aquí hasta recargar.
+  // `silencioso` (relectura al regresar a la pestaña): si falla, se queda lo que ya se veía.
+  const cargarCitas = useCallback((silencioso = false) => {
+    if (!patientId) return;
+    fetch(`/api/medical-records/patients/${patientId}/bookings`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && Array.isArray(d.data) && d.permisos) {
+          setPatientBookings(d.data);
+          setBookingPermisos(d.permisos);
+          setBookingsEstado('ok');
+        } else if (!silencioso) {
+          setBookingsEstado('error');
+        }
+      })
+      .catch(() => { if (!silencioso) setBookingsEstado('error'); });
+  }, [patientId]);
+  useAlVolverALaPestana(() => cargarCitas(true));
+
   useEffect(() => {
     if (!patientId) return;
     fetch(`/api/medical-records/patients/${patientId}/notes`)
@@ -367,18 +388,7 @@ export default function PatientProfilePage() {
         if (d.success) setRecentNotes(d.data);
       })
       .catch(() => {});
-    fetch(`/api/medical-records/patients/${patientId}/bookings`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success && Array.isArray(d.data) && d.permisos) {
-          setPatientBookings(d.data);
-          setBookingPermisos(d.permisos);
-          setBookingsEstado('ok');
-        } else {
-          setBookingsEstado('error');
-        }
-      })
-      .catch(() => setBookingsEstado('error'));
+    cargarCitas();
     fetch(`/api/medical-records/patients/${patientId}/formularios`)
       .then((r) => r.json())
       .then((d) => {

@@ -51,7 +51,7 @@ export function MedicationList({ medications, onChange, readOnly = false }: Medi
   if (readOnly && medications.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
-        No hay medicamentos en esta prescripción
+        No hay medicamentos en esta receta
       </div>
     );
   }

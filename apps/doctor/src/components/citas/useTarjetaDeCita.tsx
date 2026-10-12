@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAlVolverALaPestana } from '@/lib/use-al-volver-a-la-pestana';
 import { useBookings, type Booking } from '@/app/dashboard/appointments/_hooks/useBookings';
 import { PreAppointmentFormModal } from '@/app/dashboard/appointments/_components/PreAppointmentFormModal';
 import type { ManejadoresDeCita } from '@/app/dashboard/appointments/_components/TarjetaDeCita';
@@ -24,6 +25,8 @@ export function useTarjetaDeCita({ doctorId, patientId, volverA, despues }: {
   despues: (status?: string) => Promise<void>;
 }) {
   const b = useBookings(doctorId ?? undefined, { patientId });
+  // N10: al regresar a la pestaña, la tarjeta vuelve a leer sus citas (lo cambiado en otra no se veía).
+  useAlVolverALaPestana(() => b.fetchBookings({ silencioso: true }));
   const router = useRouter();
   const [formulario, setFormulario] = useState<Booking | null>(null);
 

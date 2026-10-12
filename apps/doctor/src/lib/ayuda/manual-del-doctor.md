@@ -278,7 +278,8 @@ Después puedes copiar el link o mandarlo por WhatsApp, y cuando el paciente pag
 1. Marca **«¿Necesita factura?»** en la cita (se puede desde la fila, sin abrirla). En el grupo
    **«Cobro y factura»** aparece **«Facturación»**.
 2. **«Facturación»** crea un formulario para que el paciente capture sus **datos fiscales**. Lo
-   copias o lo mandas por WhatsApp. Cuando el paciente lo llena, el botón dice «Datos fiscales».
+   copias o lo mandas por WhatsApp. Cuando el paciente lo llena, en su lugar dice «Ya contamos con sus
+   datos fiscales para facturarle.»
 3. La factura se emite desde el **expediente del paciente**, página **«Cobros»** (botón «Cobros» de su
    perfil), botón «Facturar» (ver [Facturar desde el expediente](#facturar-desde-el-expediente)).
 
@@ -699,8 +700,8 @@ firma) y la fecha de la consulta.
 
 | Estado | Qué puedes hacer |
 |---|---|
-| **Borrador** | «Editar» · «Emitir Prescripción» · «Eliminar» |
-| **Emitida** | «Descargar PDF» · «Cancelar Prescripción» (pide el motivo) · «Eliminar». **Ya no se puede editar** |
+| **Borrador** | «Editar» · «Emitir Receta» · «Eliminar» |
+| **Emitida** | «Descargar PDF» · «Cancelar Receta» (pide el motivo) · «Eliminar». **Ya no se puede editar** |
 | **Cancelada** | Se ve el motivo |
 
 **Su visita:** el detalle de la receta dice a qué visita pertenece. Un **Borrador** sin consulta

@@ -52,7 +52,7 @@ export default function ViewPrescriptionPage() {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          Prescripción no encontrada
+          Receta no encontrada
         </div>
       </div>
     );
@@ -67,12 +67,12 @@ export default function ViewPrescriptionPage() {
           className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Volver a Prescripciones
+          Volver a Recetas
         </Link>
 
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Prescripción Médica</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Receta Médica</h1>
             <p className="text-gray-600 mt-1">
               Paciente: {prescription.patient.firstName} {prescription.patient.lastName} (
               {prescription.patient.internalId})
@@ -111,7 +111,7 @@ export default function ViewPrescriptionPage() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                Emitir Prescripción
+                Emitir Receta
               </button>
             </>
           )}
@@ -141,7 +141,7 @@ export default function ViewPrescriptionPage() {
                 className="px-4 py-2 border border-red-300 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-2"
               >
                 <Ban className="w-4 h-4" />
-                Cancelar Prescripción
+                Cancelar Receta
               </button>
             </>
           )}
@@ -170,7 +170,7 @@ export default function ViewPrescriptionPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p className="text-sm text-gray-600">Fecha de Prescripción</p>
+            <p className="text-sm text-gray-600">Fecha de la receta</p>
             <p className="text-gray-900">{formatDateLong(prescription.prescriptionDate)}</p>
           </div>
 
@@ -353,7 +353,7 @@ export default function ViewPrescriptionPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Cancelar Prescripción
+              Cancelar Receta
             </h3>
 
             <div className="mb-4">
@@ -363,7 +363,7 @@ export default function ViewPrescriptionPage() {
               <textarea
                 value={cancellationReason}
                 onChange={(e) => setCancellationReason(e.target.value)}
-                placeholder="Explique por qué se cancela esta prescripción"
+                placeholder="Explique por qué se cancela esta receta"
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
@@ -383,7 +383,7 @@ export default function ViewPrescriptionPage() {
                 disabled={actionLoading || !cancellationReason.trim()}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
               >
-                {actionLoading ? 'Cancelando...' : 'Cancelar Prescripción'}
+                {actionLoading ? 'Cancelando...' : 'Cancelar Receta'}
               </button>
             </div>
           </div>

@@ -28,6 +28,7 @@ import { MenuMasAcciones } from "./_components/MenuMasAcciones";
 import { useAgentActions } from "@/contexts/AgentContext";
 import { usePermissions } from "@/lib/permissions-client";
 import { ASISTENTE_IA_VISIBLE } from "@/lib/agenda-agent/feature-flag";
+import { useAlVolverALaPestana } from "@/lib/use-al-volver-a-la-pestana";
 import type { Booking } from "./_hooks/useBookings";
 import type { ClinicLocation } from "./_hooks/useSlots";
 
@@ -61,6 +62,9 @@ export default function AppointmentsPage() {
   const needsRanges = calendar.view !== "year";
   const rangesHook = useRanges(doctorId, calendar.visibleWindow, calendar.selectedDate, needsRanges);
   const bookingsHook = useBookings(doctorId);
+  // N10 (2026-10-12): al regresar a la pestaña se vuelven a leer las citas — lo cambiado en otra
+  // pestaña («Cobros», la visita) no se veía aquí hasta recargar.
+  useAlVolverALaPestana(() => bookingsHook.fetchBookings({ silencioso: true }));
   const blockedTimesHook = useBlockedTimes(doctorId, calendar.visibleWindow, calendar.selectedDate, needsRanges);
 
   // Clinic locations (fetched independently since we don't use useSlots)

@@ -6,7 +6,7 @@ Una receta médica registra los medicamentos que el médico prescribe a un pacie
 
 ## Acceso
 
-**Ruta:** Menú lateral > Expedientes Médicos > Pacientes > [Nombre] > Prescripciones
+**Ruta:** Menú lateral > Expedientes Médicos > Pacientes > [Nombre] > Recetas
 **URL:** `/dashboard/medical-records/patients/[id]/prescriptions`
 
 ---
@@ -16,8 +16,8 @@ Una receta médica registra los medicamentos que el médico prescribe a un pacie
 Filtros disponibles: **Todos / Borradores / Emitidas / Canceladas**
 
 Cada receta en la lista muestra:
-- Diagnóstico (o "Prescripción Médica" si no tiene)
-- Fecha de prescripción
+- Diagnóstico (o "Receta Médica" si no tiene)
+- Fecha de receta
 - Número de medicamentos
 - Estado (badge de color)
 
@@ -36,14 +36,14 @@ Cada receta en la lista muestra:
 
 ## Crear Nueva Receta
 
-**Botón:** "Nueva Prescripción"
+**Botón:** "Nueva Receta"
 **URL:** `/dashboard/medical-records/patients/[id]/prescriptions/new`
 
 ### Sección: Información General
 
 | Campo | Requerido | Descripción |
 |-------|-----------|-------------|
-| Fecha de Prescripción | Sí | Fecha de emisión |
+| Fecha de la receta | Sí | Fecha de emisión |
 | Fecha de Expiración | No | Hasta cuándo es válida |
 | Diagnóstico | No | Ej: "Infección respiratoria aguda" |
 | Notas Clínicas | No | Instrucciones generales |
@@ -92,8 +92,8 @@ Cada medicamento tiene:
 
 ## Crear Receta — Con Asistente de Voz
 
-1. Ir al perfil del paciente > Prescripciones
-2. Clic en **"Nueva Prescripción"**
+1. Ir al perfil del paciente > Recetas
+2. Clic en **"Nueva Receta"**
 3. Clic en **"Asistente de Voz"** (micrófono)
 4. Dictar los medicamentos de forma natural:
    > *"Paracetamol 500 miligramos cada 8 horas por 5 días, Omeprazol 20 miligramos una vez al día en ayunas"*
@@ -115,21 +115,21 @@ Cada medicamento tiene:
 Muestra: información general, datos del médico, datos del paciente, lista de medicamentos.
 
 **Acciones disponibles según estado:**
-- **Draft:** Editar | Emitir Prescripción | Eliminar
-- **Issued:** Descargar PDF | Cancelar Prescripción
+- **Draft:** Editar | Emitir Receta | Eliminar
+- **Issued:** Descargar PDF | Cancelar Receta
 - **Cancelled:** muestra el motivo de cancelación (solo lectura)
 
 ---
 
-## Emitir Prescripción (Draft → Issued)
+## Emitir Receta (Draft → Issued)
 
 Solo desde el detalle de una receta en borrador:
 
-1. Clic en **"Emitir Prescripción"**
-2. Confirmación: *"¿Está seguro de emitir esta prescripción? No podrá editarla después."*
+1. Clic en **"Emitir Receta"**
+2. Confirmación: *"¿Está seguro de emitir esta receta? No podrá editarla después."*
 3. Al confirmar → estado cambia a `issued`
 
-**Emitir es irreversible desde "editar"** — solo se puede cancelar la prescripción emitida.
+**Emitir es irreversible desde "editar"** — solo se puede cancelar la receta emitida.
 
 ---
 
@@ -140,9 +140,9 @@ Desde el detalle de una receta emitida:
 
 ---
 
-## Cancelar Prescripción (Solo Issued)
+## Cancelar Receta (Solo Issued)
 
-1. Clic en **"Cancelar Prescripción"**
+1. Clic en **"Cancelar Receta"**
 2. Se abre un modal pidiendo el **Motivo de Cancelación** (campo obligatorio)
 3. Error si se intenta cancelar sin motivo: *"Debe proporcionar un motivo de cancelación"*
 4. Al confirmar → estado cambia a `cancelled`
@@ -155,7 +155,7 @@ Desde el detalle de una receta emitida:
 **URL:** `/dashboard/medical-records/patients/[id]/prescriptions/[prescriptionId]/edit`
 
 - Solo funciona si la receta está en estado `draft`
-- Error si se intenta editar una receta emitida: *"Solo se pueden editar prescripciones en borrador"*
+- Error si se intenta editar una receta emitida: *"Solo se pueden editar recetas en borrador"*
 - No genera historial de versiones (a diferencia de las consultas)
 - Los mismos campos del formulario de creación están disponibles
 
@@ -165,7 +165,7 @@ Desde el detalle de una receta emitida:
 
 Desde el detalle de una receta en borrador:
 1. Clic en **"Eliminar"**
-2. Confirmación: *"¿Está seguro de eliminar esta prescripción? Esta acción no se puede deshacer."*
+2. Confirmación: *"¿Está seguro de eliminar esta receta? Esta acción no se puede deshacer."*
 3. La eliminación es permanente
 
 **No se puede eliminar una receta emitida o cancelada.**
@@ -177,7 +177,7 @@ Desde el detalle de una receta en borrador:
 | Acción | Estado | Detalle |
 |--------|--------|---------|
 | Eliminar receta emitida o cancelada | ❌ No permitido | Solo se pueden eliminar borradores |
-| Editar receta emitida | ❌ No permitido | Error: "Solo se pueden editar prescripciones en borrador" |
+| Editar receta emitida | ❌ No permitido | Error: "Solo se pueden editar recetas en borrador" |
 | Cancelar sin motivo | ❌ No permitido | El campo de motivo es obligatorio |
 | Enviar receta a farmacia | ❌ No disponible | Sin integración con farmacias |
 | Buscar medicamentos en catálogo | ❌ No disponible | Se ingresan manualmente |

@@ -179,7 +179,7 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
         {/* Template-based receta: custom fields replace the medications table */}
         {customContent && customContent.length > 0 && (
           <View style={styles.medicationsSection}>
-            <Text style={styles.sectionTitle}>Prescripción</Text>
+            <Text style={styles.sectionTitle}>Receta</Text>
             {customContent.map((item, index) => (
               <View key={index} style={{ marginBottom: 8 }}>
                 <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 2 }}>
@@ -194,7 +194,7 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
         {/* Medications */}
         {prescription.medications.length > 0 && (
         <View style={styles.medicationsSection}>
-          <Text style={styles.sectionTitle}>Prescripción</Text>
+          <Text style={styles.sectionTitle}>Receta</Text>
           {prescription.medications.map((med, index) => (
             <View key={index} style={styles.medication}>
               <Text style={styles.medicationName}>
@@ -258,7 +258,7 @@ export const PrescriptionPDF: React.FC<PrescriptionPDFProps> = ({
           </View>
 
           <Text style={styles.timestamp}>
-            Prescripción ID: {prescription.id}
+            Receta ID: {prescription.id}
           </Text>
           <Text style={styles.timestamp}>
             Generado: {new Date().toLocaleString('es-MX')}

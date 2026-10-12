@@ -37,7 +37,7 @@ interface VoiceButtonProps {
 const DEFAULT_LABELS: Record<VoiceSessionType, string> = {
   NEW_PATIENT: 'Nuevo Paciente (Voz)',
   NEW_ENCOUNTER: 'Nueva Consulta (Voz)',
-  NEW_PRESCRIPTION: 'Nueva Prescripción (Voz)',
+  NEW_PRESCRIPTION: 'Nueva Receta (Voz)',
   CREATE_APPOINTMENT_SLOTS: 'Horarios de Cita (Voz)',
   CREATE_LEDGER_ENTRY: 'Registro Contable (Voz)',
   CREATE_SALE: 'Nueva Venta (Voz)',

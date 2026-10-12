@@ -2427,9 +2427,9 @@ function getAllFieldsForSessionType(
 
     case 'NEW_PRESCRIPTION':
       return [
-        { key: 'prescriptionDate', label: 'Fecha de prescripción', description: 'Fecha de emisión' },
+        { key: 'prescriptionDate', label: 'Fecha de la receta', description: 'Fecha de emisión' },
         { key: 'expiresAt', label: 'Fecha de expiración', description: 'Fecha de vencimiento' },
-        { key: 'diagnosis', label: 'Diagnóstico', description: 'Diagnóstico para esta prescripción' },
+        { key: 'diagnosis', label: 'Diagnóstico', description: 'Diagnóstico para esta receta' },
         { key: 'clinicalNotes', label: 'Notas clínicas', description: 'Notas adicionales' },
         { key: 'doctorFullName', label: 'Nombre del doctor', description: 'Nombre completo del médico' },
         { key: 'doctorLicense', label: 'Cédula profesional', description: 'Número de cédula' },

@@ -59,7 +59,7 @@ export default function EditPrescriptionPage() {
           className="inline-flex items-center text-blue-600 hover:text-blue-700 mt-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Volver a Prescripciones
+          Volver a Recetas
         </Link>
       </div>
     );
@@ -74,11 +74,11 @@ export default function EditPrescriptionPage() {
           className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Volver a Prescripción
+          Volver a Receta
         </Link>
 
-        <h1 className="text-2xl font-bold text-gray-900">Editar Prescripción</h1>
-        <p className="text-gray-600 mt-1">Modificar la información de la prescripción</p>
+        <h1 className="text-2xl font-bold text-gray-900">Editar Receta</h1>
+        <p className="text-gray-600 mt-1">Modificar la información de la receta</p>
       </div>
 
       {/* Error */}
@@ -127,7 +127,7 @@ export default function EditPrescriptionPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha de Prescripción *
+                Fecha de la receta *
               </label>
               <input
                 type="date"

@@ -191,7 +191,7 @@ Muestra:
 1. Marcar la cita como "Completada" en el módulo de Citas
 2. Ir a Expedientes Médicos y crear la consulta manualmente
 
-**Prescripciones:** Se crean por separado en el módulo de Prescripciones — no están vinculadas directamente al formulario de consulta.
+**Recetas:** Se crean por separado en el módulo de Recetas — no están vinculadas directamente al formulario de consulta.
 
 **Multimedia:** Los archivos adjuntos (estudios, imágenes) se suben en la sección "Multimedia" del perfil del paciente, no dentro de la consulta.
 

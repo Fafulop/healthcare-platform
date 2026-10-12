@@ -30,7 +30,7 @@ const WELCOME_MESSAGES: Record<VoiceSessionType, { title: string; subtitle: stri
     subtitle: 'Dicte los datos de la consulta: motivo, signos vitales, exploración física, diagnóstico y plan de tratamiento.',
   },
   NEW_PRESCRIPTION: {
-    title: 'Nueva Prescripción',
+    title: 'Nueva Receta',
     subtitle: 'Dicte los medicamentos con dosis, frecuencia e instrucciones. Por ejemplo: "Amoxicilina 500mg cada 8 horas por 7 días"',
   },
   CREATE_APPOINTMENT_SLOTS: {

@@ -43,7 +43,7 @@ Portal Médico
 Gestión completa de pacientes y su historial clínico.
 - **[Pacientes](./modules/medical-records/patients.md)** - Crear, editar y buscar pacientes
 - **[Consultas](./modules/medical-records/encounters.md)** - Documentación clínica de consultas
-- **[Recetas](./modules/medical-records/prescriptions.md)** - Prescripción de medicamentos
+- **[Recetas](./modules/medical-records/prescriptions.md)** - Recetas de medicamentos
 - **[Multimedia](./modules/medical-records/media.md)** - Fotos y documentos del paciente
 - **[Línea de Tiempo](./modules/medical-records/timeline.md)** - Historial cronológico
 

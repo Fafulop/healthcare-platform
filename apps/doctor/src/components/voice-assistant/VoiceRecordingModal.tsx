@@ -83,7 +83,7 @@ const REFERENCE_GUIDES: Record<VoiceSessionType, { title: string; icon: React.Re
     ],
   },
   NEW_PRESCRIPTION: {
-    title: 'Nueva Prescripción',
+    title: 'Nueva Receta',
     icon: <Pill className="w-5 h-5" />,
     items: [
       'Diagnóstico',
@@ -177,7 +177,7 @@ const REFERENCE_GUIDES: Record<VoiceSessionType, { title: string; icon: React.Re
       '  • Seguimiento - llamadas, check-ins',
       '  • Administrativo - papeleo, organización',
       '  • Laboratorio - revisar resultados',
-      '  • Receta - preparar prescripciones',
+      '  • Receta - preparar recetas',
       '  • Referencia - derivar a especialistas',
       '  • Personal - recordatorios personales',
       'Nombre del paciente - OPCIONAL (si está relacionado con un paciente)',

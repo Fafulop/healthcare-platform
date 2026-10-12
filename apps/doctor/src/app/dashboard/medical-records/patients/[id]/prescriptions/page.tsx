@@ -30,7 +30,7 @@ export default function PrescriptionsListPage() {
   }, [patientId, statusFilter]);
 
   const handleDelete = async (prescriptionId: string) => {
-    const confirmed = await practiceConfirm('¿Está seguro de eliminar esta prescripción? Esta acción no se puede deshacer.');
+    const confirmed = await practiceConfirm('¿Está seguro de eliminar esta receta? Esta acción no se puede deshacer.');
     if (!confirmed) return;
     try {
       const res = await fetch(
@@ -39,7 +39,7 @@ export default function PrescriptionsListPage() {
       );
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Error al eliminar prescripción');
+        throw new Error(data.error || 'Error al eliminar receta');
       }
       setPrescriptions((prev) => prev.filter((p) => p.id !== prescriptionId));
     } catch (err: any) {
@@ -64,13 +64,13 @@ export default function PrescriptionsListPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al cargar prescripciones');
+        throw new Error(errorData.error || 'Error al cargar recetas');
       }
 
       const data = await res.json();
       setPrescriptions(data.data || []);
     } catch (err: any) {
-      setError(err.message || 'Error al cargar prescripciones');
+      setError(err.message || 'Error al cargar recetas');
     } finally {
       setLoading(false);
     }
@@ -101,8 +101,8 @@ export default function PrescriptionsListPage() {
 
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Prescripciones</h1>
-            <p className="text-gray-600 mt-1">Gestiona las prescripciones del paciente</p>
+            <h1 className="text-2xl font-bold text-gray-900">Recetas</h1>
+            <p className="text-gray-600 mt-1">Gestiona las recetas del paciente</p>
           </div>
 
           <Link
@@ -110,7 +110,7 @@ export default function PrescriptionsListPage() {
             className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Nueva Prescripción
+            Nueva Receta
           </Link>
         </div>
       </div>
@@ -155,15 +155,15 @@ export default function PrescriptionsListPage() {
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <p className="text-gray-500">
             {statusFilter
-              ? 'No se encontraron prescripciones con este filtro'
-              : 'No hay prescripciones registradas'}
+              ? 'No se encontraron recetas con este filtro'
+              : 'No hay recetas registradas'}
           </p>
           <Link
             href={`/dashboard/medical-records/patients/${patientId}/prescriptions/new`}
             className="inline-flex items-center gap-2 mt-4 text-blue-600 hover:text-blue-700"
           >
             <Plus className="w-4 h-4" />
-            Crear Primera Prescripción
+            Crear Primera Receta
           </Link>
         </div>
       )}

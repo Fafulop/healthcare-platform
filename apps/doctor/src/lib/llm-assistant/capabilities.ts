@@ -384,7 +384,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
         },
       },
 
-      'Prescripción': {
+      'Receta': {
         states:
           'draft (Borrador) | issued (Emitida) | cancelled (Cancelada) | expired (Expirada)',
         actions: {
@@ -392,7 +392,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           crear: {
             allowedIf: 'Siempre desde el perfil del paciente.',
             notes:
-              'Requeridos: fecha de prescripción, nombre del médico, cédula profesional, ' +
+              'Requeridos: fecha de la receta, nombre del médico, cédula profesional, ' +
               'y al menos un medicamento válido. Un medicamento válido necesita: ' +
               'nombre del medicamento, dosis, frecuencia e instrucciones.',
           },
@@ -401,8 +401,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             allowedIf: 'Solo si estado es DRAFT (Borrador).',
             blockedIf: 'Estado es issued, cancelled o expired.',
             resolution:
-              'No es posible editar una prescripción emitida. ' +
-              'Cancela la prescripción actual y crea una nueva.',
+              'No es posible editar una receta emitida. ' +
+              'Cancela la receta actual y crea una nueva.',
           },
 
           emitir: {
@@ -410,14 +410,14 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             blockedIf: 'Estado es issued, cancelled o expired.',
             notes:
               'Acción irreversible. Requiere confirmación: ' +
-              '"¿Está seguro de emitir esta prescripción? No podrá editarla después." ' +
+              '"¿Está seguro de emitir esta receta? No podrá editarla después." ' +
               'Una vez emitida, habilita la descarga de PDF.',
           },
 
           'descargar PDF': {
             allowedIf: 'Solo si estado es ISSUED (Emitida).',
             blockedIf: 'Estado es draft, cancelled o expired.',
-            resolution: 'Primero emite la prescripción, luego podrás descargar el PDF.',
+            resolution: 'Primero emite la receta, luego podrás descargar el PDF.',
           },
 
           cancelar: {
@@ -430,7 +430,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             allowedIf: 'Solo si estado es DRAFT (Borrador).',
             blockedIf: 'Estado es issued, cancelled o expired.',
             resolution:
-              'Para una prescripción emitida usa "Cancelar Prescripción" en su lugar.',
+              'Para una receta emitida usa "Cancelar Receta" en su lugar.',
           },
         },
       },

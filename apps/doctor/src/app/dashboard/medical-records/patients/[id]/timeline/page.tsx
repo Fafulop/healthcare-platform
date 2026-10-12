@@ -166,7 +166,7 @@ export default function PatientTimelinePage() {
               <div className="text-3xl font-bold text-emerald-600">
                 {timeline.filter((item: any) => item.type === 'prescription').length}
               </div>
-              <div className="text-sm text-gray-600 mt-1">Prescripciones</div>
+              <div className="text-sm text-gray-600 mt-1">Recetas</div>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-purple-600">

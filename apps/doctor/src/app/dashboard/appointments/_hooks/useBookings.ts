@@ -1,5 +1,5 @@
 import type { SesionEnCita } from "@/components/medical-records/tratamientos/SesionDeLaCita";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "@/lib/practice-toast";
 import { practiceConfirm } from "@/lib/practice-confirm";
@@ -199,21 +199,34 @@ export function useBookings(doctorId: string | undefined, opts: { patientId?: st
     }
   };
 
-  const fetchBookings = useCallback(async () => {
+  // N10 (2026-10-12): también se relee al regresar a la pestaña. Dos guardas para eso:
+  //   · `lecturaRef` — sólo aplica la respuesta de la ÚLTIMA lectura (dos que se cruzan no se pisan
+  //     en desorden);
+  //   · `escrituras` — una lectura SILENCIOSA (la de regresar) no corre mientras haya un cambio
+  //     optimista en vuelo: llegaría con lo de antes y desharía en pantalla lo que se está guardando.
+  // `silencioso`: si falla, no hay aviso ni se marca fallo — lo que ya se veía se queda.
+  const lecturaRef = useRef(0);
+  const escrituras = useRef(0);
+  const fetchBookings = useCallback(async (opts?: { silencioso?: boolean }) => {
     if (!doctorId) return;
+    if (opts?.silencioso && escrituras.current > 0) return;
+    const yo = ++lecturaRef.current;
     try {
       const response = await authFetch(
         `${API_URL}/api/appointments/bookings?doctorId=${doctorId}${patientId ? `&patientId=${encodeURIComponent(patientId)}` : ""}`
       );
       const data = await response.json();
+      if (yo !== lecturaRef.current) return;
+      if (opts?.silencioso && escrituras.current > 0) return;
       if (data.success) {
         setBookings(data.data);
         setBookingsCargadas(true);
         setBookingsFallo(false);
-      } else {
+      } else if (!opts?.silencioso) {
         setBookingsFallo(true);
       }
     } catch (error) {
+      if (opts?.silencioso || yo !== lecturaRef.current) return;
       console.error("Error fetching bookings:", error);
       toast.error("Error al cargar las citas");
       setBookingsFallo(true);
@@ -261,6 +274,7 @@ export function useBookings(doctorId: string | undefined, opts: { patientId?: st
     // porque dejarla marcada sin persistir haría creer al doctor que quedó registrado.
     const prev = bookings.find((b) => b.id === bookingId)?.facturaSolicitada ?? null;
     setBookings((bs) => bs.map((b) => (b.id === bookingId ? { ...b, facturaSolicitada } : b)));
+    escrituras.current++;
     try {
       const response = await authFetch(
         `${API_URL}/api/appointments/bookings/${bookingId}`,
@@ -274,6 +288,8 @@ export function useBookings(doctorId: string | undefined, opts: { patientId?: st
     } catch {
       setBookings((bs) => bs.map((b) => (b.id === bookingId ? { ...b, facturaSolicitada: prev } : b)));
       toast.error("Error de conexión");
+    } finally {
+      escrituras.current--;
     }
   };
 

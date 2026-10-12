@@ -305,7 +305,7 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
     doc.text(datosPaciente, margin + 4, y + 20.5);
 
     // Right column
-    doc.text('Fecha de prescripción', midX, y + 7);
+    doc.text('Fecha de la receta', midX, y + 7);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(20, 20, 20);
     doc.setFontSize(10);

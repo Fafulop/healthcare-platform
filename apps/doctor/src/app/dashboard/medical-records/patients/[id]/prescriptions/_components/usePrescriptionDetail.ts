@@ -45,7 +45,7 @@ export function usePrescriptionDetail() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al cargar prescripción');
+        throw new Error(errorData.error || 'Error al cargar receta');
       }
 
       const data = await res.json();
@@ -59,7 +59,7 @@ export function usePrescriptionDetail() {
 
   const handleIssue = async () => {
     const confirmed = await practiceConfirm(
-      '¿Está seguro de emitir esta prescripción? No podrá editarla después.'
+      '¿Está seguro de emitir esta receta? No podrá editarla después.'
     );
     if (!confirmed) return;
 
@@ -77,7 +77,7 @@ export function usePrescriptionDetail() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al emitir prescripción');
+        throw new Error(errorData.error || 'Error al emitir receta');
       }
 
       await fetchPrescription();
@@ -108,7 +108,7 @@ export function usePrescriptionDetail() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al cancelar prescripción');
+        throw new Error(errorData.error || 'Error al cancelar receta');
       }
 
       setShowCancelModal(false);
@@ -122,7 +122,7 @@ export function usePrescriptionDetail() {
 
   const handleDelete = async () => {
     const confirmed = await practiceConfirm(
-      '¿Está seguro de eliminar esta prescripción? Esta acción no se puede deshacer.'
+      '¿Está seguro de eliminar esta receta? Esta acción no se puede deshacer.'
     );
     if (!confirmed) return;
 
@@ -136,7 +136,7 @@ export function usePrescriptionDetail() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al eliminar prescripción');
+        throw new Error(errorData.error || 'Error al eliminar receta');
       }
 
       router.push(`/dashboard/medical-records/patients/${patientId}/prescriptions`);

@@ -69,7 +69,7 @@ export function PrescriptionCard({ prescription, patientId, onDelete }: Prescrip
           <div className="flex items-center gap-2 mb-2">
             <FileText className="w-5 h-5 text-blue-600" />
             <p className="font-medium text-gray-900">
-              {prescription.diagnosis || 'Prescripción Médica'}
+              {prescription.diagnosis || 'Receta Médica'}
             </p>
           </div>
 
@@ -107,7 +107,7 @@ export function PrescriptionCard({ prescription, patientId, onDelete }: Prescrip
                 onDelete(prescription.id);
               }}
               className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-              title="Eliminar prescripción"
+              title="Eliminar receta"
             >
               <Trash2 className="w-4 h-4" />
             </button>

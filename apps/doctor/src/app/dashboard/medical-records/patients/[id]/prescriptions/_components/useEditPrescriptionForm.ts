@@ -97,14 +97,14 @@ export function useEditPrescriptionForm() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al cargar prescripción');
+        throw new Error(errorData.error || 'Error al cargar receta');
       }
 
       const { data } = await res.json();
 
       // Check if prescription is editable
       if (data.status !== 'draft') {
-        throw new Error('Solo se pueden editar prescripciones en borrador');
+        throw new Error('Solo se pueden editar recetas en borrador');
       }
 
       setPrescription(data);
@@ -185,7 +185,7 @@ export function useEditPrescriptionForm() {
 
       if (!resUpdate.ok) {
         const errorData = await resUpdate.json();
-        throw new Error(errorData.error || 'Error al actualizar prescripción');
+        throw new Error(errorData.error || 'Error al actualizar receta');
       }
 
       // Replace medications: delete existing, add new

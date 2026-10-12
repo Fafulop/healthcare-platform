@@ -44,7 +44,7 @@ export function ImagingStudyList({ studies, onChange, readOnly = false }: Imagin
   };
 
   if (readOnly && studies.length === 0) {
-    return <p className="text-sm text-gray-500 py-2">No hay estudios de imagen en esta prescripción</p>;
+    return <p className="text-sm text-gray-500 py-2">No hay estudios de imagen en esta receta</p>;
   }
 
   return (
@@ -185,7 +185,7 @@ export function LabStudyList({ studies, onChange, readOnly = false }: LabStudyLi
   };
 
   if (readOnly && studies.length === 0) {
-    return <p className="text-sm text-gray-500 py-2">No hay estudios de laboratorio en esta prescripción</p>;
+    return <p className="text-sm text-gray-500 py-2">No hay estudios de laboratorio en esta receta</p>;
   }
 
   return (

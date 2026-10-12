@@ -452,7 +452,7 @@ export function useNewPrescriptionForm() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al crear prescripción');
+        throw new Error(errorData.error || 'Error al crear receta');
       }
 
       const { data: prescription } = await res.json();
@@ -530,7 +530,7 @@ export function useNewPrescriptionForm() {
         );
 
         if (!issueRes.ok) {
-          throw new Error('Error al emitir prescripción');
+          throw new Error('Error al emitir receta');
         }
       }
 

@@ -89,12 +89,12 @@ export default function NewPrescriptionPage() {
           className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          {visitaId ? 'Volver a la Visita' : 'Volver a Prescripciones'}
+          {visitaId ? 'Volver a la Visita' : 'Volver a Recetas'}
         </Link>
 
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Nueva Prescripción</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Nueva Receta</h1>
             {patient && (
               <p className="text-gray-600 mt-1">
                 Paciente: {patient.firstName} {patient.lastName} (ID: {patient.internalId})
@@ -167,7 +167,7 @@ export default function NewPrescriptionPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha de Prescripción *
+                Fecha de la receta *
               </label>
               <input
                 type="date"

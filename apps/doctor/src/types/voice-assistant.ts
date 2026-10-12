@@ -843,7 +843,7 @@ export const FIELD_LABELS_ES: Record<string, string> = {
   followUpNotes: 'Notas de Seguimiento',
 
   // Prescription fields
-  prescriptionDate: 'Fecha de Prescripción',
+  prescriptionDate: 'Fecha de la receta',
   expiresAt: 'Fecha de Expiración',
   diagnosis: 'Diagnóstico',
   doctorFullName: 'Nombre del Doctor',

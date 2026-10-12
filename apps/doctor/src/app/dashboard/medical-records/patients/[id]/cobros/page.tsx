@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAlVolverALaPestana } from '@/lib/use-al-volver-a-la-pestana';
 import Link from 'next/link';
 import { ArrowLeft, ChevronDown, ChevronRight, Loader2, ShoppingCart, Wallet } from 'lucide-react';
 import { usePatientProfile } from '../../_components/usePatientProfile';
@@ -43,16 +44,19 @@ export default function CobrosPage() {
   const [bookings, setBookings] = useState<PatientBooking[]>([]);
   const [permisos, setPermisos] = useState<BookingPermisos | null>(null);
   const [estado, setEstado] = useState<BookingsEstado>('cargando');
-  const cargarCitas = useCallback(async () => {
+  // `silencioso` (relectura al regresar a la pestaña, N10): si falla, se queda lo que ya se veía.
+  const cargarCitas = useCallback(async (silencioso = false) => {
     try {
       const d = await fetch(`/api/medical-records/patients/${patientId}/bookings`).then((r) => r.json());
       if (!Array.isArray(d?.data) || !d?.permisos) throw new Error();
       setBookings(d.data); setPermisos(d.permisos); setEstado('ok');
     } catch {
-      setEstado('error');
+      if (!silencioso) setEstado('error');
     }
   }, [patientId]);
   useEffect(() => { if (patientId) cargarCitas(); }, [patientId, cargarCitas]);
+  // N10: al regresar a la pestaña, las citas otra vez (lo cambiado en otra pestaña no se veía).
+  useAlVolverALaPestana(() => { if (patientId) cargarCitas(true); });
 
   const verCitas = permisos?.citas ?? false;
   const verCobro = permisos?.flujo ?? false;

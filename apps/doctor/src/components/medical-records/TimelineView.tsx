@@ -237,7 +237,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
       <div className="text-center py-12 bg-white rounded-lg shadow">
         <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
         <p className="text-gray-500 text-lg mb-2">No hay registros en el historial</p>
-        <p className="text-gray-400 text-sm">Las consultas y prescripciones aparecerán aquí una vez creadas</p>
+        <p className="text-gray-400 text-sm">Las consultas y recetas aparecerán aquí una vez creadas</p>
       </div>
     );
   }
@@ -589,7 +589,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                         <div className="flex items-center gap-2 mb-1">
                           <Pill className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                           <h3 className="text-base font-semibold text-gray-900 truncate">
-                            {rx.diagnosis || 'Prescripción Médica'}
+                            {rx.diagnosis || 'Receta Médica'}
                           </h3>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
@@ -698,7 +698,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                               className="inline-flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-800 font-medium"
                             >
                               <ExternalLink className="w-4 h-4" />
-                              Abrir prescripción completa
+                              Abrir receta completa
                             </Link>
                           </div>
                         </>
@@ -712,7 +712,7 @@ export function TimelineView({ timeline, patientId }: TimelineViewProps) {
                             href={`/dashboard/medical-records/patients/${patientId}/prescriptions/${rx.id}`}
                             className="text-sm text-emerald-600 hover:text-emerald-800"
                           >
-                            Abrir prescripción completa →
+                            Abrir receta completa →
                           </Link>
                         </div>
                       )}

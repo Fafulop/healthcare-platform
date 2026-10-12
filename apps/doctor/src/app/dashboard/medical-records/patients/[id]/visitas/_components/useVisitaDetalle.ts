@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useAlVolverALaPestana } from '@/lib/use-al-volver-a-la-pestana';
 import { redirect } from 'next/navigation';
 import { toast } from '@/lib/practice-toast';
 import { practiceConfirm } from '@/lib/practice-confirm';
@@ -93,17 +94,22 @@ export function useVisitaDetalle() {
     }
   }, [base, visitaId]);
 
-  const cargarCitas = useCallback(async () => {
+  // `silencioso` (la relectura al regresar a la pestaña, N10): si falla, se queda lo que ya se veía.
+  const cargarCitas = useCallback(async (silencioso = false) => {
     try {
       const d = await fetch(`${base}/bookings`).then(json);
       if (!Array.isArray(d.data) || !d.permisos) throw new Error();
       setBookings(d.data); setPermisos(d.permisos);
     } catch {
+      if (silencioso) return;
       setBookings(null); setPermisos(null);
     }
   }, [base]);
 
   useEffect(() => { cargarDetalle(); cargarCitas(); }, [cargarDetalle, cargarCitas]);
+  // N10: al regresar a la pestaña, SÓLO las citas (cobro, factura) — no el detalle: no se toca lo que
+  // el doctor esté escribiendo (comentario, fecha).
+  useAlVolverALaPestana(() => cargarCitas(true));
 
   useEffect(() => {
     fetch(base).then(json)

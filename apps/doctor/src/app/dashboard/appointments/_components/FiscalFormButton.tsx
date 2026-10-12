@@ -58,13 +58,7 @@ export function FiscalFormButton({ booking }: Props) {
   // los dos apuntan al MISMO token (el servidor ya no lo rota sin que se lo pidan).
   const urlEfectiva = formUrl || urlPendiente;
   const esperandoDatos = state === 'link-ready' || (state === 'idle' && !!enlacePendiente);
-  if (hasFiscalData) {
-    return (
-      <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 flex items-center gap-1">
-        <Check className="w-3 h-3" /> Datos fiscales
-      </span>
-    );
-  }
+  if (hasFiscalData) return <YaTieneDatosFiscales />;
 
   async function handleCreateFiscalForm() {
     setState('loading');
@@ -124,10 +118,12 @@ export function FiscalFormButton({ booking }: Props) {
   }
 
   // Patient already has fiscal data
+  // El 409 del servidor sólo mira RFC + requiereFactura (no los 6 campos): decir «ya contamos con sus
+  // datos» sería afirmar de más. Se dice lo que se sabe y dónde revisarlo.
   if (state === 'has-fiscal-data') {
     return (
-      <span className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 flex items-center gap-1">
-        <Check className="w-3 h-3" /> Datos fiscales
+      <span className="text-xs text-gray-600 flex items-center gap-1">
+        <FileText className="w-3.5 h-3.5 shrink-0" /> El paciente ya tiene RFC registrado: revisa sus datos fiscales en su expediente.
       </span>
     );
   }
@@ -195,5 +191,18 @@ export function FiscalFormButton({ booking }: Props) {
     >
       <FileText className="w-3 h-3" /> Facturación
     </button>
+  );
+}
+
+/**
+ * El paciente YA tiene datos fiscales completos: no hay nada que pedirle, así que no es un botón — es un
+ * TEXTO que lo dice (decisión del usuario 2026-10-12: el chip «✓ Datos fiscales» parecía un botón que no
+ * hacía nada).
+ */
+function YaTieneDatosFiscales() {
+  return (
+    <span className="text-xs text-green-700 flex items-center gap-1">
+      <Check className="w-3.5 h-3.5 shrink-0" /> Ya contamos con sus datos fiscales para facturarle.
+    </span>
   );
 }

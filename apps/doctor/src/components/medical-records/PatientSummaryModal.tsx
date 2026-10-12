@@ -79,7 +79,7 @@ export function PatientSummaryModal({
             Generado el {formattedDate}
           </p>
           <p className="text-xs text-blue-500 mt-0.5">
-            Basado en {dp.encounters} consulta{dp.encounters !== 1 ? 's' : ''}, {dp.prescriptions} prescripci{dp.prescriptions !== 1 ? 'ones' : 'ón'} y {dp.notes} nota{dp.notes !== 1 ? 's' : ''}
+            Basado en {dp.encounters} consulta{dp.encounters !== 1 ? 's' : ''}, {dp.prescriptions} receta{dp.prescriptions !== 1 ? 's' : ''} y {dp.notes} nota{dp.notes !== 1 ? 's' : ''}
           </p>
         </div>
 
