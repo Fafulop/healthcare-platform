@@ -595,10 +595,11 @@ principal:
 
 En el botón **«⋯»** de cada sesión, lo demás:
 
-- **«Cancelar sesión»** — si tiene una cita activa, pregunta qué hacer con ella: **«Cancelar la
-  sesión y la cita»** (se cancela como desde la agenda, con los mismos avisos al paciente),
-  **«Cancelar sólo la sesión (la cita se queda)»** o **«No cancelar nada»**. Una sesión cancelada
-  se puede **«Reactivar»**.
+- **«Cancelar sesión»** — cancela la sesión **y su cita**, si tiene una agendada: se cancela como
+  desde la agenda y al paciente le llega el aviso. Te lo dice antes, con la fecha. Si quieres que esa
+  consulta siga, no canceles la sesión: **reagéndala**. Una sesión cancelada se puede **«Reactivar»**:
+  vuelve **por agendar** (su cita no regresa). Sin permiso de citas no se puede cancelar una sesión con
+  cita agendada.
 - **«Servicio y precio»** (sólo en sesiones **sin cita viva**: con cita, el precio es el de la cita —
   se cambia en «Más de la cita» o al completarla— y la tarjeta dice «(de su cita)») — elige el
   servicio de la sesión (llena nombre y precio) y cámbialos si
@@ -645,9 +646,12 @@ cobra al concluir su cita, como cualquier cita (también con link de pago). Las 
 quedaron «cubiertas por el paquete» ($0) se siguen viendo así en el perfil y en la visita.
 
 Del tratamiento completo: **«Editar»** (nombre, sesiones planeadas, notas), **«Terminar»**,
-**«Cancelar tratamiento»** y **«Reactivar»**. Al cancelar te pregunta antes: las citas agendadas de
-sus sesiones **no se cancelan** (se quedan en la agenda y al paciente no le llega ningún aviso);
-cancélalas a mano, una por una, desde la agenda o desde cada sesión. **«Borrar tratamiento»** sólo
+**«Cancelar tratamiento»** y **«Reactivar»**. Cancelar el tratamiento **cancela también las citas
+agendadas** de sus sesiones (te dice cuáles antes), como desde la agenda: a cada una le llega su aviso
+al paciente. Si alguna no se pudo cancelar, te dice cuál y el tratamiento **no** se cancela (las demás
+sí): inténtalo de nuevo. Al **«Reactivar»**, sus sesiones quedan **por agendar** (las citas no
+regresan). Sin permiso de citas no se puede cancelar un tratamiento con citas agendadas.
+**«Borrar tratamiento»** sólo
 aparece mientras ninguna sesión tenga cita ni visita (y si tiene pagos registrados, no se borra); si
 no, cancélalo.
 

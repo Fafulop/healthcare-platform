@@ -307,15 +307,17 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           },
 
           'cancelar el tratamiento': {
-            allowedIf: '"Cancelar tratamiento" arriba del tratamiento; pregunta antes. "Reactivar" lo deshace.',
+            allowedIf: '"Cancelar tratamiento" arriba del tratamiento; pregunta antes (dice qué citas se cancelan). "Reactivar" lo deshace.',
+            blockedIf: 'Sin permiso de citas y con alguna cita agendada: el botón no se puede usar.',
             notes:
-              'Sólo cambia su estado: las citas agendadas de sus sesiones NO se cancelan (siguen en la agenda y el ' +
-              'paciente no recibe aviso); se cancelan a mano, una por una, desde la agenda o desde cada sesión.',
+              'Cancela TAMBIÉN las citas agendadas de sus sesiones, como desde la agenda (aviso al paciente). Si alguna ' +
+              'falla, dice cuál y el tratamiento NO se cancela. Al reactivarlo sus sesiones quedan por agendar (las citas no regresan).',
           },
 
           'cancelar una sesión': {
-            allowedIf: '"⋯" → "Cancelar sesión". Con una cita activa pregunta: cancelar la sesión y la cita, sólo la sesión, o nada.',
-            notes: 'Cancelar la cita desde aquí es lo mismo que desde la agenda (con sus avisos). "Reactivar" la deshace.',
+            allowedIf: '"⋯" → "Cancelar sesión". Cancela la sesión Y su cita agendada (no hay opción de dejar la cita): se avisa antes con la fecha.',
+            blockedIf: 'Sin permiso de citas, si la sesión tiene cita agendada.',
+            notes: 'La cita se cancela como desde la agenda (con sus avisos). Si sólo cambia de día: "Reagendar". "Reactivar" deja la sesión por agendar (su cita no regresa).',
           },
 
           reagendar: {

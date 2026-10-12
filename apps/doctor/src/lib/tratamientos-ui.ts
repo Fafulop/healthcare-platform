@@ -108,6 +108,15 @@ export const ESTADO_TRATAMIENTO: Record<EstadoTratamiento, { texto: string; clas
 // (el de la agenda), «Atendida» o «Sin fecha». `EstadoSesion` sigue siendo lo que deriva el servidor;
 // lo de abajo sólo lo NOMBRA (pantalla del tratamiento y su «Resumen PDF», con las mismas palabras).
 
+/**
+ * ¿La sesión tiene una cita VIVA que es suya? Es la que cancelar la sesión o el tratamiento cancela con
+ * ella (2026-10-12). Sale del estado DERIVADO por el servidor («agendada» = cita propia pendiente o
+ * confirmada), no del status suelto: así no se toca una cita que pasó a otro paciente, ni la de una sesión
+ * ya cancelada. Sin permiso de `citas` también da `true` (la cita llega como `{ id }`): quien llama
+ * decide que entonces no se puede cancelar.
+ */
+export const citaVivaDeSesion = (s: SesionDeTratamiento) => !s.cancelada && s.estado === 'agendada' && !!s.cita?.id;
+
 /** ¿La visita de la sesión ya pasó (hoy o antes)? Una visita sin cita fechada en el futuro no es «atendida». */
 const visitaYaPaso = (s: SesionDeTratamiento) => !!s.visita?.fecha && s.visita.fecha.slice(0, 10) <= getClinicDateString();
 

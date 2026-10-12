@@ -42,6 +42,29 @@ export function avisarLinksDesactivados(
 }
 
 /**
+ * Cancelar una cita SIN preguntar: la pregunta ya la hizo quien llama (cancelar la sesión o el tratamiento
+ * cancela SU cita — decisión del usuario 2026-10-12: una acción, un resultado). Mismo PATCH que la agenda,
+ * con sus efectos (aviso al paciente, Google Calendar, apagar el link). Sin toast de éxito: lo dice quien
+ * llama. `error` = el motivo del servidor, para decir cuál falló.
+ */
+export async function cancelarCitaSinPreguntar(bookingId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const response = await authFetch(
+      `${API_URL}/api/appointments/bookings/${bookingId}`,
+      { method: "PATCH", body: JSON.stringify({ status: "CANCELLED" }) }
+    );
+    const data = await response.json().catch(() => null);
+    if (response.ok && data?.success) {
+      avisarLinksDesactivados(data.linksDesactivados);
+      return { ok: true };
+    }
+    return { ok: false, error: data?.error || "no se pudo cancelar" };
+  } catch {
+    return { ok: false, error: "no se pudo cancelar" };
+  }
+}
+
+/**
  * Confirmar / Cancelar / No asistió. Cancelar y No asistió piden confirmación (H-031: «No asistió» es
  * final). Devuelve `true` sólo si el servidor lo aplicó (`false` = el doctor dijo que no, o falló).
  */

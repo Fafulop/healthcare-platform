@@ -5,13 +5,12 @@ import { useParams, useRouter, redirect } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from '@/lib/practice-toast';
 import { practiceConfirm } from '@/lib/practice-confirm';
-import { authFetch } from '@/lib/auth-fetch';
 import type { BookingPermisos } from '@/lib/booking-permisos';
 import type { PatientBooking } from '@/components/medical-records/CitaBadges';
-import { visitaHref, type VisitaResumen } from '@/lib/visitas-ui';
-import { etiquetaSesion, type SesionDeTratamiento, type TratamientoDetalle } from '@/lib/tratamientos-ui';
+import { formatoFechaVisita, visitaHref, type VisitaResumen } from '@/lib/visitas-ui';
+import { cancelarCitaSinPreguntar } from '@/lib/citas/acciones-cita';
+import { citaVivaDeSesion, etiquetaSesion, type SesionDeTratamiento, type TratamientoDetalle } from '@/lib/tratamientos-ui';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 type Estado = 'cargando' | 'error' | 'no-existe' | 'ok';
 
@@ -158,41 +157,78 @@ export function useTratamientoDetalle() {
   };
 
   /**
-   * G8 — cancelar una sesión. Con `tambienCita`, PRIMERO la cita por la MISMA ruta de la agenda (con
-   * sus efectos: aviso al paciente y Google Calendar, cuando aplican); si eso falla se detiene y la
-   * sesión NO se cancela. La pregunta la hace la pantalla (`CancelarSesionModal`): tres salidas.
+   * Cancelar una sesión cancela SU cita (decisión del usuario 2026-10-12: una acción, un resultado — antes
+   * había tres salidas y la de «sólo la sesión» dejaba una sesión cancelada con su cita viva). PRIMERO la
+   * cita, por la misma ruta de la agenda (aviso al paciente, Google Calendar, link); si falla se detiene y
+   * la sesión NO se cancela. Quien llama ya preguntó y ya comprobó que la cita se puede cancelar.
    */
-  const cancelarSesion = async (s: SesionDeTratamiento, tambienCita: boolean) => {
-    if (tambienCita && s.cita) {
+  const cancelarSesion = async (s: SesionDeTratamiento) => {
+    if (citaVivaDeSesion(s)) {
       setTrabajando(true);
-      try {
-        const res = await authFetch(`${API_URL}/api/appointments/bookings/${s.cita.id}`, {
-          method: 'PATCH', body: JSON.stringify({ status: 'CANCELLED' }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok || !data?.success) throw new Error(data?.error);
-      } catch {
-        toast.error('No se pudo cancelar la cita. La sesión no se canceló; intenta de nuevo o cancela la cita desde la agenda.');
+      const r = await cancelarCitaSinPreguntar(s.cita!.id);
+      if (!r.ok) {
+        toast.error(`No se pudo cancelar su cita (${r.error}). La sesión no se canceló; intenta de nuevo.`);
         await Promise.all([cargarDetalle(), cargarAlrededor()]);
         setTrabajando(false);
         return false;
       }
-      setTrabajando(false);
+      // Sin soltar `trabajando` aquí: `escribir` lo vuelve a poner y en medio quedaba un render con los
+      // botones vivos entre cancelar la cita y cancelar la sesión.
       return escribir(
         // La cita YA se canceló (y pudo avisarse al paciente): si ahora falla la sesión, se dice.
         () => enviar(`${urlT}/sesiones/${s.id}`, 'PATCH', { cancelada: true }).catch((err) => {
           throw new Error(`La cita SÍ se canceló, pero la sesión no (${err.message}). Vuelve a cancelar la sesión.`);
         }),
-        'Sesión y cita canceladas', true,
+        'Sesión y su cita canceladas', true,
       );
     }
     return escribir(() => enviar(`${urlT}/sesiones/${s.id}`, 'PATCH', { cancelada: true }), 'Sesión cancelada');
   };
 
+  /**
+   * Cancelar el tratamiento cancela las citas vivas de sus sesiones (misma regla, un nivel arriba;
+   * antes se quedaban en la agenda con sólo un aviso). Una por una por la ruta de la agenda; el
+   * tratamiento se marca cancelado SÓLO si todas se cancelaron — si una falla se dice cuál y no queda
+   * a medias sin explicación. Quien llama ya preguntó y comprobó el permiso.
+   */
+  const cancelarTratamiento = async () => {
+    const vivas = (tratamiento?.sesiones ?? []).filter(citaVivaDeSesion);
+    if (vivas.length > 0) {
+      setTrabajando(true);
+      // Una por una (no en paralelo): cada una avisa al paciente y va a Google Calendar, y así el
+      // reporte de cuáles fallaron sale en orden.
+      const fallidas: string[] = [];
+      for (const s of vivas) {
+        const r = await cancelarCitaSinPreguntar(s.cita!.id);
+        if (!r.ok) fallidas.push(`${s.cita?.fecha ? formatoFechaVisita(s.cita.fecha) : `sesión ${s.numero}`} (${r.error})`);
+      }
+      if (fallidas.length > 0) {
+        // Sólo lo que de verdad pasó: «las demás sí» era falso si fallaron todas.
+        const hechas = vivas.length - fallidas.length;
+        toast.error(`No se pudieron cancelar ${fallidas.length === 1 ? 'esta cita' : 'estas citas'}: ${fallidas.join(' · ')}. `
+          + (hechas > 0 ? `${hechas === 1 ? 'La otra sí se canceló' : `Las otras ${hechas} sí se cancelaron`} (con su aviso al paciente). ` : '')
+          + 'El tratamiento NO se canceló. Intenta de nuevo.');
+        await Promise.all([cargarDetalle(), cargarAlrededor()]);
+        setTrabajando(false);
+        return false;
+      }
+    }
+    return escribir(
+      // Si las citas YA se cancelaron (con su aviso) y ahora falla el tratamiento, se dice — si no, sólo
+      // saldría «No se pudo guardar» con el tratamiento activo y sus sesiones de pronto por agendar.
+      () => enviar(urlT, 'PATCH', { estado: 'cancelado' }).catch((err) => {
+        if (vivas.length === 0) throw err;
+        throw new Error(`Sus citas SÍ se cancelaron (con su aviso al paciente), pero el tratamiento no (${err.message}). Vuelve a cancelar el tratamiento.`);
+      }),
+      vivas.length > 0 ? `Tratamiento cancelado, con ${vivas.length === 1 ? 'su cita' : `sus ${vivas.length} citas`}` : 'Tratamiento cancelado',
+      vivas.length > 0,
+    );
+  };
+
   return {
     patientId, tratamientoId, doctorId: session?.user?.doctorId ?? null, sessionStatus,
     estado, tratamiento, patientName, bookings, permisos, visitas, trabajando,
-    patchTratamiento, patchSesion, abrirVisita, borrarTratamiento, borrarSesion, cancelarSesion,
+    patchTratamiento, patchSesion, abrirVisita, borrarTratamiento, borrarSesion, cancelarSesion, cancelarTratamiento,
     /** Re-lee el tratamiento y lo de alrededor (T5: después de «Agendar sesiones»). */
     recargar: () => Promise.all([cargarDetalle(), cargarAlrededor()]),
   };

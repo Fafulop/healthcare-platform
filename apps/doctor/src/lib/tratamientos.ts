@@ -164,6 +164,19 @@ export function citaEfectiva(s: { patientId: string; bookingId: string | null; b
   return s.bookingId && s.booking?.patientId === s.patientId ? s.bookingId : null;
 }
 
+/**
+ * 2026-10-12 (decisión del usuario: una acción, un resultado) — una sesión no queda cancelada con SU cita
+ * viva, ni un tratamiento cancelado con citas vivas de sus sesiones. El cliente cancela las citas PRIMERO
+ * (por la ruta de la agenda, con sus avisos) y luego la sesión / el tratamiento; estas rutas rechazan
+ * (409) el orden inverso, venga de donde venga. «Propia» = `citaEfectiva` (una cita que pasó a otro
+ * paciente no cuenta ni se toca).
+ */
+export function tieneCitaVivaPropia(s: {
+  patientId: string; bookingId: string | null; booking: { patientId: string | null; status: string } | null;
+}) {
+  return !!citaEfectiva(s) && (s.booking!.status === 'PENDING' || s.booking!.status === 'CONFIRMED');
+}
+
 // La regla «¿la sesión pasa sola a la cita nueva al reagendar?» vive en `@healthcare/database`
 // (la usan las rutas de `apps/api` que crean la cita nueva): aquí sólo se re-exporta.
 export { motivoNoSeMueve, type MotivoNoSeMueve } from '@healthcare/database';

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, FileText, ListChecks, Loader2, MoreHorizontal, Pencil, Plus, StickyNote, Trash2, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, FileText, ListChecks, Loader2, MoreHorizontal, Pencil, Plus, StickyNote, Trash2 } from 'lucide-react';
 import { BookingStatusPill, FacturaBadge, PagoBadge } from '@/components/medical-records/CitaBadges';
 import { tieneNotas } from '@/components/citas/NotasCita';
 import { describirConteo, formatoFechaVisita, totalHijos, visitaHref } from '@/lib/visitas-ui';
@@ -10,6 +10,7 @@ import {
   ESTADO_TRATAMIENTO, describirAvance, detalleDeSesion, estadoEnPalabras, etiquetaSesion, hechaPorVisita, palabraDeVisita,
   pesos, proximaCita, tratamientosUiActiva,
   type CuentaDelTratamiento, type SesionDeTratamiento, type TratamientoDetalle,
+  citaVivaDeSesion,
 } from '@/lib/tratamientos-ui';
 import { practiceConfirm } from '@/lib/practice-confirm';
 import { useTratamientoDetalle } from '../_components/useTratamientoDetalle';
@@ -38,7 +39,6 @@ export default function TratamientoPage() {
   const { patientId, tratamiento } = t;
   const pacienteHref = `/dashboard/medical-records/patients/${patientId}`;
   const [editando, setEditando] = useState(false);
-  const [cancelando, setCancelando] = useState<SesionDeTratamiento | null>(null);
   const [agendando, setAgendando] = useState<ModoAgendar | null>(null);
   // V5 — el «Resumen de tratamiento» en PDF (sólo con `flujo`: sale de la cuenta, que sólo viaja con él).
   const [resumen, setResumen] = useState(false);
@@ -82,6 +82,10 @@ export default function TratamientoPage() {
   // V4: agendar (y agregar con fecha) exige `citas` y un tratamiento activo — el servidor no liga citas
   // nuevas a uno terminado o cancelado.
   const puedeAgendar = (t.permisos?.citas ?? false) && tratamiento.estado === 'activo';
+  // Cancelar el tratamiento cancela sus citas vivas: sin permiso de citas, con alguna viva, no se puede.
+  // Sólo con los permisos YA cargados: `null` (cargando, o falló /bookings) no es «sin permiso» — decirlo
+  // bloquearía al dueño. Si de verdad no lo tiene, la ruta de la agenda rechaza cancelar la cita.
+  const bloqueoCancelar = t.permisos != null && !t.permisos.citas && tratamiento.sesiones.some(citaVivaDeSesion);
   const porAgendar = tratamiento.sesiones.filter(
     (s) => s.estado === 'por_agendar' && !s.cancelada && (!s.visita || s.visitaViaja),
   ).length;
@@ -123,11 +127,13 @@ export default function TratamientoPage() {
                   disabled={t.trabajando} className={botonGris}
                 >Terminar</button>
               )}
-              {/* Desde CUALQUIER estado que no sea cancelado: es lo que el 409 de «Borrar» pide. */}
+              {/* Desde CUALQUIER estado que no sea cancelado: es lo que el 409 de «Borrar» pide. Cancela sus
+                  citas vivas: sin permiso de citas no se puede (no hay a medias). */}
               {tratamiento.estado !== 'cancelado' && (
                 <button
                   onClick={pedirCancelarTratamiento}
-                  disabled={t.trabajando} className={botonGris}
+                  disabled={t.trabajando || bloqueoCancelar} className={botonGris}
+                  title={bloqueoCancelar ? 'Tiene citas agendadas: cancelarlo las cancela, y eso necesita permiso de citas.' : undefined}
                 >Cancelar tratamiento</button>
               )}
               {tratamiento.estado !== 'activo' && (
@@ -233,96 +239,41 @@ export default function TratamientoPage() {
       )}
 
       {tarjeta.modalFormulario}
-      {cancelando && (
-        <CancelarSesionModal
-          s={cancelando}
-          planeadas={planeadas}
-          trabajando={t.trabajando}
-          onElegir={async (tambienCita) => {
-            const s = cancelando;
-            setCancelando(null);
-            await t.cancelarSesion(s, tambienCita);
-          }}
-          onCerrar={() => setCancelando(null)}
-        />
-      )}
     </div>
   );
 
   /**
-   * 09-PLAN L1 (nota N1) — cancelar el tratamiento sólo cambia su estado: las citas agendadas de sus
-   * sesiones SIGUEN en la agenda y el paciente no recibe aviso. Se dice antes, con cuántas son. (Una
-   * cita que no puedes ver cuenta si la sesión está «agendada»: el servidor ya lo resolvió.)
+   * Cancelar el tratamiento cancela las citas vivas de sus sesiones (decisión del usuario 2026-10-12: una
+   * acción, un resultado — antes se quedaban en la agenda). Se dice antes cuáles y que a cada paciente le
+   * llega su aviso. Sin permiso de citas el botón no se ofrece si hay citas vivas (`bloqueoCancelar`).
    */
   async function pedirCancelarTratamiento() {
-    const abiertas = (tratamiento?.sesiones ?? []).filter((s) => s.cita && (
-      s.cita.status ? s.cita.status === 'PENDING' || s.cita.status === 'CONFIRMED' : s.estado === 'agendada'
-    )).length;
+    const vivas = (tratamiento?.sesiones ?? []).filter(citaVivaDeSesion);
+    const fechas = vivas.map((s) => s.cita?.fecha ? formatoFechaVisita(s.cita.fecha) : `sesión ${s.numero}`).join(', ');
     const ok = await practiceConfirm(
-      abiertas > 0
-        ? `Tiene ${abiertas === 1 ? '1 cita agendada' : `${abiertas} citas agendadas`} y NO se ${abiertas === 1 ? 'cancela' : 'cancelan'}: `
-          + 'se quedan en la agenda y al paciente no le llega ningún aviso. Cancélalas a mano, una por una, '
-          + 'desde la agenda o desde cada sesión.'
+      vivas.length > 0
+        ? `Se ${vivas.length === 1 ? 'cancela también su cita agendada' : `cancelan también sus ${vivas.length} citas agendadas`} (${fechas}), `
+          + 'como desde la agenda: al paciente le llega el aviso de cancelación. Si lo reactivas, sus sesiones '
+          + 'quedan por agendar.'
         : 'El tratamiento quedará como cancelado. Puedes reactivarlo después.',
       '¿Cancelar el tratamiento?',
     );
-    if (ok) await t.patchTratamiento({ estado: 'cancelado' }, 'Tratamiento cancelado');
+    if (ok) await t.cancelarTratamiento();
   }
 
-  /**
-   * G8: con cita ACTIVA a la vista hay TRES salidas (también la cita · sólo la sesión · nada) y un
-   * confirm de sí/no no las distingue: su «Cancelar» y el Esc acababan cancelando la sesión. Sin
-   * cita activa (o sin permiso para verla) basta el confirm.
-   */
+  /** Cancelar la sesión cancela su cita viva (2026-10-12): una pregunta, un resultado. */
   async function pedirCancelar(s: SesionDeTratamiento) {
-    const citaActiva = s.cita?.status === 'PENDING' || s.cita?.status === 'CONFIRMED';
-    if (citaActiva) { setCancelando(s); return; }
+    const viva = citaVivaDeSesion(s);
+    const dia = s.cita?.fecha ? ` del ${formatoFechaVisita(s.cita.fecha)}` : '';
     const ok = await practiceConfirm(
-      s.estado === 'agendada'
-        ? 'La sesión quedará como cancelada. Tiene una cita que no puedes ver: seguirá en la agenda.'
+      viva
+        ? `Se cancela también su cita${dia}, como desde la agenda: al paciente le llega el aviso de cancelación. `
+          + 'Si la reactivas, queda por agendar.'
         : 'La sesión quedará como cancelada. Puedes reactivarla después.',
       `¿Cancelar la ${etiquetaSesion(s.numero, null).toLowerCase()}?`,
     );
-    if (ok) await t.cancelarSesion(s, false);
+    if (ok) await t.cancelarSesion(s);
   }
-}
-
-function CancelarSesionModal({ s, planeadas, trabajando, onElegir, onCerrar }: {
-  s: SesionDeTratamiento; planeadas: number | null; trabajando: boolean;
-  onElegir: (tambienCita: boolean) => void; onCerrar: () => void;
-}) {
-  const dia = s.cita?.fecha ? ` del ${formatoFechaVisita(s.cita.fecha)}` : '';
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-lg max-w-md w-full">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Cancelar {etiquetaSesion(s.numero, planeadas).toLowerCase()}</h2>
-          <button onClick={onCerrar} className="p-1 rounded hover:bg-gray-100 text-gray-500" aria-label="Cerrar">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="px-5 py-4 space-y-2 text-sm text-gray-700">
-          <p>Esta sesión tiene una cita{dia} que sigue activa en la agenda. ¿Qué quieres hacer con ella?</p>
-          <p className="text-gray-500">
-            Cancelarla aquí es lo mismo que cancelarla desde la agenda, con los mismos avisos al paciente.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 px-5 py-4 border-t border-gray-100">
-          <button
-            onClick={() => onElegir(true)} disabled={trabajando}
-            className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium"
-          >Cancelar la sesión y la cita</button>
-          <button
-            onClick={() => onElegir(false)} disabled={trabajando}
-            className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >Cancelar sólo la sesión (la cita se queda)</button>
-          <button onClick={onCerrar} disabled={trabajando} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
-            No cancelar nada
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 type Detalle = ReturnType<typeof useTratamientoDetalle>;
@@ -689,9 +640,14 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar, tarj
                       Reactivar
                     </button>
                   ) : (
-                    <button role="menuitem" onClick={() => { setMenu(null); onCancelar(); }} className={`${opcionMenu} text-gray-700`}>
-                      Cancelar sesión
-                    </button>
+                    // Cancelar la sesión cancela su cita viva: sin permiso de citas no se puede (2026-10-12).
+                    citaVivaDeSesion(s) && t.permisos != null && !t.permisos.citas ? (
+                      <p className="px-4 py-2 text-xs text-gray-400">Cancelar sesión: su cita sigue agendada y cancelarla necesita permiso de citas.</p>
+                    ) : (
+                      <button role="menuitem" onClick={() => { setMenu(null); onCancelar(); }} className={`${opcionMenu} text-gray-700`}>
+                        Cancelar sesión
+                      </button>
+                    )
                   )}
                   {!cita && !s.visita && (
                     <button role="menuitem" onClick={() => { setMenu(null); t.borrarSesion(s); }} className={`${opcionMenu} text-red-600`}>

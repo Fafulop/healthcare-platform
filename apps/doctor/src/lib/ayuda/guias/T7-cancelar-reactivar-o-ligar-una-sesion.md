@@ -2,10 +2,10 @@
 
 **Pasos — Cancelar**
 1. En el tratamiento, en la sesión → **«⋯»** → **«Cancelar sesión»**.
-2. Si tiene cita, elige: **«Cancelar la sesión y la cita»**, **«Cancelar sólo la sesión (la cita se queda)»** o **«No cancelar nada»**.
+2. **«Confirmar»**. Si tiene cita agendada, **se cancela con ella** (el aviso lo dice, con la fecha) y al paciente le llega el aviso de cancelación, como desde la agenda. Si sólo cambia de día, no la canceles: **«Reagendar»**.
 
 **Pasos — Reactivar**
-1. Abajo de las sesiones → **«Ver canceladas»** → en la sesión → **«⋯»** → **«Reactivar»**. Vuelve a la lista.
+1. Abajo de las sesiones → **«Ver canceladas»** → en la sesión → **«⋯»** → **«Reactivar»**. Vuelve a la lista **por agendar**: su cita no regresa, agéndala de nuevo.
 
 **Qué vas a ver:** la sesión cancelada se va al final, plegada en **«Ver canceladas (N)»**. La cuenta se recalcula sola.
 

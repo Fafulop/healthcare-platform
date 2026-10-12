@@ -6,7 +6,7 @@ import { leerBody, puedeVer } from '@/lib/visitas';
 import {
   INTERVALO_MAX, SESIONES_MAX, TRATAMIENTO_SELECT, cargarTratamiento, parseEnteroOpcional, parseEstadoTratamiento,
   cuentaDelTratamiento, parseNombre, parseNotas, parsePlantilla, rechazarPrecioPaquete,
-  sesionesParaRespuesta,
+  sesionesParaRespuesta, tieneCitaVivaPropia,
 } from '@/lib/tratamientos';
 
 // VISITAS fase 2 T2 — docs/DESDE JUNIO/VISITAS/03-PLAN-fase-2.md §3. Permiso: `expedientes` (heredado).
@@ -84,6 +84,22 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
     }
 
+    // 2026-10-12: cancelar el tratamiento cancela las citas vivas de sus sesiones — el cliente lo hace
+    // ANTES (por la ruta de la agenda, con sus avisos). Aquí sólo se impide quedar a medias.
+    if (estado === 'cancelado' && antes.estado !== 'cancelado') {
+      const conCita = await prisma.tratamientoSesion.findMany({
+        where: { tratamientoId, cancelada: false, booking: { status: { in: ['PENDING', 'CONFIRMED'] } } },
+        select: { patientId: true, bookingId: true, booking: { select: { patientId: true, status: true } } },
+      });
+      const vivas = conCita.filter(tieneCitaVivaPropia).length;
+      if (vivas > 0) {
+        return NextResponse.json(
+          { error: `El tratamiento tiene ${vivas === 1 ? '1 cita agendada' : `${vivas} citas agendadas`} en sus sesiones: cancelarlo las cancela. Cancélalas primero.` },
+          { status: 409 },
+        );
+      }
+    }
+
     const updated = await prisma.tratamiento.update({
       where: { id: tratamientoId }, data, select: TRATAMIENTO_SELECT,
     });
@@ -108,6 +124,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
 // DELETE — sólo si NINGUNA sesión tiene cita ni visita. Si alguna tiene: 409 con el conteo, y el
 // cliente lo marca «cancelado» con PATCH. Nunca toca citas ni visitas (la cascada sólo borra sesiones).
+// (Cancelar: el PATCH rechaza `estado: 'cancelado'` con citas vivas de sus sesiones — el cliente las
+// cancela antes por la ruta de la agenda. 2026-10-12.)
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     const ctx = await requireDoctorAuth(request);

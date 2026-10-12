@@ -4,7 +4,7 @@ import { requireDoctorAuth, logAudit } from '@/lib/medical-auth';
 import { AppError, handleApiError } from '@/lib/api-error-handler';
 import { leerBody, puedeVer } from '@/lib/visitas';
 import {
-  auditarEfectosDeLigar, cargarSesion, citaEfectiva, escribirSesion, parseNotas, parsePrecioSesion,
+  auditarEfectosDeLigar, cargarSesion, citaEfectiva, tieneCitaVivaPropia, escribirSesion, parseNotas, parsePrecioSesion,
   parseServicioSesion, planLigarCitaASesion, sesionesParaRespuesta, validarVisitaParaSesion, type PlanLigarCita,
 } from '@/lib/tratamientos';
 
@@ -23,7 +23,9 @@ type Params = { params: Promise<{ id: string; tratamientoId: string; sesionId: s
 //     pasa SIN que el doctor lo pida: cita borrada o re-ligada.)
 //   · Ligar o soltar una visita: sólo SIN cita (con cita, su visita es la de la cita; re-enviar la
 //     que se muestra no es cambiarla). La visita no puede tener cita propia.
-//   · `cancelada` manda en el estado (P1). Cancelar NO cancela la cita: eso es de la agenda (G8).
+//   · `cancelada` manda en el estado (P1). Cancelar NO cancela la cita AQUÍ (eso es de la agenda, con sus
+//     avisos), pero una sesión con su cita VIVA no se cancela: 409 (2026-10-12). El cliente cancela antes
+//     la cita por la ruta de la agenda y luego manda `cancelada: true`.
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     const ctx = await requireDoctorAuth(request);
@@ -40,6 +42,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (body.cancelada !== undefined) {
       if (typeof body.cancelada !== 'boolean') throw new AppError('cancelada debe ser true/false', 400);
       if (body.cancelada !== s.cancelada) data.cancelada = body.cancelada;
+      if (body.cancelada && !s.cancelada && tieneCitaVivaPropia(s)) {
+        throw new AppError('La sesión tiene su cita agendada: cancelar la sesión cancela su cita. Cancela la cita primero (desde la sesión o la agenda).', 409);
+      }
     }
     const notas = parseNotas(body.notas);
     if (notas !== undefined) data.notas = notas;
