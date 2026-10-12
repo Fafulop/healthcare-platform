@@ -132,7 +132,7 @@ Tus pacientes pueden pedir cita desde tu **perfil público**, en los horarios de
 [rangos](#rangos-de-disponibilidad). Esas citas llegan **Pendientes**. Si tienes Telegram
 conectado en Integraciones, te llega un aviso.
 
-Una cita Pendiente sólo se puede **«Confirmar»** o **«Cancelar»**. Al confirmarla pasa a
+Una cita Pendiente sólo se puede **«Confirmar»** o **«Cancelar cita»**. Al confirmarla pasa a
 Agendada y el paciente recibe su correo de confirmación.
 
 ### La tabla de citas
@@ -168,11 +168,11 @@ Al abrir una cita, las acciones vienen en grupos. Qué grupos aparecen depende d
 
 | Grupo | Pendiente | Agendada | Vencida | Completada | No asistió / Cancelada |
 |---|---|---|---|---|---|
-| **Estado** (Confirmar, Completar, No asistió, Cancelar, Reagendar) | ✓ | ✓ | ✓ | — | — |
+| **Estado** (Confirmar, Completar, No asistió, Cancelar cita, Reagendar) | ✓ | ✓ | ✓ | — | — |
 | **Confirmación cita** (correo, WhatsApp, Meet) | — | ✓ | ✓ | — | — |
 | **Cobro y factura** (link de pago y su nota, y —con la casilla marcada— pedir los datos fiscales; en la visita, «Cobros» y la ventana del calendario también el precio y «¿Necesita factura?», que en la tabla de la agenda están en su columna PRECIO) | ✓ | ✓ | ✓ | ✓ | el link, sólo si ya hay uno activo o pagado |
 | **Documentos** (formulario pre-consulta) | — | ✓ | ✓ | sólo si el paciente ya lo contestó | — |
-| **Eliminar** | — | — | — | ✓ | ✓ |
+| **Borrar cita** (sólo **sin cobro** registrado) | — | — | — | ✓ | ✓ |
 
 Dentro del grupo Estado: «Confirmar» sólo en Pendientes, y «Reagendar» sólo en Agendadas y
 Vencidas. En una Vencida, «Confirmación cita» y «Documentos» sólo aparecen si estaba Agendada
@@ -197,15 +197,18 @@ Si la cita tiene un link de pago que el paciente **todavía no paga**, la ventan
 completarla, **el link se desactiva** para que no te pague dos veces (también en una cortesía).
 Si la cita tiene expediente, en su perfil aparece su **visita** (ver [Visitas](#visitas)).
 
-### Cancelar, No asistió y Eliminar
+### Cancelar, No asistió y Borrar
 
-- **«Cancelar»** pide confirmación. El paciente recibe un correo avisando que su cita se canceló
+- **«Cancelar cita»** pide confirmación. El paciente recibe un correo avisando que su cita se canceló
   (si tiene correo y tu cuenta de Google está conectada). El horario vuelve a quedar libre.
 - **«No asistió»** pide confirmación y marca la cita así, sin avisar al paciente. No se puede deshacer.
-- **«Eliminar»** sólo aparece en citas finales, pide confirmación y **no se puede deshacer**. Si la
-  cita tenía un cobro, el ingreso **se queda** en Flujo de Dinero; en tu actividad reciente queda
-  «Cita eliminada». Si su **visita tiene algo** (plantillas, notas, recetas, fotos, ventas o un comentario), la cita
-  **no se borra** (la visita se quedaría sin su cita); si la visita está vacía, se borra con ella.
+- **«Borrar cita»** sólo aparece en citas finales **sin cobro** registrado en Flujo de Dinero (y por
+  lo tanto sin factura), pide confirmación y **no se puede deshacer**; en tu actividad reciente queda
+  «Cita eliminada». Una cita **cobrada no se borra**: el cobro se quedaría sin su cita y desaparecería de
+  «Cobros» del paciente. Si el cobro fue un error, deshazlo primero en Flujo de Dinero. Si su **visita
+  tiene algo** (plantillas, notas, recetas, fotos, ventas o un comentario), la cita **no se borra** (la
+  visita se quedaría sin su cita); si la visita está vacía, se borra con ella. En la visita el botón
+  dice **«Borrar cita y visita»** y sólo sale si la visita está vacía.
 
 En los tres casos, si la cita tenía un **link de pago sin pagar, se desactiva**: ya no acepta pagos
 nuevos. Si no se pudo desactivar en Stripe o Mercado Pago, la agenda te avisa que el link sigue
@@ -488,7 +491,7 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
 
 - **Cita** — fecha, hora, servicio y si está pagada y facturada. Con permiso de citas, abajo está **la
   misma tarjeta de la cita que en la agenda**: **ESTADO** (**«Completar»** con la misma ventana del
-  cobro, **«No asistió»**, **«Cancelar»**, **«Reagendar»** — te lleva a la agenda con la ventana de
+  cobro, **«No asistió»**, **«Cancelar cita»**, **«Reagendar»** — te lleva a la agenda con la ventana de
   reagendar abierta y al terminar te regresa a la visita, que se va con la cita nueva), **COBRO Y
   FACTURA** (el **precio** —clic para cambiarlo—, **«¿Necesita factura?»**, **«Link de pago»** y la
   nota del cobro y, con la casilla marcada, pedirle sus datos fiscales), **CONFIRMACIÓN CITA** (por
@@ -506,7 +509,10 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
 - **La fecha de cada plantilla es suya:** al agregarla desde una visita empieza con la fecha de la
   visita, pero la puedes cambiar (al crearla o al editarla). Si no es la de la visita, la lista de
   plantillas la muestra. Mover una plantilla o cambiar la fecha de la visita no le cambia la suya.
-- **«Borrar visita»** sólo aparece mientras está vacía.
+- **Borrar una visita:** visita y cita son el mismo evento, así que se borran **juntas**: en la tarjeta
+  de su cita, **«Borrar cita y visita»** (sólo con la visita vacía y la cita ya terminada y sin cobro).
+  Si la cita sigue agendada, **cancélala**: su visita vacía se borra con ella. **«Borrar visita»** sólo
+  aparece en una visita **vacía y sin cita** (las de antes de que toda visita llevara su cita).
 - Si la visita es una sesión de un tratamiento, debajo del nombre del paciente dice **«Sesión 3 de
   6 — (nombre del tratamiento)»**; clic para abrir el tratamiento.
 - **«Agendar seguimiento»** (arriba, con permiso de citas) — agenda la **cita** del seguimiento desde
@@ -566,7 +572,7 @@ principal:
   con si el horario está libre. Necesita permiso de citas y el tratamiento activo.
 - **Las acciones de su cita** — debajo de la cita de la sesión, con permiso de citas, los **mismos
   botones de la agenda**: **«Completar»** (la misma ventana del cobro), **«No asistió»**,
-  **«Cancelar»** (cancela la **cita**: la sesión queda sin fecha, igual que si la cancelaras en la
+  **«Cancelar cita»** (la sesión queda sin fecha, igual que si la cancelaras en la
   agenda — para cancelar la sesión está «Cancelar sesión» en «⋯») y **«Reagendar»**. Lo demás de la
   tarjeta de la cita (precio, «¿Necesita factura?», confirmación, link de pago, factura, formulario)
   está plegado en **«Más de la cita»**.
@@ -597,7 +603,7 @@ En el botón **«⋯»** de cada sesión, lo demás:
   se cambia en «Más de la cita» o al completarla— y la tarjeta dice «(de su cita)») — elige el
   servicio de la sesión (llena nombre y precio) y cámbialos si
   quieres. Al agendarla, su cita nace con ese precio.
-- **«Notas»** de la sesión, y **«Borrar»** mientras no tenga cita ni visita.
+- **«Notas»** de la sesión, y **«Borrar sesión»** mientras no tenga cita ni visita.
 
 Dentro del tratamiento las sesiones sólo se **crean** (agendar, agregar, abrir visita): no se le
 pegan citas ni visitas hechas en otro lado. No hay «Desligar»: una sesión que no va a pasar se
@@ -641,8 +647,9 @@ quedaron «cubiertas por el paquete» ($0) se siguen viendo así en el perfil y 
 Del tratamiento completo: **«Editar»** (nombre, sesiones planeadas, notas), **«Terminar»**,
 **«Cancelar tratamiento»** y **«Reactivar»**. Al cancelar te pregunta antes: las citas agendadas de
 sus sesiones **no se cancelan** (se quedan en la agenda y al paciente no le llega ningún aviso);
-cancélalas a mano, una por una, desde la agenda o desde cada sesión. **«Borrar»** sólo funciona mientras ninguna sesión
-tenga cita ni visita y no tenga pagos registrados; si no, cancélalo.
+cancélalas a mano, una por una, desde la agenda o desde cada sesión. **«Borrar tratamiento»** sólo
+aparece mientras ninguna sesión tenga cita ni visita (y si tiene pagos registrados, no se borra); si
+no, cancélalo.
 
 En la **agenda**, una cita que es sesión de un tratamiento dice **«Sesión 3 de 6 — (nombre del
 tratamiento)»**; clic para abrir el tratamiento.

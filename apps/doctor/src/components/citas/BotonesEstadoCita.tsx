@@ -74,7 +74,9 @@ export function BotonesEstadoCita({
         onClick={onCancelar} disabled={deshabilitado}
         className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
       >
-        Cancelar
+        {/* «Cancelar cita», no «Cancelar» (2026-10-12): en la sesión y el tratamiento conviven otros
+            «Cancelar …» y uno suelto no decía qué. */}
+        Cancelar cita
       </button>
       {puedeReagendar && onReagendar && (
         <button

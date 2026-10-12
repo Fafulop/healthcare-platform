@@ -300,9 +300,10 @@ export function useBookings(doctorId: string | undefined, opts: { patientId?: st
   const deleteBooking = async (bookingId: string, patientName: string) => {
     if (
       !await practiceConfirm(
-        // H-011: say what stays — the money already received is real and is kept.
-        `¿Eliminar el registro de la cita de ${patientName}? Esta acción no se puede deshacer. ` +
-          `Si la cita tenía un cobro, el ingreso se queda en Flujo de Dinero.`
+        // 2026-10-12: una cita con cobro ya no se borra (el servidor la rechaza), así que no hay ingreso
+        // que avisar. Lo que sí se va con ella: su visita, si está vacía (08-PLAN F2).
+        `¿Borrar la cita de ${patientName}? No se puede deshacer. ` +
+          `Si tiene su visita en el expediente y está vacía, se borra con ella.`
       )
     )
       return;
@@ -315,7 +316,7 @@ export function useBookings(doctorId: string | undefined, opts: { patientId?: st
       const data = await response.json();
 
       if (data.success) {
-        toast.success("Cita eliminada exitosamente");
+        toast.success("Cita borrada");
         avisarLinksDesactivados(data.linksDesactivados);
         fetchBookings();
       } else {

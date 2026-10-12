@@ -113,9 +113,9 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           'CANCELLED (Cancelada) | ' +
           'NO_SHOW (No asistió)',
         transitions:
-          'PENDING → Confirmar (CONFIRMED) o Cancelar (CANCELLED) | ' +
-          'CONFIRMED → Completada (COMPLETED), No Asistió (NO_SHOW) o Cancelar (CANCELLED) | ' +
-          'COMPLETED / CANCELLED / NO_SHOW → sin acciones disponibles',
+          'PENDING → Confirmar (CONFIRMED) o "Cancelar cita" (CANCELLED) | ' +
+          'CONFIRMED → Completada (COMPLETED), No Asistió (NO_SHOW) o "Cancelar cita" (CANCELLED) | ' +
+          'COMPLETED / CANCELLED / NO_SHOW → ya no cambian de estado; sólo "Borrar cita" (ver abajo)',
         actions: {
 
           confirmar: {
@@ -123,8 +123,15 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             blockedIf: 'Estado es CONFIRMED, COMPLETED, CANCELLED o NO_SHOW.',
           },
 
+          'borrar cita': {
+            allowedIf: 'Sólo en COMPLETED, CANCELLED o NO_SHOW y SIN cobro registrado en Flujo de Dinero. Si tiene su ' +
+              'visita, sólo si está vacía (se borra con ella; en la visita el botón dice "Borrar cita y visita").',
+            blockedIf: 'Tiene un cobro registrado (o su factura): no sale el botón — si el cobro fue un error, se deshace ' +
+              'primero en Flujo de Dinero. O su visita tiene contenido. Cita PENDING / CONFIRMED: se cancela, no se borra.',
+          },
+
           cancelar: {
-            allowedIf: 'Desde PENDING o CONFIRMED.',
+            allowedIf: 'Desde PENDING o CONFIRMED. Botón "Cancelar cita".',
             blockedIf: 'Estado es COMPLETED, CANCELLED o NO_SHOW.',
             notes:
               'Al cancelar la reservación el horario vuelve a estado Disponible. ' +
@@ -204,10 +211,10 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
             notes:
               'Una cita tiene a lo más una visita: completarla no crea una segunda. La cita de una visita no se ' +
               'cambia ni se quita. En la sección "Cita" de la visita (con permiso de citas) está la MISMA tarjeta de la ' +
-              'cita que en la agenda: ESTADO ("Completar" con la ventana de cobro, "No asistió", "Cancelar", "Reagendar" — ' +
+              'cita que en la agenda: ESTADO ("Completar" con la ventana de cobro, "No asistió", "Cancelar cita", "Reagendar" — ' +
               'abre la agenda y regresa a la visita), COBRO Y FACTURA (precio, "¿Necesita factura?", "Link de pago" y su ' +
               'nota, datos fiscales), CONFIRMACIÓN CITA (correo / WhatsApp) y DOCUMENTOS (formulario pre-consulta). ' +
-              'Cancelar, "No asistió" o eliminar la cita con la visita vacía la borra. ' +
+              '"Cancelar cita", "No asistió" o "Borrar cita y visita" con la visita vacía la borra. ' +
               'Dentro de la visita: Plantillas ("Agregar plantilla"), Fotos y documentos ("Subir"), ' +
               'Notas ("Nueva nota"), Recetas ("Nueva receta"), informes y un Comentario.',
           },
@@ -227,7 +234,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           },
 
           borrar: {
-            allowedIf: 'Sólo mientras está vacía (botón "Borrar visita").',
+            allowedIf: 'Visita vacía: con cita se borran JUNTAS desde la tarjeta de la cita ("Borrar cita y visita", cita terminada y sin cobro); ' +
+              'si la cita sigue agendada, se cancela y su visita vacía se borra con ella. "Borrar visita" sólo en una visita vacía SIN cita.',
             blockedIf: 'Tiene plantillas, fotos, notas, recetas o informes.',
           },
         },
@@ -293,9 +301,9 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           'completar, no asistió o cancelar la cita de una sesión': {
             allowedIf:
               'En la tarjeta de la sesión, debajo de su cita (con permiso de citas): los mismos botones de la agenda — ' +
-              '"Completar" (misma ventana de cobro), "No asistió", "Cancelar" y "Reagendar". Lo demás de la tarjeta de la ' +
+              '"Completar" (misma ventana de cobro), "No asistió", "Cancelar cita" y "Reagendar". Lo demás de la tarjeta de la ' +
               'cita (precio, "¿Necesita factura?", confirmación, link de pago, factura, formulario) en "Más de la cita".',
-            notes: '"Cancelar" ahí cancela la CITA (la sesión queda sin fecha); "⋯" → "Cancelar sesión" cancela la sesión.',
+            notes: '"Cancelar cita" ahí cancela la CITA (la sesión queda sin fecha); "⋯" → "Cancelar sesión" cancela la sesión.',
           },
 
           'cancelar el tratamiento': {
@@ -318,7 +326,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           },
 
           borrar: {
-            allowedIf: '"Borrar" sólo mientras ninguna sesión tenga cita ni visita y no haya pagos registrados.',
+            allowedIf: '"Borrar tratamiento" sólo aparece mientras ninguna sesión tenga cita ni visita (y no haya pagos registrados).',
             blockedIf: 'Alguna sesión tiene cita o visita, o hay pagos del tratamiento: se usa "Cancelar tratamiento".',
           },
 

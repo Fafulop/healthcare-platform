@@ -12,7 +12,7 @@
 
 **Qué vas a ver:** «Visita del …» con sus secciones: Cita · Plantillas · Fotos y documentos · Notas · Recetas · Ventas · Comentario.
 
-**Borrar una visita:** sólo mientras está vacía, con **«Borrar visita»**.
+**Borrar una visita:** se borra **junto con su cita**, en la tarjeta de la cita → **«Borrar cita y visita»** (visita vacía; cita terminada y sin cobro). Si la cita sigue agendada, cancélala: su visita vacía se borra con ella. **«Borrar visita»** sólo sale en una visita vacía **sin cita**.
 
 **Video:** (pendiente)
 

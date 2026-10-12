@@ -214,8 +214,12 @@ export default function VisitaPage() {
             {verCitas && tratamientosUiActiva(v.doctorId) && (
               <AgendarSeguimiento patientId={patientId} visitaId={visitaId} sesion={visita.sesion ?? null} />
             )}
-            {/* Borrar sólo mientras esté vacía (la API también lo exige: 409 con contenido). */}
-            {vacia && (
+            {/* Borrar sólo mientras esté vacía (la API también lo exige: 409 con contenido) y SÓLO si no
+                tiene cita (2026-10-12): visita y cita son el mismo evento — borrarla sola dejaba la cita
+                sin su visita (2 casos en prod). Con cita se borran JUNTAS desde la tarjeta de la cita
+                («Borrar cita y visita»), o se cancela la cita. Quedan las 42 visitas sin cita de antes
+                de la regla «toda visita lleva su cita». */}
+            {vacia && !visita.cita && (
               <button
                 onClick={v.borrar}
                 disabled={v.trabajando}
@@ -265,6 +269,9 @@ export default function VisitaPage() {
                   <TarjetaDeCita
                     booking={citaDeAgenda} conExpediente={false} conNotas={false} compacta
                     sinCobro={!verCobro} sinFactura={!verFactura} {...tarjeta.manejadores}
+                    // Con contenido el servidor rechaza borrar la cita: ni se ofrece. Para ESA regla
+                    // (`visitaVacia` del servidor) el comentario guardado SÍ cuenta como contenido.
+                    borrar={vacia && !visita.comentario?.trim() ? 'cita-y-visita' : 'no'}
                   />
                 </div>
               ) : (

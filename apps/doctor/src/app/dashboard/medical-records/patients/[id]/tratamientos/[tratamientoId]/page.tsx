@@ -136,9 +136,14 @@ export default function TratamientoPage() {
                   disabled={t.trabajando} className={botonGris}
                 >Reactivar</button>
               )}
-              <button onClick={t.borrarTratamiento} disabled={t.trabajando} className="text-sm text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50">
-                <Trash2 className="w-4 h-4 inline mr-1" />Borrar
-              </button>
+              {/* 2026-10-12: sólo cuando PUEDE borrarse — con una sesión con cita o visita el servidor contesta
+                  409 y lo que procede es «Cancelar tratamiento». (Con pagos en Flujo también 409; eso no se
+                  ve desde aquí, así que el servidor lo explica.) */}
+              {tratamiento.sesiones.every((s) => !s.cita && !s.visita && s.estado !== 'agendada' && s.estado !== 'hecha') && (
+                <button onClick={t.borrarTratamiento} disabled={t.trabajando} className="text-sm text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50">
+                  <Trash2 className="w-4 h-4 inline mr-1" />Borrar tratamiento
+                </button>
+              )}
             </div>
           </div>
           {editando && <EditarDatos t={t} onListo={() => setEditando(false)} />}
@@ -690,7 +695,7 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar, tarj
                   )}
                   {!cita && !s.visita && (
                     <button role="menuitem" onClick={() => { setMenu(null); t.borrarSesion(s); }} className={`${opcionMenu} text-red-600`}>
-                      <Trash2 className="w-4 h-4" />Borrar
+                      <Trash2 className="w-4 h-4" />Borrar sesión
                     </button>
                   )}
                 </div>

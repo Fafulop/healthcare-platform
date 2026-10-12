@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Trash2, NotebookPen, ClipboardList, CheckCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp, ArchiveRestore, Wallet } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, FileText, User, Clock, Image, Pill, Loader2, Archive, NotebookPen, ClipboardList, CheckCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp, ArchiveRestore, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { NuevaVisitaModal } from '@/components/medical-records/visitas/NuevaVisitaModal';
@@ -576,7 +576,8 @@ export default function PatientProfilePage() {
                 disabled={isArchiving}
                 className="px-3 py-2 border border-red-200 text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 flex items-center gap-1.5 text-sm transition-colors"
               >
-                <Trash2 className="w-4 h-4 flex-shrink-0" />
+                {/* Archivar no borra nada (se reactiva): el bote de basura decía otra cosa. */}
+                <Archive className="w-4 h-4 flex-shrink-0" />
                 <span>{isArchiving ? 'Archivando...' : 'Archivar'}</span>
               </button>
             )}

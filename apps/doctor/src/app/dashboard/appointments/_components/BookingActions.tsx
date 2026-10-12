@@ -404,8 +404,13 @@ export function StatusActions({
   soloCobro = false,
   onUpdatePrice,
   onUpdateFacturaSolicitada,
+  borrar = "cita",
 }: {
   booking: Booking;
+  /** El botón de borrar (sólo en citas terminadas y SIN dinero): «Borrar cita» (la agenda, la sesión),
+   *  «Borrar cita y visita» (la visita, cuando sabe que está vacía) o ninguno (la visita con contenido:
+   *  el servidor la rechazaría). 2026-10-12. */
+  borrar?: "cita" | "cita-y-visita" | "no";
   /** Con estos dos, el grupo «Cobro y factura» trae también el PRECIO y «¿Necesita factura?» (la visita,
    *  «Cobros», el modal del calendario). La tabla no los pasa: los enseña en su columna PRECIO. */
   onUpdatePrice?: (id: string, price: number) => Promise<void>;
@@ -728,13 +733,18 @@ export function StatusActions({
         </div>
       );
 
-  const eliminarGroup = isTerminal && !soloCobro && (
+  // Una cita con COBRO no se borra (decisión del usuario 2026-10-12): su ingreso quedaba en Flujo sin
+  // cita y desaparecía de «Cobros». La regla la aplica el SERVIDOR (409 si tiene ingreso); aquí sólo se
+  // lee el mismo hecho que manda GET /bookings (`ingreso`) para no ofrecer un botón que va a fallar.
+  // (La factura cuelga del ingreso: sin ingreso no hay factura de la cita.)
+  const tieneDinero = !!booking.ingreso;
+  const eliminarGroup = isTerminal && !soloCobro && !tieneDinero && borrar !== "no" && (
         <div className="pt-2 first:pt-0">
           <button
             onClick={() => onDeleteBooking(booking.id, booking.patientName)}
             className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
           >
-            Eliminar
+            {borrar === "cita-y-visita" ? "Borrar cita y visita" : "Borrar cita"}
           </button>
         </div>
       );

@@ -115,7 +115,7 @@ export function FormularioStatusButton({ booking, onCreateForm, onDeleteForm }: 
             onClick={() => { setDropdownOpen(false); onDeleteForm(); }}
             className="w-full text-left text-xs px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-1.5"
           >
-            Cancelar formulario
+            Quitar formulario
           </button>
         </div>
       )}

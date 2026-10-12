@@ -983,7 +983,7 @@ export async function DELETE(
 
     const booking = await prisma.booking.findUnique({
       where: { id },
-      include: { slot: true },
+      include: { slot: true, ledgerEntry: { select: { id: true } } },
     });
 
     if (!booking) {
@@ -998,6 +998,21 @@ export async function DELETE(
       return NextResponse.json(
         { success: false, error: 'No autorizado' },
         { status: 403 }
+      );
+    }
+
+    // 2026-10-12 (decisión del usuario): una cita con COBRO no se borra. Su ingreso se quedaba en Flujo
+    // sin cita (la FK pone `booking_id` en NULL): desaparecía de «Cobros» del paciente, y su factura —que
+    // cuelga del ingreso— quedaba sin cita. La regla es SÓLO «tiene ingreso»: es lo que deshacer el cobro
+    // en Flujo quita (un link PAGADO sin ingreso se quedaría PAID para siempre y la cita, imborrable). El
+    // cliente lee el mismo hecho (`ingreso` en GET /bookings) para no ofrecer el botón.
+    if (booking.ledgerEntry) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Esta cita tiene un cobro registrado en Flujo de Dinero (y, si la hay, su factura): no se borra, para que el cobro no quede sin su cita. Si el cobro fue un error, deshazlo primero en Flujo de Dinero.',
+        },
+        { status: 409 }
       );
     }
 
