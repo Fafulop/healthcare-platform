@@ -590,9 +590,10 @@ En el botón **«⋯»** de cada sesión, lo demás:
   sesión y la cita»** (se cancela como desde la agenda, con los mismos avisos al paciente),
   **«Cancelar sólo la sesión (la cita se queda)»** o **«No cancelar nada»**. Una sesión cancelada
   se puede **«Reactivar»**.
-- **«Servicio y precio»** — elige el servicio de la sesión (llena nombre y precio) y cámbialos si
-  quieres. Si su cita aún no se concluye (y no tiene un pago ni un link de pago), la cita toma ese
-  precio, así que al concluirla ya viene puesto.
+- **«Servicio y precio»** (sólo en sesiones **sin cita viva**: con cita, el precio es el de la cita —
+  se cambia en «Más de la cita» o al completarla— y la tarjeta dice «(de su cita)») — elige el
+  servicio de la sesión (llena nombre y precio) y cámbialos si
+  quieres. Al agendarla, su cita nace con ese precio.
 - **«Notas»** de la sesión, y **«Borrar»** mientras no tenga cita ni visita.
 
 Dentro del tratamiento las sesiones sólo se **crean** (agendar, agregar, abrir visita): no se le

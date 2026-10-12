@@ -334,7 +334,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
 
           'cobrar un tratamiento': {
             allowedIf:
-              'Ya no hay precio de paquete: cada sesión tiene su servicio y su precio ("⋯" → "Servicio y precio"), y se ' +
+              'Ya no hay precio de paquete: cada sesión tiene su servicio y su precio ("⋯" → "Servicio y precio", sólo sin cita ' +
+              'viva; con cita el precio es el de la cita y se cambia en "Más de la cita" o al completarla), y se ' +
               'cobra al concluir su cita, como cualquier cita (también con link de pago).',
             notes:
               'Con permiso de Flujo de Dinero, la "Cuenta del tratamiento" suma las sesiones: Total · Pagado · Pendiente. ' +

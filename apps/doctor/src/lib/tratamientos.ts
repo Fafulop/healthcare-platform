@@ -181,11 +181,12 @@ const SESION_SELECT = {
 } as const;
 
 /**
- * TRATAMIENTOS v2 · V1 — el precio PLANEADO de una sesión, con su FUENTE (una sola regla, regla 0):
- *   1. el suyo (`sesion`);
- *   2. sin precio propio (sesiones de antes de V1): el de su cita PROPIA si aún es plan
- *      (pendiente/confirmada) y > 0 (`cita`). `finalPrice` es NOT NULL y vale 0 cuando la cita no
- *      tenía precio: 0 NO es un precio, es «no se sabe»;
+ * TRATAMIENTOS v2 · V1 → VISITAS 10-PLAN P4 — el precio PLANEADO de una sesión, con su FUENTE (una sola
+ * regla, regla 0):
+ *   1. el de su cita PROPIA si aún es plan (pendiente/confirmada) y > 0 (`cita`) — con cita viva, el
+ *      precio es el de la cita. `finalPrice` es NOT NULL y vale 0 cuando la cita no tenía precio: 0 NO es
+ *      un precio, es «no se sabe»;
+ *   2. si no, el suyo (`sesion`): el plan de una sesión sin cita;
  *   3. si no, null = «sin precio» (se dice, no se inventa un $0).
  * Es lo que se PLANEA cobrar. Lo que SE COBRÓ (al concluir la cita) es otro número: `cobrosDeCitas`.
  */
@@ -195,12 +196,16 @@ export function precioDeSesion(
     booking: { patientId: string | null; status: BookingStatus; finalPrice: Prisma.Decimal } | null;
   },
 ): { precio: number | null; fuente: 'sesion' | 'cita' | null } {
-  if (s.precio !== null) return { precio: Number(s.precio), fuente: 'sesion' };
+  // VISITAS 10-PLAN P4 — UN solo precio: con su cita VIVA (pendiente o agendada) el precio es el de la CITA
+  // (se fija al agendar, se edita en la cita y se cobra al completarla). Antes ganaba el de la sesión y,
+  // si el doctor cambiaba el de la cita en la agenda, el tratamiento seguía sumando el viejo. El de la
+  // sesión es el PLAN: cuenta sólo sin cita viva (o si la cita no trae precio).
   if (citaEfectiva(s) && s.booking
     && (s.booking.status === 'PENDING' || s.booking.status === 'CONFIRMED')
     && Number(s.booking.finalPrice) > 0) {
     return { precio: Number(s.booking.finalPrice), fuente: 'cita' };
   }
+  if (s.precio !== null) return { precio: Number(s.precio), fuente: 'sesion' };
   return { precio: null, fuente: null };
 }
 

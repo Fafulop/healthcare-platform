@@ -415,7 +415,7 @@ function CuentaTratamiento({ c, onResumen }: { c: CuentaDelTratamiento; onResume
       )}
       {c.sinPrecio > 0 && (
         <p className="text-xs text-amber-800">
-          {c.sinPrecio === 1 ? '1 sesión no tiene precio' : `${c.sinPrecio} sesiones no tienen precio`}: no {c.sinPrecio === 1 ? 'cuenta' : 'cuentan'} en el total. Pónselo en la sesión («⋯» → Servicio y precio).
+          {c.sinPrecio === 1 ? '1 sesión no tiene precio' : `${c.sinPrecio} sesiones no tienen precio`}: no {c.sinPrecio === 1 ? 'cuenta' : 'cuentan'} en el total. Pónselo en la sesión («⋯» → Servicio y precio) o, si ya tiene cita, en su cita («Más de la cita»).
         </p>
       )}
       {c.ventas.cuantas > 0 && (
@@ -669,9 +669,13 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar, tarj
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setMenu(null)} />
                 <div role="menu" className={`absolute right-0 ${menu === 'arriba' ? 'bottom-9' : 'top-9'} z-20 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1`}>
-                  <button role="menuitem" onClick={() => { setMenu(null); setEditandoServicio((v) => !v); }} className={`${opcionMenu} text-gray-700`}>
-                    Servicio y precio
-                  </button>
+                  {/* 10-PLAN P4 — con su cita viva el precio es el de la CITA (se cambia en «Más de la cita» o
+                      al completarla): aquí sólo el PLAN de una sesión sin cita. */}
+                  {!citaActiva && (
+                    <button role="menuitem" onClick={() => { setMenu(null); setEditandoServicio((v) => !v); }} className={`${opcionMenu} text-gray-700`}>
+                      Servicio y precio
+                    </button>
+                  )}
                   <button role="menuitem" onClick={() => { setMenu(null); setNotas(notas === null ? s.notas ?? '' : null); }} className={`${opcionMenu} text-gray-700`}>
                     Notas
                   </button>
