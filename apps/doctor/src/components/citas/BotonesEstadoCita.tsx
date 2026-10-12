@@ -1,6 +1,8 @@
 "use client";
 
 import { CalendarClock } from "lucide-react";
+// La regla «Vencida» vive en lib/citas/vencida (la usan también «Visitas» y la cuenta de «Cobros»).
+import { citaVencida } from "@/lib/citas/vencida";
 
 /**
  * Los botones de ESTADO de una cita: Confirmar · Completar · No asistió · Cancelar · Reagendar.
@@ -89,13 +91,6 @@ export function BotonesEstadoCita({
       )}
     </div>
   );
-}
-
-/** «Vencida» de la agenda (`getEffectiveStatus` en useBookings): pendiente/agendada cuya hora de fin ya pasó. */
-export function citaVencida(status: string, fecha: string | null | undefined, horaFin: string | null | undefined): boolean {
-  const nowMx = new Date().toLocaleString("sv-SE", { timeZone: "America/Mexico_City" });
-  const dia = (fecha ?? "").split("T")[0];
-  return (status === "PENDING" || status === "CONFIRMED") && !!dia && !!horaFin && `${dia} ${horaFin}:00` < nowMx;
 }
 
 /** La regla de la agenda para «Reagendar»: agendada, o pendiente/agendada cuya hora de fin ya pasó. */

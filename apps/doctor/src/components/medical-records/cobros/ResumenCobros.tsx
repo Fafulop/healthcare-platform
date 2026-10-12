@@ -63,8 +63,13 @@ export function ResumenCobros({ patientId, bookings, permisos, estado }: {
           <>
             {verCobro && (
               <>
-                <p>Pendiente de pago (de sus citas): <strong>{pesos(cuenta.pendiente)}</strong></p>
-                {cuenta.porCobrar > 0 && <p>Por cobrar de sus citas agendadas: <strong>{pesos(cuenta.porCobrar)}</strong></p>}
+                {/* Los mismos tres números que «Cobros» (aquí sin ventas: el perfil no las carga). */}
+                <p>Cobrado (de sus citas): <strong className="text-green-700">{pesos(cuenta.cobrado)}</strong></p>
+                <p>Por cobrar · próximas citas: <strong>{pesos(cuenta.porCobrarProximas)}</strong></p>
+                <p>Por cobrar · citas pasadas sin completar:{' '}
+                  <strong className={cuenta.porCobrarPasadas > 0 ? 'text-amber-700' : undefined}>{pesos(cuenta.porCobrarPasadas)}</strong>
+                </p>
+                {cuenta.otrosPendientes > 0 && <p className="text-xs text-gray-600">Cobros registrados sin pagar completo (de citas ya concluidas): {pesos(cuenta.otrosPendientes)}</p>}
               </>
             )}
             {verFactura && (

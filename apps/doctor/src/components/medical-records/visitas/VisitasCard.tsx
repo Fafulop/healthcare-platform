@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { AlertCircle, CalendarCheck, ChevronRight, FileText, ListChecks, Plus, StickyNote } from 'lucide-react';
 import { etiquetaSesion } from '@/lib/tratamientos-ui';
 import { BookingStatusPill, FacturaBadge, PagoBadge, type PatientBooking } from '@/components/medical-records/CitaBadges';
-import { citaVencida } from '@/components/citas/BotonesEstadoCita';
+import { citaVencida } from '@/lib/citas/vencida';
 import { ListaColapsable } from '@/components/medical-records/ListaColapsable';
 import { tieneNotas } from '@/components/citas/NotasCita';
 import type { BookingPermisos } from '@/lib/booking-permisos';

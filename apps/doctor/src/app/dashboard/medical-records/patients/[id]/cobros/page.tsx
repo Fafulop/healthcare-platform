@@ -132,21 +132,22 @@ export default function CobrosPage() {
       )}
       {verCobro && verCitas && estado === 'ok' && (
         <div className="bg-white rounded-lg shadow p-5">
-          <div className="grid grid-cols-3 gap-3">
-            <div><p className="text-xs text-gray-500">Registrado</p><p className="text-lg font-semibold text-gray-900">{pesos(totales.registrado)}</p></div>
-            <div><p className="text-xs text-gray-500">Pagado</p><p className="text-lg font-semibold text-green-700">{pesos(totales.pagado)}</p></div>
-            <div><p className="text-xs text-gray-500">Pendiente</p><p className={`text-lg font-semibold ${totales.pendiente > 0 ? 'text-amber-700' : 'text-gray-900'}`}>{pesos(totales.pendiente)}</p></div>
+          {/* 2026-10-12 (usuario: «mantenerlo simple»): tres números. «Completar» = cobrado. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div><p className="text-xs text-gray-500">Cobrado</p><p className="text-lg font-semibold text-green-700">{pesos(totales.cobrado)}</p></div>
+            <div><p className="text-xs text-gray-500">Por cobrar · próximas citas</p><p className="text-lg font-semibold text-gray-900">{pesos(totales.porCobrarProximas)}</p></div>
+            <div><p className="text-xs text-gray-500">Por cobrar · citas pasadas sin completar</p><p className={`text-lg font-semibold ${totales.porCobrarPasadas > 0 ? 'text-amber-700' : 'text-gray-900'}`}>{pesos(totales.porCobrarPasadas)}</p></div>
           </div>
           <p className="text-xs text-gray-500 mt-3">
-            Registrado = los cobros de sus citas (lo que se registró al completarlas o pagar su link)
-            {puedeVentas ? ' y sus ventas' : ''}. Pendiente = lo registrado que falta pagar.
+            Cobrado = lo que ya se pagó de sus citas (al completarlas, por link o un anticipo){puedeVentas ? ' y de sus ventas' : ''}, sin importar la fecha.
+            Por cobrar = de sus citas agendadas que todavía no se completan, su precio menos lo ya pagado.
             {puedeVentas && ventas === null && ' (Cargando las ventas…)'}
             {ventas === 'error' && ' ⚠️ No se pudieron cargar las ventas: no están en el total.'}
             {Array.isArray(ventas) && ventasTotal > ventas.length && ` ⚠️ Sólo cuentan las ${ventas.length} ventas más recientes de ${ventasTotal}.`}
           </p>
-          {(totales.porCobrar > 0 || totales.completadasSinCobro > 0) && (
+          {(totales.otrosPendientes > 0 || totales.completadasSinCobro > 0) && (
             <p className="text-xs text-gray-600 mt-1">
-              {totales.porCobrar > 0 && <>Por cobrar de sus citas agendadas: <strong>{pesos(totales.porCobrar)}</strong> (su precio). </>}
+              {totales.otrosPendientes > 0 && <>Cobros registrados sin pagar completo: <strong>{pesos(totales.otrosPendientes)}</strong> (de citas ya concluidas o de ventas: revísalos en Flujo de Dinero o en sus ventas). </>}
               {totales.completadasSinCobro > 0 && (
                 <>{totales.completadasSinCobro === 1 ? '1 cita completada' : `${totales.completadasSinCobro} citas completadas`} sin cobro registrado (cortesía o sin registrar): no suman.</>
               )}

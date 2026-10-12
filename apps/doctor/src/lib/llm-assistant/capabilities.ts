@@ -335,12 +335,15 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
 
           'ver lo que debe o pagó un paciente': {
             allowedIf:
-              'Perfil del paciente → botón "Cobros": Totales (Registrado · Pagado · Pendiente; con permiso de Flujo), sus ' +
+              'Perfil del paciente → botón "Cobros": Totales (Cobrado · Por cobrar próximas citas · Por cobrar citas pasadas sin completar; con permiso de Flujo), sus ' +
               'citas (cada una con su cobro y factura: Facturar, PDF/XML, borradores) con "Abrir su visita" y "Cobro y factura de la ' +
               'cita" (lo de dinero de la tarjeta de la agenda: precio, ¿Necesita factura?, "Completar" con su cobro, link de pago, factura), y sus ventas (con permiso de Ventas).',
             notes:
-              'Registrado = cobros registrados de sus citas + sus ventas; Pendiente = lo registrado que falta pagar. Lo ' +
-              'por cobrar de citas agendadas y las completadas sin cobro se dicen aparte y no suman.',
+              'Cobrado = lo ya pagado: al completar la cita desde la app (lo registra pagado), por link o un anticipo, + lo pagado de ' +
+              'sus ventas, sin importar la fecha. Por cobrar = de sus citas agendadas sin completar, su precio menos lo ya pagado, ' +
+              'separado en próximas y pasadas (las vencidas de la agenda). ' +
+              'Aparte, sólo si hay: cobros registrados sin pagar completo (de citas ya concluidas —p. ej. un ingreso marcado pendiente en Flujo— o ventas) y completadas sin cobro (no suman). ' +
+              'El resumen del perfil enseña los mismos tres números, sin ventas.',
           },
 
           'cobrar un tratamiento': {

@@ -424,15 +424,23 @@ permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
   «Regenerar Resumen». **Depende de tu plan.**
 - **Datos Fiscales** — RFC, Código Postal Fiscal, Razón Social, Régimen Fiscal, Uso CFDI.
   «Agregar» o «Editar».
-- **Cobros** — lo pendiente de pago y lo por cobrar de sus citas (con permiso de Flujo de Dinero),
-  cuántas citas están listas para facturar y los borradores de factura del asistente (con permiso de
+- **Cobros** — **Cobrado**, **Por cobrar · próximas citas** y **Por cobrar · citas pasadas sin
+  completar** de sus citas (con permiso de Flujo de Dinero; los mismos números que la página «Cobros»,
+  aquí sin ventas), cuántas citas están listas para facturar y los borradores de factura del asistente (con permiso de
   Facturación), **«Nueva factura manual»** y **«Ver»**, que abre la página «Cobros».
 
 **«Cobros»** (botón arriba, junto a «Notas») — el estado de cuenta del paciente en su propia página:
-- **Totales** (con permiso de Flujo de Dinero): **Registrado** (los cobros de sus citas —lo que se
-  registró al completarlas o al pagar su link— y sus ventas), **Pagado** y **Pendiente** (lo registrado
-  que falta pagar). Aparte dice lo **por cobrar** de sus citas agendadas (su precio) y cuántas citas
-  completadas no tienen cobro registrado (cortesía o sin registrar): ésas no suman.
+- **Totales** (con permiso de Flujo de Dinero), tres números:
+  - **Cobrado** — lo que **ya se pagó**: al **completar** la cita (lo registra pagado), **por link** o un
+    anticipo, y lo pagado de sus ventas. **Sin importar la fecha**.
+  - **Por cobrar · próximas citas** — de sus citas agendadas que todavía no llegan: su precio menos lo ya
+    pagado (un anticipo no se come el resto).
+  - **Por cobrar · citas pasadas sin completar** — lo mismo, de las que ya pasaron y nadie completó (las
+    «Vencidas» de la agenda): complétala, márcala «No asistió» o cancélala.
+  Aparte, sólo si hay: **cobros registrados sin pagar completo** (de una cita ya concluida o de una
+  venta — p. ej. un ingreso que marcaste «pendiente» en Flujo de Dinero; completar desde la cita lo
+  registra pagado) y cuántas citas completadas no tienen cobro registrado (cortesía o sin registrar):
+  ésas no suman.
 - **Citas** — cada una con su cobro y su factura (Facturar, PDF/XML, borradores; arriba, «Nueva factura
   manual»), y cada una con **«Abrir su visita»** y **«Cobro y factura de la cita»**: lo de dinero de la
   tarjeta de la agenda (precio, «¿Necesita factura?», **«Completar»** con la ventana del cobro, link de
