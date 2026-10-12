@@ -1,10 +1,12 @@
-import { prisma, moverVisitaAlReagendar, syncVisitaForBooking } from '@healthcare/database';
+import { prisma, moverFormularioAlReagendar, moverVisitaAlReagendar, syncVisitaForBooking } from '@healthcare/database';
 
 /**
  * VISITAS 08-PLAN F2 — la cita NACE con su visita. Lo llaman las 4 rutas que crean citas
  * (`bookings`, `bookings/instant`, `range-bookings`, `range-bookings/instant`) al FINAL, después de
  * `sesionAlReagendar` y `ligarSesionAlAgendar` (que pueden traer a esta cita la visita de una sesión):
- *   1. reagendado (`reagendaDe`) → la visita de la cita vieja pasa a ésta (toda cita, no sólo sesiones);
+ *   1. reagendado (`reagendaDe`) → la visita de la cita vieja pasa a ésta (toda cita, no sólo sesiones),
+ *      y su formulario pre-consulta también (N12, 2026-10-12 — se enseña en la visita; se mueve aunque la
+ *      visita la haya movido antes el camino de la sesión);
  *   2. `syncVisitaForBooking` → si aún no tiene, nace la suya (sólo con expediente; la pública sin
  *      expediente la recibe al ligarlo).
  * FALLA ABIERTO: agendar nunca depende de la visita (si falla, la cita queda sin visita y se repara al
@@ -27,6 +29,9 @@ export async function visitaDeCitaNueva(args: {
         && (args.role === 'ADMIN' || (!!args.callerDoctorId && args.callerDoctorId === args.doctorId));
       if (puedeMover) {
         await moverVisitaAlReagendar(tx, {
+          doctorId: args.doctorId, deBookingId: args.reagendaDe as string, aBookingId: args.bookingId, ...quien,
+        });
+        await moverFormularioAlReagendar(tx, {
           doctorId: args.doctorId, deBookingId: args.reagendaDe as string, aBookingId: args.bookingId, ...quien,
         });
       }

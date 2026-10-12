@@ -55,9 +55,8 @@ export function SelectorDeVisita({ visitas, estado, value, onChange, disabled, c
       <label className="block text-sm font-medium text-gray-700 mb-1">¿A qué visita pertenece?</label>
       {select}
       {fallo}
-      <p className="text-xs text-gray-500 mt-1">
-        Si lo vinculas a una plantilla, queda en la visita de esa plantilla.
-      </p>
+      {/* (Ya no: «Si lo vinculas a una plantilla, queda en la visita de esa plantilla» — recetas y archivos
+          ya no se ligan a una plantilla/consulta, N7/N9 2026-10-12.) */}
     </div>
   );
 }

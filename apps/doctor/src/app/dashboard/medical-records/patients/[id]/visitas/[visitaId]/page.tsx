@@ -21,6 +21,7 @@ import { useTarjetaDeCita } from '@/components/citas/useTarjetaDeCita';
 import { TarjetaDeCita } from '@/app/dashboard/appointments/_components/TarjetaDeCita';
 import { toast } from '@/lib/practice-toast';
 import { NotaCitaButton } from '@/components/citas/NotaCitaButton';
+import { FormularioDeLaVisita } from '@/components/medical-records/visitas/FormularioDeLaVisita';
 
 // Los `origen` que existen: D1 ('cita') y la API de D2 ('manual'). 'backfill' lo admite la BD (CHECK)
 // para el script `scripts/visitas/backfill-visitas.cjs`, que se DESCARTÓ el 2026-09-29 y nunca corrió:
@@ -82,12 +83,15 @@ export default function VisitaPage() {
   // cita (08 F2) — se vuelve al paciente en vez de enseñar «esta visita no existe». (Hooks arriba de los
   // `return` tempranos.)
   const booking = v.visita?.cita && v.bookings ? v.bookings.find((b) => b.id === v.visita!.cita!.id) : undefined;
+  // N12: crear / quitar el formulario desde la tarjeta vuelve a leer la sección del formulario.
+  const [versionFormulario, setVersionFormulario] = useState(0);
   const tarjeta = useTarjetaDeCita({
     // Sin permiso de `citas` no se pinta la tarjeta: tampoco se piden las citas.
     doctorId: v.permisos?.citas ? v.doctorId : null,
     patientId,
     volverA: `${pacienteHref}/visitas/${visitaId}`,
     despues: async () => {
+      setVersionFormulario((n) => n + 1);
       if (await v.recargarCita() === 'no-existe') {
         toast.success('La visita estaba vacía: se borró junto con la cita.');
         router.push(pacienteHref);
@@ -319,6 +323,10 @@ export default function VisitaPage() {
           </div>
         )}
       </Seccion>
+
+      {/* N12: el formulario pre-consulta de su cita (sólo si tiene uno). Con permiso de citas, como la
+          tarjeta de la cita: sin él, «Ver respuestas» abre una página que se lo niega. */}
+      {cita && (v.permisos?.citas ?? false) && <FormularioDeLaVisita patientId={patientId} bookingId={cita.id} version={versionFormulario} />}
 
       {/* Plantillas = cada plantilla llenada (hoy `ClinicalEncounter`), incluida la «plantilla SOAP». */}
       <Seccion

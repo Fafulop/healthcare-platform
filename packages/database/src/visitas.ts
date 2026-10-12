@@ -205,3 +205,44 @@ export async function moverVisitaAlReagendar(
   });
   return vieja.visita.id;
 }
+
+/**
+ * N12 (2026-10-12) — el formulario PRE-CONSULTA de una cita se enseña en su VISITA; al reagendar, la
+ * visita pasa a la cita nueva (por `moverVisitaAlReagendar` o, si es sesión de un tratamiento, antes,
+ * por `pasarSesionAlReagendar`), así que el formulario va con el REAGENDADO mismo — no con uno de esos
+ * dos caminos (code review: por el de la sesión se quedaba en la cita cancelada).
+ *
+ * Sólo el caso limpio: mismo doctor y paciente, la nueva nació como reagendado y NO tiene ya formulario
+ * (`booking_id` es único: moverlo encima lanzaría y desharía la transacción entera — también la visita).
+ * El de datos fiscales no (es del paciente, no de la cita). Devuelve el id del formulario movido, o null.
+ */
+export async function moverFormularioAlReagendar(
+  db: Db, args: { doctorId: string; deBookingId: string; aBookingId: string } & QuienAudita,
+): Promise<string | null> {
+  const { doctorId, deBookingId, aBookingId } = args;
+  if (!deBookingId || deBookingId === aBookingId) return null;
+  const [vieja, nueva, form, yaTiene] = await Promise.all([
+    db.booking.findFirst({ where: { id: deBookingId, doctorId }, select: { patientId: true } }),
+    db.booking.findFirst({ where: { id: aBookingId, doctorId }, select: { patientId: true, isRescheduled: true } }),
+    db.appointmentFormLink.findFirst({
+      where: { bookingId: deBookingId, doctorId, templateId: { not: 'FISCAL' } },
+      select: { id: true, status: true },
+    }),
+    db.appointmentFormLink.findFirst({ where: { bookingId: aBookingId }, select: { id: true } }),
+  ]);
+  if (!form || yaTiene || !nueva?.isRescheduled) return null;
+  if (!vieja?.patientId || vieja.patientId !== nueva.patientId) return null;
+  const { count } = await db.appointmentFormLink.updateMany({
+    where: { id: form.id, bookingId: deBookingId },
+    data: { bookingId: aBookingId },
+  });
+  if (count === 0) return null;
+  await db.patientAuditLog.create({
+    data: {
+      patientId: vieja.patientId, doctorId, userId: args.userId, userRole: args.userRole,
+      action: 'update_formulario', resourceType: 'appointment_form_link', resourceId: form.id,
+      changes: { bookingId: { from: deBookingId, to: aBookingId }, status: form.status, motivo: 'su cita se reagendó' },
+    },
+  });
+  return form.id;
+}

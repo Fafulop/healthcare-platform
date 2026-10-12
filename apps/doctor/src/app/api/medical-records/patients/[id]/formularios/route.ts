@@ -15,6 +15,25 @@ export async function GET(
     const { doctorId } = await requireDoctorAuth(request);
     const { id: patientId } = await params;
 
+    // N12 (2026-10-12) — `?bookingId=` (antes de la verificación del paciente: `doctorId` + la cita de
+    // ESTE paciente ya acotan la fila): el formulario PRE-CONSULTA de esa cita (pendiente o contestado),
+    // para enseñarlo en su VISITA (cita↔visita es 1:1). Sin el de datos fiscales: comparte tabla
+    // (`templateId 'FISCAL'`), es del paciente y no de la cita. La cita tiene que ser de ESTE paciente.
+    const bookingId = request.nextUrl.searchParams.get('bookingId');
+    if (bookingId) {
+      const fl = await prisma.appointmentFormLink.findFirst({
+        where: { doctorId, bookingId, templateId: { not: 'FISCAL' }, booking: { patientId } },
+        select: { id: true, status: true, templateId: true, createdAt: true, submittedAt: true },
+      });
+      const nombre = fl
+        ? (await prisma.encounterTemplate.findFirst({ where: { id: fl.templateId }, select: { name: true } }))?.name ?? null
+        : null;
+      return NextResponse.json({
+        success: true,
+        data: fl ? { id: fl.id, status: fl.status, templateName: nombre, createdAt: fl.createdAt, submittedAt: fl.submittedAt } : null,
+      });
+    }
+
     // Verify patient belongs to this doctor
     const patient = await prisma.patient.findFirst({
       where: { id: patientId, doctorId },

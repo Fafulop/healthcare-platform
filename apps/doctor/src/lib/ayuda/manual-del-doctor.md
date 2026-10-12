@@ -510,6 +510,10 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
 - **La fecha de cada plantilla es suya:** al agregarla desde una visita empieza con la fecha de la
   visita, pero la puedes cambiar (al crearla o al editarla). Si no es la de la visita, la lista de
   plantillas la muestra. Mover una plantilla o cambiar la fecha de la visita no le cambia la suya.
+- **«Formulario pre-consulta»:** si a su cita le mandaste el formulario (tarjeta de la cita →
+  DOCUMENTOS), la visita lo enseña: «Esperando respuesta del paciente» o «Recibido el …» con «Ver
+  respuestas». Si la cita se reagenda, el formulario se va con ella y con la visita. (Sigue saliendo
+  también en «Formularios» del perfil.)
 - **Borrar una visita:** visita y cita son el mismo evento, así que se borran **juntas**: en la tarjeta
   de su cita, **«Borrar cita y visita»** (sólo con la visita vacía y la cita ya terminada y sin cobro).
   Si la cita sigue agendada, **cancélala**: su visita vacía se borra con ella. **«Borrar visita»** sólo
