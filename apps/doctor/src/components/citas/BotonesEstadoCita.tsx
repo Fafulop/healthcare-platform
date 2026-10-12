@@ -89,10 +89,14 @@ export function BotonesEstadoCita({
   );
 }
 
-/** La regla de la agenda para «Reagendar»: agendada, o pendiente/agendada cuya hora de fin ya pasó. */
-export function citaReagendable(status: string, fecha: string | null | undefined, horaFin: string | null | undefined): boolean {
+/** «Vencida» de la agenda (`getEffectiveStatus` en useBookings): pendiente/agendada cuya hora de fin ya pasó. */
+export function citaVencida(status: string, fecha: string | null | undefined, horaFin: string | null | undefined): boolean {
   const nowMx = new Date().toLocaleString("sv-SE", { timeZone: "America/Mexico_City" });
   const dia = (fecha ?? "").split("T")[0];
-  const vencida = (status === "PENDING" || status === "CONFIRMED") && !!dia && !!horaFin && `${dia} ${horaFin}:00` < nowMx;
-  return status === "CONFIRMED" || vencida;
+  return (status === "PENDING" || status === "CONFIRMED") && !!dia && !!horaFin && `${dia} ${horaFin}:00` < nowMx;
+}
+
+/** La regla de la agenda para «Reagendar»: agendada, o pendiente/agendada cuya hora de fin ya pasó. */
+export function citaReagendable(status: string, fecha: string | null | undefined, horaFin: string | null | undefined): boolean {
+  return status === "CONFIRMED" || citaVencida(status, fecha, horaFin);
 }

@@ -440,6 +440,12 @@ abre los demás y «Ver menos» los vuelve a cerrar.
 Una **visita** junta lo que pasó **un día con un paciente**: sus plantillas (consultas), fotos y
 documentos, notas, recetas e informes, la cita y un comentario.
 
+En la tarjeta **«Visitas»** del perfil, cada visita dice lo mismo, sea **«Próxima»** (arriba, en
+azul) o ya pasada: fecha, hora de inicio y de fin, el estado de su cita (Agendada, Completada,
+**Vencida** si ya pasó su hora sin completarse, Cancelada, No asistió), el servicio, «Vacía» o lo que
+tiene, las notas de la cita y su cobro y factura (**«Pagado»** en cuanto se paga, aunque sea antes de
+la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
+
 **Cómo nace una visita:**
 
 - **Sola, al agendar una cita** de un paciente con expediente: la cita y su visita son el mismo
