@@ -58,6 +58,11 @@ function parseNoteTitle(content: string): string {
 }
 
 // SAT catalogs for the fiscal edit modal
+// 2026-10-12 (pedido del usuario) — la tarjeta «Resumen Paciente» (resumen del expediente con IA) va
+// ESCONDIDA por ahora: quizá no se use. NO está borrada: la tarjeta, su ventana y la ruta siguen; para
+// volver a mostrarla basta con poner esto en `true` (y regresar su renglón al manual de Ayuda).
+const MOSTRAR_RESUMEN_PACIENTE = false;
+
 const REGIMENES_FISCALES = [
   { value: '601', label: '601 - General de Ley PM' },
   { value: '603', label: '603 - PM sin Fines Lucrativos' },
@@ -395,6 +400,8 @@ export default function PatientProfilePage() {
         if (d.success) setPatientFormularios(d.data);
       })
       .catch(() => {});
+    // Escondida, no se pide el resumen guardado (nadie lo vería).
+    if (!MOSTRAR_RESUMEN_PACIENTE) { setLoadingSummary(false); return; }
     fetch(`/api/medical-records/patients/${patientId}/summary`)
       .then((r) => r.json())
       .then((d) => {
@@ -868,7 +875,9 @@ export default function PatientProfilePage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Resumen Paciente — first card of the column on purpose: it's the
               one the doctor reads before anything else, and buried at the
-              bottom nobody found the "Generar Resumen" button. */}
+              bottom nobody found the "Generar Resumen" button.
+              Escondida por ahora (MOSTRAR_RESUMEN_PACIENTE, 2026-10-12). */}
+          {MOSTRAR_RESUMEN_PACIENTE && (
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
               <Sparkles className="w-5 h-5 text-purple-500" />
@@ -934,6 +943,7 @@ export default function PatientProfilePage() {
               </div>
             )}
           </div>
+          )}
 
           {/* Fiscal Data — ALWAYS rendered (F2c follow-up #1): the old gate
               (requiereFactura && rfc) hid the card exactly for the patients

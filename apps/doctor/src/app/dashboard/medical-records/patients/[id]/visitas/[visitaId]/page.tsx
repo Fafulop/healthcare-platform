@@ -393,48 +393,7 @@ export default function VisitaPage() {
         )}
       </Seccion>
 
-      <Seccion
-        icon={<ImageIcon className="w-5 h-5 text-purple-600" />}
-        titulo="Fotos y documentos"
-        accion={<BotonAgregar href={conVisita('media/upload')}>Subir</BotonAgregar>}
-      >
-        {visita.fotos.length > 0 ? (
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-            {visita.fotos.map((f) => (
-              <a key={f.id} href={f.fileUrl} target="_blank" rel="noopener noreferrer" className="block group" title={f.description || f.fileName}>
-                {f.mediaType === 'image' ? (
-                  <img src={f.thumbnailUrl || f.fileUrl} alt={f.fileName} className="w-full aspect-square object-cover rounded-md border border-gray-200 group-hover:border-blue-300" />
-                ) : (
-                  <div className="w-full aspect-square rounded-md border border-gray-200 bg-gray-50 flex items-center justify-center p-1 group-hover:border-blue-300">
-                    <span className="text-[11px] text-gray-600 text-center break-all line-clamp-3">{f.fileName}</span>
-                  </div>
-                )}
-              </a>
-            ))}
-          </div>
-        ) : (
-          <Nada>Ninguna foto ni documento todavía.</Nada>
-        )}
-      </Seccion>
-
-      <Seccion
-        icon={<NotebookPen className="w-5 h-5 text-amber-600" />}
-        titulo="Notas"
-        accion={<BotonAgregar href={conVisita('notas')}>Nueva nota</BotonAgregar>}
-      >
-        {visita.notas.length > 0 ? (
-          <div className="space-y-2">
-            {visita.notas.map((n) => (
-              <Link key={n.id} href={`${pacienteHref}/notas`} className="block px-3 py-2 rounded-md border border-gray-100 hover:bg-gray-50">
-                <p className="text-sm text-gray-900 line-clamp-2 whitespace-pre-wrap">{n.content.trim() || 'Nota vacía'}</p>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <Nada>Ninguna nota todavía.</Nada>
-        )}
-      </Seccion>
-
+      {/* Orden (2026-10-12, pedido del usuario): Plantillas · Recetas · Ventas · Fotos y documentos · Notas. */}
       <Seccion
         icon={<Pill className="w-5 h-5 text-green-600" />}
         titulo="Recetas"
@@ -503,6 +462,48 @@ export default function VisitaPage() {
           )}
         </Seccion>
       )}
+
+      <Seccion
+        icon={<ImageIcon className="w-5 h-5 text-purple-600" />}
+        titulo="Fotos y documentos"
+        accion={<BotonAgregar href={conVisita('media/upload')}>Subir</BotonAgregar>}
+      >
+        {visita.fotos.length > 0 ? (
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            {visita.fotos.map((f) => (
+              <a key={f.id} href={f.fileUrl} target="_blank" rel="noopener noreferrer" className="block group" title={f.description || f.fileName}>
+                {f.mediaType === 'image' ? (
+                  <img src={f.thumbnailUrl || f.fileUrl} alt={f.fileName} className="w-full aspect-square object-cover rounded-md border border-gray-200 group-hover:border-blue-300" />
+                ) : (
+                  <div className="w-full aspect-square rounded-md border border-gray-200 bg-gray-50 flex items-center justify-center p-1 group-hover:border-blue-300">
+                    <span className="text-[11px] text-gray-600 text-center break-all line-clamp-3">{f.fileName}</span>
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+        ) : (
+          <Nada>Ninguna foto ni documento todavía.</Nada>
+        )}
+      </Seccion>
+
+      <Seccion
+        icon={<NotebookPen className="w-5 h-5 text-amber-600" />}
+        titulo="Notas"
+        accion={<BotonAgregar href={conVisita('notas')}>Nueva nota</BotonAgregar>}
+      >
+        {visita.notas.length > 0 ? (
+          <div className="space-y-2">
+            {visita.notas.map((n) => (
+              <Link key={n.id} href={`${pacienteHref}/notas`} className="block px-3 py-2 rounded-md border border-gray-100 hover:bg-gray-50">
+                <p className="text-sm text-gray-900 line-clamp-2 whitespace-pre-wrap">{n.content.trim() || 'Nota vacía'}</p>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <Nada>Ninguna nota todavía.</Nada>
+        )}
+      </Seccion>
 
       {/* Informes: siempre cuelgan de una plantilla (su consulta); se crean desde ella. */}
       {visita.informes.length > 0 && (

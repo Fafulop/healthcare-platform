@@ -447,8 +447,6 @@ permiso de Citas) y **«Nueva nota»** (abre Notas con una nota en blanco).
 
 **Columna derecha:**
 
-- **Resumen Paciente** — un resumen del expediente hecho con IA: «Generar Resumen» /
-  «Regenerar Resumen». **Depende de tu plan.**
 - **Datos Fiscales** — RFC, Código Postal Fiscal, Razón Social, Régimen Fiscal, Uso CFDI.
   «Agregar» o «Editar».
 - **Cobros** — **Cobrado**, **Por cobrar · próximas citas** y **Por cobrar · citas pasadas sin
@@ -554,8 +552,9 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
   **vacía**, la visita se borra con la cita y vuelves al perfil del paciente. La cita de una visita no se cambia por otra ni se quita (son el mismo evento). Las visitas **sin
   cita** que quedaron de antes (ya no se crean) conservan su **Fecha** corregible (hoy o antes, y no
   el día de una cita del paciente).
-- **Plantillas** («Agregar plantilla») · **Fotos y documentos** («Subir») · **Notas** («Nueva
-  nota») · **Recetas** («Nueva receta») · **Comentario** («Guardar comentario»). Lo que agregas
+- En este orden: **Plantillas** («Agregar plantilla») · **Recetas** («Nueva receta») · **Ventas**
+  («Nueva venta», con permiso de Ventas) · **Fotos y documentos** («Subir») · **Notas** («Nueva nota»)
+  · **Comentario** («Guardar comentario»). Lo que agregas
   desde aquí queda en esta visita. Los **Informes médicos** se hacen desde su plantilla y aparecen
   aquí cuando existen.
 - **«Enviar»** en cada **receta emitida** y en cada **venta** (no cancelada): abre la vista previa del
