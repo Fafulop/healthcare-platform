@@ -8,7 +8,7 @@ import { ArrowLeft, Edit2, Loader2, ShoppingCart, FileText } from "lucide-react"
 import { formatCurrency, formatDateLong } from "@/lib/practice-utils";
 import { useVentaDetail, statusConfig, paymentStatusConfig } from "../_components/useVentaDetail";
 import { NotaVentaModal } from "../_components/NotaVentaModal";
-import { compradorDeVenta } from "../_components/comprador";
+import { compradorDeVenta, notaDeVenta } from "../_components/comprador";
 
 export default function ViewSalePage() {
   const { status } = useSession({
@@ -254,19 +254,8 @@ export default function ViewSalePage() {
 
       {showNota && (
         <NotaVentaModal
-          venta={{
-            ...sale,
-            // The nota names the buyer the same way the page does (patient, or an old sale's client).
-            etiquetaComprador: comprador.esPaciente ? 'Paciente' : 'Cliente',
-            client: {
-              businessName: comprador.nombre,
-              rfc: comprador.rfc,
-              contactName: comprador.esPaciente ? null : comprador.detalle,
-              email: comprador.email,
-              phone: comprador.phone,
-              street: comprador.direccion,
-            },
-          }}
+          // The nota names the buyer the same way the page does (patient, or an old sale's client).
+          venta={notaDeVenta(sale)}
           onClose={() => setShowNota(false)}
         />
       )}

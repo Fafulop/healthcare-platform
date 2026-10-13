@@ -16,7 +16,9 @@
  * and «Abrir en otra pestaña» never act on a stale or revoked one.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Download, Loader2, X } from 'lucide-react';
+import { Download, Loader2, Send, Share2, X } from 'lucide-react';
+import { authFetch } from '@/lib/auth-fetch';
+import { compartirArchivo } from '@/components/citas/compartir-archivo';
 import type { jsPDF as JsPDF } from 'jspdf';
 import { useDoctorProfile } from '@/contexts/DoctorProfileContext';
 import { DEFAULT_PDF_SETTINGS, type PdfSettings } from '@/types/pdf-settings';
@@ -45,6 +47,8 @@ interface Cargado {
   rx: AjustesRx;
   logoB64: string | null;
   sigB64: string | null;
+  /** El logo / la firma que el diseño pide y NO se pudieron bajar (la hoja sale sin ellos). */
+  imagenesFaltantes: string[];
   jsPDF: typeof JsPDF;
   autoTable: (doc: JsPDF, options: any) => void;
 }
@@ -54,7 +58,15 @@ export type DibujarDocumento = (
   emisor: EmisorNota, diseno: DisenoReceta, rx: AjustesRx,
 ) => JsPDF;
 
-export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redibujarCon, ajustesDe = ajustesRx, onClose }: {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
+/** Mandarle al paciente ESTE documento (2026-10-12): la receta o la nota de venta, desde la visita. */
+export interface EnvioDocumento {
+  tipo: 'receta' | 'venta';
+  id: string | number;
+}
+
+export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redibujarCon, ajustesDe = ajustesRx, envio, onClose }: {
   /** El encabezado de la ventana («Nota de venta · VTA-2026-001»). */
   titulo: string;
   nombreArchivo: string;
@@ -67,8 +79,13 @@ export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redib
   /** Which print settings this document uses: the receta's by default; the visita PDF has its own
    * («PDF de consulta»: header, footer, margins, sections) — `ajustesConsulta`. */
   ajustesDe?: (settings: PdfSettings) => AjustesRx;
+  /** Con esto, además de «Descargar»: «Enviar por correo» (el PDF adjunto, desde el Gmail del doctor, al
+   *  correo del expediente — lo decide el servidor) y «Compartir PDF» (el «Compartir» del equipo: WhatsApp;
+   *  el PDF ya está hecho, así que abre al instante en el clic). Se manda EXACTAMENTE lo que se ve. */
+  envio?: EnvioDocumento;
   onClose: () => void;
 }) {
+  const [enviando, setEnviando] = useState(false);
   const { doctorProfile } = useDoctorProfile();
   const [cargado, setCargado] = useState<Cargado | null>(null);
   const [url, setUrl] = useState<string | null>(null);
@@ -101,6 +118,10 @@ export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redib
         setCargado({
           template, templateStatus: templateRes?.status ?? null, ajustesOk: !!settingsJson?.success,
           rx, logoB64, sigB64, jsPDF, autoTable: autoTable as Cargado['autoTable'],
+          imagenesFaltantes: [
+            ...(logoUrl && rx.showLogo && !logoB64 ? ['el logo'] : []),
+            ...(sigUrl && rx.showSignature && !sigB64 ? ['la firma'] : []),
+          ],
         });
       } catch (err) {
         console.error(`Error loading the design of ${queEs}:`, err);
@@ -162,6 +183,36 @@ export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redib
     }
   };
 
+  // No se le manda al paciente una hoja SIN el diseño (logo, firma, cédula) — la descarga avisa; mandar no.
+  // Ni sin ajustes de impresión, ni sin el logo / la firma que el diseño pide, ni sin el nombre del médico.
+  const diseñoCompleto = !!cargado?.template && cargado.ajustesOk && cargado.imagenesFaltantes.length === 0
+    && !!(cargado.template?.doctorFullName || nombrePerfil);
+
+  const enviarPorCorreo = async () => {
+    if (!docRef.current || !envio) return;
+    setEnviando(true);
+    try {
+      const pdfBase64 = (docRef.current.output('datauristring') as string).split(',')[1] ?? '';
+      const res = await authFetch(`${API_URL}/api/enviar-documento/${envio.tipo}/${encodeURIComponent(String(envio.id))}`, {
+        method: 'POST', body: JSON.stringify({ pdfBase64, nombreArchivo }),
+      });
+      const d = await res.json().catch(() => null);
+      if (res.ok && d?.success) toast.success(d.message || 'Correo enviado');
+      else toast.error(d?.error || `No se pudo enviar ${queEs}`);
+    } catch {
+      toast.error(`No se pudo enviar ${queEs}`);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const compartir = () => {
+    if (!docRef.current) return;
+    // Sin esperas antes de `share` (el navegador sólo lo deja justo después del clic).
+    const archivo = new File([docRef.current.output('blob') as Blob], nombreArchivo, { type: 'application/pdf' });
+    void compartirArchivo(archivo);
+  };
+
   // What the sheet is missing, said out loud (never a silently different document).
   const avisos: string[] = [];
   if (cargado && !cargado.template) {
@@ -172,6 +223,9 @@ export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redib
   if (cargado && !cargado.ajustesOk) {
     avisos.push(`No se cargaron los ajustes de impresión: ${queEs} usa los de fábrica (A4, sin márgenes de membrete; logo y firma visibles si los hay). Si imprimes en hoja membretada, pídele al titular que haga la descarga.`);
   }
+  if (cargado && cargado.imagenesFaltantes.length > 0) {
+    avisos.push(`No se pudo cargar ${cargado.imagenesFaltantes.join(' ni ')}: ${queEs} sale sin ${cargado.imagenesFaltantes.length > 1 ? 'ellos' : 'eso'}. Cierra esta ventana y vuelve a intentarlo.`);
+  }
   if (emisor && !emisor.doctorFullName) {
     avisos.push(`No se pudo obtener el nombre del médico: ${queEs} sale sin él.`);
   }
@@ -181,7 +235,27 @@ export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redib
       <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl h-[92vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">{titulo}</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {envio && (
+              <>
+                <button
+                  onClick={enviarPorCorreo}
+                  disabled={!url || error || enviando || !diseñoCompleto}
+                  title={!diseñoCompleto ? 'No se cargó el diseño (logo, firma): no se manda una hoja distinta a la real' : undefined}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:opacity-50 text-sm font-semibold"
+                >
+                  {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}Enviar por correo
+                </button>
+                <button
+                  onClick={compartir}
+                  disabled={!url || error || enviando || !diseñoCompleto}
+                  title="Abre el «Compartir» de tu equipo con el PDF: elige WhatsApp y el chat del paciente"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-sm font-semibold"
+                >
+                  <Share2 className="w-4 h-4" />Compartir PDF
+                </button>
+              </>
+            )}
             <button
               onClick={descargar}
               disabled={!url || error}

@@ -61,6 +61,11 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   // VENTAS PACIENTE paso 4 — the cita's «Nota de venta» shows its CHARGE (folio ING-…, amount, forma
   // de pago): money, so `flujo` like the charge itself — not `citas`. Specific beats `appointments`.
   { prefix: 'appointments/bookings/*/nota', key: 'flujo' },
+  // 2026-10-12 — mandar por correo la receta / la nota de venta (PDF adjunto) desde la visita. SÓLO el
+  // titular: el PDF lo arma el navegador y el correo sale de SU Gmail con su nombre — un ayudante podría
+  // mandar cualquier PDF como «Tu receta» (code review). Emitir recetas ya es sólo del titular.
+  { prefix: 'enviar-documento/receta', key: 'OWNER_ONLY' },
+  { prefix: 'enviar-documento/venta', key: 'OWNER_ONLY' },
   // N11 (2026-10-12) — mandar el link de pago por correo = los links de pago (Pagos), como crearlo. Los
   // otros dos (formulario, datos fiscales) son de la cita: `appointments` → citas.
   { prefix: 'appointments/bookings/*/enviar-enlace/pago', key: 'pagos' },

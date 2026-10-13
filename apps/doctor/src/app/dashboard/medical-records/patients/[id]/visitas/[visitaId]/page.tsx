@@ -22,6 +22,7 @@ import { TarjetaDeCita } from '@/app/dashboard/appointments/_components/TarjetaD
 import { toast } from '@/lib/practice-toast';
 import { NotaCitaButton } from '@/components/citas/NotaCitaButton';
 import { FormularioDeLaVisita } from '@/components/medical-records/visitas/FormularioDeLaVisita';
+import { EnviarDocumento } from '@/components/medical-records/visitas/EnviarDocumento';
 
 // Los `origen` que existen: D1 ('cita') y la API de D2 ('manual'). 'backfill' lo admite la BD (CHECK)
 // para el script `scripts/visitas/backfill-visitas.cjs`, que se DESCARTÓ el 2026-09-29 y nunca corrió:
@@ -112,7 +113,9 @@ export default function VisitaPage() {
 
   // Ventas de esta visita (apps/api). null = cargando · 'error' = no se pudo (se DICE: una lista
   // vacía afirmaría que no se le vendió nada).
-  const { can, loading: permisosCargando } = usePermissions();
+  const { can, isOwner: esTitularRaw, loading: permisosCargando } = usePermissions();
+  // Mandar la receta / la nota por correo o WhatsApp: sólo el titular (el correo sale de SU Gmail).
+  const esTitular = esTitularRaw === true;
   const puedeVentas = !permisosCargando && can('ventas');
   const [ventas, setVentas] = useState<VentaDeVisita[] | null | 'error'>(null);
   useEffect(() => {
@@ -446,10 +449,14 @@ export default function VisitaPage() {
         {visita.recetas.length > 0 ? (
           <div className="space-y-2">
             {visita.recetas.map((r) => (
-              <Link key={r.id} href={`${pacienteHref}/prescriptions/${r.id}`} className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-100 hover:bg-gray-50">
-                <span className="text-sm text-gray-900 truncate">{r.diagnosis || 'Receta'}</span>
-                <span className="text-xs text-gray-500 shrink-0">{RECETA_ESTADO[r.status] ?? r.status}</span>
-              </Link>
+              <div key={r.id} className="flex items-center gap-2">
+                <Link href={`${pacienteHref}/prescriptions/${r.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-100 hover:bg-gray-50">
+                  <span className="text-sm text-gray-900 truncate">{r.diagnosis || 'Receta'}</span>
+                  <span className="text-xs text-gray-500 shrink-0">{RECETA_ESTADO[r.status] ?? r.status}</span>
+                </Link>
+                {/* 2026-10-12: sólo una receta EMITIDA se le manda al paciente. */}
+                {r.status === 'issued' && esTitular && <EnviarDocumento tipo="receta" id={r.id} patientId={patientId} />}
+              </div>
             ))}
           </div>
         ) : (
@@ -478,7 +485,8 @@ export default function VisitaPage() {
           ) : ventas.length > 0 ? (
             <div className="space-y-2">
               {ventas.map((s) => (
-                <Link key={s.id} href={`/dashboard/practice/ventas/${s.id}`} className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-100 hover:bg-gray-50">
+                <div key={s.id} className="flex items-center gap-2">
+                <Link href={`/dashboard/practice/ventas/${s.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-100 hover:bg-gray-50">
                   <span className="text-sm text-gray-900 truncate">
                     {s.saleNumber}
                     <span className="text-gray-500"> · {s.items.map((i) => i.description).join(', ')}</span>
@@ -492,6 +500,8 @@ export default function VisitaPage() {
                     </span>
                   </span>
                 </Link>
+                {s.status !== 'CANCELLED' && esTitular && <EnviarDocumento tipo="venta" id={s.id} patientId={patientId} />}
+                </div>
               ))}
             </div>
           ) : (

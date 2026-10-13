@@ -540,6 +540,12 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
   nota») · **Recetas** («Nueva receta») · **Comentario** («Guardar comentario»). Lo que agregas
   desde aquí queda en esta visita. Los **Informes médicos** se hacen desde su plantilla y aparecen
   aquí cuando existen.
+- **«Enviar»** en cada **receta emitida** y en cada **venta** (no cancelada): abre la vista previa del
+  PDF —la misma que descargas— con **«Enviar por correo»** (el PDF adjunto, desde tu Gmail, al correo
+  del expediente del paciente) y **«Compartir PDF»** (el «Compartir» de tu equipo: eliges WhatsApp y el
+  chat del paciente; el PDF no se publica en internet). Se manda exactamente lo que ves. **Sólo el
+  titular de la cuenta** lo ve (el correo sale de su Gmail, con su nombre), y no se manda si no cargó el
+  diseño de «Receta PDF» (logo, firma). Cada envío por correo queda en la bitácora del expediente.
 - **«Mover a…»** en una plantilla la pasa a otra visita (o a «Sin visita»), y se lleva sus fotos,
   recetas e informes. **«Traerla aquí…»** trae una consulta sin visita.
 - **La fecha de cada plantilla es suya:** al agregarla desde una visita empieza con la fecha de la

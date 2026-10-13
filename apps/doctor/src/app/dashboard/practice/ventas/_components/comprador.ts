@@ -59,3 +59,23 @@ export function compradorDeVenta(sale: { patient?: VentaPatient | null; client?:
   // A patient sale whose patient was deleted (plain link, no FK): say it, don't render blank.
   return { esPaciente: true, nombre: 'Paciente eliminado', detalle: null, email: null, phone: null, rfc: null, direccion: null };
 }
+
+/**
+ * Los datos de la NOTA DE VENTA de una venta — cómo se nombra al comprador (paciente, o el cliente de una
+ * venta vieja). Un solo lugar: la página de la venta y la visita (mandarla por correo / WhatsApp, 2026-10-12).
+ */
+export function notaDeVenta<S extends { patient?: VentaPatient | null; client?: VentaClient | null }>(sale: S) {
+  const comprador = compradorDeVenta(sale);
+  return {
+    ...sale,
+    etiquetaComprador: comprador.esPaciente ? 'Paciente' : 'Cliente',
+    client: {
+      businessName: comprador.nombre,
+      rfc: comprador.rfc,
+      contactName: comprador.esPaciente ? null : comprador.detalle,
+      email: comprador.email,
+      phone: comprador.phone,
+      street: comprador.direccion,
+    },
+  };
+}

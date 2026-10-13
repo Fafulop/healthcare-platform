@@ -771,3 +771,95 @@ export async function sendEnlaceEmail(
   const raw = createRawMessage(`${fromName} <${fromEmail}>`, data.patientEmail, TEXTO_ENLACE[data.tipo].asunto(data), buildEnlaceEmailHtml(data));
   await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
 }
+
+// ─── Un documento PDF ADJUNTO (receta / nota de venta) desde la visita — 2026-10-12 ─────────────
+// El PDF lo dibuja el navegador (es el mismo que el doctor ve en la vista previa y descarga) y llega aquí
+// en base64; el DESTINATARIO lo decide el servidor (el correo del expediente del paciente).
+
+export type TipoDocumento = 'receta' | 'venta';
+
+function createRawMessageConAdjunto(
+  from: string, to: string, subject: string, htmlBody: string,
+  adjunto: { nombre: string; base64: string; mime: string },
+): string {
+  const boundary = `--mixed_${Date.now()}`;
+  // Las líneas del base64 en trozos de 76 (RFC 2045).
+  const b64 = adjunto.base64.replace(/(.{76})/g, '$1\r\n');
+  // Nombre con acentos (RFC 2231 `filename*`) y SIEMPRE .pdf; el `filename` plano queda en ASCII de respaldo.
+  const base = adjunto.nombre.replace(/[\x00-\x1f\x7f"\\/]/g, '').slice(0, 120).replace(/\.pdf$/i, '') || 'documento';
+  const nombreUtf8 = `${base}.pdf`;
+  const nombreAscii = `${base.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.\-]/g, '_')}.pdf`;
+  const lines = [
+    `From: ${from}`,
+    `To: ${to.replace(/[\r\n]/g, '')}`,
+    `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    Buffer.from(htmlBody, 'utf-8').toString('base64'),
+    '',
+    `--${boundary}`,
+    `Content-Type: ${adjunto.mime}; name="${nombreAscii}"`,
+    'Content-Transfer-Encoding: base64',
+    `Content-Disposition: attachment; filename="${nombreAscii}"; filename*=UTF-8''${encodeURIComponent(nombreUtf8).replace(/['()*!]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`,
+    '',
+    b64,
+    '',
+    `--${boundary}--`,
+  ];
+  return Buffer.from(lines.join('\r\n')).toString('base64url');
+}
+
+const TEXTO_DOCUMENTO: Record<TipoDocumento, { asunto: (doctor: string) => string; titulo: string; parrafo: (doctor: string) => string }> = {
+  receta: {
+    asunto: (d) => `Tu receta – ${d}`,
+    titulo: 'Tu receta',
+    parrafo: (d) => `${escapeHtml(d)} te envía tu receta. La encuentras adjunta en este correo (PDF).`,
+  },
+  venta: {
+    asunto: (d) => `Tu nota de venta – ${d}`,
+    titulo: 'Tu nota de venta',
+    parrafo: (d) => `${escapeHtml(d)} te envía tu nota de venta. La encuentras adjunta en este correo (PDF).`,
+  },
+};
+
+export async function sendDocumentoEmail(
+  data: { tipo: TipoDocumento; patientName: string; patientEmail: string; doctorName: string; nombreArchivo: string; pdfBase64: string },
+  accessToken: string, refreshToken: string | null, fromName: string, fromEmail: string,
+): Promise<void> {
+  const t = TEXTO_DOCUMENTO[data.tipo];
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+      <tr><td style="background:#2563eb;padding:32px 40px;text-align:center;">
+        <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">tusalud.pro</p>
+        <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">${t.titulo}</h1>
+      </td></tr>
+      <tr><td style="padding:32px 40px 28px;">
+        <p style="margin:0 0 8px;color:#1a1a2e;font-size:16px;">Hola <strong>${escapeHtml(data.patientName)}</strong>,</p>
+        <p style="margin:0;color:#555;font-size:14px;line-height:1.6;">${t.parrafo(data.doctorName)}</p>
+      </td></tr>
+      <tr><td style="background:#f8faff;padding:24px 40px;border-top:1px solid #e5ecf5;text-align:center;">
+        <p style="margin:0;color:#888;font-size:13px;">Si tienes alguna pregunta, responde este correo.</p>
+        <p style="margin:10px 0 0;color:#bbb;font-size:11px;">tusalud.pro · Plataforma de salud digital en México</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#bbb;">Tus datos son tratados conforme a nuestro <a href="https://tusalud.pro/privacidad" style="color:#93c5fd;text-decoration:none;">Aviso de Privacidad</a> · <a href="mailto:privacidad@tusalud.pro" style="color:#93c5fd;text-decoration:none;">privacidad@tusalud.pro</a></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+  const auth = buildAuthedClient(accessToken, refreshToken);
+  const gmail = google.gmail({ version: 'v1', auth });
+  const raw = createRawMessageConAdjunto(`${fromName} <${fromEmail}>`, data.patientEmail, t.asunto(data.doctorName), html,
+    { nombre: data.nombreArchivo, base64: data.pdfBase64, mime: 'application/pdf' });
+  await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
+}
