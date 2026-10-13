@@ -60,6 +60,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export function TarjetaDeCita({
   booking, conExpediente = true, conNotas = true, sinEstado = false, sinCobro = false, sinFactura = false, soloCobro = false, compacta = false, borrar = "cita",
+  facturarHref,
   onUpdateStatus, onUpdateExtendedBlock, onUpdateFacturaSolicitada, onUpdatePatientLink,
   onUpdatePrice, onDeleteBooking, onOpenFormLinkModal, onDeleteFormLink, onSendEmail,
   onReschedule, onCompleteBooking,
@@ -74,6 +75,8 @@ export function TarjetaDeCita({
   compacta?: boolean;
   /** Ver `StatusActions`: «Borrar cita» · «Borrar cita y visita» · ninguno. */
   borrar?: "cita" | "cita-y-visita" | "no";
+  /** VISITAS 11-PLAN — sólo la visita: «Facturar» (la cita + sus ventas). Ver `StatusActions`. */
+  facturarHref?: string | null;
 }) {
   // El bloqueo del horario: sólo tiene sentido en una cita CONFIRMED (no hay agenda futura que ocupar en
   // una terminal) — mismo gate que la tabla.
@@ -133,6 +136,7 @@ export function TarjetaDeCita({
           sinFactura={sinFactura}
           soloCobro={soloCobro}
           borrar={borrar}
+          facturarHref={facturarHref}
           onUpdatePrice={onUpdatePrice}
           onUpdateFacturaSolicitada={onUpdateFacturaSolicitada}
           onUpdateStatus={onUpdateStatus}

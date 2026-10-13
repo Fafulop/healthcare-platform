@@ -148,8 +148,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Este movimiento no tiene un CFDI vinculado' }, { status: 400 });
     }
 
-    // Keep hasFactura true if there are still PDF facturas uploaded
-    const stillHasFactura = entry._count.facturas > 0;
+    // Keep hasFactura true if there are still PDF facturas uploaded — or (VISITAS 11-PLAN) if a live
+    // factura of a visita covers this entry (`cfdi_ingresos`).
+    const cubiertaPorVisita = await prisma.cfdiIngreso.count({ where: { ledgerEntryId: entryId, cfdi: { status: { not: 'cancelled' } } } });
+    const stillHasFactura = entry._count.facturas > 0 || cubiertaPorVisita > 0;
 
     await prisma.$transaction(async (tx) => {
       // Remove linked LedgerFacturaXml records for this CFDI

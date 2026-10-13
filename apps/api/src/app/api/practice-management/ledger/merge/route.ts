@@ -123,6 +123,19 @@ export async function POST(request: NextRequest) {
         data: { ledgerEntryId: targetId },
       });
 
+      // 4b. VISITAS 11-PLAN H2: los enlaces de `cfdi_ingresos` del ingreso que se borra pasan al que queda (sin
+      // duplicar la llave si la misma factura ya cubre a los dos). Sin esto la fusión truena: la FK de
+      // `cfdi_ingresos` no deja borrar un ingreso cubierto.
+      const enlaces = await tx.cfdiIngreso.findMany({ where: { ledgerEntryId: sourceId }, select: { cfdiEmittedId: true } });
+      for (const { cfdiEmittedId } of enlaces) {
+        await tx.cfdiIngreso.upsert({
+          where: { cfdiEmittedId_ledgerEntryId: { cfdiEmittedId, ledgerEntryId: targetId } },
+          create: { cfdiEmittedId, ledgerEntryId: targetId },
+          update: {},
+        });
+      }
+      await tx.cfdiIngreso.deleteMany({ where: { ledgerEntryId: sourceId } });
+
       // 5. Re-link attachments
       await tx.ledgerAttachment.updateMany({
         where: { ledgerEntryId: sourceId },

@@ -129,6 +129,39 @@ export async function POST(
       }
     }
 
+    // VISITAS 11-PLAN (2026-10-12): la factura de una visita cubre además otros ingresos (sus ventas,
+    // `cfdi_ingresos`). Al cancelar EN DEFINITIVA vuelven a «sin factura» — con la MISMA regla que el
+    // principal: salvo que otra factura viva lo cubra (como principal o como adicional). Después se BORRAN
+    // los enlaces de esta factura: si se quedaran, la FK de `cfdi_ingresos` impediría para siempre borrar o
+    // cancelar esas ventas por una factura que ya no vale. El uuid del SAT sólo lo lleva el principal.
+    if (!isPending) {
+      try {
+        const extras = await prisma.cfdiIngreso.findMany({
+          where: { cfdiEmittedId: cfdi.id, ledgerEntryId: cfdi.ledgerEntryId ? { not: cfdi.ledgerEntryId } : undefined },
+          select: { ledgerEntryId: true },
+        });
+        // Las MISMAS señales que deja vivas el principal (code review): otra factura activa (como principal o
+        // adicional), un uuid del SAT ligado (los extras no llevan el de ésta) o una factura subida a mano.
+        const aLimpiar: number[] = [];
+        for (const { ledgerEntryId } of extras) {
+          const [comoPrincipal, comoAdicional, entry] = await Promise.all([
+            prisma.cfdiEmitted.count({ where: { ledgerEntryId, status: 'active', id: { not: cfdi.id } } }),
+            prisma.cfdiIngreso.count({ where: { ledgerEntryId, cfdiEmittedId: { not: cfdi.id }, cfdi: { status: 'active' } } }),
+            prisma.ledgerEntry.findUnique({ where: { id: ledgerEntryId }, select: { satCfdiUuid: true, _count: { select: { facturas: true, facturasXml: true } } } }),
+          ]);
+          const otraSenal = !!entry?.satCfdiUuid || (entry?._count.facturas ?? 0) > 0 || (entry?._count.facturasXml ?? 0) > 0;
+          if (comoPrincipal === 0 && comoAdicional === 0 && !otraSenal) aLimpiar.push(ledgerEntryId);
+        }
+        // Todo o nada: si falla, los enlaces se quedan y las ventas siguen bloqueadas (no quedan a medias).
+        await prisma.$transaction([
+          prisma.ledgerEntry.updateMany({ where: { id: { in: aLimpiar } }, data: { hasFactura: false } }),
+          prisma.cfdiIngreso.deleteMany({ where: { cfdiEmittedId: cfdi.id } }),
+        ]);
+      } catch (err) {
+        console.error('[cfdi-cancel] extra ingresos reset failed — FIX BY HAND:', cfdi.id, err);
+      }
+    }
+
     return NextResponse.json({
       data: {
         status: newStatus,

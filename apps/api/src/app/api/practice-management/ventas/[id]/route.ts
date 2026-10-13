@@ -3,6 +3,30 @@ import { prisma } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 import { calculatePaymentStatus, computeItemTotals, withSalePatients, resolveSalePatient, salePatientName, VALID_FORMAS_DE_PAGO } from '@/lib/practice-utils';
 
+/**
+ * VISITAS 11-PLAN H1 (2026-10-12): ¿el dinero de esta venta ya tiene una factura VIVA? Cancelar o borrar una
+ * venta BORRA su ingreso, y cambiarle el total lo deja distinto de la factura timbrada: con factura viva las
+ * tres cosas se rechazan («cancela primero la factura»). Cuenta la factura que la tiene como ingreso principal
+ * y la de una VISITA que la cubre como adicional (`cfdi_ingresos`), más las otras señales de siempre.
+ * (La BD también lo impide: la FK de `cfdi_ingresos` no deja borrar un ingreso cubierto.)
+ */
+async function facturaVivaDeVenta(saleId: number, doctorId: string) {
+  return prisma.ledgerEntry.findFirst({
+    where: {
+      saleId, doctorId,
+      OR: [
+        { hasFactura: true }, { satCfdiUuid: { not: null } },
+        { facturas: { some: {} } }, { facturasXml: { some: {} } },
+        { cfdisEmitted: { some: { status: { not: 'cancelled' } } } },
+        // Cualquier enlace (también de una factura ya cancelada cuya limpieza falló): la FK no dejaría borrar.
+        { cfdiIngresos: { some: {} } },
+      ],
+    },
+    select: { id: true },
+  });
+}
+const MENSAJE_FACTURADA = 'Esta venta ya tiene factura: cancela primero la factura (en Facturación) para cancelarla, borrarla o cambiarle el total.';
+
 // PATCH /api/practice-management/ventas/:id
 // Lightweight partial update: { status } or { amountPaid }
 export async function PATCH(
@@ -40,6 +64,10 @@ export async function PATCH(
         { error: 'Una venta cancelada no puede cambiar de estado' },
         { status: 422 }
       );
+    }
+
+    if (status === 'CANCELLED' && await facturaVivaDeVenta(saleId, doctor.id)) {
+      return NextResponse.json({ error: MENSAJE_FACTURADA }, { status: 409 });
     }
 
     const saleUpdate: any = {};
@@ -121,9 +149,22 @@ export async function GET(
     // H-001: la forma de pago vive en el INGRESO de la venta (Flujo), no en la venta.
     const ingreso = await prisma.ledgerEntry.findFirst({
       where: { saleId, doctorId: doctor.id },
-      select: { formaDePago: true },
+      select: {
+        formaDePago: true,
+        // VISITAS 11-PLAN: la factura VIVA que cubre esta venta — como principal o dentro de la factura de
+        // su visita — para enseñarla («Facturada · Folio …») y abrirla.
+        cfdisEmitted: { where: { status: { not: 'cancelled' }, cfdiType: 'I' }, orderBy: { id: 'desc' }, take: 1, select: { id: true, serie: true, folio: true } },
+        cfdiIngresos: { where: { cfdi: { status: { not: 'cancelled' }, cfdiType: 'I' } }, take: 1, select: { cfdi: { select: { id: true, serie: true, folio: true } } } },
+      },
     });
-    return NextResponse.json({ data: { ...conPaciente, formaDePago: ingreso?.formaDePago ?? null } });
+    const factura = ingreso?.cfdisEmitted[0] ?? ingreso?.cfdiIngresos[0]?.cfdi ?? null;
+    return NextResponse.json({
+      data: {
+        ...conPaciente,
+        formaDePago: ingreso?.formaDePago ?? null,
+        factura: factura ? { id: factura.id, folio: [factura.serie, factura.folio].filter(Boolean).join('-') || null } : null,
+      },
+    });
   } catch (error: any) {
     console.error('Error al obtener venta:', error);
     if (error.message?.includes('Doctor') || error.message?.includes('access required')) {
@@ -233,6 +274,13 @@ export async function PUT(
         : parseFloat(existingSale.amountPaid?.toString() || '0');
     const finalStatus = status || existingSale.status;
 
+    // H1: con factura viva no se cancela ni cambia el total (lo timbrado ya no cuadraría).
+    if ((finalStatus === 'CANCELLED' && existingSale.status !== 'CANCELLED') || Math.abs(total - Number(existingSale.total)) > 0.005) {
+      if (await facturaVivaDeVenta(saleId, doctor.id)) {
+        return NextResponse.json({ error: MENSAJE_FACTURADA }, { status: 409 });
+      }
+    }
+
     const sale = await prisma.$transaction(async (tx) => {
       // Replace items atomically
       await tx.saleItem.deleteMany({ where: { saleId } });
@@ -329,6 +377,10 @@ export async function DELETE(
     });
     if (!existingSale) {
       return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
+    }
+
+    if (await facturaVivaDeVenta(saleId, doctor.id)) {
+      return NextResponse.json({ error: MENSAJE_FACTURADA }, { status: 409 });
     }
 
     await prisma.$transaction([

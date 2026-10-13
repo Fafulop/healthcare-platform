@@ -127,6 +127,23 @@ export default function VisitaPage() {
     return () => { vigente = false; };
   }, [puedeVentas, visitaId]);
 
+  const verFacturaPrefill = v.permisos?.facturacion ?? false;
+  // (Antes de los `return` tempranos de abajo: un hook después de uno rompe la página.)
+  // VISITAS 11-PLAN — ¿hay algo por facturar en esta visita (la cita y/o sus ventas, pagado y sin factura)? Lo
+  // decide el SERVIDOR (el mismo prellenado de «Facturar»): el botón no sale si no hay nada (code review: un
+  // botón que siempre abre «No hay nada por facturar» era un callejón sin salida).
+  const [porFacturar, setPorFacturar] = useState<number>(0);
+  const ventasCuenta = Array.isArray(ventas) ? ventas.map((x) => `${x.id}:${x.status}:${x.paymentStatus}`).join(',') : '';
+  useEffect(() => {
+    if (!verFacturaPrefill || !visitaId) { setPorFacturar(0); return; }
+    let vigente = true;
+    authFetch(`${API_URL}/api/facturacion/prefill/visita/${encodeURIComponent(visitaId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (vigente) setPorFacturar(Array.isArray(d?.data?.incluidos) ? d.data.incluidos.length : 0); })
+      .catch(() => { if (vigente) setPorFacturar(0); });
+    return () => { vigente = false; };
+  }, [verFacturaPrefill, visitaId, ventasCuenta, citaDeAgenda?.facturada, citaDeAgenda?.ingreso?.amount]);
+
   if (v.sessionStatus === 'loading' || v.estado === 'cargando') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -270,6 +287,9 @@ export default function VisitaPage() {
                   <TarjetaDeCita
                     booking={citaDeAgenda} conExpediente={false} conNotas={false} compacta
                     sinCobro={!verCobro} sinFactura={!verFactura} {...tarjeta.manejadores}
+                    // VISITAS 11-PLAN: «Facturar» — la cita y las ventas de ESTA visita en una factura (el
+                    // servidor decide qué entra). Con la cita ya facturada sigue mientras haya ventas.
+                    facturarHref={verFactura && porFacturar > 0 ? `/dashboard/facturacion?from=visita&visitaId=${encodeURIComponent(visitaId)}` : null}
                     // Con contenido el servidor rechaza borrar la cita: ni se ofrece. Para ESA regla
                     // (`visitaVacia` del servidor) el comentario guardado SÍ cuenta como contenido.
                     borrar={vacia && !visita.comentario?.trim() ? 'cita-y-visita' : 'no'}

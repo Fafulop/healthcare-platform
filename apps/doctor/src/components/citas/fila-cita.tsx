@@ -14,13 +14,14 @@ import { Loader2 } from 'lucide-react';
  * ratón. Así nada se recorre cuando la cita cambia de estado.
  */
 
-export type VarianteBoton = 'normal' | 'principal' | 'peligro';
+export type VarianteBoton = 'normal' | 'principal' | 'peligro' | 'verde';
 
 const BASE = 'h-7 px-2.5 rounded-md border text-xs font-medium inline-flex items-center justify-center gap-1 whitespace-nowrap select-none';
 const ESTILO: Record<VarianteBoton, string> = {
   normal: 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50',
   principal: 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700',
   peligro: 'bg-white border-red-200 text-red-600 hover:bg-red-50',
+  verde: 'bg-teal-600 border-teal-600 text-white hover:bg-teal-700',
 };
 const APAGADO = 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed';
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, MessageCircle, Send, Share2 } from 'lucide-react';
+import { Download, MessageCircle, Receipt, Send, Share2 } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
 import { faltaCorreo, type ContactoEnvio } from './enviar-enlace';
@@ -24,12 +24,15 @@ async function bajarCfdi(cfdiId: number, formato: 'pdf' | 'xml'): Promise<Blob> 
  * PDF y el botón pasa a «Compartir», que abre el «Compartir» al instante (el navegador sólo deja compartir
  * justo después de un clic). Sin una factura de la plataforma se dice dónde verla.
  */
-export function FacturaDeLaCita({ cfdiId, cfdiStatus, folio, contacto, facturada = true, motivo }: {
+export function FacturaDeLaCita({ cfdiId, cfdiStatus, folio, contacto, facturada = true, motivo, facturarHref }: {
   cfdiId: number | null | undefined;
   /** ¿Ya está facturada? Sin factura todavía la fila queda en su lugar, gris («Aún no se emite»). */
   facturada?: boolean;
   /** No aplica (sin permiso de Facturación, cita cancelada…): gris con este porqué. */
   motivo?: string | null;
+  /** VISITAS 11-PLAN — sólo en la visita, y sólo si el servidor dice que hay algo por facturar en ella: el
+   *  botón verde «Facturar» lleva a Facturación con la cita y las ventas de la visita prellenadas. */
+  facturarHref?: string | null;
   cfdiStatus?: string | null;
   /** Serie-folio: el archivo se llama como la factura que ve el doctor, no con un número interno. */
   folio?: string | null;
@@ -94,8 +97,20 @@ export function FacturaDeLaCita({ cfdiId, cfdiStatus, folio, contacto, facturada
     : !facturada ? 'Aún no se emite'
     : !cfdiId ? 'Facturada · se ve en Facturación'
     : `${folio ? `Folio ${folio}` : 'Emitida'}${cfdiStatus === 'cancellation_pending' ? ' · cancelación en proceso' : ''}`;
+  // «Facturar» (la visita): quien lo pasa ya sabe —por el servidor— que hay algo por facturar en la visita (la
+  // cita o sus ventas). NO depende del estado de la cita (code review): con la cita cancelada o «No asistió»,
+  // las ventas pagadas de la visita se siguen facturando desde aquí.
+  const facturar = facturarHref ? (
+    <span className="inline-flex items-center gap-2 flex-wrap">
+      <span>{estado}</span>
+      <BotonCita
+        etiqueta={facturada ? 'Facturar ventas' : 'Facturar'} icono={<Receipt className="w-3 h-3" />} variante="verde"
+        href={facturarHref} misma titulo="Abre Facturación con la cita y las ventas de esta visita ya llenas"
+      />
+    </span>
+  ) : null;
   return (
-    <FilaCita nombre="Factura" estado={estado} tono={noSePuede ? 'apagado' : cfdiStatus === 'cancellation_pending' ? 'espera' : 'bien'}>
+    <FilaCita nombre="Factura" estado={facturar ?? estado} tono={facturar ? 'neutro' : noSePuede ? 'apagado' : cfdiStatus === 'cancellation_pending' ? 'espera' : 'bien'}>
       <BotonCita
         etiqueta="Correo" icono={<Send className="w-3 h-3" />} onClick={porCorreo} ocupado={ocupado === 'correo'}
         motivo={noSePuede ?? (!contacto.email ? faltaCorreo(contacto.expediente) : null)} ancho={COLUMNA.correo}

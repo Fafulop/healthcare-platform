@@ -61,6 +61,8 @@ export interface Sale {
   patient?: VentaPatient | null;
   quotation: SaleQuotation | null;
   items: SaleItem[];
+  /** VISITAS 11-PLAN: la factura VIVA que la cubre (sola o dentro de la factura de su visita). */
+  factura?: { id: number; folio: string | null } | null;
 }
 
 export const statusConfig = {

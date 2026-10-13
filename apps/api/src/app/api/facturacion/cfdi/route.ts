@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ligarIngresosAFactura, totalAntesDeRetenciones, validarIngresosExtra } from '@/lib/factura-visita';
 import { prisma, usoDeFacturas, MENSAJE_FACTURAS_LLENO } from '@healthcare/database';
 import { getAuthenticatedDoctor } from '@/lib/auth';
 import {
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { receiver, items, cfdiType, paymentForm, paymentMethod, folio, serie, ledgerEntryId,
-      observations, paymentBankName, paymentAccountNumber, orderNumber, draftId } = body;
+      observations, paymentBankName, paymentAccountNumber, orderNumber, draftId, ledgerEntryIdsExtra } = body;
 
     // TIERS P4: Gratis timbra hasta 5 facturas de INGRESO al mes (canceladas incluidas) y ahí se
     // detiene; el plan de pago sigue (las extra se cobran después) y PRO/LAB no tienen tope.
@@ -159,6 +160,28 @@ export async function POST(request: NextRequest) {
           { error: 'Ese ingreso ya tiene una factura ligada (hasFactura) — no se emite dos veces. Si la factura anterior fue cancelada y quieres re-emitir, verifica su estado en Facturación.' },
           { status: 409 }
         );
+      }
+    }
+
+    // VISITAS 11-PLAN (2026-10-12): la factura de una VISITA cubre además otros ingresos (sus ventas). Mismo
+    // guardia anti-doble-factura que el principal, ANTES de timbrar (lib/factura-visita.ts). Sólo con un
+    // principal y en una factura de ingreso.
+    let extras: number[] = [];
+    if (ledgerEntryIdsExtra !== undefined && ledgerEntryIdsExtra !== null) {
+      if (!ledgerEntryId || (cfdiType || 'I') !== 'I') {
+        return NextResponse.json({ error: 'Los cobros adicionales sólo van en una factura de ingreso con su cobro principal' }, { status: 400 });
+      }
+      const v = await validarIngresosExtra(doctor.id, ledgerEntryId, ledgerEntryIdsExtra);
+      if ('error' in v) return NextResponse.json({ error: v.error }, { status: v.status });
+      extras = v.ids;
+      // Los conceptos deben seguir cubriendo los cobros que se marcarán facturados (±$1 de redondeo).
+      if (extras.length > 0) {
+        const facturado = totalAntesDeRetenciones(items);
+        if (Math.abs(facturado - v.montoLigado) > 1) {
+          return NextResponse.json({
+            error: `La factura suma $${facturado.toFixed(2)} y los cobros de la visita que marcaría como facturados suman $${v.montoLigado.toFixed(2)}. Si quitaste conceptos (una venta que no quieres facturar ahora), vuelve a abrir «Facturar» desde la visita y emite todo, o factura cada cosa aparte desde Facturación.`,
+          }, { status: 409 });
+        }
       }
     }
 
@@ -347,6 +370,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // VISITAS 11-PLAN: los enlaces de TODOS los ingresos que cubre + `has_factura` en los extras + sus borradores
+    // vivos cerrados, en UNA transacción. La factura ya está timbrada: si esto falla NO se contesta error (se
+    // timbraría otra al reintentar) — se avisa y queda en el log con los ids, para arreglarlo a mano.
+    let avisoEnlaces: string | null = null;
+    if (ledgerEntryId && extras.length > 0) {
+      try {
+        await ligarIngresosAFactura(cfdiRecord.id, ledgerEntryId, extras);
+      } catch (e) {
+        console.error('[CFDI] stamped OK but cfdi_ingresos link failed — FIX BY HAND:', { cfdiId: cfdiRecord.id, ledgerEntryId, extras }, e);
+        avisoEnlaces = 'La factura se timbró, pero no se pudieron marcar como facturadas las ventas que incluye. No la vuelvas a timbrar: avisa a soporte.';
+      }
+    }
+
     // F2c: close the originating draft (non-fatal — the CFDI already exists;
     // the draft is a starting point, edits in the form are expected).
     if (typeof draftId === 'number' && Number.isInteger(draftId) && draftId > 0) {
@@ -362,6 +398,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       data: cfdiRecord,
+      ...(avisoEnlaces ? { aviso: avisoEnlaces } : {}),
       facturama: {
         id: cfdiResponse.Id,
         uuid: cfdiResponse.Complement.TaxStamp.Uuid,

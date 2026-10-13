@@ -409,8 +409,12 @@ export function StatusActions({
   onUpdatePrice,
   onUpdateFacturaSolicitada,
   borrar = "cita",
+  facturarHref,
 }: {
   booking: Booking;
+  /** VISITAS 11-PLAN — sólo la visita (y sólo con algo por facturar): el botón verde «Facturar» de la fila
+   *  Factura, que entonces se ve aunque la casilla no esté marcada. */
+  facturarHref?: string | null;
   /** El botón de borrar (sólo en citas terminadas y SIN dinero): «Borrar cita» (la agenda, la sesión),
    *  «Borrar cita y visita» (la visita, cuando sabe que está vacía) o ninguno (la visita con contenido:
    *  el servidor la rechazaría). 2026-10-12. */
@@ -562,7 +566,7 @@ export function StatusActions({
   const motivoNotaCorto = conCobro ? null : cubierta || booking.ingreso ? "Cubierta por el paquete" : motivoCitaCorto ?? "Sin cobro todavía";
   // Factura: con «¿Necesita factura?» marcada (o ya facturada). Vive mientras la cita no sea cancelada /
   // no asistió (completar = «ya vi al paciente», no «se cerró el papeleo», bitácora #29).
-  const verFilasFactura = !sinFactura && (!!booking.facturaSolicitada || !!booking.facturada);
+  const verFilasFactura = !sinFactura && (!!booking.facturaSolicitada || !!booking.facturada || !!facturarHref);
   // «Datos fiscales» sólo con la casilla marcada (como antes); «Factura» también si ya está facturada.
   const verDatosFiscales = !sinFactura && !!booking.facturaSolicitada;
   const motivoFactura = !puedeEnviar("facturacion") ? "Necesita permiso de Facturación" : motivoCita;
@@ -615,6 +619,7 @@ export function StatusActions({
         <FacturaDeLaCita
           cfdiId={booking.facturaCfdiId} cfdiStatus={booking.facturaCfdiStatus} folio={booking.facturaCfdiFolio}
           contacto={contactoEnvio} facturada={!!booking.facturada} motivo={motivoFactura}
+          facturarHref={facturarHref}
         />
       )}
     </SeccionCita>

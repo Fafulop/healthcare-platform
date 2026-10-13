@@ -547,7 +547,9 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
   **ESTADO** («Reagendar» te lleva a la agenda con la ventana de reagendar abierta y al terminar te
   regresa a la visita, que se va con la cita nueva), **COBRO Y FACTURA** (el **precio** —clic para
   cambiarlo—, **«¿Necesita factura?»** y las filas Link de pago · Nota de venta · Datos fiscales ·
-  Factura) y **PARA EL PACIENTE** (Confirmación · Formulario). El precio y el cobro piden
+  Factura —aquí con el botón verde **«Facturar»**: la cita y las ventas de la visita en una factura, ver
+  [Facturar la visita](#facturar-la-visita-la-cita-y-sus-ventas-en-una-factura)—) y **PARA EL PACIENTE**
+  (Confirmación · Formulario). El precio y el cobro piden
   permiso de Flujo de Dinero; la casilla y los datos fiscales, el de Facturación. Si cancelas, marcas «No asistió» o eliminas la cita con la visita
   **vacía**, la visita se borra con la cita y vuelves al perfil del paciente. La cita de una visita no se cambia por otra ni se quita (son el mismo evento). Las visitas **sin
   cita** que quedaron de antes (ya no se crean) conservan su **Fecha** corregible (hoy o antes, y no
@@ -932,7 +934,35 @@ está facturada.
 - Si faltan, dice **«Faltan datos fiscales»**: captúralos en Datos Fiscales (en su perfil) o pídeselos al
   paciente con el formulario desde la cita (ver [Facturar una cita](#facturar-una-cita)).
 - Ya facturada: «Facturado · Folio N» y los archivos PDF y XML para descargar.
-- Para una factura que **no viene de una cita** (insumos, un saldo aparte), usa el botón de
-  arriba de la sección: abre Facturación con este paciente ya elegido.
+- Una factura que **no viene de una cita** (insumos, un saldo aparte) se hace en **Facturación**; ya
+  timbrada, sale abajo en **«Otras facturas del paciente»**.
+
+### Facturar la visita (la cita y sus ventas en una factura)
+
+En la **visita**, cuando hay algo por facturar en ella (la cita y/o sus ventas, **pagado** y sin factura), la
+tarjeta de la cita trae en la fila **Factura** el botón verde **«Facturar»** (con permiso de Facturación).
+Abre **Facturación** con todo ya lleno, para que revises y emitas:
+
+- **El receptor:** los datos fiscales del paciente (si faltan, lo dice; complétalos a mano o pídeselos con
+  la fila **Datos fiscales**).
+- **Los conceptos:** el cobro de la cita (igual que «Facturar» de «Cobros») **y los artículos de las ventas
+  de esa visita**, cada uno con su cantidad, su precio (con su descuento) y, si lo lleva, IVA del 16%. Arriba
+  del formulario dice qué incluye y qué **no** incluye y por qué: ya facturada, cancelada, sin cobro, **sin
+  pagar completo** (se factura cuando se pague) o con un IVA distinto del 16% (ésa factúrala desde
+  Facturación).
+- **Forma y método de pago:** **PUE** (sólo entra lo pagado) con la forma del cobro de mayor monto (si los
+  cobros tienen formas distintas, te avisa).
+- Avisos: si los artículos de una venta no suman su cobro, o si trae **productos** (revisa su clave SAT:
+  viene la de servicio médico).
+
+Si quitas conceptos de la visita en el formulario, la factura ya no suma lo que cobraste y **no se emite**
+(te dice cuánto suma cada cosa): emite todo, o factura aparte desde Facturación lo que no quieras incluir.
+
+Al emitirla, **la cita y cada venta incluida quedan facturadas** (la venta dice «🧾 Facturada · Folio …», con
+un enlace a Facturación). Si la cita ya estaba facturada y quedan ventas por facturar, el botón dice
+**«Facturar ventas»**. Si cancelas la factura (en definitiva), la cita y sus ventas vuelven a «sin factura».
+
+Mientras una venta tenga factura **no se puede cancelar, borrar ni cambiarle el total** (tampoco borrar su
+movimiento en Flujo de Dinero): cancela primero la factura en Facturación.
 
 **Facturas al mes según tu plan:** Gratis 5 (al llegar ya no deja timbrar otra hasta el día 1; con el plan Pro tienes 25), Pro 25 incluidas (puedes seguir timbrando; las de más se contarán como extra). Cuentan las facturas de ingreso del mes, **canceladas incluidas**; los complementos de pago y las notas de crédito no cuentan. Arriba de Facturación ves «Facturas este mes: N de M».

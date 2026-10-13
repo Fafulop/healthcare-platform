@@ -73,6 +73,18 @@ export default function ViewSalePage() {
               <span className={`px-3 py-1 text-sm font-semibold rounded-full ${paymentConf.color}`}>
                 {paymentConf.icon} {paymentConf.label}
               </span>
+              {/* VISITAS 11-PLAN: con factura viva (sola o la de su visita) se dice, con su folio; el enlace lleva
+                  a la LISTA de Facturación (ahí se busca por folio). Mientras la tenga no se cancela, borra ni le
+                  cambia el total. */}
+              {sale.factura && (
+                <Link
+                  href="/dashboard/facturacion"
+                  className="px-3 py-1 text-sm font-semibold rounded-full bg-teal-100 text-teal-800 hover:bg-teal-200"
+                  title="Ir a Facturación (búscala por su folio)"
+                >
+                  🧾 Facturada{sale.factura.folio ? ` · Folio ${sale.factura.folio}` : ''}
+                </Link>
+              )}
             </div>
             {sale.quotation && (
               <Link

@@ -359,6 +359,17 @@ Currently affected:
   prod el 2026-09-29 tras un probe de 25/25 en transacción revertida (el script de verificación
   compara las 7 FKs, los 5 CHECKs y los 11 índices con su definición exacta).
 
+- `create-cfdi-ingresos.sql` — VISITAS 11-PLAN (2026-10-12): la tabla
+  **`practice_management.cfdi_ingresos`** (qué ingresos cubre una factura: la cita de una visita + sus
+  ventas). Dos cosas que `db push` rompería: (1) es una tabla ENTERA — un `db push` que no la conozca la
+  borra y las ventas facturadas vuelven a verse «sin factura» (y facturables dos veces); (2) su FK
+  **`cfdi_ingresos_ledger_entry_id_fkey` es `ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED`** —
+  Prisma no modela `DEFERRABLE`, así que la reescribiría inmediata—: impide borrar un ingreso que una factura
+  cubre y, por ser diferida, no truena al borrar la cuenta de un doctor (facturas e ingresos a la vez).
+  Aplicada en prod el 2026-10-12 tras un probe con rollback (estructura, idempotencia, borrar la factura
+  arrastra sus enlaces, borrar un ingreso cubierto truena); verificar con `pg_get_constraintdef` que diga
+  `DEFERRABLE INITIALLY DEFERRED`.
+
 (CHECK constraints y los índices parciales normales de otros `.sql` NO se caen — Prisma ignora
 lo que no modela. Las FK planas SÍ las modela, de ahí esta lista. El índice parcial de
 `insurance_forms` está aquí porque Prisma **sí** modela un `@@unique(insurer, name)` y al

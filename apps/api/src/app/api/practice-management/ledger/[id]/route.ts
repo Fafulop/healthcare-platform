@@ -534,6 +534,19 @@ export async function DELETE(
       );
     }
 
+    // VISITAS 11-PLAN: un ingreso que cubre una factura (la de una visita) no se borra — la BD también lo
+    // impide (FK de `cfdi_ingresos`); aquí se dice en palabras en vez de un error genérico.
+    const cubierto = await prisma.cfdiIngreso.findFirst({
+      where: { ledgerEntryId: entryId },
+      select: { cfdiEmittedId: true },
+    });
+    if (cubierto) {
+      return NextResponse.json(
+        { error: 'No se puede eliminar este movimiento porque una factura lo incluye. Cancela primero la factura en Facturación.' },
+        { status: 409 }
+      );
+    }
+
     // Delete the ledger entry (only if not linked to sale/purchase)
     await prisma.ledgerEntry.delete({
       where: { id: entryId }

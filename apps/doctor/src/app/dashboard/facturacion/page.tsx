@@ -169,6 +169,9 @@ function FacturacionPageInner() {
   // 2026-10-12; se conserva para enlaces viejos / marcadores)
   // the receptor dropdown — receiver is derived server-side, nothing else prefilled.
   const patientParam = searchParams.get("patient") || "";
+  // VISITAS 11-PLAN (2026-10-12): «Facturar» desde la visita — la cita + sus ventas en UNA factura. El servidor
+  // arma el prellenado con la forma de un borrador (sin borrador: id 0) y dice qué entra, qué no y por qué.
+  const visitaParam = searchParams.get("from") === "visita" ? (searchParams.get("visitaId") || "") : "";
   const [draftData, setDraftData] = useState<DraftPrefill | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   useEffect(() => {
@@ -184,6 +187,19 @@ function FacturacionPageInner() {
       })
       .catch(() => setDraftError("No se pudo cargar el borrador (error de red)"));
   }, [draftIdParam]);
+  useEffect(() => {
+    if (!visitaParam || draftIdParam) return;
+    authFetch(`${API_URL}/api/facturacion/prefill/visita/${encodeURIComponent(visitaParam)}`)
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.data) {
+          setDraftError(body.error || "No se pudo armar la factura de la visita");
+          return;
+        }
+        setDraftData(body.data as DraftPrefill);
+      })
+      .catch(() => setDraftError("No se pudo armar la factura de la visita (error de red)"));
+  }, [visitaParam, draftIdParam]);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -219,9 +235,9 @@ function FacturacionPageInner() {
   // (a pending draft link also lands on "nueva" — F2c)
   useEffect(() => {
     if (profile && csdStatus?.csdUploaded && csdStatus.facturamaStatus === "active") {
-      setActiveTab(ledgerData || draftIdParam || patientParam ? "nueva" : "facturas");
+      setActiveTab(ledgerData || draftIdParam || patientParam || visitaParam ? "nueva" : "facturas");
     }
-  }, [profile, csdStatus, ledgerData, draftIdParam, patientParam]);
+  }, [profile, csdStatus, ledgerData, draftIdParam, patientParam, visitaParam]);
 
   // TIERS P4: las facturas del mes contra lo que incluye el plan (para que el tope no sea sorpresa).
   // Va ANTES del `return` de «cargando»: un hook después de un return temprano rompe la página.
@@ -324,8 +340,8 @@ function FacturacionPageInner() {
         // Draft hydration is async: while a ?draft= link is loading, defer the
         // form mount (state initializers run once — a form mounted empty would
         // ignore the draft when it arrives).
-        draftIdParam && !draftData && !draftError ? (
-          <div className="text-sm text-gray-500 p-6">Cargando borrador…</div>
+        (draftIdParam || visitaParam) && !draftData && !draftError ? (
+          <div className="text-sm text-gray-500 p-6">{visitaParam ? "Armando la factura de la visita…" : "Cargando borrador…"}</div>
         ) : (
           <NuevaFacturaTab
             profile={profile}
@@ -1337,6 +1353,12 @@ interface DraftPrefill {
   usoIncompatible?: boolean;
   paciente: { id: string; nombre: string } | null;
   ingreso: { id: number; amount: number; concept: string; hasFactura: boolean; formaDePago: string | null } | null;
+  // VISITAS 11-PLAN — sólo en el prellenado de una visita (id 0: no hay borrador que cerrar).
+  origen?: "visita";
+  ledgerEntryIdsExtra?: number[];
+  incluidos?: { que: string; monto: number; pagado: boolean }[];
+  excluidos?: { que: string; motivo: string }[];
+  avisos?: string[];
 }
 
 // Map ledger formaDePago values to SAT payment form codes
@@ -1638,7 +1660,9 @@ function NuevaFacturaTab({
       if (draftData) {
         // F2c: link the income and close the draft on success (server-side).
         if (draftData.ledgerEntryId) payload.ledgerEntryId = draftData.ledgerEntryId;
-        payload.draftId = draftData.id;
+        // Un prellenado de visita no es un borrador (id 0): no hay nada que cerrar; sí sus cobros adicionales.
+        if (draftData.id > 0) payload.draftId = draftData.id;
+        if (draftData.ledgerEntryIdsExtra?.length) payload.ledgerEntryIdsExtra = draftData.ledgerEntryIdsExtra;
       } else if (ledgerData?.ledgerEntryId) {
         payload.ledgerEntryId = ledgerData.ledgerEntryId;
       }
@@ -1653,7 +1677,10 @@ function NuevaFacturaTab({
         throw new Error(msg || "Error al emitir factura");
       }
 
-      const { data } = await res.json();
+      const respuesta = await res.json();
+      const data = respuesta.data;
+      // VISITAS 11-PLAN: la factura salió pero no se pudieron marcar sus ventas — se dice (no reintentar).
+      if (respuesta.aviso) alert(respuesta.aviso);
       // Money-model #5: a factura emitted WITHOUT a linked income leaves real
       // money out of the ledger — offer to register the 1:1 matching entry.
       const hadLedgerLink = !!(payload.ledgerEntryId);
@@ -1707,7 +1734,38 @@ function NuevaFacturaTab({
           {draftError} — el formulario está vacío; puedes capturar la factura a mano.
         </div>
       )}
-      {draftData && (
+      {draftData?.origen === "visita" && (
+        <div className="rounded-lg border border-teal-300 bg-teal-50 px-4 py-3 text-sm text-teal-900 space-y-1">
+          <div className="font-medium">
+            🧾 Factura de la visita{draftData.paciente ? ` · ${draftData.paciente.nombre}` : ""} — revisa, edita lo que haga falta y emite.
+          </div>
+          {(draftData.incluidos ?? []).length > 0 ? (
+            <div>
+              Incluye: {(draftData.incluidos ?? []).map((i) => `${i.que} ($${i.monto.toLocaleString("es-MX")}${i.pagado ? "" : ", sin pagar completo"})`).join(" · ")}
+            </div>
+          ) : (
+            <div className="text-red-700 font-medium">No hay nada por facturar en esta visita.</div>
+          )}
+          {(draftData.excluidos ?? []).length > 0 && (
+            <div className="text-gray-700">
+              No incluye: {(draftData.excluidos ?? []).map((e) => `${e.que} (${e.motivo})`).join(" · ")}
+            </div>
+          )}
+          {(draftData.avisos ?? []).map((a) => (
+            <div key={a} className="text-amber-800">⚠️ {a}</div>
+          ))}
+          {draftData.camposFaltantes.length > 0 && (
+            <div className="text-amber-800">⚠️ El expediente no tiene datos fiscales completos (faltan: {draftData.camposFaltantes.join(", ")}) — completa el receptor a mano o manda el formulario fiscal.</div>
+          )}
+          {draftData.usoIncompatible && (
+            <div className="text-red-700 font-medium">⚠️ El uso CFDI del expediente NO es válido para el régimen del receptor — el SAT rechazará el timbrado: cámbialo abajo (p. ej. G03) antes de emitir.</div>
+          )}
+          {draftData.esPublicoGeneral && (
+            <div>Receptor: PÚBLICO EN GENERAL (S01) — el paciente no podrá deducirla.</div>
+          )}
+        </div>
+      )}
+      {draftData && draftData.origen !== "visita" && (
         <div className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 space-y-1">
           <div>
             📝 Borrador #{draftData.id}{draftData.paciente ? ` · ${draftData.paciente.nombre}` : ""}
@@ -1917,7 +1975,9 @@ function NuevaFacturaTab({
                     value={item.unitPrice || ""}
                     onChange={e => updateItem(idx, "unitPrice", parseFloat(e.target.value) || 0)}
                     min={0}
-                    step="0.01"
+                    // «any», no 0.01 (VISITAS 11-PLAN): un precio con descuento trae más decimales (el SAT admite 6)
+                    // y con 0.01 el navegador NO deja enviar el formulario.
+                    step="any"
                     placeholder="0.00"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
