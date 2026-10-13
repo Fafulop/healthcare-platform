@@ -288,6 +288,14 @@ la cita muestra «Pagado».
    Cuando lo llena, en su lugar dice «Ya contamos con sus datos fiscales para facturarle.»
 3. La factura se emite desde el **expediente del paciente**, página **«Cobros»** (botón «Cobros» de su
    perfil), botón «Facturar» (ver [Facturar desde el expediente](#facturar-desde-el-expediente)).
+4. Ya facturada, en la tarjeta de la cita (agenda, visita, «Cobros») sale **«Factura: PDF · XML ·
+   Factura por correo · Factura por WhatsApp»**. **Por correo** la manda Facturama al correo del paciente;
+   **por WhatsApp** prepara el PDF y luego **«Compartir PDF»** abre el **«Compartir»** de tu equipo con el
+   PDF adjunto: eliges WhatsApp y el chat del paciente (el PDF no se publica en internet; si tu navegador
+   no permite compartir archivos, se descarga para que lo adjuntes). Con permiso de Facturación. Si la
+   factura está en cancelación lo dice. Si no hay una factura de ingreso vigente de la plataforma (p. ej.
+   subida a mano o detectada en el SAT) dice «Facturada — su factura se ve en Facturación». No sale en una
+   cita cancelada o en la que el paciente no asistió.
 
 **Facturas al mes según tu plan:** Gratis 5 (al llegar ya no deja timbrar otra hasta el día 1; con el plan Pro tienes 25), Pro 25 incluidas (puedes seguir timbrando; las de más se contarán como extra). Cuentan las facturas de ingreso del mes, **canceladas incluidas**; los complementos de pago y las notas de crédito no cuentan. Arriba de Facturación ves «Facturas este mes: N de M».
 
@@ -522,7 +530,7 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
   cobro, **«No asistió»**, **«Cancelar cita»**, **«Reagendar»** — te lleva a la agenda con la ventana de
   reagendar abierta y al terminar te regresa a la visita, que se va con la cita nueva), **COBRO Y
   FACTURA** (el **precio** —clic para cambiarlo—, **«¿Necesita factura?»**, **«Link de pago por correo / por WhatsApp»** y la
-  nota del cobro y, con la casilla marcada, pedirle sus datos fiscales), **CONFIRMACIÓN CITA** (por
+  **«Nota de venta»** del cobro, la **factura** si ya tiene y, con la casilla marcada, pedirle sus datos fiscales), **CONFIRMACIÓN CITA** (por
   correo o por WhatsApp) y **DOCUMENTOS** (el formulario pre-consulta). El precio y el cobro piden
   permiso de Flujo de Dinero; la casilla y los datos fiscales, el de Facturación. Si cancelas, marcas «No asistió» o eliminas la cita con la visita
   **vacía**, la visita se borra con la cita y vuelves al perfil del paciente. La cita de una visita no se cambia por otra ni se quita (son el mismo evento). Las visitas **sin

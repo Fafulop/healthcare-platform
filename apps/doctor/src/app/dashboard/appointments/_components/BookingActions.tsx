@@ -30,6 +30,7 @@ import { waNumber } from "@/lib/whatsapp";
 import { resolverContacto, telefonoWhatsApp } from "@/lib/booking-contact";
 import type { Booking } from "../_hooks/useBookings";
 import { NotaCitaButton } from "@/components/citas/NotaCitaButton";
+import { FacturaDeLaCita } from "@/components/citas/FacturaDeLaCita";
 import { BotonesEstadoCita, citaReagendable } from "@/components/citas/BotonesEstadoCita";
 
 /**
@@ -670,7 +671,12 @@ export function StatusActions({
   // (en la agenda nadie pasa sinCobro/sinFactura; el servidor contestaba 403 — code review N11).
   const verLink = showCobroGroup && !sinCobro && puedeEnviar('pagos');
   const verFiscal = showFacturaGroup && !sinFactura && puedeEnviar('facturacion');
-  const cobroGroup = (conPrecio || conCasilla || verLink || verFiscal) && (
+  // La factura de la cita (2026-10-12): con permiso de Facturación, en cuanto está facturada — también si
+  // nada más del grupo se ve (code review: dependía de que se viera el link o la casilla).
+  // No en una cita cancelada / no asistió (no se le manda la factura de una cita que no ocurrió).
+  const verFacturaCita = !!booking.facturada && !sinFactura && puedeEnviar('facturacion')
+    && booking.status !== 'CANCELLED' && booking.status !== 'NO_SHOW';
+  const cobroGroup = (conPrecio || conCasilla || verLink || verFiscal || verFacturaCita) && (
         <div className="pt-2 first:pt-0">
           {/* Sin nada de cobro a la vista (sólo permiso de Facturación) el encabezado no promete «Cobro». */}
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
@@ -724,6 +730,10 @@ export function StatusActions({
           </>
           )}
           {verFiscal && <FiscalFormButton booking={booking} contacto={contactoEnvio} />}
+          {/* La factura de la cita (2026-10-12): PDF · XML · por correo · por WhatsApp. Con permiso de Facturación. */}
+          {verFacturaCita && (
+            <FacturaDeLaCita cfdiId={booking.facturaCfdiId} cfdiStatus={booking.facturaCfdiStatus} folio={booking.facturaCfdiFolio} contacto={contactoEnvio} />
+          )}
           </div>
         </div>
       );

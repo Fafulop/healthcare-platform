@@ -97,6 +97,13 @@ export interface Booking {
    *  (`LedgerEntry → cfdisEmitted / facturas / facturasXml`), porque el CFDI no cuelga de
    *  la cita. NO confundir con `patient.rfc`: tener RFC es poder facturar, no haberlo hecho. */
   facturada?: boolean;
+  /** La factura de la PLATAFORMA vigente de la cita (ingreso, no cancelada) — para abrirla / mandarla desde la
+   *  tarjeta. null = no hay una de la plataforma (puede estar facturada por fuera). */
+  facturaCfdiId?: number | null;
+  /** Su status ('active' | 'cancellation_pending'). */
+  facturaCfdiStatus?: string | null;
+  /** Su serie-folio, para nombrar el archivo. */
+  facturaCfdiFolio?: string | null;
   /** Ingreso YA registrado en Flujo de Dinero para esta cita, o `null` si todavía no hay.
    *  Cuando existe (típicamente porque se pagó un link y lo escribió el webhook),
    *  completar la cita NO lo modifica: el servidor lo detecta por el `bookingId` único y

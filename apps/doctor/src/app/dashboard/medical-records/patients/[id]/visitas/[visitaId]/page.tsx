@@ -260,7 +260,7 @@ export default function VisitaPage() {
                       seguiría necesitando su nota. */}
                   {verCobro && booking.ledgerEntryId != null && booking.estadoPago !== 'CUBIERTA'
                     && (booking.status === 'CANCELLED' || booking.status === 'NO_SHOW') && (
-                    <NotaCitaButton bookingId={booking.id} />
+                    <NotaCitaButton bookingId={booking.id} className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-1 disabled:opacity-50" />
                   )}
                   {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} cubierta={booking.estadoPago === 'CUBIERTA'} />}
                 </div>

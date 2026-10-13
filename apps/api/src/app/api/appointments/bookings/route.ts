@@ -718,7 +718,8 @@ export async function GET(request: Request) {
             // y SIN `take`: qué status cuenta lo decide resolveFacturaVerdict, y un
             // `take: 1` sobre la lista sin filtrar podría traerse justo la cancelada
             // y esconder la activa.
-            cfdisEmitted: { select: { status: true } },
+            // (+ id y tipo: la tarjeta de la cita abre / manda la factura VIGENTE — 2026-10-12.)
+            cfdisEmitted: { select: { status: true, id: true, cfdiType: true, serie: true, folio: true }, orderBy: { id: 'desc' } },
             // Factura SUBIDA a mano (PDF) y su XML — el doctor que factura por fuera
             // de la plataforma la registra así, y para él la cita SÍ está facturada.
             // `take: 1` en estas DOS: solo importa si hay ALGUNA, no cuántas.
@@ -771,7 +772,12 @@ export async function GET(request: Request) {
     // comparten esta ruta y la del expediente (antes cada una miraba un subconjunto
     // distinto de las mismas tres señales).
     // Sin `ledgerEntry` (cita que nunca generó ingreso) ⇒ no facturada.
-    const data = bookings.map(({ ledgerEntry, tratamientoSesion, ...booking }) => ({
+    const data = bookings.map(({ ledgerEntry, tratamientoSesion, ...booking }) => {
+      // La factura de la plataforma de esta cita (de ingreso, NO cancelada — «en cancelación» todavía cuenta),
+      // la más reciente, para abrirla y mandarla desde la tarjeta. null = no hay una de ingreso de la
+      // plataforma vigente (subida a mano, detectada en el SAT, u otro tipo de CFDI).
+      const cfdiVigente = ledgerEntry?.cfdisEmitted.find((x) => x.status !== 'cancelled' && x.cfdiType === 'I');
+      return {
       ...booking,
       // V2 (2026-10-02): ya no hay paquetes — la cita de una sesión se cobra como cualquier otra.
       tratamientoSesion: tratamientoSesion
@@ -787,13 +793,17 @@ export async function GET(request: Request) {
           }
         : null,
       facturada: resolveFacturaVerdict(ledgerEntry, satStatusByUuid).facturada,
+      facturaCfdiId: cfdiVigente?.id ?? null,
+      facturaCfdiStatus: cfdiVigente?.status ?? null,
+      facturaCfdiFolio: cfdiVigente ? [cfdiVigente.serie, cfdiVigente.folio].filter(Boolean).join('-') || null : null,
       // `null` = no hay ingreso registrado ⇒ completar lo va a CREAR con lo que capture
       // el doctor. Presente = ya existe ⇒ completar NO lo toca, y estos son los valores
       // reales que quedaron guardados (no `finalPrice`, que es sólo el precio de lista).
       ingreso: ledgerEntry
         ? { formaDePago: ledgerEntry.formaDePago, amount: Number(ledgerEntry.amount) }
         : null,
-    }));
+      };
+    });
 
     return NextResponse.json({
       success: true,

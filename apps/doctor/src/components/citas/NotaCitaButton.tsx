@@ -47,10 +47,11 @@ export function NotaCitaButton({ bookingId, className }: { bookingId: string; cl
         onClick={abrir}
         disabled={cargando}
         title="Ver y descargar la nota de venta de esta cita"
-        className={className ?? 'text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-1 disabled:opacity-50'}
+        // Más grande (pedido del usuario 2026-10-12): se perdía entre los chips.
+        className={className ?? 'text-sm px-3 py-1.5 rounded-md bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200 flex items-center gap-1.5 font-medium disabled:opacity-50'}
       >
-        {cargando ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
-        Nota
+        {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+        Nota de venta
       </button>
       {nota && <NotaVentaModal venta={nota} onClose={() => setNota(null)} />}
     </>

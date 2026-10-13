@@ -213,7 +213,8 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
               'cambia ni se quita. En la sección "Cita" de la visita (con permiso de citas) está la MISMA tarjeta de la ' +
               'cita que en la agenda: ESTADO ("Completar" con la ventana de cobro, "No asistió", "Cancelar cita", "Reagendar" — ' +
               'abre la agenda y regresa a la visita), COBRO Y FACTURA (precio, "¿Necesita factura?", "Link de pago por correo" / ' +
-              '"por WhatsApp" —un clic, por el precio de la cita— y su nota, "Pedir datos fiscales por correo / por WhatsApp"), ' +
+              '"por WhatsApp" —un clic, por el precio de la cita—, "Nota de venta", "Pedir datos fiscales por correo / por WhatsApp" y, ya ' +
+              'facturada, "Factura: PDF · XML · Factura por correo · Factura por WhatsApp"), ' +
               'CONFIRMACIÓN CITA (correo / WhatsApp) y DOCUMENTOS ("Formulario por correo" / "por WhatsApp", pre-consulta). ' +
               '"Cancelar cita", "No asistió" o "Borrar cita y visita" con la visita vacía la borra. ' +
               'Dentro de la visita: Plantillas ("Agregar plantilla"), Fotos y documentos ("Subir"), ' +
