@@ -1,9 +1,10 @@
 'use client';
 
-// Link de pago LIGADO a una cita (tarjeta de la cita: agenda, visita, «Cobros»). Estados:
-//   · link pagado   → chip verde "Pagado"
-//   · link activo   → chip "Link enviado" + Reenviar por correo / WhatsApp + Copiar
-//   · sin link      → «Link de pago por correo» / «por WhatsApp»: UN clic crea el link y lo manda
+// Link de pago LIGADO a una cita (tarjeta de la cita: agenda, visita, «Cobros») — la fila «Link de pago»
+// (2026-10-12: Correo · WhatsApp · Copiar, siempre en su lugar). Estados, en palabras:
+//   · «Pagado · fecha»                → todo gris («Ya está pagado»)
+//   · «Activo · esperando el pago»    → Correo / WhatsApp lo vuelven a mandar; Copiar
+//   · «Sin enviar»                    → Correo / WhatsApp: UN clic crea el link y lo manda
 //
 // N11 (2026-10-12, decisión del usuario): funciona como «Confirmación cita». Antes era una ventana
 // (proveedor + monto) → crear → copiar / compartir. Ahora, sin preguntar:
@@ -11,12 +12,13 @@
 //   · proveedor = el conectado; con los dos, Mercado Pago (acepta OXXO y SPEI — decisión del usuario).
 
 import { useState } from 'react';
-import { Link2, Copy, Check, CreditCard } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
 import {
   BotonesDeEnvio, abrirWhatsAppTrasCrear, enviarEnlacePorCorreo, type ContactoEnvio,
 } from '@/components/citas/enviar-enlace';
+import { BotonCita, COLUMNA, FilaCita, Hueco } from '@/components/citas/fila-cita';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 // Los límites que ya pedía la ventana (y el proveedor).
@@ -43,6 +45,10 @@ interface Props {
   stripeLink?: BookingPaymentLinkInfo | null;
   mpLink?: BookingPaymentLinkInfo | null;
   onCreated?: () => void;
+  /** No aplica en esta cita (cancelada, sin permiso, cubierta…): todo gris con este porqué. */
+  motivo?: string | null;
+  /** El mismo motivo en pocas palabras, para la columna de estado. */
+  motivoCorto?: string | null;
 }
 
 type Provider = 'stripe' | 'mercadopago';
@@ -69,7 +75,7 @@ async function proveedorConectado(): Promise<Provider | 'ninguno' | 'no-se-sabe'
 
 export function PaymentLinkButton({
   bookingId, patientId, patientName, patientEmail, contacto, defaultAmount, defaultDescription,
-  stripeLink, mpLink, onCreated,
+  stripeLink, mpLink, onCreated, motivo, motivoCorto,
 }: Props) {
   // Link creado aquí (los datos del servidor no lo traen hasta releer)
   const [freshLink, setFreshLink] = useState<{ url: string; amount: number } | null>(null);
@@ -149,72 +155,33 @@ export function PaymentLinkButton({
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Paid
-  if (paidLink) {
-    return (
-      <span
-        className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 flex items-center gap-1"
-        title={paidLink.paidAt ? `Pagado el ${new Date(paidLink.paidAt).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Pagado'}
-      >
-        <Check className="w-3 h-3" /> Pagado
-      </span>
-    );
-  }
-
-  // Active pending link — reenviar
-  if (activeLink) {
-    return (
-      <div className="flex items-center gap-1 flex-wrap">
-        <span className="text-xs px-2 py-1 rounded bg-sky-50 text-sky-700 border border-sky-200 flex items-center gap-1">
-          {/* «activo», no «enviado»: existe aunque el correo haya fallado (eso lo dice el aviso). */}
-          <Link2 className="w-3 h-3" /> Link activo
-        </span>
-        <BotonesDeEnvio
-          contacto={contacto} ocupado={ocupado} onCorreo={porCorreo} onWhatsApp={porWhatsApp}
-          correo="Reenviar link por correo" whatsapp="Reenviar por WhatsApp"
-        />
-        <button
-          onClick={copiar}
-          className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1"
-          title="Copiar link de pago"
-        >
-          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          {copied ? 'Copiado' : 'Copiar'}
-        </button>
-      </div>
-    );
-  }
-
-  // No link yet — creating one requires a linked expediente (the income must be traceable
-  // to a patient record; the server guard enforces the same rule)
-  if (!patientId) {
-    return (
-      <span
-        className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200 flex items-center gap-1"
-        title="Para generar un link de pago, primero crea o vincula el expediente del paciente (columna Paciente)"
-      >
-        <CreditCard className="w-3 h-3" /> Requiere expediente
-      </span>
-    );
-  }
-  // El monto es el precio de la cita: sin uno válido no hay link (se DICE qué hacer).
-  if (!montoValido) {
-    return (
-      <span
-        className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-500 border border-gray-200 flex items-center gap-1"
-        title={`El link de pago se crea por el precio de la cita (entre $${MONTO_MIN} y $${MONTO_MAX.toLocaleString('es-MX')} MXN)`}
-      >
-        <CreditCard className="w-3 h-3" /> Ponle precio a la cita para mandar el link de pago
-      </span>
-    );
-  }
-
+  // 2026-10-12 — UNA fila con las columnas de siempre: Correo · WhatsApp · Copiar. El estado va en palabras;
+  // lo que no aplica, gris en su lugar con el porqué.
+  const fechaPago = paidLink?.paidAt
+    ? new Date(paidLink.paidAt).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : null;
+  // Por qué NO se puede mandar (en orden: lo de la cita, ya pagado, sin expediente, sin precio).
+  const noSePuede = motivo
+    ?? (paidLink ? 'Ya está pagado'
+      : activeLink ? null
+      : !patientId ? 'Para crear un link de pago, primero crea o vincula el expediente del paciente'
+      : !montoValido ? `El link se crea por el precio de la cita: ponle precio (entre $${MONTO_MIN} y $${MONTO_MAX.toLocaleString('es-MX')})`
+      : null);
+  const estado = paidLink ? `Pagado${fechaPago ? ` · ${fechaPago}` : ''}`
+    : activeLink ? 'Activo · esperando el pago'
+    : motivo ? motivoCorto ?? motivo
+    : !patientId ? 'Requiere expediente'
+    : !montoValido ? 'Sin precio'
+    : 'Sin enviar';
   return (
-    <div className="flex items-center gap-1 flex-wrap">
-      <BotonesDeEnvio
-        contacto={contacto} ocupado={ocupado} onCorreo={porCorreo} onWhatsApp={porWhatsApp}
-        correo="Link de pago por correo" whatsapp="Link de pago por WhatsApp"
+    <FilaCita nombre="Link de pago" estado={estado} tono={paidLink ? 'bien' : activeLink ? 'espera' : motivo || !patientId || !montoValido ? 'apagado' : 'neutro'}>
+      <BotonesDeEnvio contacto={contacto} ocupado={ocupado} onCorreo={porCorreo} onWhatsApp={porWhatsApp} motivo={noSePuede} />
+      <BotonCita
+        etiqueta={copied ? 'Copiado' : 'Copiar'} icono={copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+        onClick={copiar} ancho={COLUMNA.ver}
+        motivo={motivo ?? (activeLink ? null : paidLink ? 'Ya está pagado' : 'Todavía no hay link: se crea al mandarlo')}
       />
-    </div>
+      <Hueco ancho={COLUMNA.extra} />
+    </FilaCita>
   );
 }

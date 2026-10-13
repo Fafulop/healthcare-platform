@@ -5,14 +5,14 @@
 **Antes de empezar:** una plantilla con **«Usar como formulario pre-cita»** marcado (ver «Crear tu propia plantilla»).
 
 **Pasos — con cita**
-1. Abre la cita → grupo **DOCUMENTOS → «Formulario por correo»** o **«Formulario por WhatsApp»**.
+1. Abre la cita → sección **PARA EL PACIENTE**, fila **Formulario** → **«Correo»** o **«WhatsApp»**.
 2. Un clic lo crea con tu plantilla pre-cita y se lo manda al paciente. Si tienes **varias** plantillas pre-cita, se abre la ventana: elige la **Plantilla** → **«Generar enlace»** → **«Copiar»** o **«WhatsApp»**.
 
 **Pasos — sin cita**
 1. Botón morado **«Formulario libre»** (arriba en Mis Citas).
 2. Busca al **Paciente**, elige la **Plantilla** → **«Generar enlace»** → mándalo.
 
-**Qué vas a ver:** mientras no contesta, «Esperando respuesta». Cuando contesta, **«Formulario recibido»**, y sus respuestas quedan en el expediente, tarjeta **«Formularios»** («Recibido»).
+**Qué vas a ver:** mientras no contesta, «Esperando respuesta» («Copiar» copia el enlace; «⋯» → «Usar otra plantilla» o «Quitar formulario»). Cuando contesta, **«Recibido ✓»** y **«Ver»** abre sus respuestas, que quedan en el expediente, tarjeta **«Formularios»** («Recibido»).
 
 **Video:** (pendiente)
 

@@ -66,7 +66,7 @@ export interface EnvioDocumento {
   id: string | number;
 }
 
-export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redibujarCon, ajustesDe = ajustesRx, envio, onClose }: {
+export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redibujarCon, ajustesDe = ajustesRx, envio, alAbrir, onClose }: {
   /** El encabezado de la ventana («Nota de venta · VTA-2026-001»). */
   titulo: string;
   nombreArchivo: string;
@@ -83,6 +83,9 @@ export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redib
    *  correo del expediente — lo decide el servidor) y «Compartir PDF» (el «Compartir» del equipo: WhatsApp;
    *  el PDF ya está hecho, así que abre al instante en el clic). Se manda EXACTAMENTE lo que se ve. */
   envio?: EnvioDocumento;
+  /** 'correo' = se abrió con el botón «Correo» de la tarjeta de la cita: en cuanto la hoja está dibujada
+   *  (y completa) se manda sola — un clic, como las demás filas (2026-10-12). */
+  alAbrir?: 'correo';
   onClose: () => void;
 }) {
   const [enviando, setEnviando] = useState(false);
@@ -205,6 +208,17 @@ export function DocumentoPdfModal({ titulo, nombreArchivo, queEs, dibujar, redib
       setEnviando(false);
     }
   };
+
+  // «Correo» desde la tarjeta: se manda UNA vez, en cuanto la hoja existe. Sin el diseño completo no se
+  // manda (los avisos de abajo dicen qué falta).
+  const autoEnviado = useRef(false);
+  useEffect(() => {
+    if (alAbrir !== 'correo' || autoEnviado.current || !url || !cargado || !envio) return;
+    autoEnviado.current = true;
+    if (diseñoCompleto) void enviarPorCorreo();
+    else toast.error(`No se mandó ${queEs}: no se cargó todo su diseño (mira el aviso en la ventana).`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alAbrir, url, cargado]);
 
   const compartir = () => {
     if (!docRef.current) return;

@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Copy, Check } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
 import type { Booking } from '../_hooks/useBookings';
 import {
   BotonesDeEnvio, abrirWhatsAppTrasCrear, enviarEnlacePorCorreo, type ContactoEnvio,
 } from '@/components/citas/enviar-enlace';
+import { BotonCita, COLUMNA, FilaCita, Hueco } from '@/components/citas/fila-cita';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 // Mismo origen y mismo fallback que usa PreAppointmentFormModal para armar su enlace.
@@ -15,28 +16,20 @@ const PUBLIC_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://tusalud.pro';
 
 /**
  * «Datos fiscales» de la cita (con «¿Necesita factura?» marcada). N13 (2026-10-12): como Confirmación —
- * «Pedir datos fiscales por correo» / «por WhatsApp» en un clic (antes: «Facturación» → enlace →
- * «Copiar» / «WhatsApp»). Si ya hay un enlace pendiente, se REUSA (el servidor lo devuelve; pedir otro
+ * la fila «Datos fiscales» con «Correo» / «WhatsApp» en un clic y «Copiar» (antes: «Facturación» →
+ * enlace → «Copiar» / «WhatsApp»). Si ya hay un enlace pendiente, se REUSA (el servidor lo devuelve; pedir otro
  * invalidaría el que el paciente pueda tener) y se ofrece reenviarlo.
  */
-export function FiscalFormButton({ booking, contacto }: { booking: Booking; contacto: ContactoEnvio }) {
+export function FiscalFormButton({ booking, contacto, motivo }: {
+  booking: Booking;
+  contacto: ContactoEnvio;
+  /** No aplica (sin permiso de Facturación, cita cancelada…): la fila gris con este porqué. */
+  motivo?: string | null;
+}) {
   const [ocupado, setOcupado] = useState(false);
   const [formUrl, setFormUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [soloRfc, setSoloRfc] = useState(false);
-
-  // Sin expediente NO se puede pedir datos fiscales (el formulario escribe sobre el paciente). Se DICE,
-  // igual que Cobro con su propio requisito.
-  if (!booking.patientId) {
-    return (
-      <span
-        className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-400 border border-gray-200 flex items-center gap-1"
-        title="Para pedir los datos fiscales, primero crea o vincula el expediente del paciente"
-      >
-        <FileText className="w-3 h-3" /> Requiere expediente
-      </span>
-    );
-  }
 
   // Los datos fiscales se DERIVAN del expediente que ya viaja en el payload (misma condición que usa
   // CompleteBookingModal para decidir si puede timbrar).
@@ -44,16 +37,6 @@ export function FiscalFormButton({ booking, contacto }: { booking: Booking; cont
   const hasFiscalData = !!(
     p?.requiereFactura && p?.rfc && p?.razonSocial && p?.regimenFiscal && p?.usoCfdi && p?.codigoPostalFiscal
   );
-  if (hasFiscalData) return <YaTieneDatosFiscales />;
-  // El 409 del servidor sólo mira RFC + requiereFactura (no los 6 campos): decir «ya contamos con sus
-  // datos» sería afirmar de más. Se dice lo que se sabe y dónde revisarlo.
-  if (soloRfc) {
-    return (
-      <span className="text-xs text-gray-600 flex items-center gap-1">
-        <FileText className="w-3.5 h-3.5 shrink-0" /> El paciente ya tiene RFC registrado: revisa sus datos fiscales en su expediente.
-      </span>
-    );
-  }
 
   // Enlace PENDIENTE que ya existe según el SERVIDOR (sobrevive al refrescar) o el recién creado.
   const enlacePendiente = p?.formLinks?.[0] ?? null;
@@ -100,42 +83,31 @@ export function FiscalFormButton({ booking, contacto }: { booking: Booking; cont
     setTimeout(() => setCopied(false), 2000);
   }
 
+  // 2026-10-12 — UNA fila: Correo · WhatsApp · Copiar, con el estado en palabras. Sin expediente, con los
+  // datos ya completos o sin que aplique: gris en su lugar con el porqué.
   const esperando = !!urlEfectiva;
+  // El 409 del servidor sólo mira RFC + requiereFactura (no los 6 campos): «ya los tenemos» sería afirmar de
+  // más — se dice lo que se sabe y dónde revisarlo.
+  const noSePuede = motivo
+    ?? (!booking.patientId ? 'Para pedir los datos fiscales, primero crea o vincula el expediente del paciente'
+      : hasFiscalData ? 'Ya contamos con sus datos fiscales: no hay nada que pedirle'
+      : soloRfc ? 'El paciente ya tiene RFC registrado: revisa sus datos fiscales en su expediente'
+      : null);
+  const estado = motivo ? 'No aplica'
+    : !booking.patientId ? 'Requiere expediente'
+    : hasFiscalData ? 'Recibidos ✓'
+    : soloRfc ? 'Ya tiene RFC: revisa su expediente'
+    : esperando ? 'Esperando sus datos'
+    : 'Sin pedir';
   return (
-    <div className="flex items-center gap-1 flex-wrap">
-      {esperando && (
-        <span className="text-xs px-2 py-1 rounded bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1">
-          <FileText className="w-3 h-3" /> Esperando datos
-        </span>
-      )}
-      <BotonesDeEnvio
-        contacto={contacto} ocupado={ocupado} onCorreo={porCorreo} onWhatsApp={porWhatsApp}
-        correo={esperando ? 'Reenviar datos fiscales por correo' : 'Pedir datos fiscales por correo'}
-        whatsapp={esperando ? 'Reenviar por WhatsApp' : 'Pedir datos fiscales por WhatsApp'}
+    <FilaCita nombre="Datos fiscales" estado={estado} tono={hasFiscalData ? 'bien' : esperando ? 'espera' : noSePuede ? 'apagado' : 'neutro'}>
+      <BotonesDeEnvio contacto={contacto} ocupado={ocupado} onCorreo={porCorreo} onWhatsApp={porWhatsApp} motivo={noSePuede} />
+      <BotonCita
+        etiqueta={copied ? 'Copiado' : 'Copiar'} icono={copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+        onClick={copiar} ancho={COLUMNA.ver}
+        motivo={noSePuede ?? (esperando ? null : 'Todavía no hay enlace: se crea al mandarlo')}
       />
-      {esperando && (
-        <button
-          onClick={copiar}
-          className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1"
-          title="Copiar enlace de datos fiscales"
-        >
-          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          {copied ? 'Copiado' : 'Copiar'}
-        </button>
-      )}
-    </div>
-  );
-}
-
-/**
- * El paciente YA tiene datos fiscales completos: no hay nada que pedirle, así que no es un botón — es un
- * TEXTO que lo dice (decisión del usuario 2026-10-12: el chip «✓ Datos fiscales» parecía un botón que no
- * hacía nada).
- */
-function YaTieneDatosFiscales() {
-  return (
-    <span className="text-xs text-green-700 flex items-center gap-1">
-      <Check className="w-3.5 h-3.5 shrink-0" /> Ya contamos con sus datos fiscales para facturarle.
-    </span>
+      <Hueco ancho={COLUMNA.extra} />
+    </FilaCita>
   );
 }

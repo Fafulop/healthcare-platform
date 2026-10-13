@@ -1,6 +1,7 @@
 "use client";
 
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, Check } from "lucide-react";
+import { BotonCita } from "./fila-cita";
 // La regla «Vencida» vive en lib/citas/vencida (la usan también «Visitas» y la cuenta de «Cobros»).
 import { citaVencida } from "@/lib/citas/vencida";
 
@@ -11,14 +12,12 @@ import { citaVencida } from "@/lib/citas/vencida";
  * para que la agenda, la visita y «Cobros» pinten los MISMOS con las MISMAS reglas. Sólo pinta: quien lo
  * monta decide qué hace cada uno. `onReagendar` ausente = aquí no se reagenda (gris).
  *
- * 2026-10-12 (pedido del usuario) — SIEMPRE los cinco, en el MISMO lugar: lo que no aplica a este estado
+ * 2026-10-12 (pedido del usuario) — SIEMPRE en el MISMO lugar y con la MISMA forma (`BotonCita`): lo que no aplica a este estado
  * se ve gris, no clicable, con el porqué al pasar el ratón; y una cita ya cerrada dice en una línea que
  * ya no cambia. Antes los botones aparecían y desaparecían según el estado (pendiente → confirmada →
  * completada) y todo lo demás de la tarjeta se recorría a su lugar: la gente ubica las cosas por dónde
  * están. Las REGLAS no cambiaron (las transiciones del servidor, VALID_TRANSITIONS): sólo qué se ve.
  */
-
-const APAGADO = "bg-gray-100 text-gray-400 cursor-not-allowed";
 
 /** Por qué una cita ya cerrada no acepta ningún botón de estado. */
 function motivoTerminal(status: string): string | null {
@@ -34,31 +33,6 @@ function lineaTerminal(status: string): string | null {
   if (status === "CANCELLED") return "Cancelada: ya no cambia de estado.";
   if (status === "NO_SHOW") return "No asistió: ya no cambia de estado.";
   return null;
-}
-
-function Boton({ etiqueta, motivo, onClick, deshabilitado, color, icono }: {
-  etiqueta: string;
-  /** null = aplica (clicable); un texto = gris, y ese texto es el porqué. */
-  motivo: string | null;
-  onClick?: () => void;
-  deshabilitado: boolean;
-  color: string;
-  icono?: React.ReactNode;
-}) {
-  const activo = motivo === null && !!onClick;
-  return (
-    <button
-      type="button"
-      onClick={activo ? onClick : undefined}
-      disabled={!activo || deshabilitado}
-      aria-disabled={!activo}
-      title={motivo ?? undefined}
-      className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${activo ? `${color} disabled:opacity-50` : APAGADO}`}
-    >
-      {icono}
-      {etiqueta}
-    </button>
-  );
 }
 
 export function BotonesEstadoCita({
@@ -81,13 +55,15 @@ export function BotonesEstadoCita({
   const linea = lineaTerminal(status);
   // H-070: una Pendiente sólo se confirma o se cancela (VALID_TRANSITIONS del servidor).
   const motivoCompletar = terminal ?? (status === "PENDING" ? "Confírmala primero" : null);
+  const ocupado = deshabilitado ? "Espera a que termine lo anterior" : null;
 
+  const completar = (
+    <BotonCita etiqueta="Completar" icono={<Check className="w-3 h-3" />} variante="principal" onClick={onCompletar} motivo={motivoCompletar ?? ocupado} />
+  );
   if (soloCompletar) {
     return (
       <div className="space-y-1">
-        <div className="flex gap-1 flex-wrap">
-          <Boton etiqueta="Completar" motivo={motivoCompletar} onClick={onCompletar} deshabilitado={deshabilitado} color="bg-green-100 text-green-700 hover:bg-green-200 font-medium" />
-        </div>
+        <div className="flex gap-1.5 flex-wrap">{completar}</div>
         {linea && <p className="text-xs text-gray-500">{linea}</p>}
       </div>
     );
@@ -98,22 +74,18 @@ export function BotonesEstadoCita({
 
   return (
     <div className="space-y-1">
-      <div className="flex gap-1 flex-wrap">
-        <Boton
-          etiqueta={status === "PENDING" ? "Confirmar" : "Confirmada"}
-          motivo={terminal ?? (status === "PENDING" ? null : "Ya está confirmada")}
-          onClick={onConfirmar} deshabilitado={deshabilitado}
-          color="bg-blue-100 text-blue-700 hover:bg-blue-200"
-        />
-        <Boton etiqueta="Completar" motivo={motivoCompletar} onClick={onCompletar} deshabilitado={deshabilitado} color="bg-green-100 text-green-700 hover:bg-green-200 font-medium" />
-        <Boton etiqueta="No asistió" motivo={motivoCompletar} onClick={onNoAsistio} deshabilitado={deshabilitado} color="bg-orange-100 text-orange-700 hover:bg-orange-200" />
+      <div className="flex gap-1.5 flex-wrap">
+        {/* «Confirmar» sólo existe en una cita PENDIENTE — las que llegaban de la reserva pública (2026-10-12:
+            ya no se usa; quedan unas viejas, y sin confirmarlas no se pueden completar). */}
+        {status === "PENDING" && (
+          <BotonCita etiqueta="Confirmar" onClick={onConfirmar} motivo={ocupado} />
+        )}
+        {completar}
+        <BotonCita etiqueta="No asistió" onClick={onNoAsistio} motivo={motivoCompletar ?? ocupado} />
         {/* «Cancelar cita», no «Cancelar» (2026-10-12): en la sesión y el tratamiento conviven otros
             «Cancelar …» y uno suelto no decía qué. */}
-        <Boton etiqueta="Cancelar cita" motivo={terminal} onClick={onCancelar} deshabilitado={deshabilitado} color="bg-red-100 text-red-700 hover:bg-red-200" />
-        <Boton
-          etiqueta="Reagendar" motivo={motivoReagendar} onClick={onReagendar} deshabilitado={deshabilitado}
-          color="bg-amber-100 text-amber-700 hover:bg-amber-200" icono={<CalendarClock className="w-3 h-3" />}
-        />
+        <BotonCita etiqueta="Cancelar cita" variante="peligro" onClick={onCancelar} motivo={terminal ?? ocupado} />
+        <BotonCita etiqueta="Reagendar" icono={<CalendarClock className="w-3 h-3" />} onClick={onReagendar} motivo={motivoReagendar ?? ocupado} />
       </div>
       {linea && <p className="text-xs text-gray-500">{linea}</p>}
     </div>

@@ -16,8 +16,8 @@ import { useState, useEffect } from "react";
 import { usePermissions } from "@/lib/permissions-client";
 import Link from "next/link";
 import {
-  Loader2, Pencil, Clock, UserSquare2, X, CheckCircle, Send,
-  Video, ExternalLink, AlertCircle, MessageCircle,
+  Loader2, Pencil, Clock, UserSquare2, X, Send,
+  Video, ExternalLink, MessageCircle,
 } from "lucide-react";
 import { InlinePatientSearch } from "./InlinePatientSearch";
 import { CreatePatientFromBookingModal } from "./CreatePatientFromBookingModal";
@@ -32,6 +32,8 @@ import type { Booking } from "../_hooks/useBookings";
 import { NotaCitaButton } from "@/components/citas/NotaCitaButton";
 import { FacturaDeLaCita } from "@/components/citas/FacturaDeLaCita";
 import { BotonesEstadoCita, citaReagendable } from "@/components/citas/BotonesEstadoCita";
+import { BotonCita, COLUMNA, FilaCita, Hueco, SeccionCita } from "@/components/citas/fila-cita";
+import { faltaCorreo, faltaWhatsapp } from "@/components/citas/enviar-enlace";
 
 /**
  * Envuelve los controles que viven en la fila COLAPSADA (precio, expediente) para
@@ -69,7 +71,7 @@ export function FacturaCheckbox({
             ? "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100"
             : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
         }`}
-        title="Al marcarla aparece «Pedir datos fiscales por correo / por WhatsApp» (en Cobro y factura)"
+        title="Al marcarla aparecen las filas «Datos fiscales» y «Factura» (en Cobro y factura)"
       >
         <input
           type="checkbox"
@@ -390,29 +392,6 @@ export function ExpedienteCell({
   );
 }
 
-/**
- * Un botón que AQUÍ no aplica, en su lugar de siempre: gris, sin clic, con el porqué al pasar el ratón
- * (2026-10-12, pedido del usuario: que nada se recorra cuando la cita cambia de estado).
- */
-function Apagado({ etiqueta, motivo }: { etiqueta: string; motivo: string }) {
-  return (
-    <span
-      title={motivo}
-      aria-disabled="true"
-      className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-400 cursor-not-allowed select-none"
-    >
-      {etiqueta}
-    </span>
-  );
-}
-
-/** Por qué ya no se le manda nada PREVIO a la consulta (confirmación, formulario) a esta cita. */
-function motivoPrevio(status: string): string {
-  if (status === "PENDING") return "Confírmala primero";
-  if (status === "CANCELLED") return "La cita está cancelada";
-  return "La cita ya pasó";
-}
-
 export function StatusActions({
   booking,
   onUpdateStatus,
@@ -496,26 +475,8 @@ export function StatusActions({
   const isCompleted = booking.status === "COMPLETED";
   const showCommsGroup = booking.status === "CONFIRMED";
 
-  // El formulario es PREVIO a la consulta: en una cita ya completada "Crear formulario"
-  // mandaría un enlace que isFormLinkExpired marca vencido de inmediato (la fecha del slot ya
-  // pasó). Se conserva solo el estado SUBMITTED, que es un enlace de LECTURA al formulario
-  // que el paciente ya contestó.
-  const showFormularioButton =
-    booking.status === "CONFIRMED" || booking.formLink?.status === "SUBMITTED";
-  // FACTURA es su propio grupo, justo debajo de Cobro: son los dos pasos de la MISMA cadena
-  // (cobrar la consulta y facturarla), y tenerlo metido en "Documentos" lo mezclaba con el
-  // formulario CLÍNICO pre-consulta, que no tiene nada que ver.
-  // La casilla "¿Necesita factura?" es la única llave: desmarcada, la fila se comporta como
-  // siempre. Ya NO se exige `patientId` aquí — sin expediente el propio botón dice "Requiere
-  // expediente", igual que Cobro, en vez de desaparecer sin explicación.
-  // Vive mientras la cita no sea terminal, y sobrevive a COMPLETADA por lo mismo que Cobro:
-  // completar significa "ya vi al paciente", no "se cerró el papeleo" (bitácora #29).
-  const showFacturaGroup = !!booking.facturaSolicitada && (!isTerminal || isCompleted);
-  // Documentos se queda SOLO con el formulario clínico.
-  // Completada: sólo si ya hay formulario (recibido o pendiente) — crear uno ya no se puede y el grupo
-  // quedaba con su título y nada abajo.
-  const showDocsGroup =
-    showFormularioButton && (booking.status === "CONFIRMED" || (isCompleted && !!booking.formLink));
+  // El formulario y la factura deciden su propio «no aplica» en su fila (FormularioStatusButton, y
+  // `motivoFactura` abajo): ya no hay grupos que se escondan.
   // Cobro: citas activas y COMPLETADAS siempre; canceladas/no-asistió solo con link PAGADO o
   // ACTIVO (un link viejo desactivado y no pagado NO debe reabrir el botón de crear sobre una
   // cita que nunca ocurrió). Ese guard se conserva tal cual para esos dos estados.
@@ -537,81 +498,138 @@ export function StatusActions({
     />
   );
 
-  // 2026-10-12: el grupo SIEMPRE está (los botones que no aplican, grises — `BotonesEstadoCita`), para que
-  // nada se recorra al completar / cancelar.
+  // 2026-10-12 (pedido del usuario: «formas, tamaños y nombres distintos, todo por todos lados») — la tarjeta
+  // en TRES secciones con UNA forma de botón y UNA forma de fila (components/citas/fila-cita):
+  //   ESTADO           · los botones de estado;
+  //   COBRO Y FACTURA  · Link de pago · Nota de venta · (con «Necesita factura») Datos fiscales · Factura;
+  //   PARA EL PACIENTE · Confirmación · Formulario.
+  // Cada fila: nombre · estado en palabras · Correo · WhatsApp · Ver/Copiar · extra. Nada desaparece al
+  // cambiar de estado: lo que no aplica queda GRIS en su lugar con el porqué. Las REGLAS (qué se puede en
+  // cada estado, con qué permiso) son las de antes: sólo cambió cómo se ve.
   const estadoGroup = !sinEstado && (
-        <div className="pt-2 first:pt-0">
-          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Estado</span>
-          {/* 09-PLAN L2: los MISMOS botones que la visita y la sesión del tratamiento. */}
-          <BotonesEstadoCita
-            status={booking.status}
-            puedeReagendar={canReschedule}
-            onConfirmar={() => onUpdateStatus(booking.id, "CONFIRMED")}
-            onCompletar={() => setCompleteModalOpen(true)}
-            onNoAsistio={() => onUpdateStatus(booking.id, "NO_SHOW")}
-            onCancelar={() => onUpdateStatus(booking.id, "CANCELLED")}
-            onReagendar={() => onReschedule(booking)}
-            soloCompletar={soloCobro}
-          />
-        </div>
-      );
+    <SeccionCita titulo="Estado">
+      {/* 09-PLAN L2: los MISMOS botones que la visita y «Cobros». */}
+      <BotonesEstadoCita
+        status={booking.status}
+        puedeReagendar={canReschedule}
+        onConfirmar={() => onUpdateStatus(booking.id, "CONFIRMED")}
+        onCompletar={() => setCompleteModalOpen(true)}
+        onNoAsistio={() => onUpdateStatus(booking.id, "NO_SHOW")}
+        onCancelar={() => onUpdateStatus(booking.id, "CANCELLED")}
+        onReagendar={() => onReschedule(booking)}
+        soloCompletar={soloCobro}
+      />
+    </SeccionCita>
+  );
 
-  // CONFIRMACIÓN — dos canales para el MISMO mensaje: la confirmación de la cita.
-  //
-  // Correo: el envío es automático al crear/confirmar la cita
-  // (lib/send-confirmation-email, enchufado en las 5 rutas de creación), pero solo ocurre
-  // si hay correo Y el doctor tiene Gmail conectado. Medido en prod sobre las 104 citas
-  // CONFIRMED: 54 con envío, 33 sin correo siquiera, y 17 CON correo y sin envío. Por eso
-  // "Enviar" sigue existiendo — no es una opción de diseño, son 17 citas reales que si no
-  // mostrarían un "Reenviar" que no reenvía nada.
-  //
-  // WhatsApp: NO hay API — es un enlace wa.me que abre el chat con el mensaje listo y el
-  // doctor presiona enviar. Por eso nunca dice "reenviar" ni tiene estado de "ya enviado":
-  // nada de nuestro lado se entera de que se mandó.
-  // El EXPEDIENTE manda, la copia de la cita es el respaldo — MISMO orden que resuelve el
-  // servidor (send-email/route.ts y lib/send-confirmation-email.ts). Si divergen, el botón
-  // prometería un envío que la API rechaza, o al revés.
-  // Una sola definición de ese orden (`resolverContacto`), la misma que resuelven los dos
-  // endpoints de envío. Estaba duplicada aquí en línea: coincidían hoy y habrían divergido
-  // en cuanto alguien editara una sola.
-  // ⚠️ El comentario decía "cita primero, expediente de respaldo": quedó describiendo el
-  // orden VIEJO cuando la decisión #30 (2026-07-29) lo invirtió y `resolverContacto` pasó a
-  // resolver `patient.email || patientEmail`. El código siempre estuvo bien; el comentario no.
-  const contactoCita = resolverContacto(booking);
-  const emailDestino = contactoCita.email;
-  // WhatsApp antepone su propio campo (es el número que el paciente dio PARA WhatsApp) y
-  // cae al teléfono resuelto. Patient no tiene columna de WhatsApp.
-  const waDestino = waNumber(telefonoWhatsApp(booking));
-  const yaEnviado = !!booking.confirmationEmailSentAt;
+  // El EXPEDIENTE manda y la copia de la cita es el respaldo — el MISMO orden que resuelve el servidor
+  // (`resolverContacto`, decisión #30). WhatsApp antepone su propio campo (el número que el paciente dio
+  // PARA WhatsApp) y cae al teléfono resuelto.
+  const contactoEnvio = {
+    email: resolverContacto(booking).email,
+    wa: waNumber(telefonoWhatsApp(booking)),
+    expediente: booking.patientId ? `/dashboard/medical-records/patients/${booking.patientId}` : null,
+  };
+
+  // Por qué la cita misma ya no admite algo (cancelada / no asistió), en largo y en corto.
+  const motivoCita = booking.status === "CANCELLED" ? "La cita está cancelada"
+    : booking.status === "NO_SHOW" ? "El paciente no asistió" : null;
+  const motivoCitaCorto = booking.status === "CANCELLED" ? "Cita cancelada" : booking.status === "NO_SHOW" ? "No asistió" : null;
+
+  // ── COBRO Y FACTURA ──────────────────────────────────────────────────────────────────────────────
+  // Precio y «¿Necesita factura?» arriba a la derecha (la visita, «Cobros», el calendario; la tabla los
+  // enseña en su columna PRECIO). Mandar el link / pedir datos fiscales usan rutas de Pagos / Facturación:
+  // sin ese permiso sus botones quedan grises (antes no se ofrecían: el servidor contestaba 403).
+  const conPrecio = !!onUpdatePrice && !sinCobro;
+  const conCasilla = !!onUpdateFacturaSolicitada && !sinFactura;
+  const cubierta = cubiertaPorPaqueteViejo(booking);
+  // Cobro: citas activas y COMPLETADAS siempre; canceladas/no-asistió sólo con link PAGADO o ACTIVO (un link
+  // viejo no pagado NO debe reabrir el crear sobre una cita que nunca ocurrió).
+  const motivoLink = !puedeEnviar("pagos") ? "Mandar links de pago necesita permiso de Pagos"
+    : cubierta ? "Cubierta por el paquete: no hay nada que cobrar"
+    : !showCobroGroup ? motivoCita
+    : null;
+  const motivoLinkCorto = !puedeEnviar("pagos") ? "Sin permiso de Pagos" : cubierta ? "Cubierta por el paquete" : !showCobroGroup ? motivoCitaCorto : null;
+  // La nota = el COBRO de la cita como PDF: hay nota en cuanto hay cobro con monto (también cancelada).
+  const conCobro = !!booking.ingreso && booking.ingreso.amount > 0;
+  // Verla sólo pide Flujo de Dinero (lo revisa la fila y la ruta): antes la agenda la escondía con el link
+  // (permiso de Pagos), pero la visita ya la ofrecía con sólo Flujo — también en una cita cancelada con
+  // cobro. Una sola regla: la de la ruta (2026-10-12).
+  const motivoNota = conCobro ? null
+    : cubierta || booking.ingreso ? "Cubierta por el paquete: no tiene cobro que documentar"
+    : isCompleted ? "Esta cita no tiene cobro con monto"
+    : motivoCita ?? "Sin cobro todavía: la nota sale del cobro de la cita (al completarla o pagar el link)";
+  const motivoNotaCorto = conCobro ? null : cubierta || booking.ingreso ? "Cubierta por el paquete" : motivoCitaCorto ?? "Sin cobro todavía";
+  // Factura: con «¿Necesita factura?» marcada (o ya facturada). Vive mientras la cita no sea cancelada /
+  // no asistió (completar = «ya vi al paciente», no «se cerró el papeleo», bitácora #29).
+  const verFilasFactura = !sinFactura && (!!booking.facturaSolicitada || !!booking.facturada);
+  // «Datos fiscales» sólo con la casilla marcada (como antes); «Factura» también si ya está facturada.
+  const verDatosFiscales = !sinFactura && !!booking.facturaSolicitada;
+  const motivoFactura = !puedeEnviar("facturacion") ? "Necesita permiso de Facturación" : motivoCita;
+
+  const cobroGroup = (!sinCobro || verFilasFactura || conCasilla) && (
+    <SeccionCita
+      titulo={sinCobro ? "Factura" : "Cobro y factura"}
+      derecha={(conPrecio || conCasilla) && (
+        <span className="flex items-center gap-2">
+          {conPrecio && (
+            <span className="inline-flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Precio</span>
+              <PriceCell booking={booking} onUpdatePrice={onUpdatePrice!} />
+            </span>
+          )}
+          {conCasilla && <FacturaCheckbox booking={booking} onChange={onUpdateFacturaSolicitada!} />}
+        </span>
+      )}
+    >
+      {!sinCobro && (
+        <PaymentLinkButton
+          bookingId={booking.id}
+          patientId={booking.patientId}
+          patientName={booking.patientName}
+          patientEmail={contactoEnvio.email || undefined}
+          contacto={contactoEnvio}
+          motivo={motivoLink}
+          motivoCorto={motivoLinkCorto}
+          defaultAmount={booking.finalPrice}
+          defaultDescription={booking.serviceName ? `${booking.serviceName} - ${booking.patientName}` : `Consulta - ${booking.patientName}`}
+          stripeLink={booking.paymentLink ? {
+            status: booking.paymentLink.status,
+            isActive: booking.paymentLink.isActive,
+            url: booking.paymentLink.stripePaymentLinkUrl,
+            paidAt: booking.paymentLink.paidAt,
+            amount: booking.paymentLink.amount,
+          } : null}
+          mpLink={booking.mpPaymentPreference ? {
+            status: booking.mpPaymentPreference.status,
+            isActive: booking.mpPaymentPreference.isActive,
+            url: booking.mpPaymentPreference.mpInitPoint,
+            paidAt: booking.mpPaymentPreference.paidAt,
+            amount: booking.mpPaymentPreference.amount,
+          } : null}
+        />
+      )}
+      {!sinCobro && <NotaCitaButton bookingId={booking.id} motivo={motivoNota} motivoCorto={motivoNotaCorto} />}
+      {verDatosFiscales && <FiscalFormButton booking={booking} contacto={contactoEnvio} motivo={motivoFactura} />}
+      {verFilasFactura && (
+        <FacturaDeLaCita
+          cfdiId={booking.facturaCfdiId} cfdiStatus={booking.facturaCfdiStatus} folio={booking.facturaCfdiFolio}
+          contacto={contactoEnvio} facturada={!!booking.facturada} motivo={motivoFactura}
+        />
+      )}
+    </SeccionCita>
+  );
+
+  // ── PARA EL PACIENTE ─────────────────────────────────────────────────────────────────────────────
+  // CONFIRMACIÓN — el correo sale solo al crear/confirmar la cita si hay correo y Gmail conectado; en prod
+  // había citas CON correo y sin envío, por eso «Correo» sigue aquí. WhatsApp no tiene API: abre el chat
+  // con el mensaje listo (por eso no lleva «ya enviado»). Sólo en una cita AGENDADA.
   const ultimoEnvio = booking.confirmationEmailSentAt
     ? new Date(booking.confirmationEmailSentAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
     : null;
   const esTelemedicina = booking.appointmentMode === "TELEMEDICINA";
-
-  // El dato de contacto vive en el expediente, así que "Necesita …" lleva ahí. Sin
-  // expediente vinculado no hay a dónde ir: queda informativo y dice qué hacer antes.
-  const faltaContacto = (que: string) =>
-    booking.patientId ? (
-      <Link
-        href={`/dashboard/medical-records/patients/${booking.patientId}`}
-        className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200 hover:text-gray-700 flex items-center gap-1"
-        title={`Agrega ${que} en el expediente del paciente`}
-      >
-        <AlertCircle className="w-3 h-3" /> Necesita {que}
-      </Link>
-    ) : (
-      <span
-        className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-400 border border-gray-200 flex items-center gap-1"
-        title={`Vincula el expediente para poder capturar ${que}`}
-      >
-        <AlertCircle className="w-3 h-3" /> Necesita {que}
-      </span>
-    );
-
-  // N11/N13 (2026-10-12): formulario, link de pago y datos fiscales se mandan como la confirmación —
-  // mismo destinatario, mismos avisos de «Necesita correo / WhatsApp».
-  const contactoEnvio = { email: emailDestino, wa: waDestino, falta: faltaContacto };
-
+  const motivoConfirmacion = showCommsGroup ? null
+    : booking.status === "PENDING" ? "Confírmala primero" : motivoCita ?? "La cita ya pasó";
   const mensajeWhatsApp = [
     `Hola ${booking.patientName}, te confirmamos tu cita`,
     bookingDate ? ` el ${formatLocalDate(bookingDate, { weekday: "long", day: "numeric", month: "long" })}` : "",
@@ -620,264 +638,88 @@ export function StatusActions({
     booking.meetLink ? ` Enlace de la videoconsulta: ${booking.meetLink}` : "",
   ].join("");
 
-  // 2026-10-12: SIEMPRE en su lugar; fuera de una cita agendada, sus dos botones grises con el porqué.
   const comunicacionGroup = !soloCobro && (
-        <div className="pt-2 first:pt-0">
-          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Confirmación cita</span>
-          <div className="flex gap-1 flex-wrap">
-            {!showCommsGroup ? (
-              <>
-                <Apagado etiqueta="Enviar confirmación" motivo={motivoPrevio(booking.status)} />
-                <Apagado etiqueta="Confirmación por WhatsApp" motivo={motivoPrevio(booking.status)} />
-              </>
-            ) : !emailDestino ? (
-              faltaContacto("correo")
-            ) : (
-              <button
-                onClick={handleSendEmail}
-                disabled={isSendingEmail}
-                title={
-                  ultimoEnvio
-                    ? `Último envío: ${ultimoEnvio}${esTelemedicina && booking.meetLink ? " · Meet creado" : ""}`
-                    : esTelemedicina
-                      ? "Crear Google Meet y enviar la confirmación al paciente"
-                      : "Enviar la confirmación de la cita al paciente"
-                }
-                className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isSendingEmail ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : yaEnviado ? (
-                  <CheckCircle className="w-3 h-3 text-teal-600" />
-                ) : esTelemedicina ? (
-                  <Video className="w-3 h-3" />
-                ) : (
-                  <Send className="w-3 h-3" />
-                )}
-                {isSendingEmail ? "Enviando..." : yaEnviado ? "Reenviar confirmación" : "Enviar confirmación"}
-              </button>
-            )}
-
-            {!showCommsGroup ? null : !waDestino ? (
-              faltaContacto("WhatsApp")
-            ) : (
-              <a
-                href={`https://wa.me/${waDestino}?text=${encodeURIComponent(mensajeWhatsApp)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 flex items-center gap-1"
-                title="Abre WhatsApp con la confirmación lista para enviar"
-              >
-                <MessageCircle className="w-3 h-3" /> Confirmación por WhatsApp
-              </a>
-            )}
-
-            {showCommsGroup && esTelemedicina && booking.meetLink && (
-              <a
-                href={booking.meetLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 flex items-center gap-1"
-                title="Abrir Google Meet"
-              >
-                <ExternalLink className="w-3 h-3" />
-                Entrar a Meet
-              </a>
-            )}
-          </div>
-        </div>
-      );
-
-  // COBRO Y FACTURA — todo lo de dinero JUNTO (decisión del usuario 2026-10-12): precio, «¿Necesita
-  // factura?», el link de pago (y la nota, ya cobrada) y el formulario de datos fiscales (con la casilla).
-  // Antes eran tres lugares (precio y casilla aparte, el grupo COBRO y el grupo FACTURA).
-  // FACTURA sigue el mismo patrón de estados que el cobro, un paso después en la misma cadena:
-  //   Cobro:   Requiere expediente · Link de pago por correo/WhatsApp · Link activo + reenviar · Pagado
-  //   Factura: Requiere expediente · Pedir datos fiscales por correo/WhatsApp · Esperando datos + reenviar · Ya contamos con sus datos
-  // N11/N13 (2026-10-12): link de pago y datos fiscales se mandan como la confirmación («… por correo»
-  // / «… por WhatsApp»). El prompt del agente (modules/facturas.ts) nombra esos botones: van juntos.
-  const conPrecio = !!onUpdatePrice && !sinCobro;
-  const conCasilla = !!onUpdateFacturaSolicitada && !sinFactura;
-  // Mandar el link / pedir datos fiscales usan rutas de Pagos / Facturación: sin ese permiso no se ofrecen
-  // (en la agenda nadie pasa sinCobro/sinFactura; el servidor contestaba 403 — code review N11).
-  const verLink = showCobroGroup && !sinCobro && puedeEnviar('pagos');
-  const verFiscal = showFacturaGroup && !sinFactura && puedeEnviar('facturacion');
-  // La factura de la cita (2026-10-12): con permiso de Facturación, en cuanto está facturada — también si
-  // nada más del grupo se ve (code review: dependía de que se viera el link o la casilla).
-  // No en una cita cancelada / no asistió (no se le manda la factura de una cita que no ocurrió).
-  const verFacturaCita = !!booking.facturada && !sinFactura && puedeEnviar('facturacion')
-    && booking.status !== 'CANCELLED' && booking.status !== 'NO_SHOW';
-  // 2026-10-12: con permiso de Pagos el grupo NO desaparece en una cancelada / no asistió sin link: su lugar,
-  // con el link y la nota en gris (code review: si no, Confirmación y Documentos se recorrían a su celda).
-  const linkEnGris = !verLink && !sinCobro && puedeEnviar('pagos') && !cubiertaPorPaqueteViejo(booking);
-  const cobroGroup = (conPrecio || conCasilla || verLink || linkEnGris || verFiscal || verFacturaCita) && (
-        <div className="pt-2 first:pt-0">
-          {/* Sin nada de cobro a la vista (sólo permiso de Facturación) el encabezado no promete «Cobro». */}
-          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-            {conPrecio || verLink || linkEnGris ? "Cobro y factura" : "Factura"}
-          </span>
-          {/* Mismo respaldo que el envío y la fila: si el correo/teléfono solo viven en
-              el expediente, el link de pago debe poder pre-llenarlos igual. */}
-          <div className="flex gap-x-2 gap-y-1.5 flex-wrap items-center">
-          {/* El rótulo del precio SIEMPRE visible: el del grupo se esconde en el teléfono y el lápiz de
-              PriceCell sólo sale al pasar el ratón — un «$900» suelto no decía qué era ni que se edita. */}
-          {conPrecio && (
-            <span className="inline-flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Precio</span>
-              <PriceCell booking={booking} onUpdatePrice={onUpdatePrice!} />
-            </span>
-          )}
-          {conCasilla && <FacturaCheckbox booking={booking} onChange={onUpdateFacturaSolicitada!} />}
-          {verLink && (
-          <>
-          {/* VENTAS PACIENTE paso 4: la nota de la cita = su COBRO como PDF, bajo `flujo`. Se ofrece
-              cuando HAY cobro con monto (`ingreso`, el mismo dato que usa la agenda) — también una
-              cita pagada por link antes de concluirse; no en una sesión cubierta ($0). */}
-          {cubiertaPorPaqueteViejo(booking) ? (
-            <span className="text-xs text-teal-700">Cubierta por el paquete</span>
-          ) : (
-          <PaymentLinkButton
-            bookingId={booking.id}
-            patientId={booking.patientId}
-            patientName={booking.patientName}
-            patientEmail={resolverContacto(booking).email || undefined}
-            contacto={contactoEnvio}
-            defaultAmount={booking.finalPrice}
-            defaultDescription={booking.serviceName ? `${booking.serviceName} - ${booking.patientName}` : `Consulta - ${booking.patientName}`}
-            stripeLink={booking.paymentLink ? {
-              status: booking.paymentLink.status,
-              isActive: booking.paymentLink.isActive,
-              url: booking.paymentLink.stripePaymentLinkUrl,
-              paidAt: booking.paymentLink.paidAt,
-              amount: booking.paymentLink.amount,
-            } : null}
-            mpLink={booking.mpPaymentPreference ? {
-              status: booking.mpPaymentPreference.status,
-              isActive: booking.mpPaymentPreference.isActive,
-              url: booking.mpPaymentPreference.mpInitPoint,
-              paidAt: booking.mpPaymentPreference.paidAt,
-              amount: booking.mpPaymentPreference.amount,
-            } : null}
-          />
-          )}
-          {/* La nota DESPUÉS del link y siempre en su lugar (2026-10-12): gris hasta que haya cobro con
-              monto — antes aparecía al cobrar, ANTES del link, y lo empujaba. */}
-          {booking.ingreso && booking.ingreso.amount > 0
-            ? <NotaCitaButton bookingId={booking.id} />
-            : <Apagado etiqueta="Nota de venta" motivo={cubiertaPorPaqueteViejo(booking) || booking.ingreso ? "Cubierta por el paquete: no tiene cobro que documentar" : isCompleted ? "Esta cita no tiene cobro con monto" : "Sin cobro todavía: la nota sale del cobro de la cita"} />}
-          </>
-          )}
-          {linkEnGris && (
-            <>
-              <Apagado etiqueta="Link de pago" motivo={booking.status === "NO_SHOW" ? "El paciente no asistió" : "La cita está cancelada"} />
-              <Apagado etiqueta="Nota de venta" motivo={booking.status === "NO_SHOW" ? "El paciente no asistió" : "La cita está cancelada"} />
-            </>
-          )}
-          {verFiscal && <FiscalFormButton booking={booking} contacto={contactoEnvio} />}
-          {/* La factura de la cita (2026-10-12): PDF · XML · por correo · por WhatsApp. Con permiso de Facturación. */}
-          {verFacturaCita ? (
-            <FacturaDeLaCita cfdiId={booking.facturaCfdiId} cfdiStatus={booking.facturaCfdiStatus} folio={booking.facturaCfdiFolio} contacto={contactoEnvio} />
-          ) : verFiscal && (
-            // Pidió factura y aún no hay: su lugar, gris (2026-10-12).
-            <Apagado etiqueta="Factura" motivo="Aún no se emite la factura de esta cita" />
-          )}
-          </div>
-        </div>
-      );
-
-  // 2026-10-12: SIEMPRE en su lugar; sin formulario posible, gris con el porqué.
-  const documentosGroup = !soloCobro && (
-        <div className="pt-2 first:pt-0">
-          <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Documentos</span>
-          <div className="flex gap-1 flex-wrap">
-            {showDocsGroup ? (
-              <FormularioStatusButton
-                booking={booking}
-                contacto={contactoEnvio}
-                onCreateForm={() => onOpenFormLinkModal(booking)}
-                onDeleteForm={() => onDeleteFormLink(booking.id)}
-              />
-            ) : (
-              <Apagado etiqueta="Formulario" motivo={motivoPrevio(booking.status)} />
-            )}
-          </div>
-        </div>
-      );
+    <SeccionCita titulo="Para el paciente">
+      <FilaCita
+        nombre="Confirmación"
+        estado={motivoConfirmacion ? (booking.status === "PENDING" ? "Sin confirmar" : motivoCitaCorto ?? "La cita ya pasó") : ultimoEnvio ? `Enviada · ${ultimoEnvio}` : "Sin enviar por correo"}
+        tono={motivoConfirmacion ? "apagado" : ultimoEnvio ? "bien" : "neutro"}
+      >
+        <BotonCita
+          etiqueta="Correo" icono={esTelemedicina && !booking.meetLink ? <Video className="w-3 h-3" /> : <Send className="w-3 h-3" />}
+          onClick={handleSendEmail} ocupado={isSendingEmail} ancho={COLUMNA.correo}
+          motivo={motivoConfirmacion ?? (!contactoEnvio.email ? faltaCorreo(contactoEnvio.expediente) : null)}
+          irA={!motivoConfirmacion && !contactoEnvio.email ? contactoEnvio.expediente : null}
+          titulo={esTelemedicina && !booking.meetLink ? "Crea el Google Meet y manda la confirmación" : "Manda la confirmación de la cita al paciente"}
+        />
+        <BotonCita
+          etiqueta="WhatsApp" icono={<MessageCircle className="w-3 h-3" />} ancho={COLUMNA.whatsapp}
+          href={`https://wa.me/${contactoEnvio.wa}?text=${encodeURIComponent(mensajeWhatsApp)}`}
+          motivo={motivoConfirmacion ?? (!contactoEnvio.wa ? faltaWhatsapp(contactoEnvio.expediente) : null)}
+          irA={!motivoConfirmacion && !contactoEnvio.wa ? contactoEnvio.expediente : null}
+          titulo="Abre WhatsApp con la confirmación lista para enviar"
+        />
+        {esTelemedicina && booking.meetLink ? (
+          <BotonCita etiqueta="Meet" icono={<ExternalLink className="w-3 h-3" />} href={booking.meetLink} ancho={COLUMNA.ver} titulo="Abrir Google Meet" motivo={motivoConfirmacion} />
+        ) : (
+          <Hueco ancho={COLUMNA.ver} />
+        )}
+        <Hueco ancho={COLUMNA.extra} />
+      </FilaCita>
+      <FormularioStatusButton
+        booking={booking}
+        contacto={contactoEnvio}
+        onCreateForm={() => onOpenFormLinkModal(booking)}
+        onDeleteForm={() => onDeleteFormLink(booking.id)}
+      />
+    </SeccionCita>
+  );
 
   // Una cita con COBRO no se borra (decisión del usuario 2026-10-12): su ingreso quedaba en Flujo sin
   // cita y desaparecía de «Cobros». La regla la aplica el SERVIDOR (409 si tiene ingreso); aquí sólo se
   // lee el mismo hecho que manda GET /bookings (`ingreso`) para no ofrecer un botón que va a fallar.
-  // (La factura cuelga del ingreso: sin ingreso no hay factura de la cita.)
   const tieneDinero = !!booking.ingreso;
   const eliminarGroup = isTerminal && !soloCobro && !tieneDinero && borrar !== "no" && (
-        <div className="pt-2 first:pt-0">
-          <button
-            onClick={() => onDeleteBooking(booking.id, booking.patientName)}
-            className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
-          >
-            {borrar === "cita-y-visita" ? "Borrar cita y visita" : "Borrar cita"}
-          </button>
-        </div>
-      );
+    <div className="pt-1">
+      <BotonCita
+        etiqueta={borrar === "cita-y-visita" ? "Borrar cita y visita" : "Borrar cita"} variante="peligro"
+        onClick={() => onDeleteBooking(booking.id, booking.patientName)}
+      />
+    </div>
+  );
 
-  // Expanded layout: los 6 grupos en rejilla, dentro de la fila desplegable de la
-  // tabla. Los grupos falsos (su condición no aplica) no rinden celda vacía porque
-  // React ignora `false`.
-  if (layout === "expanded") {
-    return (
-      <>
-        {modal}
-        {/* [&>div]:pt-0 — los grupos traen `pt-2 first:pt-0`, pensado para la pila
-            del móvil. En rejilla eso solo quitaría el padding al PRIMER grupo, así que
-            el 2º y 3º de la fila superior quedarían 8px más abajo. Aquí se normaliza. */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 border-t border-gray-200 pt-3 [&>div]:pt-0">
-          {estadoGroup}
-          {cobroGroup}
-          {/* Confirmación y documentos comparten columna: son lo que se le MANDA al paciente. */}
-          {(comunicacionGroup || documentosGroup) && (
-            <div className="flex flex-col gap-3 [&>div]:pt-0">
-              {comunicacionGroup}
-              {documentosGroup}
-            </div>
-          )}
-          {eliminarGroup}
-        </div>
-      </>
-    );
-  }
-
-  // Table layout: two cells — gestión (Estado/Documentos/Horario/Eliminar) and
-  // contacto-cobro (Comunicación/Cobro) — so the row stays short.
+  // Table layout: two cells — gestión (Estado / Borrar) and lo de dinero y del paciente — so the row stays
+  // short. (Ya no lo usa la tabla, que despliega la fila con "expanded"; el contrato sigue válido.)
   if (layout === "table") {
     return (
       <>
         <td className="py-3 px-3 align-top">
           {modal}
-          <div className="flex flex-col gap-2 divide-y divide-gray-100">
+          <div className="flex flex-col gap-3">
             {estadoGroup}
-            {documentosGroup}
             {eliminarGroup}
           </div>
         </td>
         <td className="py-3 px-3 align-top">
-          <div className="flex flex-col gap-2 divide-y divide-gray-100">
-            {comunicacionGroup}
+          <div className="flex flex-col gap-3">
             {cobroGroup}
+            {comunicacionGroup}
           </div>
         </td>
       </>
     );
   }
 
-  // Card layout (mobile): all groups stacked
+  // "expanded" (la fila desplegada de la tabla, la visita) y "card" (móvil, el calendario): las secciones
+  // UNA DEBAJO DE OTRA, siempre en el mismo orden — las filas necesitan el ancho para que sus columnas de
+  // botones alineen.
   return (
     <>
       {modal}
-      <div className="flex flex-col gap-2 divide-y divide-gray-100">
+      <div className={`flex flex-col gap-4 ${layout === "expanded" ? "border-t border-gray-200 pt-3" : ""}`}>
         {/* «Cobros» del expediente: primero el dinero, luego «Completar». */}
         {soloCobro ? <>{cobroGroup}{estadoGroup}</> : <>{estadoGroup}{cobroGroup}</>}
         {comunicacionGroup}
-        {documentosGroup}
         {eliminarGroup}
       </div>
     </>

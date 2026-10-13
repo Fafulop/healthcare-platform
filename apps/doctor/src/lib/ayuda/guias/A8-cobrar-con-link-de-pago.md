@@ -2,14 +2,14 @@
 
 **Para qué:** mandarle al paciente un link para que pague en línea.
 
-**Antes de empezar:** tener conectado **Stripe** o **Mercado Pago** en **«Pagos»**, y que la cita tenga **expediente vinculado** (si no, el botón dice «Requiere expediente»).
+**Antes de empezar:** tener conectado **Stripe** o **Mercado Pago** en **«Pagos»**, y que la cita tenga **expediente vinculado** (si no, la fila dice «Requiere expediente»).
 
 **Pasos**
 1. Revisa el **precio** de la cita (el link se crea por ese monto; cámbialo antes si hace falta).
-2. Abre la cita → grupo **COBRO Y FACTURA → «Link de pago por correo»** o **«Link de pago por WhatsApp»**. Un clic crea el link (con Mercado Pago si tienes los dos) y se lo manda al paciente.
-3. Ahora el grupo dice **«Link activo»** con **«Reenviar link por correo»**, **«Reenviar por WhatsApp»** y **«Copiar»**.
+2. Abre la cita → sección **COBRO Y FACTURA**, fila **Link de pago** → **«Correo»** o **«WhatsApp»**. Un clic crea el link (con Mercado Pago si tienes los dos) y se lo manda al paciente.
+3. Ahora la fila dice **«Activo · esperando el pago»**: «Correo» y «WhatsApp» lo vuelven a mandar y **«Copiar»** copia el link.
 
-**Qué vas a ver:** «Se envió el link de pago a …» (por correo) o WhatsApp abierto con el mensaje listo. Cuando el paciente paga, la cita muestra **«Pagado»**.
+**Qué vas a ver:** «Se envió el link de pago a …» (por correo) o WhatsApp abierto con el mensaje listo. Cuando el paciente paga, la fila dice **«Pagado»** con la fecha.
 
 **Tu dinero:** el ingreso entra a Flujo de Dinero **cuando el paciente paga**, ligado a la cita. Si después completas la cita, no se duplica.
 

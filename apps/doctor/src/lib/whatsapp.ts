@@ -8,7 +8,7 @@
  *
  * Plataforma MX: 10 dígitos ⇒ se antepone 52. Devuelve "" cuando el número no puede
  * funcionar (menos de 10 dígitos: hay registros de 5 a 8 dígitos), para que la UI muestre
- * "Necesita WhatsApp" en vez de un enlace que no va a abrir nada.
+ * su botón «WhatsApp» gris («Falta el WhatsApp…») en vez de un enlace que no va a abrir nada.
  */
 export function waNumber(raw?: string | null): string {
   const digits = (raw || "").replace(/\D/g, "");

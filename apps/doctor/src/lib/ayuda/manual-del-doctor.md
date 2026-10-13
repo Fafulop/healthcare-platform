@@ -44,7 +44,7 @@ dice «No hay servicios configurados.» y no puedes seguir.
 Los correos de confirmación y de cancelación **se envían desde tu cuenta de Google**, la misma
 con la que entras a la plataforma. Para que salgan hacen falta dos cosas: que el paciente tenga
 correo, y que tu cuenta de Google siga conectada. Si falta cualquiera de las dos, la cita queda
-sin correo y en ella verás «Enviar confirmación» para mandarlo tú (ver
+sin correo y en ella, fila **Confirmación**, «Correo» lo manda tú (ver
 [Confirmar la cita con el paciente](#confirmar-la-cita-con-el-paciente)).
 
 ---
@@ -164,25 +164,37 @@ Puedes ordenar por PACIENTE · SERVICIO, FECHA Y HORA o ESTADO haciendo clic en 
 
 ### Qué puedes hacer con cada cita
 
-Al abrir una cita, las acciones vienen en grupos y **siempre en el mismo lugar**: lo que no aplica al
-estado de la cita se ve **gris** y no se puede picar (al pasar el ratón dice por qué), en vez de
-desaparecer y recorrer lo demás. En una cita ya cerrada, el grupo Estado dice además, por ejemplo,
-«Completada: ya no cambia de estado». En la tabla, ✓ = se puede usar; — = se ve gris (salvo «Borrar
-cita», que sólo aparece cuando se puede):
+Al abrir una cita, sus acciones vienen en **tres secciones**, siempre en el mismo orden y con el mismo
+tipo de botón:
 
-| Grupo | Pendiente | Agendada | Vencida | Completada | No asistió / Cancelada |
-|---|---|---|---|---|---|
-| **Estado** (Confirmar, Completar, No asistió, Cancelar cita, Reagendar) | ✓ | ✓ | ✓ | — | — |
-| **Confirmación cita** (correo, WhatsApp, Meet) | — | ✓ | ✓ | — | — |
-| **Cobro y factura** (link de pago y su nota, y —con la casilla marcada— pedir los datos fiscales; en la visita, «Cobros» y la ventana del calendario también el precio y «¿Necesita factura?», que en la tabla de la agenda están en su columna PRECIO) | ✓ | ✓ | ✓ | ✓ | el link, sólo si ya hay uno activo o pagado |
-| **Documentos** (formulario pre-consulta) | — | ✓ | ✓ | sólo si el paciente ya lo contestó | — |
-| **Borrar cita** (sólo **sin cobro** registrado; aparece al final sólo cuando se puede) | — | — | — | ✓ | ✓ |
+- **ESTADO** — **«Completar»** · **«No asistió»** · **«Cancelar cita»** · **«Reagendar»** (y
+  **«Confirmar»** sólo en una cita **Pendiente**, las que llegaban de la reserva pública).
+- **COBRO Y FACTURA** — arriba a la derecha el **precio** y **«¿Necesita factura?»** (en la visita,
+  «Cobros» y la ventana del calendario; en la tabla de la agenda están en su columna PRECIO). Debajo, una
+  fila por cosa: **Link de pago** · **Nota de venta** y, con la casilla marcada, **Datos fiscales** ·
+  **Factura**.
+- **PARA EL PACIENTE** — **Confirmación** · **Formulario** (el pre-consulta).
 
-Dentro del grupo Estado: «Confirmar» se usa sólo en Pendientes (en una Agendada dice «Confirmada»,
-gris), «Completar» y «No asistió» sólo en Agendadas, y «Reagendar» sólo en Agendadas y Vencidas. En
-una Vencida, «Confirmación cita» y «Documentos» sólo se usan si estaba Agendada (no si seguía
-Pendiente). En «Cobro y factura», **«Nota de venta»** está siempre después del link de pago, gris
-hasta que la cita tiene cobro.
+Cada fila dice qué es, **cómo va** («Sin enviar», «Activo · esperando el pago», «Pagado», «Esperando
+sus datos», «Recibidos ✓», «Folio …», «Recibido ✓»…) y trae sus botones en columnas que significan lo
+mismo en todas: **Correo** · **WhatsApp** · **Ver / Copiar / PDF** (y «XML» o «⋯» al final). **Nada
+desaparece** cuando la cita cambia de estado: lo que no aplica se ve **gris** y no se puede picar; al
+pasar el ratón dice por qué (por ejemplo «Falta el correo del paciente», «La cita está cancelada»,
+«Ya está pagado»). Si lo que falta es el correo o el WhatsApp del paciente, el botón gris te lleva a su
+expediente para capturarlo. En una cita ya cerrada, ESTADO dice además, por ejemplo, «Completada: ya no cambia
+de estado».
+
+| Qué | Se puede usar en… |
+|---|---|
+| **Completar** · **No asistió** | Agendadas |
+| **Cancelar cita** | Pendientes y Agendadas |
+| **Reagendar** | Agendadas y Vencidas |
+| **Confirmación** (correo, WhatsApp, Meet) | Agendadas |
+| **Link de pago** | Pendientes, Agendadas y Completadas (en una cancelada o no asistió, sólo si ya había uno activo o pagado) |
+| **Nota de venta** | En cuanto la cita tiene **cobro** (al completarla o al pagar su link), también si después se canceló; verla pide permiso de Flujo de Dinero |
+| **Datos fiscales** · **Factura** | Con «¿Necesita factura?» marcada; no en una cancelada o no asistió |
+| **Formulario** | Agendadas que no han pasado (en una Completada, sólo «Ver» el que el paciente ya contestó) |
+| **Borrar cita** | Completadas, canceladas y no asistió **sin cobro**; aparece al final sólo cuando se puede |
 
 **Completada no cierra el papeleo**: después de completar puedes seguir cobrando y facturando
 esa cita.
@@ -244,15 +256,17 @@ nuevo en la cita nueva.
 
 ### Confirmar la cita con el paciente
 
-En una cita Agendada, el grupo **«Confirmación cita»** tiene:
+En una cita Agendada, la fila **Confirmación** (sección PARA EL PACIENTE) dice si ya se mandó por correo
+(«Enviada · 12 oct, 10:30») o «Sin enviar por correo», y trae:
 
 | Botón | Qué hace |
 |---|---|
-| «Enviar confirmación» | Manda el correo de confirmación. Aparece cuando todavía no se ha enviado (por ejemplo, si al agendar tu cuenta de Google no estaba conectada) |
-| «Reenviar confirmación» | Lo mismo, si ya se había enviado. Pasa el cursor para ver cuándo fue el último envío |
-| «Confirmación por WhatsApp» | Abre WhatsApp con el mensaje listo; tú lo envías. La plataforma no se entera de si lo mandaste |
-| «Entrar a Meet» | Sólo telemedicina, cuando ya hay videollamada creada |
-| «Necesita correo» / «Necesita WhatsApp» | Falta ese dato del paciente. Te lleva a su expediente para capturarlo |
+| «Correo» | Manda (o vuelve a mandar) el correo de confirmación. Sirve, por ejemplo, si al agendar tu cuenta de Google no estaba conectada |
+| «WhatsApp» | Abre WhatsApp con el mensaje listo; tú lo envías. La plataforma no se entera de si lo mandaste |
+| «Meet» | Sólo telemedicina, cuando ya hay videollamada creada |
+
+Si falta el correo o el WhatsApp del paciente, ese botón se ve gris y dice qué falta: el clic te lleva a
+su expediente para capturarlo (si la cita no tiene expediente, primero vincúlalo o créalo).
 
 **Telemedicina:** al enviarse la confirmación (sola o con el botón) se crea la videollamada de **Google Meet** y el
 enlace va en el correo. Reenviar manda el mismo enlace, no crea otro.
@@ -264,17 +278,17 @@ servicio. (El «Bloqueo extendido» para apartar más tiempo está apagado por a
 
 ### Cobrar una cita
 
-Grupo **«Cobro y factura»** → **«Link de pago por correo»** o **«Link de pago por WhatsApp»**: un clic
-crea el link **por el precio de la cita** y se lo manda al paciente (el correo sale de tu Gmail, como la
+Sección **COBRO Y FACTURA**, fila **Link de pago** → **«Correo»** o **«WhatsApp»**: un clic crea el
+link **por el precio de la cita** y se lo manda al paciente (el correo sale de tu Gmail, como la
 confirmación; WhatsApp se abre con el mensaje listo). Si necesitas otro monto, cambia antes el precio de
-la cita (está al lado). Con Mercado Pago y Stripe conectados, usa **Mercado Pago**. Después dice «Link
-activo» con «Reenviar link por correo», «Reenviar por WhatsApp» y «Copiar», y cuando el paciente paga
-la cita muestra «Pagado».
+la cita (está arriba de la sección). Con Mercado Pago y Stripe conectados, usa **Mercado Pago**. Después
+la fila dice «Activo · esperando el pago»: «Correo» y «WhatsApp» lo vuelven a mandar y «Copiar» copia el
+link. Cuando el paciente paga dice «Pagado» con la fecha.
 
-- Sin precio en la cita dice «Ponle precio a la cita para mandar el link de pago».
+- Sin precio en la cita dice «Sin precio» (los botones grises explican que hay que ponérselo).
 
 - Necesitas tener conectado Stripe o Mercado Pago en **Pagos**.
-- La cita necesita **expediente vinculado**; si no, el botón dice «Requiere expediente» (ver
+- La cita necesita **expediente vinculado**; si no, la fila dice «Requiere expediente» (ver
   [Vincular la cita a un expediente](#vincular-la-cita-a-un-expediente)).
 - Al **completar (también en $0), cancelar, marcar «No asistió» o eliminar** la cita, su link sin
   pagar se desactiva solo: ya no acepta pagos nuevos.
@@ -286,26 +300,25 @@ la cita muestra «Pagado».
 
 ### Facturar una cita
 
-1. Marca **«¿Necesita factura?»** en la cita (se puede desde la fila, sin abrirla). En el grupo
-   **«Cobro y factura»** aparecen **«Pedir datos fiscales por correo»** y **«Pedir datos fiscales por
-   WhatsApp»**.
-2. Un clic le manda al paciente el formulario para que capture sus **datos fiscales** (si ya tenía uno
-   pendiente, se reenvía ése). Mientras no contesta dice «Esperando datos», con «Reenviar…» y «Copiar».
-   Cuando lo llena, en su lugar dice «Ya contamos con sus datos fiscales para facturarle.»
+1. Marca **«¿Necesita factura?»** en la cita (se puede desde la fila, sin abrirla). En **COBRO Y
+   FACTURA** aparecen dos filas más: **Datos fiscales** y **Factura**.
+2. Fila **Datos fiscales** → «Correo» o «WhatsApp»: un clic le manda al paciente el formulario para que
+   capture sus **datos fiscales** (si ya tenía uno pendiente, se reenvía ése). Mientras no contesta dice
+   «Esperando sus datos» («Copiar» copia el enlace). Cuando lo llena dice «Recibidos ✓».
 3. La factura se emite desde el **expediente del paciente**, página **«Cobros»** (botón «Cobros» de su
    perfil), botón «Facturar» (ver [Facturar desde el expediente](#facturar-desde-el-expediente)).
-4. Ya facturada, en la tarjeta de la cita (agenda, visita, «Cobros») sale **«Factura: PDF · XML ·
-   Factura por correo · Factura por WhatsApp»**. **Por correo** la manda Facturama al correo del paciente;
-   **por WhatsApp** prepara el PDF y luego **«Compartir PDF»** abre el **«Compartir»** de tu equipo con el
-   PDF adjunto: eliges WhatsApp y el chat del paciente (el PDF no se publica en internet; si tu navegador
-   no permite compartir archivos, se descarga para que lo adjuntes). Con permiso de Facturación. Si la
-   factura está en cancelación lo dice. Si no hay una factura de ingreso vigente de la plataforma (p. ej.
-   subida a mano o detectada en el SAT) dice «Facturada — su factura se ve en Facturación». No sale en una
-   cita cancelada o en la que el paciente no asistió.
+4. Ya facturada, la fila **Factura** dice su folio y trae **«Correo» · «WhatsApp» · «PDF» · «XML»**.
+   **Correo** la manda Facturama al correo del paciente; **WhatsApp** prepara el PDF y el botón cambia a
+   **«Compartir»**, que abre el **«Compartir»** de tu equipo con el PDF adjunto: eliges WhatsApp y el chat
+   del paciente (el PDF no se publica en internet; si tu navegador no permite compartir archivos, se
+   descarga para que lo adjuntes). Con permiso de Facturación. Si la factura está en cancelación lo dice.
+   Si no hay una factura de ingreso vigente de la plataforma (p. ej. subida a mano o detectada en el SAT)
+   dice «Facturada · se ve en Facturación». En una cita cancelada o en la que el paciente no asistió se
+   ve gris.
 
 **Facturas al mes según tu plan:** Gratis 5 (al llegar ya no deja timbrar otra hasta el día 1; con el plan Pro tienes 25), Pro 25 incluidas (puedes seguir timbrando; las de más se contarán como extra). Cuentan las facturas de ingreso del mes, **canceladas incluidas**; los complementos de pago y las notas de crédito no cuentan. Arriba de Facturación ves «Facturas este mes: N de M».
 
-La cita necesita expediente vinculado; si no, dice «Requiere expediente».
+La cita necesita expediente vinculado; si no, la fila dice «Requiere expediente».
 
 ### Vincular la cita a un expediente
 
@@ -326,13 +339,13 @@ Para que el paciente conteste preguntas antes de la cita:
 
 1. Necesitas una **plantilla** con «Usar como formulario pre-cita» marcado (ver
    [Plantillas](#plantillas)). Si no tienes, el modal te ofrece «Crear plantilla pre-cita →».
-2. En una cita Agendada, grupo «Documentos» → **«Formulario por correo»** o **«Formulario por
-   WhatsApp»**: un clic lo crea con tu plantilla pre-cita y se lo manda al paciente. Si tienes **más de
-   una** plantilla pre-cita, se abre la ventana para elegirla («Generar enlace») y ahí lo copias o lo
-   mandas por WhatsApp. Mientras no contesta dice «Esperando respuesta», con «Reenviar…» y, en la
-   flecha, «Copiar enlace» y «Quitar formulario».
-4. Cuando el paciente lo contesta, el botón dice **«Formulario recibido»** y abre sus
-   respuestas. También quedan en el expediente, sección «Formularios».
+2. En una cita Agendada, sección PARA EL PACIENTE, fila **Formulario** → **«Correo»** o
+   **«WhatsApp»**: un clic lo crea con tu plantilla pre-cita y se lo manda al paciente. Si tienes **más
+   de una** plantilla pre-cita, se abre la ventana para elegirla («Generar enlace») y ahí lo copias o lo
+   mandas por WhatsApp. Mientras no contesta dice «Esperando respuesta»: «Correo» y «WhatsApp» lo
+   reenvían, «Copiar» copia el enlace y **«⋯»** trae «Usar otra plantilla» y «Quitar formulario».
+4. Cuando el paciente lo contesta, la fila dice **«Recibido ✓»** y **«Ver»** abre sus respuestas.
+   También quedan en el expediente, sección «Formularios».
 
 **«Formulario libre»** (barra de arriba) hace lo mismo **sin cita**: eliges un paciente de tus
 expedientes y una plantilla pre-cita, y generas el enlace.
@@ -532,12 +545,11 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
 **La pantalla de la visita** (clic en «Visita del …»):
 
 - **Cita** — fecha, hora, servicio y si está pagada y facturada. Con permiso de citas, abajo está **la
-  misma tarjeta de la cita que en la agenda**: **ESTADO** (**«Completar»** con la misma ventana del
-  cobro, **«No asistió»**, **«Cancelar cita»**, **«Reagendar»** — te lleva a la agenda con la ventana de
-  reagendar abierta y al terminar te regresa a la visita, que se va con la cita nueva), **COBRO Y
-  FACTURA** (el **precio** —clic para cambiarlo—, **«¿Necesita factura?»**, **«Link de pago por correo / por WhatsApp»** y la
-  **«Nota de venta»** del cobro, la **factura** si ya tiene y, con la casilla marcada, pedirle sus datos fiscales), **CONFIRMACIÓN CITA** (por
-  correo o por WhatsApp) y **DOCUMENTOS** (el formulario pre-consulta). El precio y el cobro piden
+  misma tarjeta de la cita que en la agenda** (ver [Qué puedes hacer con cada cita](#que-puedes-hacer-con-cada-cita)):
+  **ESTADO** («Reagendar» te lleva a la agenda con la ventana de reagendar abierta y al terminar te
+  regresa a la visita, que se va con la cita nueva), **COBRO Y FACTURA** (el **precio** —clic para
+  cambiarlo—, **«¿Necesita factura?»** y las filas Link de pago · Nota de venta · Datos fiscales ·
+  Factura) y **PARA EL PACIENTE** (Confirmación · Formulario). El precio y el cobro piden
   permiso de Flujo de Dinero; la casilla y los datos fiscales, el de Facturación. Si cancelas, marcas «No asistió» o eliminas la cita con la visita
   **vacía**, la visita se borra con la cita y vuelves al perfil del paciente. La cita de una visita no se cambia por otra ni se quita (son el mismo evento). Las visitas **sin
   cita** que quedaron de antes (ya no se crean) conservan su **Fecha** corregible (hoy o antes, y no
@@ -553,15 +565,16 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
   titular de la cuenta** lo ve (el correo sale de su Gmail, con su nombre), y no se manda si no cargó el
   diseño de «Receta PDF» (logo, firma). Cada envío por correo queda en la bitácora del expediente. La
   **«Nota de venta»** del cobro de la cita (aquí y en la tarjeta de la cita en la agenda) trae los mismos
-  dos botones; si la cita no tiene expediente, va al correo de la cita (y ese envío no queda en ninguna
-  bitácora: no hay expediente donde anotarlo).
+  dos acciones en su fila (**«Correo»** la abre y la manda en cuanto está lista; **«WhatsApp»** la abre
+  para «Compartir PDF»; **«Ver»** sólo la abre); si la cita no tiene expediente, va al correo de la cita
+  (y ese envío no queda en ninguna bitácora: no hay expediente donde anotarlo).
 - **«Mover a…»** en una plantilla la pasa a otra visita (o a «Sin visita»), y se lleva sus fotos,
   recetas e informes. **«Traerla aquí…»** trae una consulta sin visita.
 - **La fecha de cada plantilla es suya:** al agregarla desde una visita empieza con la fecha de la
   visita, pero la puedes cambiar (al crearla o al editarla). Si no es la de la visita, la lista de
   plantillas la muestra. Mover una plantilla o cambiar la fecha de la visita no le cambia la suya.
-- **«Formulario pre-consulta»:** si a su cita le mandaste el formulario (tarjeta de la cita →
-  DOCUMENTOS), la visita lo enseña: «Esperando respuesta del paciente» o «Recibido el …» con «Ver
+- **«Formulario pre-consulta»:** si a su cita le mandaste el formulario (tarjeta de la cita → PARA EL
+  PACIENTE → Formulario), la visita lo enseña: «Esperando respuesta del paciente» o «Recibido el …» con «Ver
   respuestas». Si la cita se reagenda, el formulario se va con ella y con la visita. (Sigue saliendo
   también en «Formularios» del perfil.)
 - **Borrar una visita:** visita y cita son el mismo evento, así que se borran **juntas**: en la tarjeta

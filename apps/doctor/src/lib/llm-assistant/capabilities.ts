@@ -212,10 +212,10 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
               'Una cita tiene a lo más una visita: completarla no crea una segunda. La cita de una visita no se ' +
               'cambia ni se quita. En la sección "Cita" de la visita (con permiso de citas) está la MISMA tarjeta de la ' +
               'cita que en la agenda: ESTADO ("Completar" con la ventana de cobro, "No asistió", "Cancelar cita", "Reagendar" — ' +
-              'abre la agenda y regresa a la visita), COBRO Y FACTURA (precio, "¿Necesita factura?", "Link de pago por correo" / ' +
-              '"por WhatsApp" —un clic, por el precio de la cita—, "Nota de venta", "Pedir datos fiscales por correo / por WhatsApp" y, ya ' +
-              'facturada, "Factura: PDF · XML · Factura por correo · Factura por WhatsApp"), ' +
-              'CONFIRMACIÓN CITA (correo / WhatsApp) y DOCUMENTOS ("Formulario por correo" / "por WhatsApp", pre-consulta). ' +
+              'abre la agenda y regresa a la visita), COBRO Y FACTURA (precio y "¿Necesita factura?" arriba; filas "Link de pago", ' +
+              '"Nota de venta" y, con la casilla, "Datos fiscales" y "Factura") y PARA EL PACIENTE (filas "Confirmación" y ' +
+              '"Formulario"). Cada fila dice cómo va y trae los mismos botones: "Correo" · "WhatsApp" · "Ver"/"Copiar"/"PDF" ' +
+              '(Factura también "XML"; Formulario "⋯"); lo que no aplica se ve gris y dice por qué. ' +
               '"Cancelar cita", "No asistió" o "Borrar cita y visita" con la visita vacía la borra. ' +
               'Dentro de la visita: Plantillas ("Agregar plantilla"), Fotos y documentos ("Subir"), ' +
               'Notas ("Nueva nota"), Recetas ("Nueva receta"), informes y un Comentario.',

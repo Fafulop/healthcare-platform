@@ -4,16 +4,16 @@
 
 **Pasos — confirmación**
 1. Abre la cita (clic en su fila).
-2. Grupo **CONFIRMACIÓN CITA**:
-   - **«Reenviar confirmación»** (o «Enviar confirmación» si nunca se mandó) → correo al paciente.
-   - **«Confirmación por WhatsApp»** → abre WhatsApp con el mensaje listo; tú lo envías.
-   - **«Entrar a Meet»** — sólo telemedicina.
+2. Sección **PARA EL PACIENTE**, fila **Confirmación** (dice si ya se mandó: «Enviada · …» o «Sin enviar por correo»):
+   - **«Correo»** → manda (o vuelve a mandar) el correo al paciente.
+   - **«WhatsApp»** → abre WhatsApp con el mensaje listo; tú lo envías.
+   - **«Meet»** — sólo telemedicina.
 
 **Bloqueo extendido:** apagado por ahora (2026-10-12). La cita ocupa lo que dura su servicio y dice su hora de inicio y de fin (ej. «10:30–11:00»).
 
 **Qué vas a ver:** un aviso «Correo de confirmación enviado a …».
 
-**Si algo sale mal:** si dice **«Necesita correo» / «Necesita WhatsApp»**, falta ese dato del paciente: captúralo en su expediente.
+**Si algo sale mal:** si «Correo» o «WhatsApp» se ven grises, pasa el ratón: dice qué falta (por ejemplo el correo del paciente) — captúralo en su expediente.
 
 **Video:** (pendiente)
 

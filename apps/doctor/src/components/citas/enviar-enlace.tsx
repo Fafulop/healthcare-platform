@@ -1,9 +1,9 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { Loader2, MessageCircle, Send } from 'lucide-react';
+import { MessageCircle, Send } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
+import { BotonCita, COLUMNA } from './fila-cita';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -18,9 +18,19 @@ export type TipoEnlace = 'formulario' | 'pago' | 'fiscal';
 export interface ContactoEnvio {
   email: string;
   wa: string;
-  /** «Necesita correo / WhatsApp» — el mismo aviso que pinta Confirmación. */
-  falta: (que: string) => ReactNode;
+  /** El expediente del paciente: sin correo / WhatsApp, su botón gris lleva ahí a capturarlo (como el
+   *  «Necesita correo» de antes). */
+  expediente?: string | null;
 }
+
+/** Por qué no se puede mandar por ese canal (sin dato de contacto): el `title` de su botón gris. Sin
+ *  expediente vinculado no hay dónde capturarlo: se dice que primero se vincule (como antes). */
+export const faltaCorreo = (expediente?: string | null) => expediente
+  ? 'Falta el correo del paciente: agrégalo en su expediente'
+  : 'Falta el correo del paciente: vincula o crea su expediente para capturarlo';
+export const faltaWhatsapp = (expediente?: string | null) => expediente
+  ? 'Falta el WhatsApp o teléfono del paciente: agrégalo en su expediente'
+  : 'Falta el WhatsApp o teléfono del paciente: vincula o crea su expediente para capturarlo';
 
 export async function enviarEnlacePorCorreo(bookingId: string, tipo: TipoEnlace): Promise<boolean> {
   try {
@@ -66,35 +76,33 @@ export async function abrirWhatsAppTrasCrear(
   }
 }
 
-/** El par de botones, con el mismo aspecto que los de Confirmación. */
+/**
+ * Las columnas «Correo» y «WhatsApp» de una fila de la tarjeta (2026-10-12: los mismos dos botones en
+ * todas las filas). `motivo` = no aplica en este estado (gris con el porqué); sin el dato de contacto,
+ * su canal va gris con lo que falta.
+ */
 export function BotonesDeEnvio({
-  contacto, correo, whatsapp, onCorreo, onWhatsApp, ocupado,
+  contacto, onCorreo, onWhatsApp, ocupado, motivo,
 }: {
   contacto: ContactoEnvio;
-  correo: string;
-  whatsapp: string;
   onCorreo: () => void;
   onWhatsApp: () => void;
   ocupado: boolean;
+  motivo?: string | null;
 }) {
   return (
     <>
-      {!contacto.email ? contacto.falta('correo') : (
-        <button
-          onClick={onCorreo} disabled={ocupado}
-          className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {ocupado ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} {correo}
-        </button>
-      )}
-      {!contacto.wa ? contacto.falta('WhatsApp') : (
-        <button
-          onClick={onWhatsApp} disabled={ocupado}
-          className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <MessageCircle className="w-3 h-3" /> {whatsapp}
-        </button>
-      )}
+      {/* `ocupado` en LOS DOS: un segundo clic mientras se crea el enlace crearía otro (code review). */}
+      <BotonCita
+        etiqueta="Correo" icono={<Send className="w-3 h-3" />} onClick={onCorreo} ocupado={ocupado}
+        motivo={motivo || (!contacto.email ? faltaCorreo(contacto.expediente) : null)} ancho={COLUMNA.correo}
+        irA={!motivo && !contacto.email ? contacto.expediente : null}
+      />
+      <BotonCita
+        etiqueta="WhatsApp" icono={<MessageCircle className="w-3 h-3" />} onClick={onWhatsApp} ocupado={ocupado}
+        motivo={motivo || (!contacto.wa ? faltaWhatsapp(contacto.expediente) : null)} ancho={COLUMNA.whatsapp}
+        irA={!motivo && !contacto.wa ? contacto.expediente : null}
+      />
     </>
   );
 }

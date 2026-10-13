@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Loader2, MessageCircle, Receipt, Send, Share2 } from 'lucide-react';
+import { Download, MessageCircle, Send, Share2 } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
 import { toast } from '@/lib/practice-toast';
-import type { ContactoEnvio } from './enviar-enlace';
+import { faltaCorreo, type ContactoEnvio } from './enviar-enlace';
+import { BotonCita, COLUMNA, FilaCita } from './fila-cita';
 import { compartirArchivo, descargarBlob } from './compartir-archivo';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -16,20 +17,23 @@ async function bajarCfdi(cfdiId: number, formato: 'pdf' | 'xml'): Promise<Blob> 
 }
 
 /**
- * 2026-10-12 (pedido del usuario) — la FACTURA de la cita desde su tarjeta (agenda, visita, «Cobros»):
- * PDF · XML · «Factura por correo» (la manda Facturama al correo del paciente, como en Facturación) ·
- * «Factura por WhatsApp» (el «Compartir» del equipo con el PDF adjunto — WhatsApp no recibe archivos por
- * enlace y el PDF NO se publica en internet; decisión del usuario, opción A). WhatsApp va en DOS pasos:
- * primero se prepara el PDF y luego «Compartir PDF» abre el «Compartir» al instante (el navegador sólo
- * deja compartir justo después de un clic). Sin una factura de la plataforma se dice dónde verla.
+ * 2026-10-12 (pedido del usuario) — la FACTURA de la cita desde su tarjeta (agenda, visita, «Cobros»): la fila
+ * «Factura» con Correo (la manda Facturama al correo del paciente, como en Facturación) · WhatsApp (el
+ * «Compartir» del equipo con el PDF adjunto — WhatsApp no recibe archivos por enlace y el PDF NO se publica
+ * en internet; decisión del usuario, opción A) · PDF · XML. WhatsApp va en DOS pasos: primero se prepara el
+ * PDF y el botón pasa a «Compartir», que abre el «Compartir» al instante (el navegador sólo deja compartir
+ * justo después de un clic). Sin una factura de la plataforma se dice dónde verla.
  */
-export function FacturaDeLaCita({ cfdiId, cfdiStatus, folio, contacto, nombrePaciente }: {
+export function FacturaDeLaCita({ cfdiId, cfdiStatus, folio, contacto, facturada = true, motivo }: {
   cfdiId: number | null | undefined;
+  /** ¿Ya está facturada? Sin factura todavía la fila queda en su lugar, gris («Aún no se emite»). */
+  facturada?: boolean;
+  /** No aplica (sin permiso de Facturación, cita cancelada…): gris con este porqué. */
+  motivo?: string | null;
   cfdiStatus?: string | null;
   /** Serie-folio: el archivo se llama como la factura que ve el doctor, no con un número interno. */
   folio?: string | null;
   contacto: ContactoEnvio;
-  nombrePaciente?: string;
 }) {
   const [ocupado, setOcupado] = useState<null | 'correo' | 'wa' | 'pdf' | 'xml'>(null);
   // El PDF preparado es de ESTA factura: si cambia (se canceló y se re-emitió), se tira.
@@ -38,17 +42,8 @@ export function FacturaDeLaCita({ cfdiId, cfdiStatus, folio, contacto, nombrePac
 
   const nombre = (ext: string) => `factura_${(folio || String(cfdiId)).replace(/[^\w-]/g, '')}.${ext}`;
 
-  if (!cfdiId) {
-    // Facturada, pero sin una factura de ingreso vigente de la plataforma (subida a mano, detectada en el
-    // SAT, u otro tipo de CFDI): no se afirma de dónde — se dice dónde verla.
-    return (
-      <span className="text-xs text-teal-700 flex items-center gap-1">
-        <Receipt className="w-3.5 h-3.5" /> Facturada — su factura se ve en Facturación
-      </span>
-    );
-  }
-
   const descargar = async (formato: 'pdf' | 'xml') => {
+    if (!cfdiId) return;
     setOcupado(formato);
     try {
       descargarBlob(await bajarCfdi(cfdiId, formato), nombre(formato));
@@ -60,6 +55,7 @@ export function FacturaDeLaCita({ cfdiId, cfdiStatus, folio, contacto, nombrePac
   };
 
   const porCorreo = async () => {
+    if (!cfdiId) return;
     setOcupado('correo');
     try {
       const res = await authFetch(`${API_URL}/api/facturacion/cfdi/${cfdiId}/email`, {
@@ -77,6 +73,7 @@ export function FacturaDeLaCita({ cfdiId, cfdiStatus, folio, contacto, nombrePac
   };
 
   const preparar = async () => {
+    if (!cfdiId) return;
     setOcupado('wa');
     try {
       setListo({ cfdiId, archivo: new File([await bajarCfdi(cfdiId, 'pdf')], nombre('pdf'), { type: 'application/pdf' }) });
@@ -87,41 +84,45 @@ export function FacturaDeLaCita({ cfdiId, cfdiStatus, folio, contacto, nombrePac
     }
   };
 
-  const chico = 'text-xs px-2 py-1 rounded flex items-center gap-1 disabled:opacity-60';
+  // 2026-10-12 — UNA fila: Correo · WhatsApp · PDF · XML, el estado en palabras. Facturada fuera de la
+  // plataforma (subida a mano, del SAT, otro tipo de CFDI): no se afirma de dónde — se dice dónde verla.
+  const noSePuede = motivo
+    ?? (!facturada ? 'Aún no se emite la factura de esta cita'
+      : !cfdiId ? 'Su factura no se emitió desde aquí: se ve en Facturación'
+      : null);
+  const estado = motivo ? 'No aplica'
+    : !facturada ? 'Aún no se emite'
+    : !cfdiId ? 'Facturada · se ve en Facturación'
+    : `${folio ? `Folio ${folio}` : 'Emitida'}${cfdiStatus === 'cancellation_pending' ? ' · cancelación en proceso' : ''}`;
   return (
-    <div className="flex items-center gap-1 flex-wrap">
-      <span className="text-xs text-teal-700 font-medium flex items-center gap-1 mr-0.5">
-        <Receipt className="w-3.5 h-3.5" /> Factura:
-      </span>
-      {cfdiStatus === 'cancellation_pending' && (
-        <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Cancelación en proceso</span>
-      )}
-      <button onClick={() => descargar('pdf')} disabled={!!ocupado} className={`${chico} bg-gray-100 text-gray-700 hover:bg-gray-200`}>
-        {ocupado === 'pdf' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} PDF
-      </button>
-      <button onClick={() => descargar('xml')} disabled={!!ocupado} className={`${chico} bg-gray-100 text-gray-700 hover:bg-gray-200`}>
-        {ocupado === 'xml' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} XML
-      </button>
-      {contacto.email ? (
-        <button onClick={porCorreo} disabled={!!ocupado} className={`${chico} bg-teal-100 text-teal-700 hover:bg-teal-200`}>
-          {ocupado === 'correo' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Factura por correo
-        </button>
-      ) : contacto.falta('correo')}
+    <FilaCita nombre="Factura" estado={estado} tono={noSePuede ? 'apagado' : cfdiStatus === 'cancellation_pending' ? 'espera' : 'bien'}>
+      <BotonCita
+        etiqueta="Correo" icono={<Send className="w-3 h-3" />} onClick={porCorreo} ocupado={ocupado === 'correo'}
+        motivo={noSePuede ?? (!contacto.email ? faltaCorreo(contacto.expediente) : null)} ancho={COLUMNA.correo}
+        irA={!noSePuede && !contacto.email ? contacto.expediente : null}
+      />
+      {/* WhatsApp en DOS pasos: preparar el PDF y luego «Compartir» (el navegador sólo deja compartir justo
+          después de un clic). */}
       {archivoListo ? (
-        <button
+        <BotonCita
+          etiqueta="Compartir" icono={<Share2 className="w-3 h-3" />} variante="principal" ancho={COLUMNA.whatsapp}
           onClick={() => { void compartirArchivo(archivoListo); }}
-          disabled={!!ocupado}
-          className={`${chico} bg-green-600 text-white hover:bg-green-700`}
-          title="Abre el «Compartir» de tu equipo con el PDF: elige WhatsApp y el chat del paciente"
-        >
-          <Share2 className="w-3 h-3" /> Compartir PDF
-        </button>
+          titulo="Abre el «Compartir» de tu equipo con el PDF: elige WhatsApp y el chat del paciente"
+        />
       ) : (
-        <button onClick={preparar} disabled={!!ocupado} className={`${chico} bg-green-100 text-green-700 hover:bg-green-200`}
-          title="Prepara el PDF y luego «Compartir PDF» abre el «Compartir» de tu equipo (elige WhatsApp)">
-          {ocupado === 'wa' ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageCircle className="w-3 h-3" />} Factura por WhatsApp
-        </button>
+        <BotonCita
+          etiqueta="WhatsApp" icono={<MessageCircle className="w-3 h-3" />} onClick={preparar} ocupado={ocupado === 'wa'}
+          motivo={noSePuede} ancho={COLUMNA.whatsapp}
+          titulo="Prepara el PDF; luego «Compartir» abre el «Compartir» de tu equipo (elige WhatsApp)"
+        />
       )}
-    </div>
+      <BotonCita
+        etiqueta="PDF" icono={<Download className="w-3 h-3" />} onClick={() => descargar('pdf')} ocupado={ocupado === 'pdf'}
+        motivo={noSePuede} ancho={COLUMNA.ver}
+      />
+      <BotonCita
+        etiqueta="XML" onClick={() => descargar('xml')} ocupado={ocupado === 'xml'} motivo={noSePuede} ancho={COLUMNA.extra}
+      />
+    </FilaCita>
   );
 }

@@ -929,7 +929,7 @@ async function getPaymentLinks(
   return {
     totalEncontrados: stripeCount + mpCount,
     mostrados: links.length,
-    nota: 'Los links SIN cita ligada ("ligadoACita": false) generan ingresos huérfanos — el flujo recomendado es crearlos desde la cita («Link de pago por correo / por WhatsApp» en «Cobro y factura»).',
+    nota: 'Los links SIN cita ligada ("ligadoACita": false) generan ingresos huérfanos — el flujo recomendado es crearlos desde la cita (fila «Link de pago» → «Correo» / «WhatsApp» en «Cobro y factura»).',
     links,
   };
 }
@@ -1224,7 +1224,7 @@ const GUIAS: Record<string, { resumen: string; pestana: string }> = {
     pestana: 'Dashboard → Pagos → pestaña Guía (Stripe y Mercado Pago paso a paso)',
     resumen: `GUÍA DE PAGOS EN LÍNEA (resumen — el detalle completo está en la pestaña):
 - Dos pasarelas: STRIPE (tarjetas, OXXO, Apple/Google Pay) y MERCADO PAGO (la más popular en México). Se conectan una vez desde la página Pagos (Stripe: crear cuenta Express y completar verificación; MP: autorizar con tu cuenta).
-- Links de pago: se crean desde la CITA («Link de pago por correo / por WhatsApp» en «Cobro y factura» — recomendado, queda ligado al expediente y al ingreso): un clic lo crea por el precio de la cita y se lo manda al paciente por correo o WhatsApp. El paciente elige su método al abrirlo.
+- Links de pago: se crean desde la CITA (fila «Link de pago» → «Correo» / «WhatsApp» en «Cobro y factura» — recomendado, queda ligado al expediente y al ingreso): un clic lo crea por el precio de la cita y se lo manda al paciente por correo o WhatsApp. El paciente elige su método al abrirlo.
 - Estados de un link: PENDIENTE (creado, sin pagar) → PAGADO (el ingreso se registra SOLO en Flujo de Dinero) · EXPIRADO · CANCELADO.
 - Depósitos: cada pasarela deposita a tu cuenta bancaria en su propio calendario; el panel de Stripe Express y el panel de MP administran depósitos, reembolsos y disputas.
 - Problemas de cuenta (restringida/deshabilitada): se resuelven en el panel del proveedor — la guía tiene la sección "Problemas con tu cuenta".
@@ -1492,7 +1492,7 @@ async function resolveEmisionContext(ctx: ProposalContext, ledgerEntryIdRaw: unk
   const fc = fiscalCompleteness(patient);
   if (!esPublicoGeneral && fc.completitudFiscal !== 'completo') {
     return {
-      error: `Los datos fiscales de ${nombre} están incompletos — faltan: ${fc.camposFaltantes.join(', ')}. Sin receptor completo no se puede timbrar. ${patient.formLinks[0] ? `YA hay un formulario fiscal pendiente enviado el ${mxDayOf(patient.formLinks[0].createdAt)}: díselo al doctor y que espere la respuesta del paciente — NO le pidas crear otro, regenerarlo invalida el enlace que el paciente ya tiene.` : 'El camino es el formulario fiscal al paciente (desde la cita: «Pedir datos fiscales por correo / por WhatsApp» en «Cobro y factura»).'} NUNCA inventes ni pidas dictar estos datos en el chat.`,
+      error: `Los datos fiscales de ${nombre} están incompletos — faltan: ${fc.camposFaltantes.join(', ')}. Sin receptor completo no se puede timbrar. ${patient.formLinks[0] ? `YA hay un formulario fiscal pendiente enviado el ${mxDayOf(patient.formLinks[0].createdAt)}: díselo al doctor y que espere la respuesta del paciente — NO le pidas crear otro, regenerarlo invalida el enlace que el paciente ya tiene.` : 'El camino es el formulario fiscal al paciente (desde la cita: fila «Datos fiscales» → «Correo» / «WhatsApp» en «Cobro y factura»).'} NUNCA inventes ni pidas dictar estos datos en el chat.`,
       camposFaltantes: fc.camposFaltantes,
     };
   }
@@ -1820,7 +1820,7 @@ const FACTURAS_RULES = `## Facturación y pagos — reglas
   hay un borrador PREPARADO de antes, get_billing_status te lo dirá: menciónalo y di que se
   abre desde Facturación.
 - **Sigues SIN poder**: cancelar CFDIs / complementos de pago (Facturación), facturar
-  ingresos manuales (Nueva Factura), crear links de pago («Link de pago por correo / por WhatsApp» de la cita), enviar el
+  ingresos manuales (Nueva Factura), crear links de pago (fila «Link de pago» → «Correo» / «WhatsApp» de la cita), enviar el
   formulario fiscal. Si lo piden: reporta lo que encontraste y el camino en la plataforma.
   Público en General: solo si el EXPEDIENTE trae el RFC genérico (S01, no deduce — la card
   lo advierte).
@@ -1828,7 +1828,7 @@ const FACTURAS_RULES = `## Facturación y pagos — reglas
 - La completitud fiscal la da el servidor (completitudFiscal + camposFaltantes +
   listoParaFacturar de get_patient_profile) — no cuentes campos tú. Facturar exige datos
   completos Y requiereFactura (listoParaFacturar los combina); si faltan, el camino es el
-  formulario fiscal (desde la cita: «Pedir datos fiscales por correo / por WhatsApp»).
+  formulario fiscal (desde la cita: fila «Datos fiscales» → «Correo» / «WhatsApp»).
   ⚠️ ANTES de mandar a crearlo, mira **formularioFiscalPendiente**: si trae fecha, el doctor YA
   se lo pidió y está esperando la respuesta del paciente — DÍSELO y no le pidas crear otro
   (regenerar el enlace INVALIDA el que el paciente tenga en la mano).
@@ -1882,7 +1882,7 @@ const FACTURAS_PAGOS_ONLY_PROMPT = `## Cómo funcionan los pagos en línea (inva
   INGRESO; el link es la evidencia de CÓMO se pagó.
 - get_payment_provider_status da el estado CACHEADO de las pasarelas; el detalle vivo (requisitos
   pendientes, depósitos) está en la página Pagos.
-- **NO puedes crear links de pago** (se hacen desde la cita: «Link de pago por correo / por WhatsApp») — solo consultarlos.
+- **NO puedes crear links de pago** (se hacen desde la cita: fila «Link de pago» → «Correo» / «WhatsApp») — solo consultarlos.
 - El plan de esta cuenta NO incluye Facturación ni Descarga SAT: no consultas ni emites CFDIs, no
   tienes los catálogos del SAT ni los números fiscales. Si te los piden, dilo directo y ofrece lo
   que sí ves (citas, pagos, flujo de dinero).`;

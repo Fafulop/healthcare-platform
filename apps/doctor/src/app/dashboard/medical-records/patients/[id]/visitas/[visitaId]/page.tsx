@@ -20,7 +20,6 @@ import { AgendarSeguimiento } from '@/components/medical-records/tratamientos/Ag
 import { useTarjetaDeCita } from '@/components/citas/useTarjetaDeCita';
 import { TarjetaDeCita } from '@/app/dashboard/appointments/_components/TarjetaDeCita';
 import { toast } from '@/lib/practice-toast';
-import { NotaCitaButton } from '@/components/citas/NotaCitaButton';
 import { FormularioDeLaVisita } from '@/components/medical-records/visitas/FormularioDeLaVisita';
 import { EnviarDocumento } from '@/components/medical-records/visitas/EnviarDocumento';
 
@@ -258,13 +257,8 @@ export default function VisitaPage() {
               {booking && (verCobro || verFactura) && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {verCobro && <PagoBadge estadoPago={booking.estadoPago ?? 'SIN_REGISTRO'} metodoPago={booking.metodoPago ?? null} />}
-                  {/* La nota (PDF) va en «Cobro» de la tarjeta de abajo (10-PLAN P1) — salvo en una cita
-                      cancelada / no asistió: ahí la tarjeta no enseña Cobro (sin link vivo), y una cobrada
-                      seguiría necesitando su nota. */}
-                  {verCobro && booking.ledgerEntryId != null && booking.estadoPago !== 'CUBIERTA'
-                    && (booking.status === 'CANCELLED' || booking.status === 'NO_SHOW') && (
-                    <NotaCitaButton bookingId={booking.id} className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-1 disabled:opacity-50" />
-                  )}
+                  {/* La nota (PDF) va en «Cobro y factura» de la tarjeta de abajo — también en una cita cancelada
+                      / no asistió con cobro (2026-10-12: la fila «Nota de venta» ya no se esconde). */}
                   {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} cubierta={booking.estadoPago === 'CUBIERTA'} />}
                 </div>
               )}

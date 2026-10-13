@@ -8,7 +8,7 @@
 import { DocumentoPdfModal, type EnvioDocumento } from '@/components/pdf/DocumentoPdfModal';
 import { dibujarNotaVenta, nombreArchivoNota, type NotaVentaDatos } from '@/lib/nota-venta-pdf';
 
-export function NotaVentaModal({ venta, envio, onClose }: { venta: NotaVentaDatos; envio?: EnvioDocumento; onClose: () => void }) {
+export function NotaVentaModal({ venta, envio, alAbrir, onClose }: { venta: NotaVentaDatos; envio?: EnvioDocumento; alAbrir?: 'correo'; onClose: () => void }) {
   return (
     <DocumentoPdfModal
       titulo={`Nota de venta · ${venta.saleNumber}`}
@@ -16,6 +16,7 @@ export function NotaVentaModal({ venta, envio, onClose }: { venta: NotaVentaDato
       queEs="la nota de venta"
       dibujar={(jsPDF, autoTable, emisor, diseno, rx) => dibujarNotaVenta(jsPDF, autoTable, venta, emisor, diseno, rx)}
       envio={envio}
+      alAbrir={alAbrir}
       onClose={onClose}
     />
   );
