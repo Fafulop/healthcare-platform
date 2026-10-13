@@ -390,6 +390,29 @@ export function ExpedienteCell({
   );
 }
 
+/**
+ * Un botón que AQUÍ no aplica, en su lugar de siempre: gris, sin clic, con el porqué al pasar el ratón
+ * (2026-10-12, pedido del usuario: que nada se recorra cuando la cita cambia de estado).
+ */
+function Apagado({ etiqueta, motivo }: { etiqueta: string; motivo: string }) {
+  return (
+    <span
+      title={motivo}
+      aria-disabled="true"
+      className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-400 cursor-not-allowed select-none"
+    >
+      {etiqueta}
+    </span>
+  );
+}
+
+/** Por qué ya no se le manda nada PREVIO a la consulta (confirmación, formulario) a esta cita. */
+function motivoPrevio(status: string): string {
+  if (status === "PENDING") return "Confírmala primero";
+  if (status === "CANCELLED") return "La cita está cancelada";
+  return "La cita ya pasó";
+}
+
 export function StatusActions({
   booking,
   onUpdateStatus,
@@ -417,7 +440,7 @@ export function StatusActions({
    *  «Cobros», el modal del calendario). La tabla no los pasa: los enseña en su columna PRECIO. */
   onUpdatePrice?: (id: string, price: number) => Promise<void>;
   onUpdateFacturaSolicitada?: (id: string, value: boolean) => void;
-  /** 10-PLAN P1: sin el grupo «Estado» — la tarjeta de la sesión ya trae esos botones a la vista. */
+  /** Sin el grupo «Estado». Hoy nadie lo pasa (la tarjeta de la sesión del tratamiento ya no trae la cita). */
   sinEstado?: boolean;
   /** 10-PLAN P1: fuera de la agenda se respetan los permisos del expediente: sin `flujo` no hay Cobro… */
   sinCobro?: boolean;
@@ -460,7 +483,8 @@ export function StatusActions({
   // COMPLETADA significa "el doctor ya vio al paciente", no "el asunto se cerró": el dinero y
   // el papeleo siguen abiertos. Por eso Cobro y Documentos sobreviven a completar, y Estado /
   // Comunicación / Horario no (estado terminal sin vuelta atrás, no hay confirmación que
-  // reenviar, no hay agenda futura que bloquear).
+  // reenviar, no hay agenda futura que bloquear). Desde 2026-10-12 «no» = sus botones GRISES en su
+  // lugar (con el porqué), no un grupo que desaparece y recorre a los demás.
   //
   // Además el prompt del agente YA daba esto por hecho en dos sitios, y no era cierto:
   //   · facturas.ts get_payment_links → "el flujo recomendado es crearlos desde la cita
@@ -470,7 +494,6 @@ export function StatusActions({
   // Misma familia que bitácora #26/#27 (prosa que enruta a algo inalcanzable) pero en el eje de
   // ESTADO, que `gate:prosa` no mira: ese gate razona por scope, no por estado de la cita.
   const isCompleted = booking.status === "COMPLETED";
-  const showStatusGroup = booking.status === "PENDING" || booking.status === "CONFIRMED";
   const showCommsGroup = booking.status === "CONFIRMED";
 
   // El formulario es PREVIO a la consulta: en una cita ya completada "Crear formulario"
@@ -514,7 +537,9 @@ export function StatusActions({
     />
   );
 
-  const estadoGroup = showStatusGroup && !sinEstado && (!soloCobro || booking.status === "CONFIRMED") && (
+  // 2026-10-12: el grupo SIEMPRE está (los botones que no aplican, grises — `BotonesEstadoCita`), para que
+  // nada se recorra al completar / cancelar.
+  const estadoGroup = !sinEstado && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Estado</span>
           {/* 09-PLAN L2: los MISMOS botones que la visita y la sesión del tratamiento. */}
@@ -595,11 +620,17 @@ export function StatusActions({
     booking.meetLink ? ` Enlace de la videoconsulta: ${booking.meetLink}` : "",
   ].join("");
 
-  const comunicacionGroup = showCommsGroup && !soloCobro && (
+  // 2026-10-12: SIEMPRE en su lugar; fuera de una cita agendada, sus dos botones grises con el porqué.
+  const comunicacionGroup = !soloCobro && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Confirmación cita</span>
           <div className="flex gap-1 flex-wrap">
-            {!emailDestino ? (
+            {!showCommsGroup ? (
+              <>
+                <Apagado etiqueta="Enviar confirmación" motivo={motivoPrevio(booking.status)} />
+                <Apagado etiqueta="Confirmación por WhatsApp" motivo={motivoPrevio(booking.status)} />
+              </>
+            ) : !emailDestino ? (
               faltaContacto("correo")
             ) : (
               <button
@@ -627,7 +658,7 @@ export function StatusActions({
               </button>
             )}
 
-            {!waDestino ? (
+            {!showCommsGroup ? null : !waDestino ? (
               faltaContacto("WhatsApp")
             ) : (
               <a
@@ -641,7 +672,7 @@ export function StatusActions({
               </a>
             )}
 
-            {esTelemedicina && booking.meetLink && (
+            {showCommsGroup && esTelemedicina && booking.meetLink && (
               <a
                 href={booking.meetLink}
                 target="_blank"
@@ -676,11 +707,14 @@ export function StatusActions({
   // No en una cita cancelada / no asistió (no se le manda la factura de una cita que no ocurrió).
   const verFacturaCita = !!booking.facturada && !sinFactura && puedeEnviar('facturacion')
     && booking.status !== 'CANCELLED' && booking.status !== 'NO_SHOW';
-  const cobroGroup = (conPrecio || conCasilla || verLink || verFiscal || verFacturaCita) && (
+  // 2026-10-12: con permiso de Pagos el grupo NO desaparece en una cancelada / no asistió sin link: su lugar,
+  // con el link y la nota en gris (code review: si no, Confirmación y Documentos se recorrían a su celda).
+  const linkEnGris = !verLink && !sinCobro && puedeEnviar('pagos') && !cubiertaPorPaqueteViejo(booking);
+  const cobroGroup = (conPrecio || conCasilla || verLink || linkEnGris || verFiscal || verFacturaCita) && (
         <div className="pt-2 first:pt-0">
           {/* Sin nada de cobro a la vista (sólo permiso de Facturación) el encabezado no promete «Cobro». */}
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-            {conPrecio || verLink ? "Cobro y factura" : "Factura"}
+            {conPrecio || verLink || linkEnGris ? "Cobro y factura" : "Factura"}
           </span>
           {/* Mismo respaldo que el envío y la fila: si el correo/teléfono solo viven en
               el expediente, el link de pago debe poder pre-llenarlos igual. */}
@@ -699,7 +733,6 @@ export function StatusActions({
           {/* VENTAS PACIENTE paso 4: la nota de la cita = su COBRO como PDF, bajo `flujo`. Se ofrece
               cuando HAY cobro con monto (`ingreso`, el mismo dato que usa la agenda) — también una
               cita pagada por link antes de concluirse; no en una sesión cubierta ($0). */}
-          {booking.ingreso && booking.ingreso.amount > 0 && <NotaCitaButton bookingId={booking.id} />}
           {cubiertaPorPaqueteViejo(booking) ? (
             <span className="text-xs text-teal-700">Cubierta por el paquete</span>
           ) : (
@@ -727,27 +760,46 @@ export function StatusActions({
             } : null}
           />
           )}
+          {/* La nota DESPUÉS del link y siempre en su lugar (2026-10-12): gris hasta que haya cobro con
+              monto — antes aparecía al cobrar, ANTES del link, y lo empujaba. */}
+          {booking.ingreso && booking.ingreso.amount > 0
+            ? <NotaCitaButton bookingId={booking.id} />
+            : <Apagado etiqueta="Nota de venta" motivo={cubiertaPorPaqueteViejo(booking) || booking.ingreso ? "Cubierta por el paquete: no tiene cobro que documentar" : isCompleted ? "Esta cita no tiene cobro con monto" : "Sin cobro todavía: la nota sale del cobro de la cita"} />}
           </>
+          )}
+          {linkEnGris && (
+            <>
+              <Apagado etiqueta="Link de pago" motivo={booking.status === "NO_SHOW" ? "El paciente no asistió" : "La cita está cancelada"} />
+              <Apagado etiqueta="Nota de venta" motivo={booking.status === "NO_SHOW" ? "El paciente no asistió" : "La cita está cancelada"} />
+            </>
           )}
           {verFiscal && <FiscalFormButton booking={booking} contacto={contactoEnvio} />}
           {/* La factura de la cita (2026-10-12): PDF · XML · por correo · por WhatsApp. Con permiso de Facturación. */}
-          {verFacturaCita && (
+          {verFacturaCita ? (
             <FacturaDeLaCita cfdiId={booking.facturaCfdiId} cfdiStatus={booking.facturaCfdiStatus} folio={booking.facturaCfdiFolio} contacto={contactoEnvio} />
+          ) : verFiscal && (
+            // Pidió factura y aún no hay: su lugar, gris (2026-10-12).
+            <Apagado etiqueta="Factura" motivo="Aún no se emite la factura de esta cita" />
           )}
           </div>
         </div>
       );
 
-  const documentosGroup = showDocsGroup && !soloCobro && (
+  // 2026-10-12: SIEMPRE en su lugar; sin formulario posible, gris con el porqué.
+  const documentosGroup = !soloCobro && (
         <div className="pt-2 first:pt-0">
           <span className="hidden sm:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Documentos</span>
           <div className="flex gap-1 flex-wrap">
-            <FormularioStatusButton
-              booking={booking}
-              contacto={contactoEnvio}
-              onCreateForm={() => onOpenFormLinkModal(booking)}
-              onDeleteForm={() => onDeleteFormLink(booking.id)}
-            />
+            {showDocsGroup ? (
+              <FormularioStatusButton
+                booking={booking}
+                contacto={contactoEnvio}
+                onCreateForm={() => onOpenFormLinkModal(booking)}
+                onDeleteForm={() => onDeleteFormLink(booking.id)}
+              />
+            ) : (
+              <Apagado etiqueta="Formulario" motivo={motivoPrevio(booking.status)} />
+            )}
           </div>
         </div>
       );

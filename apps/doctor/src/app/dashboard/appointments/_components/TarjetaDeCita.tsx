@@ -15,8 +15,8 @@
  *   · `conExpediente={false}` — dentro del expediente el paciente ES éste (desligarlo desde su visita
  *     dejaría la visita colgando de otro);
  *   · `conNotas={false}` — la visita ya enseña las notas de la cita;
- *   · `sinEstado` — la tarjeta de la sesión ya trae Completar · No asistió · Cancelar · Reagendar a la
- *     vista; esto va plegado debajo («Más de la cita»);
+ *   · `sinEstado` — sin el grupo Estado (hoy nadie lo pasa: la tarjeta de la sesión del tratamiento, que
+ *     traía esos botones aparte, ya no trae nada de la cita — 2026-10-12);
  *   · `compacta` — en un espacio ANCHO (la visita): los grupos en la rejilla de la fila desplegada de la
  *     tabla (`layout="expanded"`), en vez de todo apilado;
  *   · `soloCobro` — la página «Cobros»: «Cobro y factura» primero y, de Estado, sólo «Completar» (sin el

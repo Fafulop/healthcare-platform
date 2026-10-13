@@ -19,9 +19,6 @@ import { dibujarResumenTratamiento, nombreArchivoResumen, type ResumenTratamient
 import { getClinicDateString } from '@/lib/dates';
 import { AgendarSesionesModal, type ModoAgendar } from '@/components/medical-records/tratamientos/AgendarSesionesModal';
 import { AbrirVisitaHoyModal } from '@/components/medical-records/tratamientos/AbrirVisitaHoyModal';
-import { useAccionesDeCita } from '@/components/citas/useAccionesDeCita';
-import { useTarjetaDeCita } from '@/components/citas/useTarjetaDeCita';
-import { TarjetaDeCita } from '@/app/dashboard/appointments/_components/TarjetaDeCita';
 
 const inputClass = 'px-2 py-1.5 border border-gray-300 rounded-md text-sm';
 const botonTexto = 'text-sm text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 disabled:opacity-50';
@@ -44,14 +41,6 @@ export default function TratamientoPage() {
   const [resumen, setResumen] = useState(false);
   // 07-PLAN P1: las canceladas van plegadas al final.
   const [verCanceladas, setVerCanceladas] = useState(false);
-  // 10-PLAN P1 — la tarjeta completa de la cita de cada sesión («Más de la cita»): las citas del
-  // paciente con la forma de la agenda y sus mismos manejadores. Sin permiso de citas no se piden.
-  const tarjeta = useTarjetaDeCita({
-    doctorId: t.permisos?.citas ? t.doctorId : null,
-    patientId,
-    volverA: `/dashboard/medical-records/patients/${patientId}/tratamientos/${t.tratamiento?.id ?? ''}`,
-    despues: async () => { await t.recargar(); },
-  });
 
   if (t.sessionStatus === 'loading' || t.estado === 'cargando') {
     return (
@@ -195,7 +184,7 @@ export default function TratamientoPage() {
             {vivas.map((s) => (
               <FilaSesion
                 key={s.id} s={s} t={t} planeadas={planeadas} puedeAgendar={puedeAgendar}
-                onCancelar={() => pedirCancelar(s)} onAgendar={setAgendando} tarjeta={tarjeta}
+                onCancelar={() => pedirCancelar(s)} onAgendar={setAgendando}
               />
             ))}
             {canceladas.length > 0 && (
@@ -207,7 +196,7 @@ export default function TratamientoPage() {
             {verCanceladas && canceladas.map((s) => (
               <FilaSesion
                 key={s.id} s={s} t={t} planeadas={planeadas} puedeAgendar={puedeAgendar}
-                onCancelar={() => pedirCancelar(s)} onAgendar={setAgendando} tarjeta={tarjeta}
+                onCancelar={() => pedirCancelar(s)} onAgendar={setAgendando}
               />
             ))}
           </div>
@@ -238,7 +227,6 @@ export default function TratamientoPage() {
         />
       )}
 
-      {tarjeta.modalFormulario}
     </div>
   );
 
@@ -371,7 +359,7 @@ function CuentaTratamiento({ c, onResumen }: { c: CuentaDelTratamiento; onResume
       )}
       {c.sinPrecio > 0 && (
         <p className="text-xs text-amber-800">
-          {c.sinPrecio === 1 ? '1 sesión no tiene precio' : `${c.sinPrecio} sesiones no tienen precio`}: no {c.sinPrecio === 1 ? 'cuenta' : 'cuentan'} en el total. Pónselo en la sesión («⋯» → Servicio y precio) o, si ya tiene cita, en su cita («Más de la cita»).
+          {c.sinPrecio === 1 ? '1 sesión no tiene precio' : `${c.sinPrecio} sesiones no tienen precio`}: no {c.sinPrecio === 1 ? 'cuenta' : 'cuentan'} en el total. Pónselo en la sesión («⋯» → Servicio y precio) o, si ya tiene cita, en su cita (en su visita o en la agenda).
         </p>
       )}
       {c.ventas.cuantas > 0 && (
@@ -425,13 +413,12 @@ function datosDelResumen(tr: TratamientoDetalle, c: CuentaDelTratamiento, pacien
 /**
  * La tarjeta de UNA sesión. V4: se lee como la de una visita (fecha y hora, servicio, lo que tiene su
  * visita, notas de la cita, cobro y factura) y trae sus acciones principales a la vista: «Abrir
- * visita» (siempre: si no tiene, la crea), «Agendar» y «Reagendar».
+ * visita» (siempre: si no tiene, la crea), «Agendar» (sesión sin cita) y «Reagendar». Lo demás de la
+ * CITA (completar, cobrar, cancelarla…) se hace en su visita — 2026-10-12: aquí repetía su tarjeta.
  */
-function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar, tarjeta }: {
+function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar }: {
   s: SesionDeTratamiento; t: Detalle; planeadas: number | null; puedeAgendar: boolean;
   onCancelar: () => void; onAgendar: (m: ModoAgendar) => void;
-  /** 10-PLAN P1: la tarjeta completa de la cita (la de la agenda), plegada en «Más de la cita». */
-  tarjeta: ReturnType<typeof useTarjetaDeCita>;
 }) {
   const [notas, setNotas] = useState<string | null>(null);
   const [editandoServicio, setEditandoServicio] = useState(false);
@@ -462,17 +449,7 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar, tarj
   const agendable = puedeAgendar && !s.cancelada && visitaNoEstorba && s.estado === 'por_agendar';
   const reagendable = puedeAgendar && !s.cancelada && visitaNoEstorba && citaActiva;
 
-  // 09-PLAN L2 (nota N3) — las acciones de su cita, las MISMAS de la agenda y de la visita. Cancelar aquí
-  // es cancelar la CITA (la sesión queda por agendar, como al cancelarla en la agenda); «Cancelar sesión»
-  // del «⋯» es otra cosa. Reagendar es el de la sesión (respeta su servicio y precio).
-  const verCitas = t.permisos?.citas ?? false;
-  const acciones = useAccionesDeCita({
-    booking, patientName: t.patientName,
-    // También la tarjeta de abajo: su estado y cobro salen de la lista de la agenda.
-    despues: async () => { await Promise.all([t.recargar(), tarjeta.recargar()]); },
-  });
-  const [masDeCita, setMasDeCita] = useState(false);
-  const citaDeAgenda = tarjeta.porId(cita?.id);
+  // Las acciones de ESTADO de su cita viven en su visita y en la agenda (2026-10-12), no aquí.
 
   // 07-PLAN P3b: sin cita que cuente, «Abrir visita hoy» abre su modal (crea su cita de hoy, 09 L3).
   const [abriendoHoy, setAbriendoHoy] = useState(false);
@@ -538,34 +515,9 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar, tarj
               {verFactura && <FacturaBadge facturada={booking.facturada === true} solicitada={booking.facturaSolicitada === true} cubierta={booking.estadoPago === 'CUBIERTA'} />}
             </div>
           )}
-          {/* Reagendar: la regla de la SESIÓN (`reagendable`: también una cita pendiente a futuro). */}
-          {verCitas && booking && acciones.botones({
-            puedeReagendar: reagendable,
-            onReagendar: () => onAgendar({ tipo: 'reagendar', sesionId: s.id }),
-            deshabilitado: t.trabajando,
-          })}
-          {/* 10-PLAN P1 — lo demás de la cita (precio, confirmación, cobro, factura, formulario), plegado: los
-              botones de estado ya están arriba (`sinEstado`). */}
-          {verCitas && citaDeAgenda && (
-            <div>
-              <button
-                type="button" onClick={() => setMasDeCita((x) => !x)}
-                className="text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1"
-                aria-expanded={masDeCita}
-              >
-                {masDeCita ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                Más de la cita
-              </button>
-              {masDeCita && (
-                <div className="mt-2 p-3 border border-gray-100 rounded-lg bg-gray-50/50">
-                  <TarjetaDeCita
-                    booking={citaDeAgenda} conExpediente={false} conNotas={false} sinEstado
-                    sinCobro={!verCobro} sinFactura={!verFactura} {...tarjeta.manejadores}
-                  />
-                </div>
-              )}
-            </div>
-          )}
+          {/* 2026-10-12 (pedido del usuario): aquí ya NO van los botones de ESTADO de la cita (Completar, No
+              asistió, Cancelar cita) ni «Más de la cita»: eran los mismos que trae su visita, dos veces. El
+              tratamiento PLANEA y resume (Agendar · Reagendar · Abrir visita); la cita se maneja en su visita. */}
           {s.notas && notas === null && <p className="text-sm text-gray-600 whitespace-pre-wrap">{s.notas}</p>}
         </div>
 
@@ -579,9 +531,10 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar, tarj
               <CalendarDays className="w-4 h-4" />Agendar
             </button>
           )}
-          {/* «Reagendar» va con las demás acciones de la cita (09-PLAN L2). Sin poder verla (sin `citas`)
-              no se pinta aquella fila: aquí se queda el de antes. */}
-          {reagendable && !(verCitas && booking) && (
+          {/* «Reagendar» de la SESIÓN se queda aquí (2026-10-12, code review): es planear el tratamiento, y su
+              ventana respeta el servicio y precio de la sesión y NO cancela la cita vieja si la sesión no pudo
+              pasar a la nueva (el de la agenda la cancela de todos modos). */}
+          {reagendable && (
             <button
               onClick={() => onAgendar({ tipo: 'reagendar', sesionId: s.id })} disabled={t.trabajando}
               className="px-3 py-1.5 text-sm border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50 flex items-center gap-1"
@@ -625,8 +578,8 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar, tarj
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setMenu(null)} />
                 <div role="menu" className={`absolute right-0 ${menu === 'arriba' ? 'bottom-9' : 'top-9'} z-20 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1`}>
-                  {/* 10-PLAN P4 — con su cita viva el precio es el de la CITA (se cambia en «Más de la cita» o
-                      al completarla): aquí sólo el PLAN de una sesión sin cita. */}
+                  {/* 10-PLAN P4 — con su cita viva el precio es el de la CITA (se cambia en su visita / la
+                      agenda o al completarla): aquí sólo el PLAN de una sesión sin cita. */}
                   {!citaActiva && (
                     <button role="menuitem" onClick={() => { setMenu(null); setEditandoServicio((v) => !v); }} className={`${opcionMenu} text-gray-700`}>
                       Servicio y precio
@@ -661,7 +614,6 @@ function FilaSesion({ s, t, planeadas, puedeAgendar, onCancelar, onAgendar, tarj
         </div>
       </div>
 
-      {acciones.modal}
       {abriendoHoy && (
         <AbrirVisitaHoyModal
           patientId={t.patientId} s={s} planeadas={planeadas}

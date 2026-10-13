@@ -302,10 +302,11 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
 
           'completar, no asistió o cancelar la cita de una sesión': {
             allowedIf:
-              'En la tarjeta de la sesión, debajo de su cita (con permiso de citas): los mismos botones de la agenda — ' +
-              '"Completar" (misma ventana de cobro), "No asistió", "Cancelar cita" y "Reagendar". Lo demás de la tarjeta de la ' +
-              'cita (precio, "¿Necesita factura?", confirmación, link de pago, factura, formulario) en "Más de la cita".',
-            notes: '"Cancelar cita" ahí cancela la CITA (la sesión queda sin fecha); "⋯" → "Cancelar sesión" cancela la sesión.',
+              'En la VISITA de la sesión ("Abrir visita" en su tarjeta del tratamiento) o en la agenda: la tarjeta de la cita ' +
+              'con "Completar" (misma ventana de cobro), "No asistió" y "Cancelar cita", más el precio, "¿Necesita factura?", ' +
+              'confirmación, link de pago, nota de venta, factura y formulario. La tarjeta de la sesión del tratamiento ya no ' +
+              'los repite: allí quedan "Agendar", "Reagendar" y "Abrir visita".',
+            notes: '"Cancelar cita" cancela la CITA (la sesión queda sin fecha); en el tratamiento, "⋯" → "Cancelar sesión" cancela la sesión.',
           },
 
           'cancelar el tratamiento': {
@@ -350,7 +351,7 @@ export const CAPABILITY_MAP: Record<string, ModuleCapabilities> = {
           'cobrar un tratamiento': {
             allowedIf:
               'Ya no hay precio de paquete: cada sesión tiene su servicio y su precio ("⋯" → "Servicio y precio", sólo sin cita ' +
-              'viva; con cita el precio es el de la cita y se cambia en "Más de la cita" o al completarla), y se ' +
+              'viva; con cita el precio es el de la cita y se cambia en su visita / la agenda o al completarla), y se ' +
               'cobra al concluir su cita, como cualquier cita (también con link de pago).',
             notes:
               'Con permiso de Flujo de Dinero, la "Cuenta del tratamiento" suma las sesiones: Total · Pagado · Pendiente. ' +

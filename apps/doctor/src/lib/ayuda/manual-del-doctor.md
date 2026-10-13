@@ -164,7 +164,11 @@ Puedes ordenar por PACIENTE · SERVICIO, FECHA Y HORA o ESTADO haciendo clic en 
 
 ### Qué puedes hacer con cada cita
 
-Al abrir una cita, las acciones vienen en grupos. Qué grupos aparecen depende del estado:
+Al abrir una cita, las acciones vienen en grupos y **siempre en el mismo lugar**: lo que no aplica al
+estado de la cita se ve **gris** y no se puede picar (al pasar el ratón dice por qué), en vez de
+desaparecer y recorrer lo demás. En una cita ya cerrada, el grupo Estado dice además, por ejemplo,
+«Completada: ya no cambia de estado». En la tabla, ✓ = se puede usar; — = se ve gris (salvo «Borrar
+cita», que sólo aparece cuando se puede):
 
 | Grupo | Pendiente | Agendada | Vencida | Completada | No asistió / Cancelada |
 |---|---|---|---|---|---|
@@ -172,11 +176,13 @@ Al abrir una cita, las acciones vienen en grupos. Qué grupos aparecen depende d
 | **Confirmación cita** (correo, WhatsApp, Meet) | — | ✓ | ✓ | — | — |
 | **Cobro y factura** (link de pago y su nota, y —con la casilla marcada— pedir los datos fiscales; en la visita, «Cobros» y la ventana del calendario también el precio y «¿Necesita factura?», que en la tabla de la agenda están en su columna PRECIO) | ✓ | ✓ | ✓ | ✓ | el link, sólo si ya hay uno activo o pagado |
 | **Documentos** (formulario pre-consulta) | — | ✓ | ✓ | sólo si el paciente ya lo contestó | — |
-| **Borrar cita** (sólo **sin cobro** registrado) | — | — | — | ✓ | ✓ |
+| **Borrar cita** (sólo **sin cobro** registrado; aparece al final sólo cuando se puede) | — | — | — | ✓ | ✓ |
 
-Dentro del grupo Estado: «Confirmar» sólo en Pendientes, y «Reagendar» sólo en Agendadas y
-Vencidas. En una Vencida, «Confirmación cita» y «Documentos» sólo aparecen si estaba Agendada
-(no si seguía Pendiente).
+Dentro del grupo Estado: «Confirmar» se usa sólo en Pendientes (en una Agendada dice «Confirmada»,
+gris), «Completar» y «No asistió» sólo en Agendadas, y «Reagendar» sólo en Agendadas y Vencidas. En
+una Vencida, «Confirmación cita» y «Documentos» sólo se usan si estaba Agendada (no si seguía
+Pendiente). En «Cobro y factura», **«Nota de venta»** está siempre después del link de pago, gris
+hasta que la cita tiene cobro.
 
 **Completada no cierra el papeleo**: después de completar puedes seguir cobrando y facturando
 esa cita.
@@ -620,12 +626,11 @@ principal:
 
 - **«Agendar»** (sesiones sin fecha) — abre la fila de esa sesión: servicio, precio, fecha y hora,
   con si el horario está libre. Necesita permiso de citas y el tratamiento activo.
-- **Las acciones de su cita** — debajo de la cita de la sesión, con permiso de citas, los **mismos
-  botones de la agenda**: **«Completar»** (la misma ventana del cobro), **«No asistió»**,
-  **«Cancelar cita»** (la sesión queda sin fecha, igual que si la cancelaras en la
-  agenda — para cancelar la sesión está «Cancelar sesión» en «⋯») y **«Reagendar»**. Lo demás de la
-  tarjeta de la cita (precio, «¿Necesita factura?», confirmación, link de pago, factura, formulario)
-  está plegado en **«Más de la cita»**.
+- **Lo demás de su cita** —**«Completar»**, **«No asistió»**, **«Cancelar cita»**, el precio,
+  «¿Necesita factura?», la confirmación, el link de pago, la nota de venta, la factura y el
+  formulario— se hace **en su visita** («Abrir visita») o en la agenda, con la misma tarjeta de la
+  cita: aquí no se repite. Cancelar ahí la cita deja la sesión sin fecha (para cancelar la sesión está
+  «Cancelar sesión» en «⋯»).
 - **«Reagendar»** (sesiones con cita pendiente o confirmada) — eliges la fecha y hora nuevas (vienen
   el servicio y el precio de la sesión, o los de su cita si la sesión no tiene propios): se crea la
   cita nueva, la sesión pasa a ella y se cancela la anterior, como en la agenda. Al paciente le llega
@@ -651,7 +656,7 @@ En el botón **«⋯»** de cada sesión, lo demás:
   vuelve **por agendar** (su cita no regresa). Sin permiso de citas no se puede cancelar una sesión con
   cita agendada.
 - **«Servicio y precio»** (sólo en sesiones **sin cita viva**: con cita, el precio es el de la cita —
-  se cambia en «Más de la cita» o al completarla— y la tarjeta dice «(de su cita)») — elige el
+  se cambia en su visita o al completarla— y la tarjeta dice «(de su cita)») — elige el
   servicio de la sesión (llena nombre y precio) y cámbialos si
   quieres. Al agendarla, su cita nace con ese precio.
 - **«Notas»** de la sesión, y **«Borrar sesión»** mientras no tenga cita ni visita.
