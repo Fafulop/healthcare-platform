@@ -131,7 +131,18 @@ export function FormularioStatusButton({ booking, contacto, onCreateForm, onDele
   // Sin formulario todavía. Sólo para una cita Agendada (el servidor rechaza las demás) y que no haya pasado
   // (el enlace nacería vencido: la página del paciente diría «Este enlace ha expirado»).
   if (!urlPendiente) {
-    if (booking.status !== 'CONFIRMED' || expired) return null;
+    // Ya no se puede: su lugar en gris con el porqué, no un hueco (2026-10-12 — que nada desaparezca).
+    if (booking.status !== 'CONFIRMED' || expired) {
+      return (
+        <span
+          title={booking.status !== 'CONFIRMED' ? 'Confírmala primero' : 'La cita ya pasó: el enlace nacería vencido'}
+          aria-disabled="true"
+          className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-400 cursor-not-allowed select-none"
+        >
+          Formulario
+        </span>
+      );
+    }
     return (
       <div className="flex items-center gap-1 flex-wrap">
         <BotonesDeEnvio
