@@ -5,8 +5,13 @@
 // PDF ADJUNTO, desde el Gmail del doctor (como la confirmación). El PDF lo dibuja el navegador: es el mismo
 // que el doctor ve en la vista previa y descarga. El DESTINATARIO lo decide el servidor: el correo del
 // expediente del paciente dueño de esa receta / venta (nunca una dirección que mande el cliente).
-// Receta: sólo EMITIDA. Permisos (route-permissions): las dos → OWNER_ONLY (el PDF lo arma el navegador y sale
+// Receta: sólo EMITIDA. Permisos (route-permissions): las tres (receta, venta, cita) → OWNER_ONLY (el PDF lo arma el navegador y sale
 // del Gmail del titular con su nombre: un ayudante no manda nada como «Tu receta»).
+//
+// 2026-10-12 — y …/cita/[id]: la «Nota de venta» de una CITA (la que se genera al vuelo de su cobro, GET
+// /api/appointments/bookings/:id/nota). Mismas reglas que esa nota (cobro propio, no una sesión cubierta por
+// su paquete); destinatario: el correo del expediente, o —cita sin expediente— el de la cita (el de las
+// confirmaciones). Sin expediente no hay bitácora del paciente donde anotarlo: queda en el log del servidor.
 
 import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
@@ -27,7 +32,10 @@ const MOTIVO_403: Record<string, string> = {
   PERMISSION_BLOCKED: 'no tienes permiso para esto.',
 };
 
-export function postEnviarDocumento(tipoFijo: TipoDocumento) {
+/** Qué se manda: la receta, la nota de una venta o la nota del cobro de una cita (correo = el de nota de venta). */
+export type TipoEnvio = TipoDocumento | 'cita';
+
+export function postEnviarDocumento(tipoFijo: TipoEnvio) {
   return async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   let doctor: Awaited<ReturnType<typeof getAuthenticatedDoctor>>['doctor'];
   let quien: Awaited<ReturnType<typeof getAuthenticatedDoctor>>['user'];
@@ -66,7 +74,28 @@ export function postEnviarDocumento(tipoFijo: TipoDocumento) {
 
     // El paciente dueño del documento — y que el documento sea de ESTE doctor.
     let patientId: string | null = null;
-    if (tipo === 'receta') {
+    // Cita sin expediente: su propio correo y nombre (los de la confirmación).
+    let correoDeLaCita: string | null = null;
+    let nombreDeLaCita = '';
+    if (tipo === 'cita') {
+      const cita = await prisma.booking.findFirst({
+        where: { id, doctorId: doctor.id },
+        select: {
+          patientId: true, patientEmail: true, patientName: true,
+          ledgerEntry: { select: { amount: true, tratamientoId: true, doctorId: true } },
+        },
+      });
+      if (!cita) return NextResponse.json({ success: false, error: 'Cita no encontrada' }, { status: 404 });
+      // Las mismas reglas que la nota misma (bookings/[id]/nota): sin cobro, o cubierta por su paquete, no hay nota.
+      const cobro = cita.ledgerEntry && cita.ledgerEntry.doctorId === doctor.id ? cita.ledgerEntry : null;
+      if (!cobro) return NextResponse.json({ success: false, error: 'Esta cita no tiene cobro registrado' }, { status: 409 });
+      if (cobro.tratamientoId && Number(cobro.amount) <= 0) {
+        return NextResponse.json({ success: false, error: 'Sesión cubierta por el paquete de su tratamiento: no tiene cobro que documentar' }, { status: 409 });
+      }
+      patientId = cita.patientId;
+      correoDeLaCita = cita.patientEmail;
+      nombreDeLaCita = cita.patientName;
+    } else if (tipo === 'receta') {
       const rx = await prisma.prescription.findFirst({ where: { id, doctorId: doctor.id }, select: { patientId: true, status: true } });
       if (!rx) return NextResponse.json({ success: false, error: 'Receta no encontrada' }, { status: 404 });
       if (rx.status !== 'issued') {
@@ -83,19 +112,24 @@ export function postEnviarDocumento(tipoFijo: TipoDocumento) {
       }
       patientId = venta.patientId;
     }
-    if (!patientId) {
+    if (!patientId && tipo !== 'cita') {
       return NextResponse.json({ success: false, error: 'Este documento no está ligado a un paciente.' }, { status: 409 });
     }
-    const paciente = await prisma.patient.findFirst({
-      where: { id: patientId, doctorId: doctor.id },
-      select: { firstName: true, lastName: true, email: true },
-    });
-    const destinatario = paciente?.email?.trim() || '';
-    if (!paciente || !destinatario) {
-      return NextResponse.json({ success: false, error: 'El paciente no tiene correo en su expediente.' }, { status: 400 });
+    const paciente = patientId
+      ? await prisma.patient.findFirst({ where: { id: patientId, doctorId: doctor.id }, select: { firstName: true, lastName: true, email: true } })
+      : null;
+    if (patientId && !paciente) {
+      return NextResponse.json({ success: false, error: 'Paciente no encontrado' }, { status: 404 });
     }
+    const destinatario = (paciente ? paciente.email : correoDeLaCita)?.trim() || '';
+    if (!destinatario) {
+      return NextResponse.json({ success: false, error: paciente ? 'El paciente no tiene correo en su expediente.' : 'La cita no tiene correo del paciente.' }, { status: 400 });
+    }
+    const nombrePaciente = paciente ? `${paciente.firstName} ${paciente.lastName ?? ''}`.trim() : nombreDeLaCita;
     if (!CORREO_VALIDO.test(destinatario)) {
-      return NextResponse.json({ success: false, error: `El correo del expediente no es válido («${destinatario.slice(0, 80)}»): corrígelo en su expediente.` }, { status: 400 });
+      return NextResponse.json({ success: false, error: paciente
+        ? `El correo del expediente no es válido («${destinatario.slice(0, 80)}»): corrígelo en su expediente.`
+        : `El correo de la cita no es válido («${destinatario.slice(0, 80)}»).` }, { status: 400 });
     }
 
     // Tokens de Google (mismo manejo que send-email / enviar-enlace).
@@ -133,7 +167,8 @@ export function postEnviarDocumento(tipoFijo: TipoDocumento) {
     try {
       await sendDocumentoEmail(
         {
-          tipo, patientName: `${paciente.firstName} ${paciente.lastName ?? ''}`.trim(), patientEmail: destinatario,
+          // La nota de una cita es una nota de venta: el mismo correo.
+          tipo: tipo === 'cita' ? 'venta' : tipo, patientName: nombrePaciente, patientEmail: destinatario,
           doctorName, nombreArchivo, pdfBase64: pdfBase64.replace(/\s/g, ''),
         },
         accessToken, refreshToken, doctorName, usuario.email!,
@@ -155,18 +190,23 @@ export function postEnviarDocumento(tipoFijo: TipoDocumento) {
     }
 
     // Bitácora del expediente: qué se mandó, a quién y la HUELLA del PDF (lo armó el navegador: así queda
-    // constancia de qué archivo salió).
-    await prisma.patientAuditLog.create({
-      data: {
-        // Quién lo mandó DE VERDAD (un ADMIN no es el titular) y desde dónde.
-        patientId, doctorId: doctor.id, userId: quien.userId, userRole: quien.role,
-        ipAddress: (request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || null)?.slice(0, 45) ?? null,
-        userAgent: request.headers.get('user-agent'),
-        action: tipo === 'receta' ? 'send_prescription_email' : 'send_sale_email',
-        resourceType: tipo === 'receta' ? 'prescription' : 'sale', resourceId: String(id),
-        changes: { destinatario, archivo: nombreArchivo, sha256: createHash('sha256').update(Buffer.from(pdfBase64.replace(/\s/g, ''), 'base64')).digest('hex') },
-      },
-    }).catch((err) => console.error('[enviar-documento] bitácora:', err));
+    // constancia de qué archivo salió). Una cita sin expediente no tiene bitácora: va al log del servidor.
+    const sha256 = createHash('sha256').update(Buffer.from(pdfBase64.replace(/\s/g, ''), 'base64')).digest('hex');
+    if (!patientId) {
+      console.log('[enviar-documento] nota de cita sin expediente enviada:', { bookingId: id, doctorId: doctor.id, userId: quien.userId, destinatario, sha256 });
+    } else {
+      await prisma.patientAuditLog.create({
+        data: {
+          // Quién lo mandó DE VERDAD (un ADMIN no es el titular) y desde dónde.
+          patientId, doctorId: doctor.id, userId: quien.userId, userRole: quien.role,
+          ipAddress: (request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || null)?.slice(0, 45) ?? null,
+          userAgent: request.headers.get('user-agent'),
+          action: tipo === 'receta' ? 'send_prescription_email' : tipo === 'venta' ? 'send_sale_email' : 'send_booking_nota_email',
+          resourceType: tipo === 'receta' ? 'prescription' : tipo === 'venta' ? 'sale' : 'booking', resourceId: String(id),
+          changes: { destinatario, archivo: nombreArchivo, sha256 },
+        },
+      }).catch((err) => console.error('[enviar-documento] bitácora:', err));
+    }
 
     return NextResponse.json({ success: true, message: `Se envió ${tipo === 'receta' ? 'la receta' : 'la nota de venta'} a ${destinatario}` });
   } catch (error) {

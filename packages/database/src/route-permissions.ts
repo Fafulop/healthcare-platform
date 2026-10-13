@@ -66,6 +66,8 @@ export const ROUTE_PERMISSION_MAP: RouteRule[] = [
   // mandar cualquier PDF como «Tu receta» (code review). Emitir recetas ya es sólo del titular.
   { prefix: 'enviar-documento/receta', key: 'OWNER_ONLY' },
   { prefix: 'enviar-documento/venta', key: 'OWNER_ONLY' },
+  // …y la nota de venta de una CITA (su cobro), desde su tarjeta o su visita. También sólo el titular.
+  { prefix: 'enviar-documento/cita', key: 'OWNER_ONLY' },
   // N11 (2026-10-12) — mandar el link de pago por correo = los links de pago (Pagos), como crearlo. Los
   // otros dos (formulario, datos fiscales) son de la cita: `appointments` → citas.
   { prefix: 'appointments/bookings/*/enviar-enlace/pago', key: 'pagos' },

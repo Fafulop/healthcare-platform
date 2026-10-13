@@ -545,7 +545,10 @@ la consulta). «Sin cobro registrado» sale sólo en una cita ya completada.
   del expediente del paciente) y **«Compartir PDF»** (el «Compartir» de tu equipo: eliges WhatsApp y el
   chat del paciente; el PDF no se publica en internet). Se manda exactamente lo que ves. **Sólo el
   titular de la cuenta** lo ve (el correo sale de su Gmail, con su nombre), y no se manda si no cargó el
-  diseño de «Receta PDF» (logo, firma). Cada envío por correo queda en la bitácora del expediente.
+  diseño de «Receta PDF» (logo, firma). Cada envío por correo queda en la bitácora del expediente. La
+  **«Nota de venta»** del cobro de la cita (aquí y en la tarjeta de la cita en la agenda) trae los mismos
+  dos botones; si la cita no tiene expediente, va al correo de la cita (y ese envío no queda en ninguna
+  bitácora: no hay expediente donde anotarlo).
 - **«Mover a…»** en una plantilla la pasa a otra visita (o a «Sin visita»), y se lleva sus fotos,
   recetas e informes. **«Traerla aquí…»** trae una consulta sin visita.
 - **La fecha de cada plantilla es suya:** al agregarla desde una visita empieza con la fecha de la

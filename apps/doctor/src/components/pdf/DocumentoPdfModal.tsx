@@ -62,7 +62,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 /** Mandarle al paciente ESTE documento (2026-10-12): la receta o la nota de venta, desde la visita. */
 export interface EnvioDocumento {
-  tipo: 'receta' | 'venta';
+  tipo: 'receta' | 'venta' | 'cita';
   id: string | number;
 }
 

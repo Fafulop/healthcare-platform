@@ -19,7 +19,7 @@ import type { NotaVentaDatos } from '@/lib/nota-venta-pdf';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export function NotaCitaButton({ bookingId, className }: { bookingId: string; className?: string }) {
-  const { can, loading } = usePermissions();
+  const { can, isOwner, loading } = usePermissions();
   const [cargando, setCargando] = useState(false);
   const [nota, setNota] = useState<NotaVentaDatos | null>(null);
 
@@ -53,7 +53,8 @@ export function NotaCitaButton({ bookingId, className }: { bookingId: string; cl
         {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
         Nota de venta
       </button>
-      {nota && <NotaVentaModal venta={nota} onClose={() => setNota(null)} />}
+      {/* Mandarla por correo o compartirla: sólo el titular (sale de SU Gmail), como la receta y la venta. */}
+      {nota && <NotaVentaModal venta={nota} envio={isOwner === true ? { tipo: 'cita', id: bookingId } : undefined} onClose={() => setNota(null)} />}
     </>
   );
 }
