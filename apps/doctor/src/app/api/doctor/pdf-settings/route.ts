@@ -36,6 +36,7 @@ export async function PATCH(request: NextRequest) {
       'showPatientBox', 'showEncounterMeta', 'showVitals', 'showFollowUp',
       'rxShowHeader', 'rxShowFooter', 'rxShowPatientBox', 'rxShowDiagnosis', 'rxShowClinicalNotes',
       'rxShowLogo', 'rxShowSignature',
+      'membrete', 'rxMembrete',
     ];
     const NUMBER_KEYS: (keyof PdfSettings)[] = [
       'topMarginMm', 'bottomMarginMm',

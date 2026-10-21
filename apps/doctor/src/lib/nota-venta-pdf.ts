@@ -78,7 +78,7 @@ export function dibujarNotaVenta(
   rx: AjustesRx,
 ): JsPDF {
   // Encabezado + consultorio: la hoja compartida con el resumen de tratamiento (`pdf-documento.ts`).
-  const h = abrirHoja(jsPDF, emisor, diseno, rx, { grande: 'NOTA DE VENTA', subtitulo: `Folio ${venta.saleNumber}` });
+  const h = abrirHoja(jsPDF, emisor, diseno, rx, { grande: 'NOTA DE VENTA', subtitulo: `Folio ${venta.saleNumber}`, tituloEnMembrete: true });
   const { doc, pageW, margin, colW, narrow, noColor, maxContentY, topReset } = h;
   const [cr, cg, cb] = h.color;
   const pageH = h.pageH;

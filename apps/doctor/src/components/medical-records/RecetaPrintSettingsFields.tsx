@@ -67,6 +67,19 @@ export function RecetaPrintSettingsFields({
         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Encabezado y pie de página</p>
         <div className="space-y-2">
           <CheckboxRow id="rxShowHeader" label="Mostrar encabezado (barra con RECETA MÉDICA)" checked={settings.rxShowHeader} onChange={() => toggle('rxShowHeader')} />
+          {/* 2026-10-20 (Dr. David): hoja membretada — sin encabezado no se repiten sus datos. También rige la
+              nota de venta y el resumen de tratamiento (usan estos ajustes; su título sí se queda). */}
+          <div className={settings.rxShowHeader ? 'opacity-50' : ''}>
+            <CheckboxRow
+              id="rxMembrete"
+              label="Imprimo en hoja membretada: no repetir mis datos (nombre, cédulas, fecha y consultorio)"
+              checked={settings.rxMembrete}
+              onChange={() => { if (!settings.rxShowHeader) toggle('rxMembrete'); }}
+            />
+            {settings.rxShowHeader && (
+              <p className="text-xs text-gray-400 ml-6">Sólo sin encabezado: apágalo para usarlo.</p>
+            )}
+          </div>
           <CheckboxRow id="rxShowLogo" label="Mostrar logo del consultorio (en el encabezado)" checked={settings.rxShowLogo} onChange={() => toggle('rxShowLogo')} />
           <CheckboxRow id="rxShowFooter" label="Mostrar pie de página (datos del doctor + firma)" checked={settings.rxShowFooter} onChange={() => toggle('rxShowFooter')} />
           <CheckboxRow id="rxShowSignature" label="Mostrar firma digital (en el pie de página)" checked={settings.rxShowSignature} onChange={() => toggle('rxShowSignature')} />
@@ -133,5 +146,6 @@ export function camposRxParaGuardar(s: PdfSettings) {
     rxShowDiagnosis: s.rxShowDiagnosis, rxShowClinicalNotes: s.rxShowClinicalNotes, rxShowLogo: s.rxShowLogo,
     rxShowSignature: s.rxShowSignature, rxPageSize: s.rxPageSize, rxOrientation: s.rxOrientation,
     rxTopMarginMm: s.rxTopMarginMm, rxBottomMarginMm: s.rxBottomMarginMm,
+    rxMembrete: s.rxMembrete,
   };
 }

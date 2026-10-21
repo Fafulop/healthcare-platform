@@ -76,6 +76,8 @@ export function ajustesConsulta(settings: PdfSettings) {
     showVitals: s.showVitals,
     showFollowUp: s.showFollowUp,
     showPageNumbers: s.showPageNumbers,
+    // «PDF de consulta» tiene SU interruptor de hoja membretada (no el de la receta).
+    membrete: s.membrete ?? false,
   };
 }
 export type AjustesConsulta = ReturnType<typeof ajustesConsulta>;

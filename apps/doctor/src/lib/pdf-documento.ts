@@ -57,6 +57,9 @@ export function abrirHoja(
     grandeAngosto?: string; subtituloAngosto?: string;
     /** La fecha DEL DOCUMENTO, ya formateada (la de la visita, la de la receta…); parte del bloque de identidad. */
     fecha?: string;
+    /** Hoja membretada (`rx.membrete`): el título se queda si identifica al documento (nota de venta con su
+     *  folio, resumen de tratamiento); el de la consulta no (2026-10-20, Dr. David). */
+    tituloEnMembrete?: boolean;
   },
 ): Hoja {
   const { colorScheme, logoB64 } = diseno;
@@ -130,6 +133,11 @@ export function abrirHoja(
     y = 40 + topMarginMm;
   } else {
     y = topReset;
+  }
+  // Hoja membretada (2026-10-20): sin encabezado, la hoja preimpresa ya trae al médico, sus cédulas y el
+  // consultorio — no se repiten. El título sólo si identifica al documento (folio de la nota, resumen).
+  const membrete = !rx.showHeader && rx.membrete;
+  if (!rx.showHeader && (!membrete || titulo.tituloEnMembrete)) {
     doc.setTextColor(cr, cg, cb);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
@@ -139,6 +147,8 @@ export function abrirHoja(
     const lineas = doc.splitTextToSize(linea, colW) as string[];
     doc.text(lineas.length > 1 ? lineas : linea, margin, y);
     y += 8 + (lineas.length - 1) * 6;
+  }
+  if (!rx.showHeader && !membrete) {
     // Bloque de identidad sin banda: médico · cédula(s) · fecha (con el pie puesto, sólo la fecha).
     y = renglonIdentidad(doc, emisor.doctorFullName, credLines, titulo.fecha, margin, colW, y, rx.showFooter);
   }
@@ -146,7 +156,7 @@ export function abrirHoja(
   // ── CONSULTORIO (el principal del perfil) ───────────────────────────────
   const consultorio = [emisor.clinicAddress?.trim(), emisor.clinicPhone?.trim() && `Tel. ${emisor.clinicPhone.trim()}`]
     .filter(Boolean).join('  ·  ');
-  if (consultorio) {
+  if (consultorio && !membrete) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(90, 90, 90);

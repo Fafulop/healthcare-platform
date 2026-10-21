@@ -67,6 +67,8 @@ export function dibujarResumenTratamiento(
   // nombre del médico en hoja angosta.
   const h = abrirHoja(jsPDF, emisor, diseno, rx, {
     grande: 'RESUMEN DE TRATAMIENTO', subtitulo: '', grandeAngosto: 'RESUMEN', subtituloAngosto: 'de tratamiento',
+    // Hoja membretada: el título se queda (dice qué documento es); los datos del médico no.
+    tituloEnMembrete: true,
   });
   const { doc, pageW, pageH, margin, colW, narrow, noColor, maxContentY, topReset } = h;
   const [cr, cg, cb] = h.color;

@@ -15,6 +15,9 @@ export interface PdfSettings {
   showEncounterMeta: boolean;
   showVitals: boolean;
   showFollowUp: boolean;
+  /** 2026-10-20 (Dr. David): imprime en HOJA MEMBRETADA, que ya trae sus datos. Con el encabezado apagado,
+   *  NO se dibuja nada arriba del paciente: ni título, ni médico, ni cédulas, ni fecha, ni consultorio. */
+  membrete: boolean;
 
   // ── Prescription PDF ──
   rxShowHeader: boolean;
@@ -30,6 +33,9 @@ export interface PdfSettings {
   rxOrientation: 'portrait' | 'landscape';
   rxTopMarginMm: number;
   rxBottomMarginMm: number;
+  /** Lo mismo para la receta (y la nota de venta y el resumen de tratamiento, que usan sus ajustes): con
+   *  el encabezado apagado no se repiten el médico, las cédulas, la fecha ni el consultorio. */
+  rxMembrete: boolean;
 }
 
 export type RxPageSize = 'letter' | 'half-letter' | 'a4' | 'a5';
@@ -69,6 +75,7 @@ export const DEFAULT_PDF_SETTINGS: PdfSettings = {
   showEncounterMeta: true,
   showVitals: true,
   showFollowUp: true,
+  membrete: false,
   // Prescription
   rxShowHeader: true,
   rxShowFooter: true,
@@ -81,4 +88,5 @@ export const DEFAULT_PDF_SETTINGS: PdfSettings = {
   rxOrientation: 'portrait',
   rxTopMarginMm: 0,
   rxBottomMarginMm: 0,
+  rxMembrete: false,
 };

@@ -122,6 +122,19 @@ export function PdfSettingsDialog({ open, onClose, onSettingsLoaded, onPreview }
                   checked={settings.showHeader}
                   onChange={() => toggle('showHeader')}
                 />
+                {/* 2026-10-20 (Dr. David): imprime en hoja membretada, que ya trae sus datos. Sólo cuenta sin
+                    encabezado (con el encabezado puesto, sus datos van en él). */}
+                <div className={settings.showHeader ? 'opacity-50' : ''}>
+                  <CheckboxRow
+                    id="membrete"
+                    label="Imprimo en hoja membretada: no repetir mis datos (título, nombre, cédulas, fecha y consultorio)"
+                    checked={settings.membrete}
+                    onChange={() => { if (!settings.showHeader) toggle('membrete'); }}
+                  />
+                  {settings.showHeader && (
+                    <p className="text-xs text-gray-400 ml-6">Sólo sin encabezado: apágalo para usarlo.</p>
+                  )}
+                </div>
                 <CheckboxRow
                   id="showFooter"
                   label="Mostrar pie (tu nombre, cédula y firma)"

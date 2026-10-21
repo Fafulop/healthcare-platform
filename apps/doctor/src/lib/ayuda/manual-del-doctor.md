@@ -794,10 +794,18 @@ guardar**. Es el mismo dibujo que la receta que descargas.
   blanca y el margen sólo dejaría espacio vacío); igual en la configuración del PDF de una consulta.
 - En el celular, la receta se ve abajo con «Ver receta»; si tu teléfono no la muestra, «Abrir en otra pestaña».
 
-**Siempre salen tu nombre, tu(s) cédula(s) profesional(es) y la fecha** en la receta y en el PDF de
-una consulta: en el encabezado o, si lo ocultas (hoja membretada), la fecha en un renglón al inicio
-de la hoja y tu nombre y cédulas en el pie (si también ocultas el pie, van en ese renglón).
-No se pueden quitar. Si una plantilla tuya también los pide, salen dos veces: quítalos de la plantilla.
+**Tu nombre, tu(s) cédula(s) profesional(es) y la fecha** salen en la receta y en el PDF de una
+consulta: en el encabezado o, si lo ocultas, la fecha en un renglón al inicio de la hoja y tu nombre y
+cédulas en el pie (si también ocultas el pie, van en ese renglón, con la dirección y el teléfono del
+consultorio). Si una plantilla tuya también los pide, salen dos veces: quítalos de la plantilla.
+
+**Si imprimes en hoja membretada** (tu hoja ya trae tus datos), oculta el encabezado y marca **«Imprimo en
+hoja membretada: no repetir mis datos»** — está en la impresión de la receta («Receta PDF» y la
+configuración de impresión de una receta) y, aparte, en la configuración del PDF de una consulta. Con ella
+**no se imprime nada de eso arriba**: ni tu nombre, ni tus cédulas, ni la fecha, ni el consultorio (y en
+la consulta tampoco el título «CONSULTA MÉDICA»): la hoja empieza en los datos del paciente, debajo del
+margen superior que pongas. La de la receta rige también la **nota de venta** y el **resumen de
+tratamiento**, que conservan su título (dice qué documento es y su folio).
 (Un **ayudante** no carga tu diseño de «Receta PDF»: lo que él descarga sale sin tu cédula, y la
 ventana se lo avisa.)
 

@@ -39,6 +39,8 @@ export function ajustesRx(settings: PdfSettings) {
     orientation: (settings.rxOrientation === 'landscape' ? 'landscape' : 'portrait') as 'portrait' | 'landscape',
     topMarginMm: Math.max(0, Math.min(80, settings.rxTopMarginMm ?? 0)),
     bottomMarginMm: Math.max(0, Math.min(80, settings.rxBottomMarginMm ?? 0)),
+    // Hoja membretada: sin encabezado, nada de sus datos arriba (la hoja preimpresa ya los trae).
+    membrete: settings.rxMembrete ?? false,
   };
 }
 export type AjustesRx = ReturnType<typeof ajustesRx>;
@@ -270,9 +272,12 @@ export function dibujarReceta(jsPDF: typeof JsPDF, prescription: RecetaParaPdf, 
     y = 40 + topMarginMm;
   } else {
     y = topReset;
-    // Bloque de identidad sin banda (hoja membretada): médico · cédula(s) · fecha, siempre — con
-    // encabezado, pie y caja del paciente apagados, la receta salía sin ninguno de los tres.
-    y = renglonIdentidad(doc, prescription.doctorFullName, credLines, formatDate(prescription.prescriptionDate), margin, colW, y, rx.showFooter);
+    // Bloque de identidad sin banda: médico · cédula(s) · fecha — con encabezado, pie y caja del paciente
+    // apagados, la receta salía sin ninguno de los tres (H-048). SALVO «hoja membretada» (2026-10-20): su
+    // hoja preimpresa ya los trae y repetirlos los duplicaba.
+    if (!rx.membrete) {
+      y = renglonIdentidad(doc, prescription.doctorFullName, credLines, formatDate(prescription.prescriptionDate), margin, colW, y, rx.showFooter);
+    }
   }
 
   // ── PATIENT BOX ────────────────────────────────────────────────────────
